@@ -1,0 +1,254 @@
+import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  SafeAreaView, ScrollView, ActivityIndicator, Alert, Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import jobService from '../services/jobService';
+import notificationService from '../services/notificationService';
+import professionalService from '../services/professionalService';
+
+const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteGroupCreated, onBack }) => {
+  const [notes, setNotes]     = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const stars      = Math.round(parseFloat(worker.avg_rating) || 0);
+  const visitPrice = worker.min_price || 30000;
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      // Buscar hasta 2 trabajadores más cercanos del mismo oficio
+      let workers = [worker];
+      if (userLocation?.latitude && userLocation?.longitude) {
+        const nearby = await professionalService.getNearbyWorkers(
+          profession.id,
+          userLocation.latitude,
+          userLocation.longitude,
+          8
+        );
+        const others = nearby.filter(w => w.id !== worker.id).slice(0, 2);
+        workers = [worker, ...others];
+      }
+
+      // Crear grupo de cotización (un job por trabajador)
+      const { quoteGroupId, jobs } = await jobService.createQuoteGroup({
+        clientId,
+        workers,
+        professionId: profession.id,
+        clientLat:    userLocation?.latitude,
+        clientLng:    userLocation?.longitude,
+        address:      userLocation?.address || 'Ubicación actual',
+        notes:        notes.trim(),
+      });
+
+      // Notificar a todos los trabajadores
+      await Promise.all(
+        jobs.map(job => {
+          const w = workers.find(w => w.id === job.professional_id);
+          if (!w?.user_id) return Promise.resolve();
+          return notificationService.sendToUser(w.user_id, {
+            title: '⚡ Nueva solicitud de trabajo',
+            body:  `${profession.name} — $${(w.min_price || 30000).toLocaleString('es-AR')} visita. Tenés 45 seg para responder.`,
+            data:  { jobId: job.id, screen: 'worker_incoming' },
+          });
+        })
+      );
+
+      onQuoteGroupCreated(quoteGroupId, jobs);
+    } catch {
+      Alert.alert('Error', 'No se pudo crear la solicitud. Intentá de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Confirmar solicitud</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+
+        {/* Worker Card */}
+        <View style={styles.workerCard}>
+          <View style={styles.workerAvatar}>
+            <Ionicons name="person" size={32} color="#FFD600" />
+          </View>
+          <View style={styles.workerInfo}>
+            <Text style={styles.workerName}>{worker.first_name} {worker.last_name}</Text>
+            <Text style={styles.workerProfession}>{profession.name}</Text>
+            <View style={styles.workerStars}>
+              {[1,2,3,4,5].map(i => (
+                <Ionicons key={i} name={i <= stars ? 'star' : 'star-outline'} size={13} color="#FFD600" />
+              ))}
+              <Text style={styles.workerRating}>
+                {worker.avg_rating ? Number(worker.avg_rating).toFixed(1) : 'Nuevo'}
+                {' · '}{worker.completed_jobs || 0} trabajos
+              </Text>
+            </View>
+          </View>
+          <View style={styles.distBadge}>
+            <Ionicons name="location-sharp" size={12} color="#FFD600" />
+            <Text style={styles.distText}>
+              {worker.distance_meters < 1000
+                ? `${Math.round(worker.distance_meters)} m`
+                : `${(worker.distance_meters / 1000).toFixed(1)} km`}
+            </Text>
+          </View>
+        </View>
+
+        {/* Aviso multi-profesional */}
+        <View style={styles.multiNotice}>
+          <Ionicons name="people-outline" size={16} color="#FFD600" />
+          <Text style={styles.multiNoticeText}>
+            Tu solicitud se envía a hasta 3 profesionales cercanos. Recibís sus presupuestos y elegís el que más te conviene.
+          </Text>
+        </View>
+
+        {/* Cobro de visita */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Cobro por visita</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Visita / diagnóstico</Text>
+            <Text style={styles.priceVal}>${visitPrice.toLocaleString('es-AR')}</Text>
+          </View>
+          <View style={styles.divider} />
+          <Text style={styles.priceNote}>
+            Si se hace el trabajo, el profesional carga el monto final y lo aprobás antes de pagar.
+          </Text>
+        </View>
+
+        {/* Notas */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Descripción del problema</Text>
+          <TextInput
+            style={styles.notesInput}
+            placeholder="Ej: No enciende la luz del baño, revisé el disyuntor y sigue apagado..."
+            placeholderTextColor="#444"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Info seguridad */}
+        <View style={styles.infoBox}>
+          <Ionicons name="shield-checkmark" size={20} color="#FFD600" />
+          <Text style={styles.infoText}>
+            Tu pago está protegido. El profesional no recibe el dinero hasta que confirmes que el trabajo está hecho.
+          </Text>
+        </View>
+
+        {/* Botón */}
+        <TouchableOpacity
+          style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]}
+          onPress={handleConfirm}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          {loading ? (
+            <ActivityIndicator color="#0A0A0A" />
+          ) : (
+            <>
+              <Ionicons name="flash" size={20} color="#0A0A0A" />
+              <Text style={styles.confirmBtnText}>Buscar profesionales</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <Text style={styles.cancelNote}>Podés cancelar sin cargo si ningún profesional acepta</Text>
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 36 : 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+  },
+  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#F5F5F5' },
+  scroll: { padding: 20, paddingBottom: 48 },
+
+  workerCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#111', borderRadius: 18,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 16, marginBottom: 16,
+  },
+  workerAvatar: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  workerInfo: { flex: 1 },
+  workerName: { fontSize: 16, fontWeight: '800', color: '#F5F5F5' },
+  workerProfession: { fontSize: 13, color: '#888', marginTop: 2, marginBottom: 6 },
+  workerStars: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  workerRating: { fontSize: 12, color: '#666', marginLeft: 4 },
+  distBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#1A1A1A', borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 5,
+    borderWidth: 1, borderColor: '#2a2a1a',
+  },
+  distText: { color: '#FFD600', fontSize: 12, fontWeight: '700' },
+
+  multiNotice: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#2a2a1a',
+    padding: 14, marginBottom: 20,
+  },
+  multiNoticeText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 19 },
+
+  section: { marginBottom: 20 },
+  sectionTitle: {
+    fontSize: 12, fontWeight: '800', color: '#666',
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
+  },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  priceLabel: { fontSize: 15, color: '#F5F5F5', fontWeight: '500' },
+  priceVal: { fontSize: 18, color: '#FFD600', fontWeight: '900' },
+  priceNote: { fontSize: 13, color: '#555', lineHeight: 18 },
+  divider: { height: 1, backgroundColor: '#1a1a1a', marginVertical: 8 },
+
+  notesInput: {
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    color: '#F5F5F5', fontSize: 14, padding: 14,
+    minHeight: 100,
+  },
+
+  infoBox: {
+    flexDirection: 'row', gap: 10, alignItems: 'flex-start',
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#2a2a1a',
+    padding: 14, marginBottom: 24,
+  },
+  infoText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 19 },
+
+  confirmBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, backgroundColor: '#FFD600',
+    borderRadius: 16, paddingVertical: 18, marginBottom: 12,
+  },
+  confirmBtnDisabled: { opacity: 0.6 },
+  confirmBtnText: { color: '#0A0A0A', fontSize: 17, fontWeight: '900' },
+  cancelNote: { textAlign: 'center', fontSize: 12, color: '#444' },
+});
+
+export default JobRequestScreen;

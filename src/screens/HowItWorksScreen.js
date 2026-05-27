@@ -1,0 +1,146 @@
+import React from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet,
+  SafeAreaView, ScrollView, Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+const STEPS = [
+  {
+    icon: 'search',
+    color: '#4285F4',
+    title: 'Buscás el servicio',
+    desc: 'Escribís qué necesitás (electricista, plomero, etc.) y ves los profesionales verificados disponibles en tu zona en tiempo real.',
+  },
+  {
+    icon: 'people',
+    color: '#FFD600',
+    title: 'Recibís hasta 3 presupuestos',
+    desc: 'Tu solicitud se envía a los 3 profesionales más cercanos. Cada uno puede aceptar y enviarte su diagnóstico inicial. Vos elegís el que más te conviene.',
+  },
+  {
+    icon: 'construct',
+    color: '#FF9800',
+    title: 'El profesional va a tu domicilio',
+    desc: 'Podés seguir su ubicación en el mapa en tiempo real. Al llegar, confirma el diagnóstico y empieza el trabajo.',
+  },
+  {
+    icon: 'card',
+    color: '#4CAF50',
+    title: 'Pagás seguro con tarjeta',
+    desc: 'El pago se procesa dentro de la app con tarjeta de débito o crédito. El profesional recibe su pago solo cuando confirmás que el trabajo fue completado.',
+  },
+  {
+    icon: 'star',
+    color: '#FFD600',
+    title: 'Calificás el servicio',
+    desc: 'Tu opinión mejora la plataforma. Los mejores profesionales tienen menor comisión, lo que también te beneficia a vos.',
+  },
+];
+
+const HowItWorksScreen = ({ onClose }) => (
+  <SafeAreaView style={styles.container}>
+    <View style={styles.header}>
+      <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+        <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Cómo funciona</Text>
+      <View style={{ width: 40 }} />
+    </View>
+
+    <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.badge}>
+        <Ionicons name="flash" size={14} color="#0A0A0A" />
+        <Text style={styles.badgeText}>VOLT — SIMPLE Y SEGURO</Text>
+      </View>
+
+      <Text style={styles.intro}>
+        Conectamos clientes con profesionales verificados en minutos.
+      </Text>
+
+      {STEPS.map((s, i) => (
+        <View key={i} style={styles.step}>
+          <View style={styles.stepLeft}>
+            <View style={[styles.stepIcon, { backgroundColor: s.color + '20', borderColor: s.color + '40' }]}>
+              <Ionicons name={s.icon} size={22} color={s.color} />
+            </View>
+            {i < STEPS.length - 1 && <View style={styles.stepLine} />}
+          </View>
+          <View style={styles.stepContent}>
+            <Text style={styles.stepNum}>Paso {i + 1}</Text>
+            <Text style={styles.stepTitle}>{s.title}</Text>
+            <Text style={styles.stepDesc}>{s.desc}</Text>
+          </View>
+        </View>
+      ))}
+
+      <View style={styles.securityBox}>
+        <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.securityTitle}>Tu dinero siempre protegido</Text>
+          <Text style={styles.securityDesc}>
+            VOLT retiene el pago hasta que confirmás que el trabajo está hecho. Ningún profesional recibe dinero antes.
+          </Text>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.85}>
+        <Text style={styles.closeBtnText}>Entendido</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  </SafeAreaView>
+);
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 36 : 12,
+    paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+  },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+
+  content: { padding: 24, paddingBottom: 48 },
+
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FFD600', borderRadius: 20, alignSelf: 'flex-start',
+    paddingHorizontal: 14, paddingVertical: 7, marginBottom: 20,
+  },
+  badgeText: { color: '#0A0A0A', fontWeight: '900', fontSize: 11, letterSpacing: 1 },
+
+  intro: { fontSize: 16, color: '#888', lineHeight: 24, marginBottom: 32 },
+
+  step: { flexDirection: 'row', gap: 16, marginBottom: 0 },
+  stepLeft: { alignItems: 'center', width: 48 },
+  stepIcon: {
+    width: 48, height: 48, borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepLine: { width: 2, flex: 1, backgroundColor: '#1a1a1a', marginVertical: 8, minHeight: 24 },
+  stepContent: { flex: 1, paddingBottom: 28 },
+  stepNum:   { fontSize: 11, color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  stepTitle: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 6 },
+  stepDesc:  { fontSize: 13, color: '#666', lineHeight: 20 },
+
+  securityBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: 'rgba(76,175,80,0.08)',
+    borderWidth: 1, borderColor: 'rgba(76,175,80,0.2)',
+    borderRadius: 16, padding: 16, marginBottom: 28,
+  },
+  securityTitle: { fontSize: 14, fontWeight: '800', color: '#4CAF50', marginBottom: 4 },
+  securityDesc:  { fontSize: 13, color: '#666', lineHeight: 19 },
+
+  closeBtn: {
+    backgroundColor: '#FFD600', borderRadius: 16,
+    paddingVertical: 18, alignItems: 'center',
+  },
+  closeBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+});
+
+export default HowItWorksScreen;

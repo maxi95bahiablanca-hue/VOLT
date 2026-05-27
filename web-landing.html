@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Volt – Servicios a domicilio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --y:#FFD600;
+  --b:#0A0A0A;
+  --g1:#111111;
+  --g2:#1A1A1A;
+  --g3:#242424;
+  --t1:#F5F5F5;
+  --t2:#AAAAAA;
+  --t3:#666;
+}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--b);color:var(--t1);overflow-x:hidden;}
+
+/* SCROLL ANIMATIONS */
+.reveal{opacity:0;transform:translateY(40px);transition:opacity 0.7s ease,transform 0.7s ease;}
+.reveal.visible{opacity:1;transform:none;}
+.reveal-left{opacity:0;transform:translateX(-40px);transition:opacity 0.7s ease,transform 0.7s ease;}
+.reveal-left.visible{opacity:1;transform:none;}
+.reveal-right{opacity:0;transform:translateX(40px);transition:opacity 0.7s ease,transform 0.7s ease;}
+.reveal-right.visible{opacity:1;transform:none;}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:16px 60px;
+  background:rgba(10,10,10,0.95);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid #1E1E1E;
+  z-index:1000;
+  transition:padding 0.3s;
+}
+nav.scrolled{padding:12px 60px;}
+.logo{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:30px;color:var(--y);
+  letter-spacing:3px;display:flex;align-items:center;gap:8px;
+  text-decoration:none;
+}
+.logo svg{width:24px;height:24px;}
+nav ul{list-style:none;display:flex;gap:32px;}
+nav ul a{color:var(--t2);text-decoration:none;font-size:14px;font-weight:500;transition:color 0.2s;position:relative;}
+nav ul a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--y);transition:width 0.2s;}
+nav ul a:hover{color:var(--y);}
+nav ul a:hover::after{width:100%;}
+.btn-nav{background:var(--y);color:var(--b);padding:10px 22px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none;transition:transform 0.2s,opacity 0.2s;}
+.btn-nav:hover{transform:translateY(-1px);opacity:0.9;}
+
+/* HERO */
+#inicio{
+  min-height:100vh;
+  position:relative;
+  display:flex;flex-direction:column;
+  justify-content:center;
+  overflow:hidden;
+}
+.hero-bg-img{
+  position:absolute;inset:0;
+  background:url('https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1600&q=80') center/cover no-repeat;
+  filter:brightness(0.15);
+}
+.hero-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(to right, rgba(10,10,10,0.98) 40%, rgba(10,10,10,0.5) 100%);
+}
+.hero-content{
+  position:relative;z-index:2;
+  padding:140px 60px 80px;
+  max-width:760px;
+}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(255,214,0,0.1);
+  border:1px solid rgba(255,214,0,0.3);
+  border-radius:100px;padding:7px 16px;
+  font-size:13px;color:var(--y);font-weight:500;
+  margin-bottom:28px;
+}
+.hero-tag span{width:7px;height:7px;border-radius:50%;background:var(--y);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.2;}}
+.hero-content h1{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(60px,8vw,110px);
+  line-height:0.93;letter-spacing:2px;
+  margin-bottom:24px;
+}
+.hero-content h1 em{color:var(--y);font-style:normal;}
+.hero-content p{font-size:18px;color:var(--t2);line-height:1.75;margin-bottom:40px;max-width:520px;}
+.hero-btns{display:flex;gap:14px;flex-wrap:wrap;}
+.btn-primary{
+  background:var(--y);color:var(--b);
+  padding:15px 34px;border-radius:10px;
+  font-weight:700;font-size:15px;
+  text-decoration:none;display:inline-block;
+  transition:transform 0.2s,opacity 0.2s;
+}
+.btn-primary:hover{transform:translateY(-2px);opacity:0.88;}
+.btn-outline{
+  border:1.5px solid #333;color:var(--t1);
+  padding:15px 34px;border-radius:10px;
+  font-weight:500;font-size:15px;
+  text-decoration:none;display:inline-block;
+  transition:border-color 0.2s,color 0.2s;
+}
+.btn-outline:hover{border-color:var(--y);color:var(--y);}
+.hero-stats{
+  display:flex;gap:48px;flex-wrap:wrap;
+  margin-top:60px;padding-top:48px;
+  border-top:1px solid #1E1E1E;
+}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--y);}
+.stat-label{font-size:13px;color:var(--t2);margin-top:2px;}
+
+/* SECTION COMMONS */
+.section-wrap{padding:100px 60px;}
+.section-tag{font-size:12px;color:var(--y);font-weight:600;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:14px;}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(38px,5vw,62px);letter-spacing:1px;margin-bottom:16px;}
+.section-sub{font-size:17px;color:var(--t2);line-height:1.7;max-width:560px;margin-bottom:60px;}
+
+/* QUIENES SOMOS */
+#nosotros{background:var(--g1);}
+.nosotros-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;}
+.nosotros-img{
+  border-radius:20px;overflow:hidden;
+  position:relative;height:500px;
+}
+.nosotros-img img{width:100%;height:100%;object-fit:cover;filter:brightness(0.85);}
+.nosotros-img-badge{
+  position:absolute;bottom:24px;left:24px;
+  background:var(--y);color:var(--b);
+  padding:14px 20px;border-radius:12px;
+  font-weight:700;font-size:14px;
+}
+.nosotros-img-badge strong{display:block;font-size:28px;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;}
+.valores{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:36px;}
+.valor{
+  background:var(--g2);border:1px solid #222;
+  border-radius:12px;padding:20px;
+  transition:border-color 0.2s;
+}
+.valor:hover{border-color:var(--y);}
+.valor-icon{font-size:22px;margin-bottom:10px;}
+.valor h4{font-size:15px;font-weight:600;margin-bottom:6px;}
+.valor p{font-size:13px;color:var(--t2);line-height:1.6;}
+
+/* SERVICIOS */
+#servicios{background:var(--b);}
+.servicios-list{display:flex;flex-direction:column;gap:0;}
+.servicio-item{
+  border-bottom:1px solid #1A1A1A;
+  overflow:hidden;
+}
+.servicio-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:28px 0;cursor:pointer;
+  transition:color 0.2s;
+  gap:20px;
+}
+.servicio-header:hover .servicio-nombre{color:var(--y);}
+.servicio-left{display:flex;align-items:center;gap:24px;}
+.servicio-num{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:18px;color:var(--t3);
+  min-width:30px;
+}
+.servicio-icon-sm{
+  width:46px;height:46px;
+  background:var(--g2);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;
+  transition:background 0.2s;
+}
+.servicio-header:hover .servicio-icon-sm{background:rgba(255,214,0,0.1);}
+.servicio-nombre{font-size:22px;font-weight:600;transition:color 0.2s;}
+.servicio-tag{
+  background:var(--g2);color:var(--t2);
+  padding:5px 14px;border-radius:100px;
+  font-size:12px;font-weight:500;
+}
+.servicio-arrow{
+  font-size:22px;color:var(--t3);
+  transition:transform 0.3s,color 0.2s;
+  flex-shrink:0;
+}
+.servicio-item.open .servicio-arrow{transform:rotate(45deg);color:var(--y);}
+.servicio-body{
+  max-height:0;overflow:hidden;
+  transition:max-height 0.5s ease;
+}
+.servicio-body-inner{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:40px;padding-bottom:40px;align-items:start;
+}
+.servicio-body-img{
+  border-radius:16px;overflow:hidden;height:280px;
+}
+.servicio-body-img img{width:100%;height:100%;object-fit:cover;filter:brightness(0.8);}
+.servicio-desc{font-size:15px;color:var(--t2);line-height:1.75;margin-bottom:20px;}
+.servicio-incluye{margin-bottom:24px;}
+.servicio-incluye h4{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:12px;}
+.servicio-incluye ul{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.servicio-incluye li{
+  display:flex;align-items:center;gap:10px;
+  font-size:14px;color:var(--t2);
+}
+.servicio-incluye li::before{
+  content:'⚡';font-size:11px;
+  color:var(--y);flex-shrink:0;
+}
+.servicio-precio{
+  display:inline-flex;flex-direction:column;
+  background:rgba(255,214,0,0.08);
+  border:1px solid rgba(255,214,0,0.2);
+  border-radius:12px;padding:16px 20px;
+  margin-bottom:20px;
+}
+.servicio-precio span{font-size:12px;color:var(--t2);margin-bottom:4px;}
+.servicio-precio strong{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--y);}
+.btn-servicio{
+  background:var(--y);color:var(--b);
+  padding:12px 24px;border-radius:8px;
+  font-weight:700;font-size:14px;
+  text-decoration:none;display:inline-block;
+  transition:opacity 0.2s;
+}
+.btn-servicio:hover{opacity:0.85;}
+
+/* COMO FUNCIONA */
+#como-funciona{background:var(--g1);}
+.pasos-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:0;margin-top:0;
+}
+.paso{
+  padding:40px 32px;
+  border-right:1px solid #1E1E1E;
+  position:relative;
+}
+.paso:last-child{border-right:none;}
+.paso-num{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:56px;color:var(--y);opacity:0.2;
+  line-height:1;margin-bottom:20px;
+}
+.paso-icon{font-size:28px;margin-bottom:16px;}
+.paso h3{font-size:18px;font-weight:600;margin-bottom:10px;}
+.paso p{font-size:14px;color:var(--t2);line-height:1.7;}
+.paso-connector{
+  position:absolute;top:48px;right:-16px;
+  width:32px;height:32px;
+  background:var(--y);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:var(--b);font-weight:700;
+  z-index:2;
+}
+.paso:last-child .paso-connector{display:none;}
+
+/* PARA TRABAJADORES */
+#trabajadores{
+  padding:100px 60px;
+  background:var(--y);
+  position:relative;overflow:hidden;
+}
+#trabajadores::before{
+  content:'VOLT';
+  position:absolute;right:-40px;top:50%;transform:translateY(-50%);
+  font-family:'Bebas Neue',sans-serif;font-size:300px;
+  color:rgba(0,0,0,0.07);line-height:1;pointer-events:none;
+}
+.trabajadores-inner{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;}
+.trabajadores-text h2{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(40px,5vw,64px);
+  color:var(--b);letter-spacing:1px;margin-bottom:20px;
+}
+.trabajadores-text p{font-size:17px;color:rgba(0,0,0,0.65);line-height:1.7;margin-bottom:32px;}
+.beneficios{display:flex;flex-direction:column;gap:16px;}
+.beneficio{
+  display:flex;align-items:flex-start;gap:14px;
+  background:rgba(0,0,0,0.07);
+  border-radius:12px;padding:18px;
+}
+.beneficio-icon{font-size:22px;flex-shrink:0;}
+.beneficio h4{font-size:15px;font-weight:700;color:var(--b);margin-bottom:4px;}
+.beneficio p{font-size:13px;color:rgba(0,0,0,0.6);line-height:1.5;}
+.btn-dark{
+  background:var(--b);color:var(--y);
+  padding:16px 36px;border-radius:10px;
+  font-weight:700;font-size:16px;
+  text-decoration:none;display:inline-block;
+  transition:opacity 0.2s;margin-top:32px;
+}
+.btn-dark:hover{opacity:0.85;}
+.trabajadores-visual{position:relative;}
+.trabajadores-img{
+  border-radius:20px;overflow:hidden;height:480px;
+}
+.trabajadores-img img{width:100%;height:100%;object-fit:cover;}
+.floating-card{
+  position:absolute;
+  background:white;border-radius:14px;
+  padding:16px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.2);
+}
+.floating-card.card1{bottom:30px;left:-30px;}
+.floating-card.card2{top:30px;right:-20px;}
+.fc-label{font-size:11px;color:#888;font-weight:500;margin-bottom:4px;}
+.fc-value{font-size:20px;font-weight:700;color:var(--b);}
+.fc-sub{font-size:12px;color:#2ecc71;font-weight:500;}
+
+/* TESTIMONIOS */
+#testimonios{background:var(--b);padding:100px 60px;}
+.testimonios-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:60px;}
+.testimonio{
+  background:var(--g2);border:1px solid #222;
+  border-radius:16px;padding:28px;
+  transition:border-color 0.2s,transform 0.2s;
+}
+.testimonio:hover{border-color:rgba(255,214,0,0.3);transform:translateY(-4px);}
+.stars{color:var(--y);font-size:16px;margin-bottom:16px;letter-spacing:2px;}
+.testimonio p{font-size:15px;color:var(--t2);line-height:1.7;margin-bottom:20px;font-style:italic;}
+.testimonio-autor{display:flex;align-items:center;gap:12px;}
+.avatar{
+  width:40px;height:40px;border-radius:50%;
+  background:var(--g3);display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:700;color:var(--y);
+  font-family:'Bebas Neue',sans-serif;flex-shrink:0;
+}
+.autor-info strong{display:block;font-size:14px;font-weight:600;}
+.autor-info span{font-size:12px;color:var(--t3);}
+
+/* CONTACTO */
+#contacto{background:var(--g1);padding:100px 60px;}
+.contacto-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:80px;align-items:start;}
+.contacto-datos{display:flex;flex-direction:column;gap:16px;margin-top:36px;}
+.dato{
+  display:flex;align-items:center;gap:16px;
+  background:var(--g2);border:1px solid #222;
+  border-radius:12px;padding:18px;
+  transition:border-color 0.2s;
+}
+.dato:hover{border-color:rgba(255,214,0,0.2);}
+.dato-icon{
+  width:44px;height:44px;background:rgba(255,214,0,0.1);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.dato strong{display:block;font-size:14px;font-weight:600;margin-bottom:2px;}
+.dato span{font-size:13px;color:var(--t2);}
+.form{display:flex;flex-direction:column;gap:14px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form input,.form textarea,.form select{
+  background:var(--g2);border:1px solid #2A2A2A;
+  border-radius:10px;padding:15px 18px;
+  color:var(--t1);font-family:'DM Sans',sans-serif;font-size:15px;
+  outline:none;transition:border-color 0.2s;width:100%;
+}
+.form input:focus,.form textarea:focus,.form select:focus{border-color:var(--y);}
+.form input::placeholder,.form textarea::placeholder{color:var(--t3);}
+.form select option{background:var(--g2);color:var(--t1);}
+.form textarea{height:130px;resize:none;}
+.form button{
+  background:var(--y);color:var(--b);border:none;
+  padding:16px;border-radius:10px;font-size:16px;font-weight:700;
+  cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:opacity 0.2s,transform 0.2s;
+}
+.form button:hover{opacity:0.88;transform:translateY(-1px);}
+.form-success{
+  display:none;text-align:center;padding:40px 20px;
+}
+.form-success .check{font-size:48px;margin-bottom:16px;}
+.form-success h3{font-size:22px;font-weight:600;margin-bottom:8px;}
+.form-success p{color:var(--t2);font-size:15px;}
+
+/* FOOTER */
+footer{
+  background:var(--b);
+  border-top:1px solid #181818;
+  padding:48px 60px 32px;
+}
+.footer-top{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:48px;}
+.footer-brand p{font-size:14px;color:var(--t2);line-height:1.7;margin-top:16px;max-width:260px;}
+.footer-col h4{font-size:14px;font-weight:600;margin-bottom:16px;color:var(--t1);}
+.footer-col ul{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.footer-col ul a{font-size:14px;color:var(--t2);text-decoration:none;transition:color 0.2s;}
+.footer-col ul a:hover{color:var(--y);}
+.footer-bottom{
+  border-top:1px solid #181818;padding-top:24px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+}
+.footer-bottom p{font-size:13px;color:var(--t3);}
+.footer-logo-big{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--y);letter-spacing:3px;display:flex;align-items:center;gap:8px;text-decoration:none;}
+
+/* WHATSAPP FLOAT */
+.wa-float{
+  position:fixed;bottom:28px;right:28px;
+  width:56px;height:56px;
+  background:#25D366;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;text-decoration:none;
+  box-shadow:0 4px 20px rgba(37,211,102,0.4);
+  z-index:999;transition:transform 0.2s;
+}
+.wa-float:hover{transform:scale(1.1);}
+
+@media(max-width:900px){
+  nav{padding:14px 24px;}
+  nav ul{display:none;}
+  .hero-content{padding:100px 24px 60px;}
+  .section-wrap{padding:70px 24px;}
+  #nosotros,.section-wrap{padding:70px 24px;}
+  .nosotros-grid,.trabajadores-inner,.contacto-grid{grid-template-columns:1fr;}
+  .nosotros-img{height:300px;}
+  .pasos-grid{grid-template-columns:1fr 1fr;}
+  .paso{border-right:none;border-bottom:1px solid #1E1E1E;}
+  .paso:last-child{border-bottom:none;}
+  .paso-connector{display:none;}
+  .testimonios-grid{grid-template-columns:1fr;}
+  .footer-top{grid-template-columns:1fr 1fr;}
+  .servicio-body-inner{grid-template-columns:1fr;}
+  .form-row{grid-template-columns:1fr;}
+  #trabajadores{padding:70px 24px;}
+  #contacto{padding:70px 24px;}
+  #testimonios{padding:70px 24px;}
+}
+</style>
+</head>
+<body>
+
+<a href="https://wa.me/5491100000000" class="wa-float" target="_blank" title="WhatsApp">💬</a>
+
+<nav id="navbar">
+  <a href="#inicio" class="logo">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14H12L11 22L20 10H12L13 2Z" fill="#FFD600"/></svg>
+    VOLT
+  </a>
+  <ul>
+    <li><a href="#inicio">Inicio</a></li>
+    <li><a href="#nosotros">Nosotros</a></li>
+    <li><a href="#servicios">Servicios</a></li>
+    <li><a href="#como-funciona">Cómo funciona</a></li>
+    <li><a href="#contacto">Contacto</a></li>
+  </ul>
+  <a href="#contacto" class="btn-nav">Solicitar servicio</a>
+</nav>
+
+<!-- HERO -->
+<section id="inicio">
+  <div class="hero-bg-img"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-tag reveal"><span></span> Disponible en Bahía Blanca</div>
+    <h1 class="reveal">Servicios a<br>domicilio<br><em>con potencia.</em></h1>
+    <p class="reveal">Conectamos clientes con trabajadores verificados y de confianza. Plomeros, electricistas, pintores y más — rápido, seguro y con garantía.</p>
+    <div class="hero-btns reveal">
+      <a href="#contacto" class="btn-primary">⚡ Necesito un servicio</a>
+      <a href="#servicios" class="btn-outline">Ver todos los servicios</a>
+    </div>
+    <div class="hero-stats">
+      <div class="reveal">
+        <div class="stat-num">+50</div>
+        <div class="stat-label">Profesionales verificados</div>
+      </div>
+      <div class="reveal">
+        <div class="stat-num">24hs</div>
+        <div class="stat-label">Tiempo de respuesta</div>
+      </div>
+      <div class="reveal">
+        <div class="stat-num">100%</div>
+        <div class="stat-label">Pagos garantizados</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUIENES SOMOS -->
+<section id="nosotros" class="section-wrap">
+  <div class="nosotros-grid">
+    <div class="reveal-left">
+      <div class="nosotros-img">
+        <img src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80" alt="Equipo Volt">
+        <div class="nosotros-img-badge">
+          <strong>2024</strong>
+          Desde Bahía Blanca
+        </div>
+      </div>
+    </div>
+    <div class="reveal-right">
+      <div class="section-tag">Quiénes somos</div>
+      <h2 class="section-title">Una plataforma hecha para conectar personas</h2>
+      <p style="font-size:16px;color:var(--t2);line-height:1.8;margin-bottom:32px;">Volt nació con una idea simple: que conseguir un buen profesional para tu hogar no sea una odisea. Y que los trabajadores tengan trabajo constante, pagos puntuales y reconocimiento por su calidad.</p>
+      <p style="font-size:16px;color:var(--t2);line-height:1.8;margin-bottom:32px;">Somos un equipo local, conocemos Bahía Blanca, y trabajamos todos los días para que cada servicio sea una experiencia confiable de principio a fin.</p>
+      <div class="valores">
+        <div class="valor">
+          <div class="valor-icon">🔍</div>
+          <h4>Verificación real</h4>
+          <p>Cada profesional pasa por un proceso de validación de identidad y antecedentes.</p>
+        </div>
+        <div class="valor">
+          <div class="valor-icon">⭐</div>
+          <h4>Calidad garantizada</h4>
+          <p>Sistema de calificaciones bidireccional para mantener el estándar alto.</p>
+        </div>
+        <div class="valor">
+          <div class="valor-icon">💳</div>
+          <h4>Pagos seguros</h4>
+          <p>El dinero se libera solo cuando el cliente confirma que quedó conforme.</p>
+        </div>
+        <div class="valor">
+          <div class="valor-icon">📍</div>
+          <h4>100% local</h4>
+          <p>Nacimos en Bahía Blanca y conocemos las necesidades de la ciudad.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICIOS -->
+<section id="servicios" class="section-wrap">
+  <div class="section-tag reveal">Lo que hacemos</div>
+  <h2 class="section-title reveal">Servicios disponibles</h2>
+  <p class="section-sub reveal">Hacé clic en cada servicio para ver los detalles, qué incluye y los precios orientativos.</p>
+
+  <div class="servicios-list">
+
+    <div class="servicio-item reveal">
+      <div class="servicio-header" onclick="toggleServicio(this)">
+        <div class="servicio-left">
+          <span class="servicio-num">01</span>
+          <div class="servicio-icon-sm">⚡</div>
+          <span class="servicio-nombre">Electricidad</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span class="servicio-tag">Urgencias disponibles</span>
+          <span class="servicio-arrow">+</span>
+        </div>
+      </div>
+      <div class="servicio-body">
+        <div class="servicio-body-inner">
+          <div class="servicio-body-img">
+            <img src="https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=800&q=80" alt="Electricidad">
+          </div>
+          <div>
+            <p class="servicio-desc">Nuestros electricistas matriculados se encargan de instalaciones, reparaciones y mantenimiento eléctrico en hogares y comercios. Trabajamos con materiales de primera calidad y entregamos certificado de trabajo.</p>
+            <div class="servicio-incluye">
+              <h4>¿Qué incluye?</h4>
+              <ul>
+                <li>Instalación de tomacorrientes y llaves</li>
+                <li>Reparación de tableros eléctricos</li>
+                <li>Colocación de luminarias y cableado</li>
+                <li>Detección y reparación de cortocircuitos</li>
+                <li>Instalación de sistemas de alarma</li>
+                <li>Certificado de trabajo incluido</li>
+              </ul>
+            </div>
+            <div class="servicio-precio">
+              <span>Precio orientativo desde</span>
+              <strong>$8.000 / hora</strong>
+            </div>
+            <a href="#contacto" class="btn-servicio">Solicitar electricista</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="servicio-item reveal">
+      <div class="servicio-header" onclick="toggleServicio(this)">
+        <div class="servicio-left">
+          <span class="servicio-num">02</span>
+          <div class="servicio-icon-sm">🔧</div>
+          <span class="servicio-nombre">Plomería</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span class="servicio-tag">Urgencias disponibles</span>
+          <span class="servicio-arrow">+</span>
+        </div>
+      </div>
+      <div class="servicio-body">
+        <div class="servicio-body-inner">
+          <div class="servicio-body-img">
+            <img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&q=80" alt="Plomería">
+          </div>
+          <div>
+            <p class="servicio-desc">Resolvemos pérdidas, destapes, instalaciones sanitarias y todo lo relacionado con el agua en tu hogar. Atendemos urgencias con respuesta rápida para que no pierdas más tiempo ni dinero.</p>
+            <div class="servicio-incluye">
+              <h4>¿Qué incluye?</h4>
+              <ul>
+                <li>Reparación de pérdidas y cañerías</li>
+                <li>Destape de desagotes y cloacas</li>
+                <li>Instalación de sanitarios y grifería</li>
+                <li>Colocación de termotanques y calefones</li>
+                <li>Detección de pérdidas ocultas</li>
+                <li>Mantenimiento preventivo</li>
+              </ul>
+            </div>
+            <div class="servicio-precio">
+              <span>Precio orientativo desde</span>
+              <strong>$7.500 / hora</strong>
+            </div>
+            <a href="#contacto" class="btn-servicio">Solicitar plomero</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="servicio-item reveal">
+      <div class="servicio-header" onclick="toggleServicio(this)">
+        <div class="servicio-left">
+          <span class="servicio-num">03</span>
+          <div class="servicio-icon-sm">🎨</div>
+          <span class="servicio-nombre">Pintura</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span class="servicio-tag">Presupuesto gratis</span>
+          <span class="servicio-arrow">+</span>
+        </div>
+      </div>
+      <div class="servicio-body">
+        <div class="servicio-body-inner">
+          <div class="servicio-body-img">
+            <img src="https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=800&q=80" alt="Pintura">
+          </div>
+          <div>
+            <p class="servicio-desc">Transformamos espacios con acabados profesionales. Interior, exterior, texturas y trabajos de terminación. Usamos pinturas de primera marca y cubrimos desde una habitación hasta edificios completos.</p>
+            <div class="servicio-incluye">
+              <h4>¿Qué incluye?</h4>
+              <ul>
+                <li>Pintura interior y exterior</li>
+                <li>Texturas decorativas y esmaltes</li>
+                <li>Preparación y masillado de superficies</li>
+                <li>Pintura de frentes y fachadas</li>
+                <li>Sellado y trabajo sobre humedad</li>
+                <li>Presupuesto sin cargo a domicilio</li>
+              </ul>
+            </div>
+            <div class="servicio-precio">
+              <span>Precio orientativo desde</span>
+              <strong>$2.500 / m²</strong>
+            </div>
+            <a href="#contacto" class="btn-servicio">Solicitar pintor</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="servicio-item reveal">
+      <div class="servicio-header" onclick="toggleServicio(this)">
+        <div class="servicio-left">
+          <span class="servicio-num">04</span>
+          <div class="servicio-icon-sm">🪚</div>
+          <span class="servicio-nombre">Carpintería</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span class="servicio-tag">Presupuesto gratis</span>
+          <span class="servicio-arrow">+</span>
+        </div>
+      </div>
+      <div class="servicio-body">
+        <div class="servicio-body-inner">
+          <div class="servicio-body-img">
+            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80" alt="Carpintería">
+          </div>
+          <div>
+            <p class="servicio-desc">Trabajos en madera de todo tipo. Desde la reparación de una puerta hasta el diseño y construcción de muebles a medida. Nuestros carpinteros trabajan con madera maciza, MDF y melamina.</p>
+            <div class="servicio-incluye">
+              <h4>¿Qué incluye?</h4>
+              <ul>
+                <li>Reparación de puertas y ventanas</li>
+                <li>Muebles a medida para cocina y baño</li>
+                <li>Placares y vestidores</li>
+                <li>Instalación de pisos flotantes</li>
+                <li>Decks y estructuras de madera</li>
+                <li>Restauración de muebles</li>
+              </ul>
+            </div>
+            <div class="servicio-precio">
+              <span>Precio orientativo desde</span>
+              <strong>$9.000 / hora</strong>
+            </div>
+            <a href="#contacto" class="btn-servicio">Solicitar carpintero</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="servicio-item reveal">
+      <div class="servicio-header" onclick="toggleServicio(this)">
+        <div class="servicio-left">
+          <span class="servicio-num">05</span>
+          <div class="servicio-icon-sm">❄️</div>
+          <span class="servicio-nombre">Aire acondicionado</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span class="servicio-tag">Matriculados</span>
+          <span class="servicio-arrow">+</span>
+        </div>
+      </div>
+      <div class="servicio-body">
+        <div class="servicio-body-inner">
+          <div class="servicio-body-img">
+            <img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&q=80" alt="Aire acondicionado">
+          </div>
+          <div>
+            <p class="servicio-desc">Técnicos especializados en climatización para hogares y negocios. Instalamos, hacemos service y reparamos equipos de todas las marcas. Trabajamos con gas refrigerante certificado.</p>
+            <div class="servicio-incluye">
+              <h4>¿Qué incluye?</h4>
+              <ul>
+                <li>Instalación de equipos split y central</li>
+                <li>Service y limpieza de filtros</li>
+                <li>Carga de gas refrigerante</li>
+                <li>Reparación de fallas eléctricas</li>
+                <li>Diagnóstico sin cargo</li>
+                <li>Garantía de trabajo de 6 meses</li>
+              </ul>
+            </div>
+            <div class="servicio-precio">
+              <span>Precio orientativo desde</span>
+              <strong>$15.000 / instalación</strong>
+            </div>
+            <a href="#contacto" class="btn-servicio">Solicitar técnico</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="servicio-item reveal">
+      <div class="servicio-header" onclick="toggleServicio(this)">
+        <div class="servicio-left">
+          <span class="servicio-num">06</span>
+          <div class="servicio-icon-sm">🏗️</div>
+          <span class="servicio-nombre">Construcción y reformas</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span class="servicio-tag">Presupuesto gratis</span>
+          <span class="servicio-arrow">+</span>
+        </div>
+      </div>
+      <div class="servicio-body">
+        <div class="servicio-body-inner">
+          <div class="servicio-body-img">
+            <img src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80" alt="Construcción">
+          </div>
+          <div>
+            <p class="servicio-desc">Desde una reforma de baño hasta ampliaciones completas. Nuestros albañiles tienen años de experiencia en obra y trabajamos con materiales de calidad comprobada para resultados duraderos.</p>
+            <div class="servicio-incluye">
+              <h4>¿Qué incluye?</h4>
+              <ul>
+                <li>Reformas de cocinas y baños</li>
+                <li>Ampliaciones y construcción en seco</li>
+                <li>Reparación de techos y filtraciones</li>
+                <li>Colocación de cerámicos y porcelanato</li>
+                <li>Tabiques y construcción en steel frame</li>
+                <li>Presupuesto detallado sin cargo</li>
+              </ul>
+            </div>
+            <div class="servicio-precio">
+              <span>Precio orientativo desde</span>
+              <strong>$6.500 / hora</strong>
+            </div>
+            <a href="#contacto" class="btn-servicio">Solicitar albañil</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section id="como-funciona" class="section-wrap">
+  <div class="section-tag reveal">El proceso</div>
+  <h2 class="section-title reveal">Simple de principio a fin</h2>
+  <p class="section-sub reveal">Sin llamadas eternas ni presupuestos que nunca llegan. Todo claro, rápido y digital.</p>
+  <div class="pasos-grid">
+    <div class="paso reveal">
+      <div class="paso-num">01</div>
+      <div class="paso-icon">📋</div>
+      <h3>Describís qué necesitás</h3>
+      <p>Completás el formulario con el tipo de servicio, ubicación y disponibilidad. Sin complicaciones.</p>
+      <div class="paso-connector">→</div>
+    </div>
+    <div class="paso reveal">
+      <div class="paso-num">02</div>
+      <div class="paso-icon">🔍</div>
+      <h3>Asignamos al profesional ideal</h3>
+      <p>Buscamos en nuestra red al trabajador verificado más adecuado y cercano a tu zona.</p>
+      <div class="paso-connector">→</div>
+    </div>
+    <div class="paso reveal">
+      <div class="paso-num">03</div>
+      <div class="paso-icon">🛠️</div>
+      <h3>Se realiza el trabajo</h3>
+      <p>El profesional llega en el horario acordado, realiza el servicio y vos lo calificás al finalizar.</p>
+      <div class="paso-connector">→</div>
+    </div>
+    <div class="paso reveal">
+      <div class="paso-num">04</div>
+      <div class="paso-icon">✅</div>
+      <h3>Pagás con total seguridad</h3>
+      <p>El pago se libera al profesional solo cuando confirmás que el trabajo quedó conforme.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PARA TRABAJADORES -->
+<section id="trabajadores">
+  <div class="trabajadores-inner">
+    <div class="trabajadores-text reveal-left">
+      <div class="section-tag" style="color:rgba(0,0,0,0.5);">Para profesionales</div>
+      <h2>¿Sos trabajador? Unite a Volt.</h2>
+      <p>Dejá de depender del boca a boca. Con Volt tenés trabajo constante, clientes verificados y cobros garantizados cada semana.</p>
+      <div class="beneficios">
+        <div class="beneficio">
+          <div class="beneficio-icon">💰</div>
+          <div>
+            <h4>Cobro semanal garantizado</h4>
+            <p>Recibís tu pago todos los viernes, sin excusas ni demoras.</p>
+          </div>
+        </div>
+        <div class="beneficio">
+          <div class="beneficio-icon">📱</div>
+          <div>
+            <h4>Gestión desde el celular</h4>
+            <p>Aceptás trabajos, ves tu agenda y cobrás desde la app.</p>
+          </div>
+        </div>
+        <div class="beneficio">
+          <div class="beneficio-icon">🛡️</div>
+          <div>
+            <h4>Clientes verificados</h4>
+            <p>Trabajás con personas reales y de confianza. Sin sorpresas.</p>
+          </div>
+        </div>
+      </div>
+      <a href="#contacto" class="btn-dark">⚡ Quiero ser parte de Volt</a>
+    </div>
+    <div class="trabajadores-visual reveal-right">
+      <div class="trabajadores-img">
+        <img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80" alt="Trabajador Volt">
+      </div>
+      <div class="floating-card card1">
+        <div class="fc-label">Ingreso promedio mensual</div>
+        <div class="fc-value">$320.000</div>
+        <div class="fc-sub">↑ 40% más que sin plataforma</div>
+      </div>
+      <div class="floating-card card2">
+        <div class="fc-label">Próximo cobro</div>
+        <div class="fc-value">Viernes</div>
+        <div class="fc-sub">Pago automático garantizado</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIOS -->
+<section id="testimonios">
+  <div class="section-tag reveal">Lo que dicen</div>
+  <h2 class="section-title reveal">Clientes que confían en Volt</h2>
+  <div class="testimonios-grid">
+    <div class="testimonio reveal">
+      <div class="stars">★★★★★</div>
+      <p>"Llamé por una pérdida de agua un sábado a las 10 de la noche. En menos de dos horas tenía un plomero en casa. Increíble la respuesta."</p>
+      <div class="testimonio-autor">
+        <div class="avatar">MG</div>
+        <div class="autor-info">
+          <strong>María González</strong>
+          <span>Bahía Blanca</span>
+        </div>
+      </div>
+    </div>
+    <div class="testimonio reveal">
+      <div class="stars">★★★★★</div>
+      <p>"Necesitaba pintar tres ambientes antes de mudarnos. El presupuesto fue claro, el trabajo impecable y el precio muy razonable. Los recomiendo."</p>
+      <div class="testimonio-autor">
+        <div class="avatar">JP</div>
+        <div class="autor-info">
+          <strong>Javier Pérez</strong>
+          <span>Villa Mitre</span>
+        </div>
+      </div>
+    </div>
+    <div class="testimonio reveal">
+      <div class="stars">★★★★★</div>
+      <p>"Soy electricista y desde que me sumé a Volt tengo trabajo todos los días. Los pagos llegan puntual cada semana. No me cambio más."</p>
+      <div class="testimonio-autor">
+        <div class="avatar">CR</div>
+        <div class="autor-info">
+          <strong>Carlos Romero</strong>
+          <span>Electricista — Volt Pro</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACTO -->
+<section id="contacto">
+  <div class="contacto-grid">
+    <div class="reveal-left">
+      <div class="section-tag">Contacto</div>
+      <h2 class="section-title">¿En qué te podemos ayudar?</h2>
+      <p style="font-size:16px;color:var(--t2);line-height:1.7;margin-bottom:32px;">Completá el formulario y te contactamos a la brevedad. También podés escribirnos directo por WhatsApp si lo preferís.</p>
+      <div class="contacto-datos">
+        <div class="dato">
+          <div class="dato-icon">📍</div>
+          <div>
+            <strong>Ubicación</strong>
+            <span>Bahía Blanca, Buenos Aires</span>
+          </div>
+        </div>
+        <div class="dato">
+          <div class="dato-icon">📱</div>
+          <div>
+            <strong>WhatsApp</strong>
+            <span>Disponible de 8 a 21 hs</span>
+          </div>
+        </div>
+        <div class="dato">
+          <div class="dato-icon">⚡</div>
+          <div>
+            <strong>Respuesta rápida</strong>
+            <span>En menos de 2 horas hábiles</span>
+          </div>
+        </div>
+        <div class="dato">
+          <div class="dato-icon">🛡️</div>
+          <div>
+            <strong>Garantía de satisfacción</strong>
+            <span>Si no quedás conforme, lo resolvemos</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="reveal-right">
+      <div class="form" id="contactForm">
+        <div class="form-row">
+          <input type="text" placeholder="Tu nombre" id="nombre">
+          <input type="tel" placeholder="WhatsApp / Teléfono" id="tel">
+        </div>
+        <input type="text" placeholder="Dirección (barrio o calle)" id="direccion">
+        <select id="servicio">
+          <option value="" disabled selected>¿Qué servicio necesitás?</option>
+          <option>⚡ Electricidad</option>
+          <option>🔧 Plomería</option>
+          <option>🎨 Pintura</option>
+          <option>🪚 Carpintería</option>
+          <option>❄️ Aire acondicionado</option>
+          <option>🏗️ Construcción y reformas</option>
+          <option>Soy trabajador y quiero sumarme</option>
+          <option>Otro</option>
+        </select>
+        <select id="urgencia">
+          <option value="" disabled selected>¿Con qué urgencia?</option>
+          <option>🔴 Urgente (hoy o mañana)</option>
+          <option>🟡 Esta semana</option>
+          <option>🟢 Sin apuro, cuando haya disponibilidad</option>
+        </select>
+        <textarea placeholder="Contanos un poco más sobre lo que necesitás..." id="mensaje"></textarea>
+        <button type="button" onclick="enviarFormulario()">Enviar solicitud ⚡</button>
+      </div>
+      <div class="form-success" id="formSuccess">
+        <div class="check">⚡</div>
+        <h3>¡Solicitud enviada!</h3>
+        <p>Nos ponemos en contacto en menos de 2 horas hábiles.<br>También podés escribirnos por WhatsApp si es urgente.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <a href="#inicio" class="footer-logo-big">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14H12L11 22L20 10H12L13 2Z" fill="#FFD600"/></svg>
+        VOLT
+      </a>
+      <p>Conectamos clientes con los mejores profesionales de Bahía Blanca. Rápido, seguro y garantizado.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Servicios</h4>
+      <ul>
+        <li><a href="#servicios">Electricidad</a></li>
+        <li><a href="#servicios">Plomería</a></li>
+        <li><a href="#servicios">Pintura</a></li>
+        <li><a href="#servicios">Carpintería</a></li>
+        <li><a href="#servicios">Aire acondicionado</a></li>
+        <li><a href="#servicios">Construcción</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Empresa</h4>
+      <ul>
+        <li><a href="#nosotros">Quiénes somos</a></li>
+        <li><a href="#como-funciona">Cómo funciona</a></li>
+        <li><a href="#trabajadores">Para profesionales</a></li>
+        <li><a href="#testimonios">Testimonios</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contacto</h4>
+      <ul>
+        <li><a href="#contacto">Solicitar servicio</a></li>
+        <li><a href="#contacto">Sumarme como profesional</a></li>
+        <li><a href="https://wa.me/5491100000000">WhatsApp</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 Volt — Bahía Blanca, Argentina. Todos los derechos reservados.</p>
+    <p>Hecho con ⚡ en Bahía Blanca</p>
+  </div>
+</footer>
+
+<script>
+// Scroll animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+    }
+  });
+}, {threshold: 0.1});
+document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => observer.observe(el));
+
+// Nav scroll
+window.addEventListener('scroll', () => {
+  const nav = document.getElementById('navbar');
+  if(window.scrollY > 50) nav.classList.add('scrolled');
+  else nav.classList.remove('scrolled');
+});
+
+// Accordion servicios
+function toggleServicio(header) {
+  const item = header.parentElement;
+  const body = item.querySelector('.servicio-body');
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.servicio-item').forEach(i => {
+    i.classList.remove('open');
+    i.querySelector('.servicio-body').style.maxHeight = '0';
+  });
+  if(!isOpen){
+    item.classList.add('open');
+    body.style.maxHeight = body.scrollHeight + 'px';
+  }
+}
+
+// Formulario
+function enviarFormulario() {
+  const nombre = document.getElementById('nombre').value.trim();
+  const tel = document.getElementById('tel').value.trim();
+  const servicio = document.getElementById('servicio').value;
+  if(!nombre || !tel || !servicio){
+    alert('Por favor completá al menos tu nombre, teléfono y tipo de servicio.');
+    return;
+  }
+  document.getElementById('contactForm').style.display = 'none';
+  document.getElementById('formSuccess').style.display = 'block';
+}
+</script>
+</body>
+</html>
