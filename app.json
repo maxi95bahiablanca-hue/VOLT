@@ -14,10 +14,7 @@
       "backgroundColor": "#0A0A0A"
     },
     "updates": {
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/b098755e-7e83-42bd-ae44-ba59182afed8"
+      "enabled": false
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -87,10 +84,6 @@
         }
       ]
     ],
-    "extra": {
-      "eas": {
-        "projectId": "b098755e-7e83-42bd-ae44-ba59182afed8"
-      }
-    }
+    "extra": {}
   }
 }
