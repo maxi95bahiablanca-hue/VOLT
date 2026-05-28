@@ -10,10 +10,10 @@ import notificationService from '../services/notificationService';
 
 const ADMIN_EMAILS = ['maxi95.bahiablanca@gmail.com'];
 
-const TAB = { pending: 'Pendientes', workers: 'Trabajadores', jobs: 'Trabajos', revenue: 'Ingresos' };
+const TAB = { summary: 'Resumen', pending: 'Pendientes', workers: 'Trabajadores', jobs: 'Trabajos', revenue: 'Ingresos' };
 
 const AdminScreen = ({ session, onClose }) => {
-  const [tab, setTab]           = useState('pending');
+  const [tab, setTab]           = useState('summary');
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
 
@@ -21,6 +21,7 @@ const AdminScreen = ({ session, onClose }) => {
   const [workers, setWorkers]   = useState([]);
   const [jobs, setJobs]         = useState([]);
   const [revenue, setRevenue]   = useState({ total: 0, thisMonth: 0, byWorker: [] });
+  const [summary, setSummary]   = useState(null);
 
   // Modal de rechazo
   const [rejectModal, setRejectModal] = useState(false);
@@ -48,7 +49,28 @@ const AdminScreen = ({ session, onClose }) => {
   const loadAll = async () => {
     setLoading(true);
     try {
-      if (tab === 'pending') {
+      if (tab === 'summary') {
+        const [
+          { count: totalWorkers },
+          { count: activeWorkers },
+          { count: pendingCount },
+          { count: totalJobs },
+          { count: completedJobs },
+          { data: payments },
+        ] = await Promise.all([
+          supabase.from('professionals').select('id', { count: 'exact', head: true }).eq('verification_status', 'approved'),
+          supabase.from('professionals').select('id', { count: 'exact', head: true }).eq('verification_status', 'approved').eq('available', true),
+          supabase.from('professionals').select('id', { count: 'exact', head: true }).eq('verification_status', 'pending'),
+          supabase.from('jobs').select('id', { count: 'exact', head: true }),
+          supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
+          supabase.from('payments').select('commission_amt').eq('status', 'approved'),
+        ]);
+        const totalRevenue = (payments ?? []).reduce((s, p) => s + (p.commission_amt || 0), 0);
+        const now = new Date();
+        setSummary({ totalWorkers, activeWorkers, pendingCount, totalJobs, completedJobs, totalRevenue });
+        // También actualizar el badge de pendientes en el tab
+        setPending(Array(pendingCount ?? 0).fill(null));
+      } else if (tab === 'pending') {
         const { data } = await supabase
           .from('professionals')
           .select('*, professional_professions(profession_id, min_price, professions(name))')
@@ -65,7 +87,7 @@ const AdminScreen = ({ session, onClose }) => {
       } else if (tab === 'jobs') {
         const { data } = await supabase
           .from('jobs')
-          .select('*, professions(name)')
+          .select('*, professions(name), professionals(first_name, last_name)')
           .order('created_at', { ascending: false })
           .limit(100);
         setJobs(data ?? []);
@@ -226,8 +248,50 @@ const AdminScreen = ({ session, onClose }) => {
           <ActivityIndicator color="#FFD600" style={{ marginTop: 48 }} />
         ) : (
 
+          /* ─── RESUMEN ─── */
+          tab === 'summary' ? (
+            summary ? (
+              <>
+                <View style={styles.kpiGrid}>
+                  <View style={styles.kpiCard}>
+                    <Text style={styles.kpiVal}>{summary.totalWorkers ?? 0}</Text>
+                    <Text style={styles.kpiLabel}>Trabajadores activos</Text>
+                  </View>
+                  <View style={styles.kpiCard}>
+                    <Text style={[styles.kpiVal, { color: '#4CAF50' }]}>{summary.activeWorkers ?? 0}</Text>
+                    <Text style={styles.kpiLabel}>En línea ahora</Text>
+                  </View>
+                  <View style={styles.kpiCard}>
+                    <Text style={[styles.kpiVal, { color: summary.pendingCount > 0 ? '#FF9800' : '#555' }]}>{summary.pendingCount ?? 0}</Text>
+                    <Text style={styles.kpiLabel}>Pendientes</Text>
+                  </View>
+                  <View style={styles.kpiCard}>
+                    <Text style={styles.kpiVal}>{summary.totalJobs ?? 0}</Text>
+                    <Text style={styles.kpiLabel}>Trabajos totales</Text>
+                  </View>
+                  <View style={styles.kpiCard}>
+                    <Text style={[styles.kpiVal, { color: '#4CAF50' }]}>{summary.completedJobs ?? 0}</Text>
+                    <Text style={styles.kpiLabel}>Completados</Text>
+                  </View>
+                  <View style={[styles.kpiCard, { borderColor: '#FFD60030' }]}>
+                    <Text style={[styles.kpiVal, { color: '#FFD600' }]}>${Math.round(summary.totalRevenue ?? 0).toLocaleString('es-AR')}</Text>
+                    <Text style={styles.kpiLabel}>Ingresos VOLT</Text>
+                  </View>
+                </View>
+                {(summary.pendingCount ?? 0) > 0 && (
+                  <TouchableOpacity style={styles.pendingAlert} onPress={() => setTab('pending')}>
+                    <Ionicons name="alert-circle" size={18} color="#FF9800" />
+                    <Text style={styles.pendingAlertText}>Tenés {summary.pendingCount} solicitud{summary.pendingCount > 1 ? 'es' : ''} pendiente{summary.pendingCount > 1 ? 's' : ''} de revisión</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#FF9800" />
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <ActivityIndicator color="#FFD600" style={{ marginTop: 48 }} />
+            )
+
           /* ─── PENDIENTES ─── */
-          tab === 'pending' ? (
+          ) : tab === 'pending' ? (
             pending.length === 0 ? (
               <View style={styles.emptyWrap}>
                 <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
@@ -352,7 +416,12 @@ const AdminScreen = ({ session, onClose }) => {
 
           /* ─── TRABAJOS ─── */
           ) : tab === 'jobs' ? (
-            jobs.map(j => (
+            jobs.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Ionicons name="briefcase-outline" size={48} color="#333" />
+                <Text style={styles.emptyText}>No hay trabajos aún</Text>
+              </View>
+            ) : jobs.map(j => (
               <View key={j.id} style={styles.jobCard}>
                 <View style={styles.jobCardTop}>
                   <Text style={styles.jobProfession}>{j.professions?.name || 'Trabajo'}</Text>
@@ -360,6 +429,11 @@ const AdminScreen = ({ session, onClose }) => {
                     <Text style={[styles.jobStatusText, { color: STATUS_JOB[j.status] || '#888' }]}>{j.status}</Text>
                   </View>
                 </View>
+                {j.professionals && (
+                  <Text style={styles.jobWorker}>
+                    <Ionicons name="construct-outline" size={11} color="#555" /> Trabajador: {j.professionals.first_name} {j.professionals.last_name}
+                  </Text>
+                )}
                 <Text style={styles.jobAddress}>{j.address || 'Sin dirección'}</Text>
                 <View style={styles.jobCardBottom}>
                   <Text style={styles.jobDate}>
@@ -471,6 +545,23 @@ const styles = StyleSheet.create({
   reactivateBtn: { marginTop: 8, paddingVertical: 10, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#4CAF5040' },
   reactivateBtnText: { color: '#4CAF50', fontSize: 13, fontWeight: '700' },
 
+  // KPI summary
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  kpiCard: {
+    flex: 1, minWidth: '45%',
+    backgroundColor: '#111', borderRadius: 16,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 18, alignItems: 'center',
+  },
+  kpiVal:   { fontSize: 30, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
+  kpiLabel: { fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
+  pendingAlert: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#FF980015', borderWidth: 1, borderColor: '#FF980040',
+    borderRadius: 14, padding: 14, marginTop: 4,
+  },
+  pendingAlertText: { flex: 1, color: '#FF9800', fontSize: 14, fontWeight: '600' },
+
   jobCard: {
     backgroundColor: '#111', borderRadius: 14,
     borderWidth: 1, borderColor: '#1E1E1E', padding: 14,
@@ -479,7 +570,8 @@ const styles = StyleSheet.create({
   jobProfession: { fontSize: 14, fontWeight: '700', color: '#F5F5F5' },
   jobStatusPill: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   jobStatusText: { fontSize: 11, fontWeight: '700' },
-  jobAddress:    { fontSize: 12, color: '#555', marginBottom: 8 },
+  jobWorker:     { fontSize: 12, color: '#555', marginBottom: 2 },
+  jobAddress:    { fontSize: 12, color: '#444', marginBottom: 8 },
   jobCardBottom: { flexDirection: 'row', justifyContent: 'space-between' },
   jobDate:   { fontSize: 12, color: '#444' },
   jobAmount: { fontSize: 14, fontWeight: '700', color: '#FFD600' },

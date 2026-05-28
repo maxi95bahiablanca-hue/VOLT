@@ -27,9 +27,9 @@ const locationService = {
   requestPermission: async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') return false;
+    // El permiso de background es opcional (para tracking con app minimizada)
     if (Platform.OS !== 'web') {
-      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      return bgStatus === 'granted';
+      Location.requestBackgroundPermissionsAsync().catch(() => {});
     }
     return true;
   },

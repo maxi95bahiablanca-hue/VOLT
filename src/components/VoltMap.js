@@ -4,17 +4,37 @@ import { WebView } from 'react-native-webview';
 
 const VoltMap = ({ userLocation, workers, onWorkerPress, style }) => {
   const webRef = useRef(null);
+  const mapReadyRef = useRef(false);
+  const pendingLocationRef = useRef(null);
+  const pendingWorkersRef = useRef([]);
+
+  const sendToMap = (msg) => {
+    webRef.current?.postMessage(JSON.stringify(msg));
+  };
+
+  // Cuando Leaflet termina de inicializarse, enviamos los mensajes que llegaron antes
+  const handleLoad = () => {
+    mapReadyRef.current = true;
+    if (pendingLocationRef.current) {
+      sendToMap({ type: 'SET_LOCATION', ...pendingLocationRef.current });
+    }
+    if (pendingWorkersRef.current.length > 0) {
+      sendToMap({ type: 'SET_WORKERS', workers: pendingWorkersRef.current });
+    }
+  };
 
   // Actualizar workers en el mapa cuando cambian
   useEffect(() => {
-    if (!webRef.current) return;
-    webRef.current.postMessage(JSON.stringify({ type: 'SET_WORKERS', workers }));
+    pendingWorkersRef.current = workers ?? [];
+    if (!mapReadyRef.current) return;
+    sendToMap({ type: 'SET_WORKERS', workers: workers ?? [] });
   }, [workers]);
 
   // Centrar en ubicación del usuario
   useEffect(() => {
-    if (!webRef.current || !userLocation) return;
-    webRef.current.postMessage(JSON.stringify({ type: 'SET_LOCATION', ...userLocation }));
+    pendingLocationRef.current = userLocation;
+    if (!mapReadyRef.current || !userLocation) return;
+    sendToMap({ type: 'SET_LOCATION', ...userLocation });
   }, [userLocation]);
 
   const handleMessage = (e) => {
@@ -126,6 +146,7 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, style }) => {
       style={[styles.map, style]}
       source={{ html }}
       onMessage={handleMessage}
+      onLoad={handleLoad}
       javaScriptEnabled
       domStorageEnabled
       originWhitelist={['*']}

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   SafeAreaView, Animated, Easing, Dimensions, ScrollView,
-  ActivityIndicator, Platform, Image,
+  ActivityIndicator, Platform, Image, Linking, Alert,
 } from 'react-native';
 import VoltMap from '../components/VoltMap';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,21 @@ import DrawerMenu from '../components/DrawerMenu';
 const { height: SCREEN_H } = Dimensions.get('window');
 const BUTTON_SIZE = 64;
 const CARD_H = 260;
+
+const CLIENT_TIPS = [
+  { icon: 'shield-checkmark-outline', color: '#4CAF50', text: 'Siempre pedí el código de verificación antes de abrir la puerta' },
+  { icon: 'star-outline',             color: '#FFD600', text: 'Calificá al profesional para ayudar a la comunidad VOLT' },
+  { icon: 'card-outline',             color: '#4285F4', text: 'El pago es 100% digital. Nunca pagues en efectivo' },
+  { icon: 'people-outline',           color: '#FF9800', text: 'Todos los trabajadores tienen antecedentes verificados' },
+  { icon: 'time-outline',             color: '#888',    text: 'El costo de visita se cobra aunque no se realice el trabajo' },
+];
+
+const WORKER_TIPS = [
+  { icon: 'trending-up-outline', color: '#4CAF50', text: '¡Más calificación = menor comisión! Apuntá al nivel Elite' },
+  { icon: 'id-card-outline',     color: '#FFD600', text: 'Mostrá siempre tu código de verificación al llegar al domicilio' },
+  { icon: 'flash-outline',       color: '#4285F4', text: 'Respondé rápido — los clientes eligen al primer disponible' },
+  { icon: 'thumbs-up-outline',   color: '#FF9800', text: 'Un buen pre-diagnóstico genera más confianza y mejores calificaciones' },
+];
 
 // Tarjeta del trabajador seleccionado (sube desde abajo)
 const WorkerCard = ({ worker, slideAnim, onContact, onClose }) => {
@@ -150,6 +165,9 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   const [showPrivacy, setShowPrivacy]       = useState(false);
   const newJobChannelRef = useRef(null);
 
+  // Tips rotativos
+  const [tipIndex, setTipIndex] = useState(0);
+
   // Radar animation
   const pulse1 = useRef(new Animated.Value(0)).current;
   const pulse2 = useRef(new Animated.Value(0)).current;
@@ -165,6 +183,13 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     professionService.getProfessions().then(setProfessions).catch(() => {});
     initLocation();
   }, []);
+
+  // Rotación de tips cada 7 segundos
+  useEffect(() => {
+    const tips = professional ? WORKER_TIPS : CLIENT_TIPS;
+    const t = setInterval(() => setTipIndex(i => (i + 1) % tips.length), 7000);
+    return () => clearInterval(t);
+  }, [professional]);
 
   // Sincronizar available cuando llega professional desde App.js
   useEffect(() => {
@@ -333,6 +358,13 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     }
   };
 
+  const handleEmergency = () => {
+    Alert.alert('🚨 Emergencia', '¿Querés llamar al 911?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Llamar al 911', style: 'destructive', onPress: () => Linking.openURL('tel:911') },
+    ]);
+  };
+
   // ─── Drawer navigation ───────────────────────────────
   const handleDrawerNavigate = (dest) => {
     switch (dest) {
@@ -442,27 +474,55 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
       {/* PANEL INFERIOR — siempre visible cuando no hay card abierta */}
       {!selectedWorker && (
         <View style={styles.bottomPanel}>
-          {/* Fila de estado para trabajadores */}
+
+          {/* Botón principal de disponibilidad para trabajadores */}
           {professional && (
             <TouchableOpacity
-              style={styles.workerStatusRow}
+              style={[styles.workerToggleBtn, available && styles.workerToggleBtnOn]}
               onPress={handleToggle}
               disabled={toggling}
               activeOpacity={0.8}
             >
-              <View style={[styles.workerStatusDot, available && styles.workerStatusDotOn]} />
-              <Text style={styles.workerStatusText}>
-                {toggling ? 'Actualizando...' : available ? 'Disponible para trabajos' : 'No disponible — tocá para activar'}
+              {toggling ? (
+                <ActivityIndicator size="small" color={available ? '#0A0A0A' : '#FFD600'} />
+              ) : (
+                <Ionicons name={available ? 'radio' : 'radio-outline'} size={20} color={available ? '#0A0A0A' : '#FFD600'} />
+              )}
+              <Text style={[styles.workerToggleText, available && styles.workerToggleTextOn]}>
+                {toggling ? 'Actualizando...' : available ? 'Estás disponible · Tocá para pausar' : 'Activar disponibilidad'}
               </Text>
-              <TouchableOpacity onPress={() => setShowWorkerPanel(true)} style={styles.dashboardLink}>
-                <Text style={styles.dashboardLinkText}>Mi panel</Text>
-                <Ionicons name="chevron-forward" size={13} color="#FFD600" />
+              <TouchableOpacity onPress={() => setShowWorkerPanel(true)} style={styles.dashboardLink} hitSlop={{ top:8, bottom:8, left:8, right:8 }}>
+                <Text style={styles.dashboardLinkText}>Panel</Text>
+                <Ionicons name="chevron-forward" size={13} color={available ? '#0A0A0A' : '#FFD600'} />
               </TouchableOpacity>
             </TouchableOpacity>
           )}
 
-          {/* Título */}
-          <Text style={styles.panelTitle}>¿Qué necesitás?</Text>
+          {/* Tip rotativo */}
+          {(() => {
+            const tips = professional ? WORKER_TIPS : CLIENT_TIPS;
+            const tip = tips[tipIndex % tips.length];
+            return (
+              <TouchableOpacity
+                style={styles.tipCard}
+                onPress={() => setTipIndex(i => (i + 1) % tips.length)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={tip.icon} size={16} color={tip.color} />
+                <Text style={styles.tipText}>{tip.text}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#333" />
+              </TouchableOpacity>
+            );
+          })()}
+
+          {/* Título + emergencias */}
+          <View style={styles.panelTitleRow}>
+            <Text style={styles.panelTitle}>¿Qué necesitás?</Text>
+            <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
+              <Ionicons name="call" size={12} color="#ff4444" />
+              <Text style={styles.emergencyBtnText}>911</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Chips de profesiones */}
           <ScrollView
@@ -604,28 +664,45 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(10,10,10,0.97)',
     borderTopWidth: 1, borderTopColor: '#1a1a1a',
     paddingTop: 14, paddingBottom: 28, paddingHorizontal: 16,
-    zIndex: 10,
+    gap: 10, zIndex: 10,
   },
-  workerStatusRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#111', borderRadius: 12,
-    borderWidth: 1, borderColor: '#1e1e1e',
-    paddingVertical: 10, paddingHorizontal: 14,
-    marginBottom: 14,
+
+  // Botón principal de disponibilidad trabajador
+  workerToggleBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#222',
+    paddingVertical: 14, paddingHorizontal: 16,
   },
-  workerStatusDot: {
-    width: 9, height: 9, borderRadius: 5, backgroundColor: '#333',
-  },
-  workerStatusDotOn: { backgroundColor: '#4CAF50' },
-  workerStatusText: { flex: 1, fontSize: 13, color: '#888', fontWeight: '500' },
+  workerToggleBtnOn: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
+  workerToggleText: { flex: 1, fontSize: 14, color: '#FFD600', fontWeight: '700' },
+  workerToggleTextOn: { color: '#0A0A0A' },
   dashboardLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   dashboardLinkText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
 
+  // Tip rotativo
+  tipCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#0D0D0D', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1a1a1a',
+    paddingVertical: 10, paddingHorizontal: 12,
+  },
+  tipText: { flex: 1, fontSize: 12, color: '#666', lineHeight: 17 },
+
+  // Título + emergencias
+  panelTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: {
     fontSize: 13, fontWeight: '700', color: '#555',
     textTransform: 'uppercase', letterSpacing: 0.5,
-    marginBottom: 10,
   },
+  emergencyBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 8, borderWidth: 1.5, borderColor: '#ff444450',
+    backgroundColor: 'rgba(255,68,68,0.07)',
+  },
+  emergencyBtnText: { color: '#ff4444', fontSize: 12, fontWeight: '900' },
+
   chipsContent: { gap: 8, paddingRight: 8 },
   profChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

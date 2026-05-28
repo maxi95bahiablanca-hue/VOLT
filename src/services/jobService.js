@@ -71,11 +71,15 @@ const jobService = {
     return data;
   },
 
-  accept: async (jobId, preDiganosis) => update(jobId, {
-    status: 'accepted',
-    accepted_at: new Date().toISOString(),
-    ...(preDiganosis ? { pre_diagnosis: preDiganosis } : {}),
-  }),
+  accept: async (jobId, preDiagnosis) => {
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    return update(jobId, {
+      status: 'accepted',
+      accepted_at: new Date().toISOString(),
+      verification_code: code,
+      ...(preDiagnosis ? { pre_diagnosis: preDiagnosis } : {}),
+    });
+  },
 
   reject: async (jobId, professionalId) => {
     await update(jobId, { status: 'cancelled', cancelled_at: new Date().toISOString() });
