@@ -123,7 +123,12 @@ const MacheteScreen = ({ professional }) => {
                 {item.materiales.map((mat, i) => (
                   <View key={i} style={styles.matRow}>
                     <Ionicons name="checkmark-circle" size={14} color="#4CAF50" style={{ marginTop: 2, flexShrink: 0 }} />
-                    <Text style={styles.matText}>{mat}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.matText}>{typeof mat === 'string' ? mat : mat.item}</Text>
+                      {typeof mat === 'object' && mat.marca && (
+                        <Text style={styles.matSub}>{mat.marca} · {mat.precio}</Text>
+                      )}
+                    </View>
                   </View>
                 ))}
               </View>
@@ -209,8 +214,9 @@ const styles = StyleSheet.create({
   stepNum:  { fontSize: 11, fontWeight: '900', color: '#0A0A0A' },
   stepText: { flex: 1, fontSize: 13, color: '#CCC', lineHeight: 19 },
 
-  matRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 6 },
-  matText: { flex: 1, fontSize: 13, color: '#AAA', lineHeight: 18 },
+  matRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  matText: { fontSize: 13, color: '#CCC', lineHeight: 18, fontWeight: '500' },
+  matSub:  { fontSize: 11, color: '#555', marginTop: 1 },
 });
 
 export default MacheteScreen;
