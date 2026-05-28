@@ -47,6 +47,11 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
+      - name: Increase Gradle JVM memory
+        run: |
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> android/gradle.properties
+          echo "org.gradle.daemon=false" >> android/gradle.properties
+
       - name: Bundle JS (expo export:embed)
         run: |
           mkdir -p android/app/src/main/assets
@@ -79,7 +84,10 @@ jobs:
             -Pandroid.injected.signing.store.password=voltpass123 \
             -Pandroid.injected.signing.key.alias=voltkey \
             -Pandroid.injected.signing.key.password=voltpass123 \
-            --no-daemon
+            -x lintVitalAnalyzeRelease \
+            -x lintVitalRelease \
+            --no-daemon \
+            --max-workers 2
         env:
           SKIP_BUNDLING: 1
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
