@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
+import MacheteScreen from './MacheteScreen';
 
 const STATUS_LABEL = {
   pending:          { label: 'Pendiente',    color: '#888' },
@@ -25,7 +26,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
   const [jobs, setJobs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
-  const [tab, setTab]           = useState('jobs'); // 'jobs' | 'earnings'
+  const [tab, setTab]           = useState('jobs'); // 'jobs' | 'earnings' | 'guide'
 
   const [available, setAvailable]     = useState(professional.available ?? true);
   const [availableAt, setAvailableAt] = useState(professional.available_at ?? null);
@@ -231,11 +232,14 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
           <TouchableOpacity style={[styles.tab, tab === 'earnings' && styles.tabActive]} onPress={() => setTab('earnings')}>
             <Text style={[styles.tabText, tab === 'earnings' && styles.tabTextActive]}>Ingresos</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.tab, tab === 'guide' && styles.tabActive]} onPress={() => setTab('guide')}>
+            <Text style={[styles.tabText, tab === 'guide' && styles.tabTextActive]}>⚡ Guía</Text>
+          </TouchableOpacity>
         </View>
 
         {loading ? (
           <ActivityIndicator color="#FFD600" style={{ marginTop: 32 }} />
-        ) : tab === 'jobs' ? (
+        ) : tab === 'guide' ? null : tab === 'jobs' ? (
           /* ─── Lista de trabajos ─── */
           <View style={styles.listWrap}>
             {jobs.length === 0 ? (
@@ -313,6 +317,10 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
               );
             })}
           </View>
+        )}
+
+        {tab === 'guide' && (
+          <MacheteScreen professional={professional} />
         )}
 
         <View style={{ height: 40 }} />
