@@ -29,8 +29,8 @@ class ErrorBoundary extends React.Component {
           <Text style={styles.subtitle}>
             La app encontró un error inesperado. Tocá el botón para reiniciar.
           </Text>
-          {__DEV__ && this.state.error && (
-            <Text style={styles.errorDetail} numberOfLines={4}>
+          {this.state.error && (
+            <Text style={styles.errorDetail} numberOfLines={10}>
               {this.state.error.toString()}
             </Text>
           )}

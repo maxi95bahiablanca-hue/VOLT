@@ -224,7 +224,7 @@ export default function App() {
 
   if (screen === 'jobRequest' && jobRequestData) {
     return (
-      <>
+      <ErrorBoundary>
         <JobRequestScreen
           worker={jobRequestData.worker}
           profession={jobRequestData.profession}
@@ -234,13 +234,13 @@ export default function App() {
           onBack={() => setScreen('home')}
         />
         <StatusBar style="light" />
-      </>
+      </ErrorBoundary>
     );
   }
 
   if (screen === 'quoteSelection' && quoteGroupId) {
     return (
-      <>
+      <ErrorBoundary>
         <QuoteSelectionScreen
           quoteGroupId={quoteGroupId}
           jobs={quoteJobs}
@@ -250,13 +250,13 @@ export default function App() {
           onBack={handleQuoteBack}
         />
         <StatusBar style="light" />
-      </>
+      </ErrorBoundary>
     );
   }
 
   if (screen === 'workerIncoming' && incomingJob) {
     return (
-      <>
+      <ErrorBoundary>
         <WorkerIncomingScreen
           job={incomingJob}
           professional={professional}
@@ -265,13 +265,13 @@ export default function App() {
           onRejected={handleWorkerRejected}
         />
         <StatusBar style="light" />
-      </>
+      </ErrorBoundary>
     );
   }
 
   if (screen === 'jobTracking' && activeJob) {
     return (
-      <>
+      <ErrorBoundary>
         <JobTrackingScreen
           job={activeJob}
           session={session}
@@ -280,13 +280,13 @@ export default function App() {
           onCancel={handleJobCancel}
         />
         <StatusBar style="light" />
-      </>
+      </ErrorBoundary>
     );
   }
 
   if (screen === 'rating' && completedJob) {
     return (
-      <>
+      <ErrorBoundary>
         <RatingScreen
           job={completedJob}
           session={session}
@@ -294,7 +294,7 @@ export default function App() {
           onDone={handleRatingDone}
         />
         <StatusBar style="light" />
-      </>
+      </ErrorBoundary>
     );
   }
 
