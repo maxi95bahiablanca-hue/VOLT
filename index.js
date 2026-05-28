@@ -1,9 +1,19 @@
-import 'react-native-url-polyfill/auto';
-import { registerRootComponent } from 'expo';
+// Error handler instalado ANTES de cargar cualquier módulo
+if (!__DEV__) {
+  const prev = ErrorUtils.getGlobalHandler();
+  ErrorUtils.setGlobalHandler((error, isFatal) => {
+    const { Alert } = require('react-native');
+    Alert.alert(
+      isFatal ? 'CRASH FATAL' : 'Error JS',
+      String(error?.stack || error?.message || error).slice(0, 800),
+      [{ text: 'OK' }]
+    );
+    prev?.(error, isFatal);
+  });
+}
 
-import App from './App';
+require('react-native-url-polyfill/auto');
+const { registerRootComponent } = require('expo');
+const App = require('./App').default;
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
 registerRootComponent(App);
