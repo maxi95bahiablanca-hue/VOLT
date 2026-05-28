@@ -9,6 +9,7 @@ import { WebView } from 'react-native-webview';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import paymentService from '../services/paymentService';
+import professionalService from '../services/professionalService';
 
 const STATUS_INFO = {
   pending:          { icon: 'time-outline',            color: '#888',    label: 'Esperando confirmación...' },
@@ -39,9 +40,11 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [job, setJob]               = useState(initialJob);
   const [workAmount, setWorkAmount] = useState('');
   const [loading, setLoading]       = useState(false);
-  const [codeModal, setCodeModal]   = useState(false);
+  const [codeModal, setCodeModal]     = useState(false);
   const [enteredCode, setEnteredCode] = useState('');
-  const [codeResult, setCodeResult] = useState(null); // null | 'ok' | 'error'
+  const [codeResult, setCodeResult]   = useState(null); // null | 'ok' | 'error'
+  const [completedModal, setCompletedModal] = useState(false);
+  const completedShownRef = useRef(false);
   const webRef = useRef(null);
 
   const isWorker = !!professional;
@@ -59,13 +62,24 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     if (job.status === 'cancelled' && isWorker) {
       Alert.alert('Trabajo cancelado', 'El cliente eligió otro profesional.', [{ text: 'Entendido', onPress: onCancel }]);
     }
-    if (job.status === 'completed' && isWorker) {
-      Alert.alert('¡Pago recibido!', 'El cliente completó el pago. ¡Buen trabajo!', [{ text: 'Volver al inicio', onPress: () => onComplete(job) }]);
+    if (job.status === 'completed' && isWorker && !completedShownRef.current) {
+      completedShownRef.current = true;
+      setCompletedModal(true);
     }
     if (job.status === 'completed' && !isWorker) {
       onComplete(job);
     }
   }, [job.status]);
+
+  const handleAvailabilityAndComplete = async (hoursFromNow) => {
+    setCompletedModal(false);
+    try {
+      if (professional?.id) {
+        await professionalService.setAvailableAt(professional.id, hoursFromNow);
+      }
+    } catch {}
+    onComplete(job);
+  };
 
   // Suscribir a ubicación del trabajador (solo cliente)
   useEffect(() => {
@@ -200,6 +214,34 @@ window.addEventListener('message', e => {
   return (
     <SafeAreaView style={styles.container}>
 
+      {/* Modal de disponibilidad post-trabajo (trabajador) */}
+      <Modal visible={completedModal} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.completedOverlay}>
+          <View style={styles.completedBox}>
+            <Ionicons name="checkmark-circle" size={52} color="#4CAF50" />
+            <Text style={styles.completedTitle}>¡Pago recibido!</Text>
+            <Text style={styles.completedSub}>Buen trabajo. ¿Cuándo volvés a estar disponible para nuevos pedidos?</Text>
+            {[
+              { label: 'Ahora mismo',  icon: 'flash',        hours: 0 },
+              { label: 'En 1 hora',    icon: 'time-outline', hours: 1 },
+              { label: 'En 2 horas',   icon: 'time-outline', hours: 2 },
+              { label: 'En 3 horas',   icon: 'time-outline', hours: 3 },
+            ].map(opt => (
+              <TouchableOpacity
+                key={opt.label}
+                style={styles.completedOpt}
+                onPress={() => handleAvailabilityAndComplete(opt.hours)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={opt.icon} size={18} color="#FFD600" />
+                <Text style={styles.completedOptText}>{opt.label}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#444" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal de verificación de código (cliente) */}
       <Modal visible={codeModal} transparent animationType="slide" onRequestClose={() => { setCodeModal(false); setEnteredCode(''); setCodeResult(null); }}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -303,6 +345,31 @@ window.addEventListener('message', e => {
               <Text style={styles.codeDisplayLabel}>Tu código de verificación</Text>
               <Text style={styles.codeDisplayNumber}>{job.verification_code}</Text>
               <Text style={styles.codeDisplayHint}>Mostráselo al cliente antes de que te abra. Es obligatorio.</Text>
+            </View>
+          )}
+
+          {/* Respuesta del profesional — cliente cuando status = accepted */}
+          {!isWorker && job.status === 'accepted' && (job.arrival_estimate || job.pre_diagnosis || job.materials_needed) && (
+            <View style={styles.workerResponseCard}>
+              <Text style={styles.workerResponseTitle}>Respuesta del profesional</Text>
+              {job.arrival_estimate ? (
+                <View style={styles.workerResponseRow}>
+                  <Ionicons name="time-outline" size={15} color="#4285F4" />
+                  <Text style={styles.workerResponseText}>Llega en {job.arrival_estimate}</Text>
+                </View>
+              ) : null}
+              {job.pre_diagnosis ? (
+                <View style={styles.workerResponseRow}>
+                  <Ionicons name="bulb-outline" size={15} color="#FFD600" />
+                  <Text style={styles.workerResponseText}>Posible problema: "{job.pre_diagnosis}"</Text>
+                </View>
+              ) : null}
+              {job.materials_needed ? (
+                <View style={styles.workerResponseRow}>
+                  <Ionicons name="construct-outline" size={15} color="#FF9800" />
+                  <Text style={styles.workerResponseText}>El profesional va a necesitar materiales para el trabajo</Text>
+                </View>
+              ) : null}
             </View>
           )}
 
@@ -525,6 +592,39 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 18,
   },
   payBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+
+  // Modal de disponibilidad post-trabajo
+  completedOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
+    alignItems: 'center', justifyContent: 'flex-end',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
+  },
+  completedBox: {
+    width: '100%', backgroundColor: '#111',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopWidth: 1, borderColor: '#1E1E1E',
+    padding: 24, alignItems: 'center', gap: 8,
+  },
+  completedTitle: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginTop: 4 },
+  completedSub:   { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20, marginBottom: 8 },
+  completedOpt: {
+    width: '100%', flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+  },
+  completedOptText: { flex: 1, fontSize: 16, color: '#F5F5F5', fontWeight: '600' },
+
+  // Respuesta del profesional (cliente)
+  workerResponseCard: {
+    backgroundColor: '#0A0F1A', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1E2A3A',
+    padding: 14, gap: 10,
+  },
+  workerResponseTitle: {
+    fontSize: 11, fontWeight: '800', color: '#4285F4',
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4,
+  },
+  workerResponseRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  workerResponseText: { flex: 1, fontSize: 13, color: '#BBBBBB', lineHeight: 18 },
 
   // Modal de verificación de código
   modalOverlay: {

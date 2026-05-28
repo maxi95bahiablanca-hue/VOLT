@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, ActivityIndicator, Platform, RefreshControl, Image,
+  SafeAreaView, ScrollView, ActivityIndicator, Platform, RefreshControl, Image, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
@@ -16,11 +16,21 @@ const STATUS_LABEL = {
   cancelled:        { label: 'Cancelado',    color: '#ff4444' },
 };
 
+const formatHour = (isoStr) => {
+  const d = new Date(isoStr);
+  return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+};
+
 const WorkerDashboardScreen = ({ professional, session, onClose }) => {
   const [jobs, setJobs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
   const [tab, setTab]           = useState('jobs'); // 'jobs' | 'earnings'
+
+  const [available, setAvailable]     = useState(professional.available ?? true);
+  const [availableAt, setAvailableAt] = useState(professional.available_at ?? null);
+  const [availModal, setAvailModal]   = useState(false);
+  const [savingAvail, setSavingAvail] = useState(false);
 
   const commission = professional.completed_jobs >= 100 && professional.avg_rating >= 4.8 ? 10
     : professional.completed_jobs >= 50  && professional.avg_rating >= 4.5 ? 14
@@ -33,7 +43,37 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
   const levelColor = level === 'Elite' ? '#FFD600' : level === 'Pro' ? '#4285F4'
     : level === 'Verificado' ? '#4CAF50' : '#888';
 
-  useEffect(() => { fetchJobs(); }, []);
+  useEffect(() => {
+    fetchJobs();
+    // Auto-restaurar disponibilidad si ya pasó la hora programada
+    if (availableAt && new Date(availableAt) <= new Date()) {
+      handleSetAvailable();
+    }
+  }, []);
+
+  const handleSetAvailable = async () => {
+    setSavingAvail(true);
+    try {
+      const { error } = await supabase.from('professionals')
+        .update({ available: true, available_at: null })
+        .eq('id', professional.id);
+      if (!error) { setAvailable(true); setAvailableAt(null); }
+    } catch {}
+    setSavingAvail(false);
+  };
+
+  const handleSetUnavailable = async (hours) => {
+    setAvailModal(false);
+    setSavingAvail(true);
+    try {
+      const availAt = hours > 0 ? new Date(Date.now() + hours * 3600000).toISOString() : null;
+      const { error } = await supabase.from('professionals')
+        .update({ available: false, available_at: availAt })
+        .eq('id', professional.id);
+      if (!error) { setAvailable(false); setAvailableAt(availAt); }
+    } catch {}
+    setSavingAvail(false);
+  };
 
   const fetchJobs = async () => {
     try {
@@ -91,6 +131,58 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
             <Text style={styles.commLabel}>comisión</Text>
           </View>
         </View>
+
+        {/* Toggle disponibilidad */}
+        <TouchableOpacity
+          style={[styles.availCard, available ? styles.availCardOn : styles.availCardOff]}
+          onPress={() => available ? setAvailModal(true) : handleSetAvailable()}
+          disabled={savingAvail}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.availDot, { backgroundColor: available ? '#4CAF50' : '#ff4444' }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.availText, { color: available ? '#4CAF50' : '#ff4444' }]}>
+              {available ? 'Disponible para trabajos' : availableAt ? `Disponible a las ${formatHour(availableAt)}` : 'No disponible'}
+            </Text>
+            <Text style={styles.availSub}>
+              {available ? 'Tocá para pausar la recepción de trabajos' : 'Tocá para volver a estar disponible'}
+            </Text>
+          </View>
+          {savingAvail
+            ? <ActivityIndicator size="small" color={available ? '#4CAF50' : '#ff4444'} />
+            : <Ionicons name={available ? 'pause-circle-outline' : 'play-circle-outline'} size={22} color={available ? '#4CAF50' : '#ff4444'} />
+          }
+        </TouchableOpacity>
+
+        {/* Modal: tiempo de no disponibilidad */}
+        <Modal visible={availModal} transparent animationType="fade" onRequestClose={() => setAvailModal(false)}>
+          <View style={styles.availOverlay}>
+            <View style={styles.availModalBox}>
+              <Text style={styles.availModalTitle}>Pausar trabajos</Text>
+              <Text style={styles.availModalSub}>No voy a recibir nuevos pedidos por:</Text>
+              {[
+                { label: 'Sin tiempo definido', icon: 'infinite-outline', hours: 0 },
+                { label: '1 hora',              icon: 'time-outline',     hours: 1 },
+                { label: '2 horas',             icon: 'time-outline',     hours: 2 },
+                { label: '3 horas',             icon: 'time-outline',     hours: 3 },
+              ].map(opt => (
+                <TouchableOpacity
+                  key={opt.label}
+                  style={styles.availModalOpt}
+                  onPress={() => handleSetUnavailable(opt.hours)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={opt.icon} size={18} color="#888" />
+                  <Text style={styles.availModalOptText}>{opt.label}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#333" />
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.availModalCancel} onPress={() => setAvailModal(false)}>
+                <Text style={styles.availModalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* Stats rápidas */}
         <View style={styles.statsRow}>
@@ -260,6 +352,38 @@ const styles = StyleSheet.create({
   commBox: { alignItems: 'center' },
   commPct: { fontSize: 22, fontWeight: '900' },
   commLabel: { fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  availCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginBottom: 12, padding: 14,
+    borderRadius: 16, borderWidth: 1.5,
+  },
+  availCardOn:  { backgroundColor: '#0A1A0A', borderColor: '#4CAF5040' },
+  availCardOff: { backgroundColor: '#1A0A0A', borderColor: '#ff444440' },
+  availDot: { width: 10, height: 10, borderRadius: 5 },
+  availText: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
+  availSub:  { fontSize: 11, color: '#444' },
+
+  availOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center', justifyContent: 'flex-end',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
+  },
+  availModalBox: {
+    width: '100%', backgroundColor: '#111',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopWidth: 1, borderColor: '#1E1E1E',
+    padding: 24, gap: 4,
+  },
+  availModalTitle: { fontSize: 18, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
+  availModalSub:   { fontSize: 13, color: '#555', marginBottom: 12 },
+  availModalOpt: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+  },
+  availModalOptText: { flex: 1, fontSize: 15, color: '#F5F5F5', fontWeight: '600' },
+  availModalCancel: { alignItems: 'center', paddingVertical: 16, marginTop: 4 },
+  availModalCancelText: { fontSize: 15, color: '#555', fontWeight: '700' },
 
   statsRow: {
     flexDirection: 'row', alignItems: 'center',

@@ -7,38 +7,29 @@ import { Ionicons } from '@expo/vector-icons';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 
-const TIMEOUT_SEC = 45; // como Uber — urgente
+const TIMEOUT_SEC = 45;
+const ARRIVAL_OPTIONS = ['~15 min', '~30 min', '~45 min', '~1 hora', '+1 hora'];
 
 const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onRejected }) => {
-  const [timeLeft, setTimeLeft]   = useState(TIMEOUT_SEC);
-  const [loading, setLoading]     = useState(false);
-  const [diagnosis, setDiagnosis] = useState('');
-  const [showDiag, setShowDiag]   = useState(false);
+  const [timeLeft, setTimeLeft]               = useState(TIMEOUT_SEC);
+  const [loading, setLoading]                 = useState(false);
+  const [diagnosis, setDiagnosis]             = useState('');
+  const [showDiag, setShowDiag]               = useState(false);
+  const [arrivalEst, setArrivalEst]           = useState('~30 min');
+  const [materialsNeeded, setMaterialsNeeded] = useState(false);
 
   const timerRef  = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const ringAnim  = useRef(new Animated.Value(0)).current;
 
-  const visitAmount  = job.visit_amount || 30000;
-  const commission   = professional?.completed_jobs >= 100 && professional?.avg_rating >= 4.8 ? 10
-    : professional?.completed_jobs >= 50  && professional?.avg_rating >= 4.5 ? 14
-    : professional?.completed_jobs >= 10  && professional?.avg_rating >= 4.0 ? 17 : 20;
-  const workerEarns  = 0; // la visita la retiene VOLT, el trabajo se cobra después
+  const visitAmount = job.visit_amount || 30000;
 
   useEffect(() => {
-    // Pulso del botón
     const pulse = Animated.loop(Animated.sequence([
       Animated.timing(pulseAnim, { toValue: 1.06, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       Animated.timing(pulseAnim, { toValue: 1,    duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
     ]));
     pulse.start();
 
-    // Anillo de cuenta regresiva
-    const ring = Animated.loop(Animated.sequence([
-      Animated.timing(ringAnim, { toValue: 1, duration: 1000, useNativeDriver: false }),
-    ]));
-
-    // Countdown
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
         if (t <= 1) {
@@ -58,12 +49,17 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     clearInterval(timerRef.current);
     setLoading(true);
     try {
-      await jobService.accept(job.id, diagnosis.trim() || null);
+      const diagText = diagnosis.trim() || null;
+      const mats = showDiag ? materialsNeeded : null;
+      await jobService.accept(job.id, diagText, arrivalEst, mats);
+
+      let notifBody = `${job.professions?.name || 'Tu profesional'} llega en ${arrivalEst}.`;
+      if (diagText) notifBody += ` Posible problema: "${diagText}".`;
+      if (showDiag && materialsNeeded) notifBody += ' Necesita comprar materiales para el trabajo.';
+
       await notificationService.sendToUser(clientUserId, {
-        title: '⚡ Tu profesional está en camino',
-        body:  diagnosis.trim()
-          ? `${job.professions?.name || 'Profesional'} aceptó el trabajo. Diagnóstico inicial: "${diagnosis.trim()}"`
-          : `${job.professions?.name || 'Tu profesional'} aceptó y está yendo a tu domicilio. Podés seguir su ubicación en la app.`,
+        title: `⚡ Profesional en camino — llega en ${arrivalEst}`,
+        body:  notifBody,
         data:  { jobId: job.id, screen: 'tracking' },
       });
       onAccepted(job);
@@ -98,7 +94,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-        {/* Contador circular */}
+        {/* Contador */}
         <View style={styles.timerWrap}>
           <View style={[styles.timerRing, { borderColor: urgencyColor }]}>
             <Text style={[styles.timerNum, { color: urgencyColor }]}>{timeLeft}</Text>
@@ -115,7 +111,6 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
 
         {/* Detalles del trabajo */}
         <View style={styles.card}>
-          {/* Servicio */}
           <View style={styles.row}>
             <View style={styles.rowIcon}>
               <Ionicons name="construct-outline" size={20} color="#FFD600" />
@@ -128,7 +123,6 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
 
           <View style={styles.divider} />
 
-          {/* Visita */}
           <View style={styles.row}>
             <View style={styles.rowIcon}>
               <Ionicons name="cash-outline" size={20} color="#FFD600" />
@@ -136,13 +130,12 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>Cobro por visita</Text>
               <Text style={styles.rowVal}>${visitAmount.toLocaleString('es-AR')}</Text>
-              <Text style={styles.rowHint}>La visita se cobra al momento del pago final</Text>
+              <Text style={styles.rowHint}>Se cobra al momento del pago final</Text>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Dirección */}
           <View style={styles.row}>
             <View style={styles.rowIcon}>
               <Ionicons name="location-outline" size={20} color="#FFD600" />
@@ -153,24 +146,41 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
             </View>
           </View>
 
-          {/* Descripción del cliente */}
           {job.notes ? (
             <>
               <View style={styles.divider} />
-              <View style={styles.row}>
+              <View style={[styles.row, { backgroundColor: '#0D0D00' }]}>
                 <View style={styles.rowIcon}>
                   <Ionicons name="chatbubble-outline" size={20} color="#FFD600" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowLabel}>El cliente dice</Text>
-                  <Text style={styles.rowVal}>"{job.notes}"</Text>
+                  <Text style={[styles.rowVal, { color: '#FFD600' }]}>"{job.notes}"</Text>
                 </View>
               </View>
             </>
           ) : null}
         </View>
 
-        {/* Pre-diagnóstico opcional */}
+        {/* ─── Tiempo estimado de llegada ─── */}
+        <View style={styles.arrivalCard}>
+          <Text style={styles.arrivalTitle}>¿En cuánto llegás?</Text>
+          <Text style={styles.arrivalHint}>El cliente lo verá en la app cuando aceptes.</Text>
+          <View style={styles.arrivalOptions}>
+            {ARRIVAL_OPTIONS.map(opt => (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.arrivalOpt, arrivalEst === opt && styles.arrivalOptActive]}
+                onPress={() => setArrivalEst(opt)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.arrivalOptText, arrivalEst === opt && styles.arrivalOptTextActive]}>{opt}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* ─── Diagnóstico opcional ─── */}
         <TouchableOpacity
           style={styles.diagToggle}
           onPress={() => setShowDiag(v => !v)}
@@ -178,18 +188,18 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         >
           <Ionicons name={showDiag ? 'chevron-up' : 'bulb-outline'} size={18} color="#FFD600" />
           <Text style={styles.diagToggleText}>
-            {showDiag ? 'Ocultar diagnóstico' : 'Agregar diagnóstico inicial (recomendado)'}
+            {showDiag ? 'Ocultar diagnóstico' : '¿Sabés cuál puede ser el problema?'}
           </Text>
         </TouchableOpacity>
 
         {showDiag && (
-          <View style={styles.diagWrap}>
+          <View style={styles.diagSection}>
             <Text style={styles.diagHint}>
               El cliente lo verá cuando aceptes. Podés modificarlo cuando llegues al lugar.
             </Text>
             <TextInput
               style={styles.diagInput}
-              placeholder={`Ej: "Probablemente sea un problema en el disyuntor o un cortocircuito en el circuito del baño."`}
+              placeholder={`Ej: "Probablemente el disyuntor del baño, puede ser un cortocircuito."`}
               placeholderTextColor="#333"
               value={diagnosis}
               onChangeText={setDiagnosis}
@@ -199,14 +209,35 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
               maxLength={300}
             />
             <Text style={styles.diagCounter}>{diagnosis.length}/300</Text>
+
+            {/* Materiales */}
+            <Text style={styles.materialsLabel}>¿Necesitás comprar materiales?</Text>
+            <View style={styles.materialsRow}>
+              <TouchableOpacity
+                style={[styles.matBtn, !materialsNeeded && styles.matBtnNo]}
+                onPress={() => setMaterialsNeeded(false)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-circle" size={16} color={!materialsNeeded ? '#4CAF50' : '#333'} />
+                <Text style={[styles.matBtnText, !materialsNeeded && styles.matBtnTextNo]}>No necesito</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.matBtn, materialsNeeded && styles.matBtnYes]}
+                onPress={() => setMaterialsNeeded(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="construct" size={16} color={materialsNeeded ? '#FF9800' : '#333'} />
+                <Text style={[styles.matBtnText, materialsNeeded && styles.matBtnTextYes]}>Sí, necesito materiales</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
-        {/* Penalización info */}
+        {/* Info penalización */}
         <View style={styles.penaltyNote}>
           <Ionicons name="information-circle-outline" size={14} color="#444" />
           <Text style={styles.penaltyText}>
-            Rechazar o ignorar trabajos baja tu calificación.
+            Rechazar o ignorar trabajos reduce tu calificación.
           </Text>
         </View>
 
@@ -255,15 +286,14 @@ const styles = StyleSheet.create({
   timerWrap: { alignItems: 'center', marginBottom: 20 },
   timerRing: {
     width: 88, height: 88, borderRadius: 44,
-    borderWidth: 3,
-    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#111',
-    shadowColor: '#FFD600', shadowOffset: { width:0, height:0 },
+    shadowColor: '#FFD600', shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
   },
-  timerNum:  { fontSize: 32, fontWeight: '900' },
+  timerNum:   { fontSize: 32, fontWeight: '900' },
   timerLabel: { fontSize: 10, color: '#555', marginTop: -4 },
-  timerSub:  { color: '#444', fontSize: 12, marginTop: 8 },
+  timerSub:   { color: '#444', fontSize: 12, marginTop: 8 },
 
   alertBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -277,32 +307,62 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 1, borderColor: '#1E1E1E',
     marginBottom: 12, overflow: 'hidden',
   },
-  row: { flexDirection: 'row', alignItems: 'flex-start', padding: 16, gap: 12 },
+  row:      { flexDirection: 'row', alignItems: 'flex-start', padding: 16, gap: 12 },
   rowIcon: {
     width: 36, height: 36, borderRadius: 10,
-    backgroundColor: '#1A1A00',
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#1A1A00', alignItems: 'center', justifyContent: 'center',
   },
   rowLabel: { fontSize: 11, color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
   rowVal:   { fontSize: 15, color: '#F5F5F5', fontWeight: '600' },
   rowHint:  { fontSize: 11, color: '#444', marginTop: 2 },
   divider:  { height: 1, backgroundColor: '#1a1a1a', marginHorizontal: 16 },
 
+  /* Llegada */
+  arrivalCard: {
+    width: '100%', backgroundColor: '#111',
+    borderRadius: 18, borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 16, marginBottom: 12,
+  },
+  arrivalTitle: { fontSize: 14, fontWeight: '800', color: '#F5F5F5', marginBottom: 4 },
+  arrivalHint:  { fontSize: 12, color: '#555', marginBottom: 14 },
+  arrivalOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  arrivalOpt: {
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderRadius: 20, borderWidth: 1.5, borderColor: '#2a2a2a',
+    backgroundColor: '#0A0A0A',
+  },
+  arrivalOptActive:     { borderColor: '#FFD600', backgroundColor: '#1A1A00' },
+  arrivalOptText:       { fontSize: 13, color: '#555', fontWeight: '600' },
+  arrivalOptTextActive: { color: '#FFD600' },
+
+  /* Diagnóstico */
   diagToggle: {
     width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingVertical: 12, paddingHorizontal: 4, marginBottom: 4,
   },
   diagToggleText: { color: '#FFD600', fontSize: 13, fontWeight: '600', flex: 1 },
 
-  diagWrap: { width: '100%', marginBottom: 12 },
-  diagHint: { fontSize: 12, color: '#555', marginBottom: 8, lineHeight: 17 },
+  diagSection: { width: '100%', marginBottom: 12 },
+  diagHint:    { fontSize: 12, color: '#555', marginBottom: 8, lineHeight: 17 },
   diagInput: {
     backgroundColor: '#111', borderRadius: 14,
     borderWidth: 1, borderColor: '#1E1E1E',
-    color: '#F5F5F5', fontSize: 14, padding: 14,
-    minHeight: 90,
+    color: '#F5F5F5', fontSize: 14, padding: 14, minHeight: 90,
   },
-  diagCounter: { fontSize: 11, color: '#333', textAlign: 'right', marginTop: 4 },
+  diagCounter: { fontSize: 11, color: '#333', textAlign: 'right', marginTop: 4, marginBottom: 14 },
+
+  materialsLabel: { fontSize: 13, fontWeight: '700', color: '#888', marginBottom: 8 },
+  materialsRow:   { flexDirection: 'row', gap: 10 },
+  matBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#222', backgroundColor: '#0D0D0D',
+  },
+  matBtnNo:  { borderColor: '#4CAF5040', backgroundColor: '#0D1A0D' },
+  matBtnYes: { borderColor: '#FF980040', backgroundColor: '#1A0D00' },
+  matBtnText:     { fontSize: 13, fontWeight: '700', color: '#444' },
+  matBtnTextNo:   { color: '#4CAF50' },
+  matBtnTextYes:  { color: '#FF9800' },
 
   penaltyNote: {
     width: '100%', flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -310,7 +370,7 @@ const styles = StyleSheet.create({
   },
   penaltyText: { fontSize: 12, color: '#444', flex: 1 },
 
-  btnRow: { flexDirection: 'row', gap: 12, width: '100%' },
+  btnRow:    { flexDirection: 'row', gap: 12, width: '100%' },
   rejectBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, width: 120,
@@ -321,8 +381,7 @@ const styles = StyleSheet.create({
   rejectBtnText: { color: '#ff4444', fontSize: 15, fontWeight: '700' },
   acceptBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: '#FFD600',
-    borderRadius: 16, paddingVertical: 18,
+    gap: 8, backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 18,
   },
   acceptBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
 });

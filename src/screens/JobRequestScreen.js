@@ -11,11 +11,16 @@ import professionalService from '../services/professionalService';
 const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteGroupCreated, onBack }) => {
   const [notes, setNotes]     = useState('');
   const [loading, setLoading] = useState(false);
+  const [notesTouched, setNotesTouched] = useState(false);
 
   const stars      = Math.round(parseFloat(worker.avg_rating) || 0);
   const visitPrice = worker.min_price || 30000;
 
   const handleConfirm = async () => {
+    if (notes.trim().length < 10) {
+      setNotesTouched(true);
+      return;
+    }
     setLoading(true);
     try {
       // Buscar hasta 2 trabajadores más cercanos del mismo oficio
@@ -102,40 +107,60 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
           </View>
         </View>
 
-        {/* Aviso multi-profesional */}
-        <View style={styles.multiNotice}>
-          <Ionicons name="people-outline" size={16} color="#FFD600" />
-          <Text style={styles.multiNoticeText}>
-            Tu solicitud se envía a hasta 3 profesionales cercanos. Recibís sus presupuestos y elegís el que más te conviene.
-          </Text>
-        </View>
-
-        {/* Cobro de visita */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cobro por visita</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Visita / diagnóstico</Text>
-            <Text style={styles.priceVal}>${visitPrice.toLocaleString('es-AR')}</Text>
+        {/* ─── Descripción del problema (prominente, requerida) ─── */}
+        <View style={styles.notesSection}>
+          <View style={styles.notesSectionHeader}>
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFD600" />
+            <Text style={styles.notesSectionTitle}>Describí el problema <Text style={{ color: '#ff4444' }}>*</Text></Text>
           </View>
-          <View style={styles.divider} />
-          <Text style={styles.priceNote}>
-            Si se hace el trabajo, el profesional carga el monto final y lo aprobás antes de pagar.
+          <Text style={styles.notesSectionHint}>
+            El profesional necesita entender qué falló para llegar preparado y darte un diagnóstico preciso.
           </Text>
-        </View>
-
-        {/* Notas */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Descripción del problema</Text>
           <TextInput
-            style={styles.notesInput}
-            placeholder="Ej: No enciende la luz del baño, revisé el disyuntor y sigue apagado..."
+            style={[styles.notesInput, notesTouched && notes.trim().length < 10 && styles.notesInputError]}
+            placeholder="Ej: No enciende la luz del baño. Revisé el disyuntor y no hay corte general. Empezó de repente ayer a la noche."
             placeholderTextColor="#444"
             value={notes}
-            onChangeText={setNotes}
+            onChangeText={v => { setNotes(v); setNotesTouched(true); }}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
           />
+          {notesTouched && notes.trim().length < 10 && (
+            <Text style={styles.notesError}>Describí el problema con un poco más de detalle para continuar.</Text>
+          )}
+        </View>
+
+        {/* Aviso multi-profesional */}
+        <View style={styles.multiNotice}>
+          <Ionicons name="people-outline" size={16} color="#FFD600" />
+          <Text style={styles.multiNoticeText}>
+            Tu solicitud se envía a hasta 3 profesionales cercanos. Recibís su respuesta y elegís el que más te conviene.
+          </Text>
+        </View>
+
+        {/* Cobro de visita */}
+        <View style={styles.visitSection}>
+          <View style={styles.visitRow}>
+            <View>
+              <Text style={styles.visitLabel}>Visita y diagnóstico</Text>
+              <Text style={styles.visitSub}>Se cobra solo si va al domicilio</Text>
+            </View>
+            <Text style={styles.visitVal}>${visitPrice.toLocaleString('es-AR')}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.visitDeductRow}>
+            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+            <Text style={styles.visitDeductText}>
+              Si se realiza el trabajo, la visita <Text style={{ color: '#4CAF50', fontWeight: '800' }}>se descuenta del total</Text>. Solo pagás el trabajo.
+            </Text>
+          </View>
+          <View style={styles.visitDeductRow}>
+            <Ionicons name="document-text-outline" size={16} color="#888" />
+            <Text style={styles.visitDeductText}>
+              El profesional te enviará un presupuesto con los materiales necesarios cuando llegue.
+            </Text>
+          </View>
         </View>
 
         {/* Info seguridad */}
@@ -148,7 +173,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
 
         {/* Botón */}
         <TouchableOpacity
-          style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]}
+          style={[styles.confirmBtn, (loading || notes.trim().length < 10) && styles.confirmBtnDisabled]}
           onPress={handleConfirm}
           disabled={loading}
           activeOpacity={0.85}
@@ -215,23 +240,36 @@ const styles = StyleSheet.create({
   },
   multiNoticeText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 19 },
 
-  section: { marginBottom: 20 },
-  sectionTitle: {
-    fontSize: 12, fontWeight: '800', color: '#666',
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
-  },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  priceLabel: { fontSize: 15, color: '#F5F5F5', fontWeight: '500' },
-  priceVal: { fontSize: 18, color: '#FFD600', fontWeight: '900' },
-  priceNote: { fontSize: 13, color: '#555', lineHeight: 18 },
-  divider: { height: 1, backgroundColor: '#1a1a1a', marginVertical: 8 },
+  divider: { height: 1, backgroundColor: '#1a1a1a', marginVertical: 10 },
 
+  notesSection: {
+    backgroundColor: '#111', borderRadius: 18,
+    borderWidth: 1.5, borderColor: '#2a2a1a',
+    padding: 16, marginBottom: 16,
+  },
+  notesSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  notesSectionTitle:  { fontSize: 15, fontWeight: '800', color: '#F5F5F5' },
+  notesSectionHint:   { fontSize: 12, color: '#666', lineHeight: 17, marginBottom: 12 },
   notesInput: {
-    backgroundColor: '#111', borderRadius: 14,
+    backgroundColor: '#0A0A0A', borderRadius: 12,
     borderWidth: 1, borderColor: '#1E1E1E',
     color: '#F5F5F5', fontSize: 14, padding: 14,
     minHeight: 100,
   },
+  notesInputError: { borderColor: '#ff444460' },
+  notesError: { fontSize: 12, color: '#ff4444', marginTop: 6 },
+
+  visitSection: {
+    backgroundColor: '#111', borderRadius: 18,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 16, marginBottom: 20, gap: 4,
+  },
+  visitRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  visitLabel: { fontSize: 15, color: '#F5F5F5', fontWeight: '700' },
+  visitSub:   { fontSize: 12, color: '#555', marginTop: 2 },
+  visitVal:   { fontSize: 22, color: '#FFD600', fontWeight: '900' },
+  visitDeductRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 6 },
+  visitDeductText: { flex: 1, fontSize: 13, color: '#666', lineHeight: 18 },
 
   infoBox: {
     flexDirection: 'row', gap: 10, alignItems: 'flex-start',

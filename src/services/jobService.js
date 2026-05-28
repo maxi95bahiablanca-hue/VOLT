@@ -71,13 +71,15 @@ const jobService = {
     return data;
   },
 
-  accept: async (jobId, preDiagnosis) => {
+  accept: async (jobId, preDiagnosis, arrivalEstimate, materialsNeeded) => {
     const code = String(Math.floor(1000 + Math.random() * 9000));
     return update(jobId, {
       status: 'accepted',
       accepted_at: new Date().toISOString(),
       verification_code: code,
-      ...(preDiagnosis ? { pre_diagnosis: preDiagnosis } : {}),
+      ...(preDiagnosis    ? { pre_diagnosis:    preDiagnosis    } : {}),
+      ...(arrivalEstimate ? { arrival_estimate: arrivalEstimate } : {}),
+      ...(materialsNeeded != null ? { materials_needed: materialsNeeded } : {}),
     });
   },
 

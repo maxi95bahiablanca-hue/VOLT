@@ -66,6 +66,17 @@ const professionalService = {
     if (error) throw error;
   },
 
+  setAvailableAt: async (professionalId, hoursFromNow) => {
+    const availAt = hoursFromNow > 0
+      ? new Date(Date.now() + hoursFromNow * 3600000).toISOString()
+      : null;
+    const { error } = await supabase
+      .from('professionals')
+      .update({ available: hoursFromNow === 0, available_at: availAt })
+      .eq('id', professionalId);
+    if (error) throw error;
+  },
+
   updateLocation: async (userId, lat, lng) => {
     const { error } = await supabase
       .from('professionals')
