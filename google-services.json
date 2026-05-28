@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "195161413692",
-    "project_id": "volt-6dccd",
-    "storage_bucket": "volt-6dccd.firebasestorage.app"
+    "project_number": "000000000000",
+    "project_id": "placeholder",
+    "storage_bucket": "placeholder.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:195161413692:android:3eb9bd440b4d9779fb4b39",
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
         "android_client_info": {
           "package_name": "com.pedroxillovich.volt"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAwDgpvAxoBnk-XoKT9-7oVh2zNI2kkdyA"
+          "current_key": "placeholder"
         }
       ],
       "services": {
