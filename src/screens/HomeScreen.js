@@ -439,15 +439,52 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
         )}
       </SafeAreaView>
 
-      {/* RADAR del trabajador (abajo izquierda) */}
-      {professional && (
-        <View style={styles.radarOverlay} pointerEvents="box-none">
-          <RadarButton
-            available={available}
-            toggling={toggling}
-            onPress={handleToggle}
-            pulse1={pulse1} pulse2={pulse2} pulse3={pulse3}
-          />
+      {/* PANEL INFERIOR — siempre visible cuando no hay card abierta */}
+      {!selectedWorker && (
+        <View style={styles.bottomPanel}>
+          {/* Fila de estado para trabajadores */}
+          {professional && (
+            <TouchableOpacity
+              style={styles.workerStatusRow}
+              onPress={handleToggle}
+              disabled={toggling}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.workerStatusDot, available && styles.workerStatusDotOn]} />
+              <Text style={styles.workerStatusText}>
+                {toggling ? 'Actualizando...' : available ? 'Disponible para trabajos' : 'No disponible — tocá para activar'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowWorkerPanel(true)} style={styles.dashboardLink}>
+                <Text style={styles.dashboardLinkText}>Mi panel</Text>
+                <Ionicons name="chevron-forward" size={13} color="#FFD600" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          )}
+
+          {/* Título */}
+          <Text style={styles.panelTitle}>¿Qué necesitás?</Text>
+
+          {/* Chips de profesiones */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsContent}
+          >
+            {professions.map(p => {
+              const active = selectedProfession?.id === p.id;
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  style={[styles.profChip, active && styles.profChipActive]}
+                  onPress={() => active ? clearProfession() : selectProfession(p)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="flash" size={13} color={active ? '#0A0A0A' : '#FFD600'} />
+                  <Text style={[styles.profChipText, active && styles.profChipTextActive]}>{p.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       )}
 
@@ -561,11 +598,46 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
 
-  // Radar
-  radarOverlay: {
-    position: 'absolute', bottom: 36, left: 24,
+  // Panel inferior
+  bottomPanel: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(10,10,10,0.97)',
+    borderTopWidth: 1, borderTopColor: '#1a1a1a',
+    paddingTop: 14, paddingBottom: 28, paddingHorizontal: 16,
     zIndex: 10,
   },
+  workerStatusRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1e1e1e',
+    paddingVertical: 10, paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  workerStatusDot: {
+    width: 9, height: 9, borderRadius: 5, backgroundColor: '#333',
+  },
+  workerStatusDotOn: { backgroundColor: '#4CAF50' },
+  workerStatusText: { flex: 1, fontSize: 13, color: '#888', fontWeight: '500' },
+  dashboardLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  dashboardLinkText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
+
+  panelTitle: {
+    fontSize: 13, fontWeight: '700', color: '#555',
+    textTransform: 'uppercase', letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  chipsContent: { gap: 8, paddingRight: 8 },
+  profChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#111', borderRadius: 20,
+    borderWidth: 1, borderColor: '#222',
+    paddingVertical: 9, paddingHorizontal: 14,
+  },
+  profChipActive: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
+  profChipText: { fontSize: 14, color: '#aaa', fontWeight: '600' },
+  profChipTextActive: { color: '#0A0A0A' },
+
+  // Radar
   radarWrap: { alignItems: 'center' },
   radarContainer: {
     width: 120, height: 120,
