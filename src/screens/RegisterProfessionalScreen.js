@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, SafeAreaView, ActivityIndicator, Image,
-  Alert, Platform,
+  Alert, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import professionService from '../services/professionService';
@@ -13,18 +14,26 @@ import professionalService from '../services/professionalService';
 const MIN_PRICE = 30000;
 
 // ─── Subir imagen a Supabase Storage ─────────────────────────────────────────
-// Avatar va al bucket público 'avatars'; los documentos al privado 'worker-docs'
 async function uploadImage(userId, file, path) {
-  const response = await fetch(file.uri);
-  const blob     = await response.blob();
   const ext      = file.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
   const isAvatar = path === 'avatar';
   const bucket   = isAvatar ? 'avatars' : 'worker-docs';
   const fullPath = `${userId}/${path}.${ext}`;
+  const contentType = ext === 'pdf' ? 'application/pdf' : `image/${ext}`;
+
+  // Leer como base64 — funciona con file:// y content:// en el APK
+  const base64 = await FileSystem.readAsStringAsync(file.uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const binaryStr = atob(base64);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
 
   const { error } = await supabase.storage
     .from(bucket)
-    .upload(fullPath, blob, { upsert: true, contentType: `image/${ext === 'pdf' ? 'pdf' : ext}` });
+    .upload(fullPath, bytes, { upsert: true, contentType });
 
   if (error) throw error;
 
@@ -119,38 +128,38 @@ const RegisterProfessionalScreen = ({ userId, onBack }) => {
   // ─── Foto de avatar ──────────────────────────────────────────────────────
   const pickAvatar = () => {
     Alert.alert('Foto de perfil', '', [
-      { text: 'Cámara', onPress: () => launchCamera(setAvatar, [1,1]) },
-      { text: 'Galería', onPress: () => launchGallery(setAvatar, [1,1]) },
+      { text: 'Cámara', onPress: () => launchCamera(setAvatar) },
+      { text: 'Galería', onPress: () => launchGallery(setAvatar) },
       { text: 'Cancelar', style: 'cancel' },
     ]);
   };
 
   const pickSelfie = () => {
     Alert.alert('Selfie de verificación', 'Tomá una foto tuya sosteniendo el DNI abierto', [
-      { text: 'Abrir cámara', onPress: () => launchCamera(setSelfie, [3,4]) },
+      { text: 'Abrir cámara', onPress: () => launchCamera(setSelfie) },
       { text: 'Cancelar', style: 'cancel' },
     ]);
   };
 
   const pickDniSide = (side) => {
     Alert.alert(`DNI — ${side === 'front' ? 'Frente' : 'Dorso'}`, '', [
-      { text: 'Cámara',  onPress: () => launchCamera(side === 'front' ? setDniFront : setDniBack, [16,9]) },
-      { text: 'Galería', onPress: () => launchGallery(side === 'front' ? setDniFront : setDniBack, [16,9]) },
+      { text: 'Cámara',  onPress: () => launchCamera(side === 'front' ? setDniFront : setDniBack) },
+      { text: 'Galería', onPress: () => launchGallery(side === 'front' ? setDniFront : setDniBack) },
       { text: 'Cancelar', style: 'cancel' },
     ]);
   };
 
-  const launchCamera = async (setter, aspect) => {
+  const launchCamera = async (setter) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.'); return; }
-    const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect, quality: 0.8 });
+    const r = await ImagePicker.launchCameraAsync({ quality: 0.85 });
     if (!r.canceled) setter({ uri: r.assets[0].uri, name: 'photo.jpg' });
   };
 
-  const launchGallery = async (setter, aspect) => {
+  const launchGallery = async (setter) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') return;
-    const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect, quality: 0.8 });
+    const r = await ImagePicker.launchImageLibraryAsync({ quality: 0.85 });
     if (!r.canceled) setter({ uri: r.assets[0].uri, name: 'photo.jpg' });
   };
 
@@ -319,6 +328,11 @@ const RegisterProfessionalScreen = ({ userId, onBack }) => {
   // ─── FORMULARIO ───────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
+      >
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={step > 1 ? () => setStep(s => s - 1) : onBack}>
@@ -335,7 +349,11 @@ const RegisterProfessionalScreen = ({ userId, onBack }) => {
         <View style={[styles.progressFill, { width: `${(step / 3) * 100}%` }]} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
 
         {/* ─── PASO 1: DATOS PERSONALES ─── */}
         {step === 1 && (
@@ -496,6 +514,7 @@ const RegisterProfessionalScreen = ({ userId, onBack }) => {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
