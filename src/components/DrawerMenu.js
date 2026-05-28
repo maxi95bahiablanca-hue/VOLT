@@ -49,9 +49,10 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
 
   if (!visible && slideX._value === -DRAWER_W) return null;
 
-  const isAdmin  = ADMIN_EMAILS.includes(session?.user?.email);
-  const email    = session?.user?.email ?? '';
-  const name     = session?.user?.user_metadata?.full_name ?? email.split('@')[0];
+  const isAdmin   = ADMIN_EMAILS.includes(session?.user?.email);
+  const email     = session?.user?.email ?? '';
+  const name      = session?.user?.user_metadata?.full_name ?? email.split('@')[0];
+  const userPhoto = professional?.avatar_url ?? session?.user?.user_metadata?.avatar_url ?? null;
   const isWorker = !!professional;
   const isApproved = professional?.verification_status === 'approved';
   const isPending  = professional?.verification_status === 'pending';
@@ -91,8 +92,8 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
           {/* Usuario */}
           <View style={styles.userRow}>
             <View style={styles.userAvatar}>
-              {professional?.avatar_url
-                ? <Image source={{ uri: professional.avatar_url }} style={styles.userAvatarImg} />
+              {userPhoto
+                ? <Image source={{ uri: userPhoto }} style={styles.userAvatarImg} />
                 : <Ionicons name="person" size={22} color="#FFD600" />}
             </View>
             <View style={{ flex: 1 }}>

@@ -31,9 +31,10 @@ const ProfileScreen = ({ session, professional, onClose }) => {
     return <AdminScreen session={session} onClose={() => setShowAdmin(false)} />;
   }
 
-  const user  = session?.user;
-  const email = user?.email ?? '';
-  const name  = user?.user_metadata?.full_name ?? email.split('@')[0];
+  const user      = session?.user;
+  const email     = user?.email ?? '';
+  const name      = user?.user_metadata?.full_name ?? email.split('@')[0];
+  const userPhoto = professional?.avatar_url ?? user?.user_metadata?.avatar_url ?? null;
 
   const handleSignOut = () => {
     Alert.alert('¿Cerrar sesión?', 'Deberás volver a iniciar sesión.', [
@@ -75,8 +76,8 @@ const ProfileScreen = ({ session, professional, onClose }) => {
         {/* Avatar + nombre */}
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>
-            {professional?.avatar_url
-              ? <Image source={{ uri: professional.avatar_url }} style={styles.avatarImg} />
+            {userPhoto
+              ? <Image source={{ uri: userPhoto }} style={styles.avatarImg} />
               : <Ionicons name="person" size={44} color="#FFD600" />}
           </View>
           <Text style={styles.userName}>{name}</Text>

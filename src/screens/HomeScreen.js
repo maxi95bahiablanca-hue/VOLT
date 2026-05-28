@@ -8,6 +8,7 @@ import VoltMap from '../components/VoltMap';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import locationService from '../services/locationService';
+import * as Location from 'expo-location';
 import professionService from '../services/professionService';
 import professionalService from '../services/professionalService';
 import RegisterProfessionalScreen from './RegisterProfessionalScreen';
@@ -104,7 +105,9 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose }) => {
 
       <TouchableOpacity style={styles.requestBtn} onPress={() => onContact(worker)} activeOpacity={0.85}>
         <Ionicons name="flash" size={20} color="#0A0A0A" />
-        <Text style={styles.requestBtnText}>Solicitar — $30.000 visita</Text>
+        <Text style={styles.requestBtnText}>
+          Solicitar — ${(worker.min_price || 30000).toLocaleString('es-AR')} visita
+        </Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -234,7 +237,6 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
       // Reverse geocode para obtener la dirección legible
       let address = null;
       try {
-        const Location = require('expo-location');
         const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
         if (place) {
           const parts = [place.street, place.streetNumber, place.city || place.subregion].filter(Boolean);

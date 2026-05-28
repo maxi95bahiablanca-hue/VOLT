@@ -46,8 +46,14 @@ const HistoryScreen = ({ session, professional, onClose }) => {
   };
 
   const completedJobs = jobs.filter(j => j.status === 'completed');
-  const totalSpent    = completedJobs.reduce((acc, j) => acc + (j.visit_amount || 0) + (j.work_amount || 0), 0);
-  const totalEarned   = completedJobs.reduce((acc, j) => acc + Math.round((j.work_amount || 0) * (1 - (j.commission_pct || 20) / 100)), 0);
+  // Si hay work_amount el cliente pagó solo eso (la visita va incluida/descontada del total).
+  // Si no hay work_amount, el cliente pagó solo la visita.
+  const totalSpent  = completedJobs.reduce((acc, j) => acc + (j.work_amount || j.visit_amount || 0), 0);
+  // El trabajador cobra work_amount menos comisión. Si solo fue visita, cobra visit_amount menos comisión.
+  const totalEarned = completedJobs.reduce((acc, j) => {
+    const base = j.work_amount || j.visit_amount || 0;
+    return acc + Math.round(base * (1 - (j.commission_pct || 20) / 100));
+  }, 0);
 
   return (
     <SafeAreaView style={styles.container}>
