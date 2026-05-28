@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
+import MacheteScreen from './MacheteScreen';
 
 const STATUS_LABEL = {
   pending:          { label: 'Pendiente',    color: '#888' },
@@ -20,7 +21,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
   const [jobs, setJobs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
-  const [tab, setTab]           = useState('jobs'); // 'jobs' | 'earnings'
+  const [tab, setTab]           = useState('jobs'); // 'jobs' | 'earnings' | 'machete'
 
   const commission = professional.completed_jobs >= 100 && professional.avg_rating >= 4.8 ? 10
     : professional.completed_jobs >= 50  && professional.avg_rating >= 4.5 ? 14
@@ -139,9 +140,14 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
           <TouchableOpacity style={[styles.tab, tab === 'earnings' && styles.tabActive]} onPress={() => setTab('earnings')}>
             <Text style={[styles.tabText, tab === 'earnings' && styles.tabTextActive]}>Ingresos</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.tab, tab === 'machete' && styles.tabActive]} onPress={() => setTab('machete')}>
+            <Text style={[styles.tabText, tab === 'machete' && styles.tabTextActive]}>⚡ Machete</Text>
+          </TouchableOpacity>
         </View>
 
-        {loading ? (
+        {tab === 'machete' ? (
+          <MacheteScreen professional={professional} />
+        ) : loading ? (
           <ActivityIndicator color="#FFD600" style={{ marginTop: 32 }} />
         ) : tab === 'jobs' ? (
           /* ─── Lista de trabajos ─── */
