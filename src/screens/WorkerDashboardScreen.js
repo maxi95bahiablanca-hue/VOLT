@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
-import MACHETE from '../data/machete';
 
 const STATUS_LABEL = {
   pending:          { label: 'Pendiente',    color: '#888' },
@@ -21,11 +20,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
   const [jobs, setJobs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
-  const [tab, setTab]           = useState('jobs'); // 'jobs' | 'earnings' | 'machete'
-  const [macheteProf, setMacheteProf]     = useState(null);
-  const [macheteProfs, setMacheteProfs]   = useState([]);
-  const [macheteExpanded, setMacheteExp]  = useState(null);
-  const [macheteLoaded, setMacheteLoaded] = useState(false);
+  const [tab, setTab]           = useState('jobs'); // 'jobs' | 'earnings'
 
   const commission = professional.completed_jobs >= 100 && professional.avg_rating >= 4.8 ? 10
     : professional.completed_jobs >= 50  && professional.avg_rating >= 4.5 ? 14
@@ -39,20 +34,6 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
     : level === 'Verificado' ? '#4CAF50' : '#888';
 
   useEffect(() => { fetchJobs(); }, []);
-
-  const fetchMacheteProfs = async () => {
-    if (macheteLoaded) return;
-    try {
-      const { data } = await supabase
-        .from('professional_professions')
-        .select('professions(name)')
-        .eq('professional_id', professional.id);
-      const names = (data || []).map(r => r.professions?.name).filter(Boolean);
-      setMacheteProfs(names);
-      if (names.length > 0) setMacheteProf(names[0]);
-    } catch { /* silent */ }
-    setMacheteLoaded(true);
-  };
 
   const fetchJobs = async () => {
     try {
@@ -158,73 +139,9 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
           <TouchableOpacity style={[styles.tab, tab === 'earnings' && styles.tabActive]} onPress={() => setTab('earnings')}>
             <Text style={[styles.tabText, tab === 'earnings' && styles.tabTextActive]}>Ingresos</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.tab, tab === 'machete' && styles.tabActive]} onPress={() => { setTab('machete'); fetchMacheteProfs(); }}>
-            <Text style={[styles.tabText, tab === 'machete' && styles.tabTextActive]}>⚡ Machete</Text>
-          </TouchableOpacity>
         </View>
 
-        {tab === 'machete' ? (
-          <View style={styles.listWrap}>
-            {/* Selector de profesión */}
-            {macheteProfs.length > 1 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                {macheteProfs.map(p => (
-                  <TouchableOpacity key={p}
-                    style={[styles.mChip, macheteProf === p && styles.mChipOn]}
-                    onPress={() => { setMacheteProf(p); setMacheteExp(null); }}>
-                    <Text style={[styles.mChipTxt, macheteProf === p && styles.mChipTxtOn]}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-            {macheteProf && <Text style={styles.mTitle}>{macheteProf}</Text>}
-            {(MACHETE && macheteProf ? (MACHETE[macheteProf] || []) : []).map((item, idx) => {
-              const open = macheteExpanded === idx;
-              return (
-                <TouchableOpacity key={idx}
-                  style={[styles.mCard, open && styles.mCardOpen]}
-                  onPress={() => setMacheteExp(open ? null : idx)}
-                  activeOpacity={0.8}>
-                  <View style={styles.mCardHead}>
-                    <Ionicons name={open ? 'chevron-up-circle' : 'chevron-down-circle-outline'} size={20} color={open ? '#FFD600' : '#444'} />
-                    <Text style={[styles.mProblem, open && styles.mProblemOpen]}>{item.problema}</Text>
-                  </View>
-                  {open && (
-                    <View style={styles.mBody}>
-                      <View style={styles.mCausaBox}>
-                        <Text style={styles.mCausaLbl}>Causa probable</Text>
-                        <Text style={styles.mCausaTxt}>{item.causa}</Text>
-                      </View>
-                      <Text style={styles.mSectionLbl}>Pasos</Text>
-                      {item.solucion.map((paso, i) => (
-                        <View key={i} style={styles.mStep}>
-                          <View style={styles.mStepBubble}><Text style={styles.mStepNum}>{i + 1}</Text></View>
-                          <Text style={styles.mStepTxt}>{paso}</Text>
-                        </View>
-                      ))}
-                      <Text style={styles.mSectionLbl}>Materiales</Text>
-                      {item.materiales.map((mat, i) => (
-                        <View key={i} style={styles.mMat}>
-                          <Ionicons name="checkmark-circle" size={14} color="#4CAF50" style={{ marginTop: 2 }} />
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.mMatTxt}>{typeof mat === 'string' ? mat : mat.item}</Text>
-                            {typeof mat === 'object' && mat.marca && <Text style={styles.mMatSub}>{mat.marca} · {mat.precio}</Text>}
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-            {macheteLoaded && macheteProfs.length === 0 && (
-              <View style={styles.emptyWrap}>
-                <Ionicons name="construct-outline" size={40} color="#222" />
-                <Text style={styles.emptyText}>No tenés profesiones registradas</Text>
-              </View>
-            )}
-          </View>
-        ) : loading ? (
+        {loading ? (
           <ActivityIndicator color="#FFD600" style={{ marginTop: 32 }} />
         ) : tab === 'jobs' ? (
           /* ─── Lista de trabajos ─── */
@@ -421,30 +338,6 @@ const styles = StyleSheet.create({
   earningProfession: { fontSize: 14, color: '#F5F5F5', fontWeight: '600', marginBottom: 2 },
   earningDate:       { fontSize: 12, color: '#444' },
   earningAmount:     { fontSize: 16, fontWeight: '800', color: '#4CAF50' },
-
-  // ── Machete ──────────────────────────────────────────
-  mChip: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#111', borderRadius: 20, borderWidth: 1, borderColor: '#222', marginRight: 8 },
-  mChipOn: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
-  mChipTxt: { fontSize: 13, color: '#555', fontWeight: '600' },
-  mChipTxtOn: { color: '#0A0A0A' },
-  mTitle: { fontSize: 16, fontWeight: '800', color: '#FFD600', marginBottom: 10, marginTop: 4 },
-  mCard: { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1E1E1E', marginBottom: 8, overflow: 'hidden' },
-  mCardOpen: { borderColor: '#FFD60040' },
-  mCardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
-  mProblem: { flex: 1, fontSize: 14, fontWeight: '600', color: '#CCC', lineHeight: 20 },
-  mProblemOpen: { color: '#F5F5F5', fontWeight: '700' },
-  mBody: { paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 1, borderTopColor: '#1E1E1E', paddingTop: 12 },
-  mCausaBox: { backgroundColor: '#0A0A0A', borderRadius: 10, padding: 12, marginBottom: 14, borderLeftWidth: 3, borderLeftColor: '#FF9800' },
-  mCausaLbl: { fontSize: 10, color: '#FF9800', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
-  mCausaTxt: { fontSize: 13, color: '#AAA', lineHeight: 19 },
-  mSectionLbl: { fontSize: 10, color: '#555', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginTop: 14 },
-  mStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
-  mStepBubble: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
-  mStepNum: { fontSize: 11, fontWeight: '900', color: '#0A0A0A' },
-  mStepTxt: { flex: 1, fontSize: 13, color: '#CCC', lineHeight: 19 },
-  mMat: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-  mMatTxt: { fontSize: 13, color: '#CCC', fontWeight: '500' },
-  mMatSub: { fontSize: 11, color: '#555', marginTop: 1 },
 });
 
 export default WorkerDashboardScreen;
