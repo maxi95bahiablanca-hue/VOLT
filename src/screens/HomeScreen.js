@@ -423,7 +423,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
 
   // ─── Navegación interna ──────────────────────────────
   if (showRegister) {
-    return <RegisterProfessionalScreen userId={userId} onBack={() => setShowRegister(false)} />;
+    return <RegisterProfessionalScreen userId={userId} session={session} onBack={() => setShowRegister(false)} />;
   }
   if (showProfile) {
     return <ProfileScreen session={session} professional={professional} onClose={() => setShowProfile(false)} />;

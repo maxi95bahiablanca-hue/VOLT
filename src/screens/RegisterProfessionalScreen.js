@@ -62,7 +62,7 @@ const PhotoButton = ({ label, hint, uri, onPress, icon = 'camera-outline' }) => 
 );
 
 // ─── SCREEN ───────────────────────────────────────────────────────────────────
-const RegisterProfessionalScreen = ({ userId, onBack }) => {
+const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
   const [step, setStep]           = useState(1); // 1: datos, 2: profesiones, 3: docs
   const [initializing, setInit]   = useState(true);
   const [saving, setSaving]       = useState(false);
@@ -114,10 +114,18 @@ const RegisterProfessionalScreen = ({ userId, onBack }) => {
             });
             setSelections(sels);
           }
-          if (prof.avatar_url)   setAvatar({ uri: prof.avatar_url });
-          if (prof.selfie_url)   setSelfie({ uri: prof.selfie_url });
+          if (prof.avatar_url)    setAvatar({ uri: prof.avatar_url });
+          if (prof.selfie_url)    setSelfie({ uri: prof.selfie_url });
           if (prof.dni_front_url) setDniFront({ uri: prof.dni_front_url });
           if (prof.dni_back_url)  setDniBack({ uri: prof.dni_back_url });
+        } else {
+          // Primera vez: pre-popular nombre/apellido desde Google OAuth
+          const meta = session?.user?.user_metadata;
+          if (meta?.full_name) {
+            const parts = meta.full_name.trim().split(' ');
+            setNombre(parts[0] || '');
+            setApellido(parts.slice(1).join(' ') || '');
+          }
         }
       } catch { /* silent */ }
       finally { setInit(false); }

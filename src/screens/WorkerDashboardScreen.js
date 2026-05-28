@@ -91,14 +91,15 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
 
   // Calcular ingresos
   const completedJobs  = jobs.filter(j => j.status === 'completed');
-  const totalEarned    = completedJobs.reduce((acc, j) => acc + (j.work_amount || 0) * (1 - (j.commission_pct || 20) / 100), 0);
+  const earningBase    = j => j.work_amount || j.visit_amount || 0;
+  const totalEarned    = completedJobs.reduce((acc, j) => acc + Math.round(earningBase(j) * (1 - (j.commission_pct || 20) / 100)), 0);
   const totalVisits    = completedJobs.length;
   const thisMonthJobs  = completedJobs.filter(j => {
     const d = new Date(j.completed_at);
     const now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const thisMonthEarned = thisMonthJobs.reduce((acc, j) => acc + (j.work_amount || 0) * (1 - (j.commission_pct || 20) / 100), 0);
+  const thisMonthEarned = thisMonthJobs.reduce((acc, j) => acc + Math.round(earningBase(j) * (1 - (j.commission_pct || 20) / 100)), 0);
 
   return (
     <SafeAreaView style={styles.container}>
