@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, BackHandler } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -110,6 +110,39 @@ export default function App() {
   };
 
   // Listener de notificaciones — activo solo en build de producción (EAS)
+
+  // ─── Android hardware back button ─────────────────────
+  useEffect(() => {
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen === 'jobRequest') {
+        setJobRequestData(null);
+        setScreen('home');
+        return true;
+      }
+      if (screen === 'quoteSelection') {
+        if (quoteGroupId && quoteJobs.length > 0) {
+          Promise.all(
+            quoteJobs
+              .filter(j => ['pending', 'accepted'].includes(j.status))
+              .map(j => jobService.cancel(j.id, session?.user?.id))
+          ).catch(() => {});
+        }
+        setQuoteGroupId(null);
+        setQuoteJobs([]);
+        setScreen('home');
+        return true;
+      }
+      if (screen === 'workerIncoming') return true; // consume — no salir durante trabajo entrante
+      if (screen === 'jobTracking')    return true; // consume — no salir durante trabajo activo
+      if (screen === 'rating') {
+        setCompletedJob(null);
+        setScreen('home');
+        return true;
+      }
+      return false; // 'home' → permite salir normalmente
+    });
+    return () => handler.remove();
+  }, [screen, quoteGroupId, quoteJobs, session?.user?.id]);
 
   // ─── Callbacks de HomeScreen ──────────────────────────
   const handleRequestJob = (worker, profession, userLocation) => {
