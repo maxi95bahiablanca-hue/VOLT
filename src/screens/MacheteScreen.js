@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
-import { MACHETE } from '../data/machete';
+import MACHETE from '../data/machete';
 
 const MacheteScreen = ({ professional }) => {
   const [professions, setProfessions]   = useState([]);
@@ -28,7 +28,7 @@ const MacheteScreen = ({ professional }) => {
     finally { setLoading(false); }
   };
 
-  const problems = selectedProf ? (MACHETE[selectedProf] || []) : [];
+  const problems = selectedProf && MACHETE ? (MACHETE[selectedProf] || []) : [];
 
   if (loading) return <ActivityIndicator color="#FFD600" style={{ marginTop: 40 }} />;
 

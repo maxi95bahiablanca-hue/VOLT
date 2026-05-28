@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   SafeAreaView, Animated, Easing, Dimensions, ScrollView,
-  ActivityIndicator, Platform, Image, Linking, Alert, BackHandler,
+  ActivityIndicator, Platform, Image, Linking, Alert,
 } from 'react-native';
 import VoltMap from '../components/VoltMap';
 import { Ionicons } from '@expo/vector-icons';
@@ -190,23 +190,6 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     const t = setInterval(() => setTipIndex(i => (i + 1) % tips.length), 7000);
     return () => clearInterval(t);
   }, [professional]);
-
-  // Botón físico de atrás en Android
-  useEffect(() => {
-    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (showPrivacy)     { setShowPrivacy(false);     return true; }
-      if (showHowItWorks)  { setShowHowItWorks(false);  return true; }
-      if (showAdmin)       { setShowAdmin(false);       return true; }
-      if (showWorkerPanel) { setShowWorkerPanel(false); return true; }
-      if (showHistory)     { setShowHistory(false);     return true; }
-      if (showProfile)     { setShowProfile(false);     return true; }
-      if (showRegister)    { setShowRegister(false);    return true; }
-      if (showDrawer)      { setShowDrawer(false);      return true; }
-      if (selectedWorker)  { closeCard();               return true; }
-      return false;
-    });
-    return () => handler.remove();
-  }, [showPrivacy, showHowItWorks, showAdmin, showWorkerPanel, showHistory, showProfile, showRegister, showDrawer, selectedWorker]);
 
   // Sincronizar available cuando llega professional desde App.js
   useEffect(() => {
