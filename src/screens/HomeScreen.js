@@ -229,14 +229,28 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
       const granted = await locationService.requestPermission();
       if (!granted) return;
       const pos = await locationService.getCurrentLocation();
+      const { latitude, longitude } = pos.coords;
+
+      // Reverse geocode para obtener la dirección legible
+      let address = null;
+      try {
+        const Location = require('expo-location');
+        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (place) {
+          const parts = [place.street, place.streetNumber, place.city || place.subregion].filter(Boolean);
+          address = parts.join(', ') || null;
+        }
+      } catch { /* sin dirección, el usuario puede ingresarla manualmente */ }
+
       const loc = {
-        latitude:  pos.coords.latitude,
-        longitude: pos.coords.longitude,
+        latitude,
+        longitude,
         latitudeDelta:  0.04,
         longitudeDelta: 0.04,
+        address,
       };
       setUserLocation(loc);
-      if (selectedProfession) fetchWorkers(selectedProfession.id, pos.coords.latitude, pos.coords.longitude);
+      if (selectedProfession) fetchWorkers(selectedProfession.id, latitude, longitude);
     } catch { /* silent */ }
   };
 

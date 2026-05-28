@@ -13,6 +13,10 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
   const [loading, setLoading] = useState(false);
   const [notesTouched, setNotesTouched] = useState(false);
 
+  // Dirección del servicio — auto-detectada, editable si el usuario no está en el lugar
+  const [address, setAddress]         = useState(userLocation?.address || '');
+  const [editingAddress, setEditingAddress] = useState(false);
+
   const stars      = Math.round(parseFloat(worker.avg_rating) || 0);
   const visitPrice = worker.min_price || 30000;
 
@@ -43,7 +47,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
         professionId: profession.id,
         clientLat:    userLocation?.latitude,
         clientLng:    userLocation?.longitude,
-        address:      userLocation?.address || 'Ubicación actual',
+        address:      address.trim() || 'Ubicación GPS',
         notes:        notes.trim(),
       });
 
@@ -105,6 +109,39 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
                 : `${(worker.distance_meters / 1000).toFixed(1)} km`}
             </Text>
           </View>
+        </View>
+
+        {/* ─── Dirección del servicio ─── */}
+        <View style={styles.addressSection}>
+          <View style={styles.addressRow}>
+            <Ionicons name="location-sharp" size={16} color="#FFD600" />
+            <Text style={styles.addressLabel}>Dirección del servicio</Text>
+            <TouchableOpacity onPress={() => setEditingAddress(e => !e)} style={styles.addressEditBtn}>
+              <Ionicons name={editingAddress ? 'checkmark' : 'pencil-outline'} size={15} color="#888" />
+              <Text style={styles.addressEditText}>{editingAddress ? 'Listo' : 'Cambiar'}</Text>
+            </TouchableOpacity>
+          </View>
+          {editingAddress ? (
+            <TextInput
+              style={styles.addressInput}
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Ej: Av. Colón 1234, Bahía Blanca"
+              placeholderTextColor="#444"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => setEditingAddress(false)}
+            />
+          ) : (
+            <Text style={styles.addressText} numberOfLines={2}>
+              {address.trim() || 'GPS activo — ubicación automática'}
+            </Text>
+          )}
+          {!address.trim() && !editingAddress && (
+            <Text style={styles.addressHint}>
+              No estás en el domicilio? Tocá "Cambiar" para ingresar la dirección donde necesitás el servicio.
+            </Text>
+          )}
         </View>
 
         {/* ─── Descripción del problema (prominente, requerida) ─── */}
@@ -231,6 +268,22 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#2a2a1a',
   },
   distText: { color: '#FFD600', fontSize: 12, fontWeight: '700' },
+
+  addressSection: {
+    backgroundColor: '#111', borderRadius: 18,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 14, marginBottom: 16,
+  },
+  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  addressLabel: { flex: 1, fontSize: 13, fontWeight: '700', color: '#888' },
+  addressEditBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4 },
+  addressEditText: { fontSize: 12, color: '#888' },
+  addressText: { fontSize: 14, color: '#F5F5F5', lineHeight: 20 },
+  addressInput: {
+    backgroundColor: '#0A0A0A', borderRadius: 10, borderWidth: 1, borderColor: '#FFD600',
+    color: '#F5F5F5', fontSize: 14, padding: 12,
+  },
+  addressHint: { fontSize: 11, color: '#555', marginTop: 6, lineHeight: 16 },
 
   multiNotice: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
