@@ -153,7 +153,14 @@ const LoginScreen = () => {
             )}
 
             <Text style={styles.terms}>
-              Al continuar aceptás los Términos de servicio{'\n'}y la Política de privacidad de VOLT
+              Al continuar aceptás los Términos de servicio{'\n'}y la{' '}
+              <Text
+                style={styles.termsLink}
+                onPress={() => WebBrowser.openBrowserAsync('https://maxi95bahiablanca-hue.github.io/VOLT/privacy.html')}
+              >
+                Política de privacidad
+              </Text>
+              {' '}de VOLT
             </Text>
 
           </ScrollView>
@@ -318,6 +325,7 @@ const styles = StyleSheet.create({
   terms: {
     fontSize: 11, color: '#333', textAlign: 'center', lineHeight: 17, marginTop: 8,
   },
+  termsLink: { color: '#FFD600', textDecorationLine: 'underline' },
 
   version: {
     textAlign: 'center', fontSize: 11, color: '#1a1a1a', paddingBottom: 12,
