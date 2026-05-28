@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -16,6 +16,19 @@ import JobTrackingScreen from './src/screens/JobTrackingScreen';
 import RatingScreen from './src/screens/RatingScreen';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// Capturador global — muestra el error antes de que la app crashee
+if (!__DEV__) {
+  const prev = ErrorUtils.getGlobalHandler();
+  ErrorUtils.setGlobalHandler((error, isFatal) => {
+    Alert.alert(
+      isFatal ? 'CRASH FATAL' : 'Error JS',
+      String(error?.stack || error?.message || error).slice(0, 800),
+      [{ text: 'OK' }]
+    );
+    prev?.(error, isFatal);
+  });
+}
 
 // Screens: 'home' | 'jobRequest' | 'quoteSelection' | 'workerIncoming' | 'jobTracking' | 'rating'
 
