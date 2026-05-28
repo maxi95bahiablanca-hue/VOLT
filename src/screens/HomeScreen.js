@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   SafeAreaView, Animated, Easing, Dimensions, ScrollView,
-  ActivityIndicator, Platform, Image, Linking, Alert,
+  ActivityIndicator, Platform, Image, Linking, Alert, PanResponder,
 } from 'react-native';
 import VoltMap from '../components/VoltMap';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,10 @@ import DrawerMenu from '../components/DrawerMenu';
 const { height: SCREEN_H } = Dimensions.get('window');
 const BUTTON_SIZE = 64;
 const CARD_H = 260;
+
+const PANEL_FULL   = 330;
+const PANEL_PEEK   = 155;
+const PANEL_HIDDEN = PANEL_FULL - PANEL_PEEK;
 
 const CLIENT_TIPS = [
   { icon: 'shield-checkmark-outline', color: '#4CAF50', text: 'Siempre pedí el código de verificación antes de abrir la puerta' },
@@ -177,6 +181,29 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
 
   // Card animation
   const slideAnim = useRef(new Animated.Value(CARD_H)).current;
+
+  // Panel deslizante
+  const panelY    = useRef(new Animated.Value(PANEL_HIDDEN)).current;
+  const panelBase = useRef(PANEL_HIDDEN);
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderGrant: () => {
+      panelY.setOffset(panelBase.current);
+      panelY.setValue(0);
+    },
+    onPanResponderMove: (_, g) => {
+      panelY.setValue(Math.min(PANEL_HIDDEN, Math.max(-20, g.dy)));
+    },
+    onPanResponderRelease: (_, g) => {
+      panelY.flattenOffset();
+      const approxPos = panelBase.current + g.dy;
+      const expand = g.vy < -0.5 || approxPos < PANEL_HIDDEN / 2;
+      const toValue = expand ? 0 : PANEL_HIDDEN;
+      panelBase.current = toValue;
+      Animated.spring(panelY, { toValue, useNativeDriver: true, tension: 60, friction: 12 }).start();
+    },
+  })).current;
 
   // ─── Carga inicial ───────────────────────────────────
   useEffect(() => {
@@ -471,11 +498,64 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
         )}
       </SafeAreaView>
 
-      {/* PANEL INFERIOR — siempre visible cuando no hay card abierta */}
+      {/* PANEL INFERIOR DESLIZANTE */}
       {!selectedWorker && (
-        <View style={styles.bottomPanel}>
+        <Animated.View
+          style={[styles.bottomPanel, { transform: [{ translateY: panelY }] }]}
+          {...panResponder.panHandlers}
+        >
+          {/* Handle de arrastre */}
+          <View style={styles.panelHandle} />
 
-          {/* Botón principal de disponibilidad para trabajadores */}
+          {/* Título + 911 — siempre visible al abrir el panel */}
+          <View style={styles.panelTitleRow}>
+            <Text style={styles.panelTitle}>¿Qué necesitás?</Text>
+            <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
+              <Ionicons name="call" size={18} color="#ff4444" />
+              <Text style={styles.emergencyBtnText}>911</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Chips de profesiones — siempre visibles */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsContent}
+          >
+            {professions.map(p => {
+              const active = selectedProfession?.id === p.id;
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  style={[styles.profChip, active && styles.profChipActive]}
+                  onPress={() => active ? clearProfession() : selectProfession(p)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="flash" size={14} color={active ? '#0A0A0A' : '#FFD600'} />
+                  <Text style={[styles.profChipText, active && styles.profChipTextActive]}>{p.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* Tip rotativo — visible al expandir */}
+          {(() => {
+            const tips = professional ? WORKER_TIPS : CLIENT_TIPS;
+            const tip = tips[tipIndex % tips.length];
+            return (
+              <TouchableOpacity
+                style={styles.tipCard}
+                onPress={() => setTipIndex(i => (i + 1) % tips.length)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={tip.icon} size={16} color={tip.color} />
+                <Text style={styles.tipText}>{tip.text}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#333" />
+              </TouchableOpacity>
+            );
+          })()}
+
+          {/* Botón disponibilidad trabajador — visible al expandir */}
           {professional && (
             <TouchableOpacity
               style={[styles.workerToggleBtn, available && styles.workerToggleBtnOn]}
@@ -497,55 +577,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
               </TouchableOpacity>
             </TouchableOpacity>
           )}
-
-          {/* Tip rotativo */}
-          {(() => {
-            const tips = professional ? WORKER_TIPS : CLIENT_TIPS;
-            const tip = tips[tipIndex % tips.length];
-            return (
-              <TouchableOpacity
-                style={styles.tipCard}
-                onPress={() => setTipIndex(i => (i + 1) % tips.length)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name={tip.icon} size={16} color={tip.color} />
-                <Text style={styles.tipText}>{tip.text}</Text>
-                <Ionicons name="chevron-forward" size={14} color="#333" />
-              </TouchableOpacity>
-            );
-          })()}
-
-          {/* Título + emergencias */}
-          <View style={styles.panelTitleRow}>
-            <Text style={styles.panelTitle}>¿Qué necesitás?</Text>
-            <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
-              <Ionicons name="call" size={12} color="#ff4444" />
-              <Text style={styles.emergencyBtnText}>911</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Chips de profesiones */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsContent}
-          >
-            {professions.map(p => {
-              const active = selectedProfession?.id === p.id;
-              return (
-                <TouchableOpacity
-                  key={p.id}
-                  style={[styles.profChip, active && styles.profChipActive]}
-                  onPress={() => active ? clearProfession() : selectProfession(p)}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons name="flash" size={13} color={active ? '#0A0A0A' : '#FFD600'} />
-                  <Text style={[styles.profChipText, active && styles.profChipTextActive]}>{p.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+        </Animated.View>
       )}
 
       {/* CARD del trabajador seleccionado */}
@@ -658,13 +690,21 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
 
-  // Panel inferior
+  // Panel inferior deslizante
   bottomPanel: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
+    height: PANEL_FULL,
     backgroundColor: 'rgba(10,10,10,0.97)',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
     borderTopWidth: 1, borderTopColor: '#1a1a1a',
-    paddingTop: 14, paddingBottom: 28, paddingHorizontal: 16,
+    paddingTop: 8, paddingBottom: Platform.OS === 'android' ? 52 : 28,
+    paddingHorizontal: 16,
     gap: 10, zIndex: 10,
+  },
+  panelHandle: {
+    width: 44, height: 5, borderRadius: 3,
+    backgroundColor: '#2a2a2a', alignSelf: 'center',
+    marginBottom: 4,
   },
 
   // Botón principal de disponibilidad trabajador
@@ -696,22 +736,22 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
   emergencyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 8, borderWidth: 1.5, borderColor: '#ff444450',
-    backgroundColor: 'rgba(255,68,68,0.07)',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 10, borderWidth: 1.5, borderColor: '#ff444460',
+    backgroundColor: 'rgba(255,68,68,0.09)',
   },
-  emergencyBtnText: { color: '#ff4444', fontSize: 12, fontWeight: '900' },
+  emergencyBtnText: { color: '#ff4444', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
 
   chipsContent: { gap: 8, paddingRight: 8 },
   profChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#111', borderRadius: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: '#111', borderRadius: 22,
     borderWidth: 1, borderColor: '#222',
-    paddingVertical: 9, paddingHorizontal: 14,
+    paddingVertical: 11, paddingHorizontal: 16,
   },
   profChipActive: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
-  profChipText: { fontSize: 14, color: '#aaa', fontWeight: '600' },
+  profChipText: { fontSize: 15, color: '#aaa', fontWeight: '600' },
   profChipTextActive: { color: '#0A0A0A' },
 
   // Radar

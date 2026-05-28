@@ -5,6 +5,7 @@ import {
   ScrollView,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
@@ -24,7 +25,7 @@ const LoginScreen = () => {
     setLoading(true);
     setError(null);
     try {
-      const redirectTo = makeRedirectUri({ path: 'login-callback' });
+      const redirectTo = Linking.createURL('login-callback');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo, skipBrowserRedirect: true },

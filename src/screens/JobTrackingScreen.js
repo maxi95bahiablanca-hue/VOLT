@@ -311,7 +311,7 @@ window.addEventListener('message', e => {
           </TouchableOpacity>
         )}
         <TouchableOpacity onPress={handleEmergency} style={styles.emergencyBtn}>
-          <Ionicons name="call" size={13} color="#ff4444" />
+          <Ionicons name="call" size={18} color="#ff4444" />
           <Text style={styles.emergencyBtnText}>911</Text>
         </TouchableOpacity>
       </View>
@@ -492,12 +492,12 @@ const styles = StyleSheet.create({
   cancelBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#ff444440' },
   cancelBtnText: { color: '#ff4444', fontSize: 13, fontWeight: '600' },
   emergencyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: 8, borderWidth: 1.5, borderColor: '#ff444460',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 10, borderWidth: 1.5, borderColor: '#ff444460',
     backgroundColor: 'rgba(255,68,68,0.08)',
   },
-  emergencyBtnText: { color: '#ff4444', fontSize: 12, fontWeight: '900' },
+  emergencyBtnText: { color: '#ff4444', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
 
   map: { flex: 1 },
 
