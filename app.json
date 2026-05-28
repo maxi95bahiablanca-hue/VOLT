@@ -71,15 +71,6 @@
       "expo-web-browser",
       "expo-updates",
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#FFD600",
-          "sounds": [],
-          "mode": "production"
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "VOLT necesita acceso a tus fotos para subir documentos y fotos de trabajos.",
