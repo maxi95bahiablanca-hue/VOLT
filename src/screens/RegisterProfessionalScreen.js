@@ -248,7 +248,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
         selfieUrl,
         dniFrontUrl,
         dniBackUrl,
-        verificationStatus: 'pending',
+        verificationStatus: existingStatus === 'approved' ? 'approved' : 'pending',
       });
 
       Alert.alert(
@@ -302,6 +302,31 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
           </View>
           <TouchableOpacity style={styles.editBtn} onPress={() => setExistingStatus(null)}>
             <Text style={styles.editBtnText}>Editar mi solicitud</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (existingStatus === 'approved') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack}><Ionicons name="arrow-back" size={24} color="#F5F5F5" /></TouchableOpacity>
+          <Text style={styles.headerTitle}>Mi perfil</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.statusWrap}>
+          <View style={[styles.statusIcon, { borderColor: '#4CAF5040', backgroundColor: '#001A0D' }]}>
+            <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
+          </View>
+          <Text style={styles.statusTitle}>Perfil aprobado</Text>
+          <Text style={styles.statusSub}>
+            Estás activo en la plataforma y podés recibir trabajos.
+          </Text>
+          <TouchableOpacity style={styles.editBtn} onPress={() => setExistingStatus(null)}>
+            <Ionicons name="pencil-outline" size={16} color="#888" style={{ marginRight: 6 }} />
+            <Text style={styles.editBtnText}>Editar perfil / agregar servicios</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -672,6 +697,7 @@ const styles = StyleSheet.create({
   stepTextActive: { color: '#FFD600', fontWeight: '700' },
 
   editBtn: {
+    flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderColor: '#333',
     borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28,
   },
