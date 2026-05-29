@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  Animated, Easing, Platform, Alert, TextInput, ScrollView,
+  Animated, Easing, Platform, Alert, TextInput, ScrollView, BackHandler, Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 
@@ -26,11 +27,45 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   const [hrsPerSession, setHrsPerSession]     = useState('~4 hs');
 
   const timerRef  = useRef(null);
+  const soundRef  = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const visitAmount = job.visit_amount || 30000;
 
+  const stopAlarm = async () => {
+    Vibration.cancel();
+    if (soundRef.current) {
+      try { await soundRef.current.stopAsync(); await soundRef.current.unloadAsync(); } catch {}
+      soundRef.current = null;
+    }
+  };
+
   useEffect(() => {
+    // Bloquear botón Back — el trabajador debe aceptar o rechazar explícitamente
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
+
+    // Alarma: vibración + sonido en loop
+    const VIBRATE = [0, 400, 200, 400, 200, 400, 600];
+    Vibration.vibrate(VIBRATE, true);
+
+    const startSound = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          staysActiveInBackground: true,
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: false,
+        });
+        const { sound } = await Audio.Sound.createAsync(
+          require('../../assets/job_alert.wav'),
+          { shouldPlay: true, isLooping: true, volume: 1.0 }
+        );
+        soundRef.current = sound;
+      } catch { /* si el sonido falla, la vibración sigue */ }
+    };
+    startSound();
+
+    // Pulso visual
     const pulse = Animated.loop(Animated.sequence([
       Animated.timing(pulseAnim, { toValue: 1.06, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       Animated.timing(pulseAnim, { toValue: 1,    duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
@@ -48,12 +83,18 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
       });
     }, 1000);
 
-    return () => { clearInterval(timerRef.current); pulse.stop(); };
+    return () => {
+      backHandler.remove();
+      clearInterval(timerRef.current);
+      pulse.stop();
+      stopAlarm();
+    };
   }, []);
 
   const handleAccept = async () => {
     if (loading) return;
     clearInterval(timerRef.current);
+    stopAlarm();
     setLoading(true);
     try {
       const diagText = diagnosis.trim() || null;
@@ -85,6 +126,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   const handleReject = async (timeout = false) => {
     if (loading) return;
     clearInterval(timerRef.current);
+    stopAlarm();
     setLoading(true);
     try {
       await jobService.reject(job.id, professional?.id);
