@@ -298,13 +298,13 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
                 <Text style={[styles.breakdownVal, { color: '#4CAF50' }]}>{100 - commission}% del trabajo</Text>
               </View>
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Visita ($30.000)</Text>
+                <Text style={styles.breakdownLabel}>Visita (${(professional.min_price || 30000).toLocaleString('es-AR')})</Text>
                 <Text style={styles.breakdownVal}>La retiene VOLT</Text>
               </View>
             </View>
 
             {completedJobs.slice(0, 20).map(j => {
-              const earned = Math.round((j.work_amount || 0) * (1 - (j.commission_pct || 20) / 100));
+              const earned = Math.round(earningBase(j) * (1 - (j.commission_pct || 20) / 100));
               return (
                 <View key={j.id} style={styles.earningRow}>
                   <View>
