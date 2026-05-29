@@ -135,15 +135,16 @@ const AdminScreen = ({ session, onClose }) => {
         reviewed_by:         session.user.id,
       }).eq('id', professional.id);
 
-      // Notificar al trabajador
-      await notificationService.sendToUser(professional.user_id, {
-        title: action === 'approved'
-          ? '✅ ¡Solicitud aprobada!'
-          : '❌ Solicitud rechazada',
-        body: action === 'approved'
-          ? 'Ya podés activarte en el mapa y empezar a recibir trabajos.'
-          : `Tu solicitud fue rechazada. Motivo: ${note || 'Documentación incompleta'}. Podés volver a enviarla.`,
-        data: { screen: 'home' },
+      // Push + Email al trabajador via Edge Function
+      const { data: { session: s } } = await supabase.auth.getSession();
+      await supabase.functions.invoke('send-worker-notification', {
+        body: {
+          userId:        professional.user_id,
+          action,
+          workerName:    `${professional.first_name} ${professional.last_name}`,
+          rejectionNote: note,
+        },
+        headers: { Authorization: `Bearer ${s?.access_token}` },
       });
 
       Alert.alert(action === 'approved' ? '¡Aprobado!' : 'Rechazado', 'El trabajador fue notificado.');

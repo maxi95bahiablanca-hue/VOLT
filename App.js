@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
+import * as Notifications from 'expo-notifications';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { supabase } from './src/supabase';
 import notificationService from './src/services/notificationService';
@@ -16,6 +17,15 @@ import JobTrackingScreen from './src/screens/JobTrackingScreen';
 import RatingScreen from './src/screens/RatingScreen';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// Mostrar notificaciones aunque la app esté en primer plano
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge:  false,
+  }),
+});
 
 // Screens: 'home' | 'jobRequest' | 'quoteSelection' | 'workerIncoming' | 'jobTracking' | 'rating'
 
@@ -57,7 +67,29 @@ export default function App() {
     notificationService.setup(userId);
     loadProfessionalAndJobs(userId);
 
+    // Listener: notificación recibida con app en primer plano
+    const receivedSub = Notifications.addNotificationReceivedListener(notification => {
+      const data = notification.request.content.data;
+      if (data?.screen === 'tracking' && data?.jobId) {
+        jobService.getById?.(data.jobId).then(job => {
+          if (job) { setActiveJob(job); setScreen('jobTracking'); }
+        }).catch(() => {});
+      }
+    });
+
+    // Listener: usuario toca la notificación
+    const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (data?.screen === 'tracking' && data?.jobId) {
+        jobService.getById?.(data.jobId).then(job => {
+          if (job) { setActiveJob(job); setScreen('jobTracking'); }
+        }).catch(() => {});
+      }
+    });
+
     return () => {
+      receivedSub.remove();
+      responseSub.remove();
       newJobChannelRef.current?.unsubscribe?.();
     };
   }, [session?.user?.id]);
