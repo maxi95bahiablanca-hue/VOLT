@@ -33,7 +33,7 @@ serve(async (req) => {
       // ── 2. Leer el trabajo actual para verificar estado e importes ──────────
       const { data: job } = await supabase
         .from('jobs')
-        .select('status, work_amount, visit_amount, commission_pct')
+        .select('status, work_amount, visit_amount, materials_cost, commission_pct')
         .eq('id', jobId)
         .single();
 
@@ -56,18 +56,19 @@ serve(async (req) => {
       }
 
       // ── 5. Registrar pago (upsert idempotente por mp_payment_id) ────────────
-      const workAmt  = job.work_amount   ?? 0;
-      const visitAmt = job.visit_amount  ?? 30000;
+      const workAmt  = job.work_amount    ?? 0;
+      const visitAmt = job.visit_amount   ?? 30000;
+      const matsAmt  = job.materials_cost ?? 0;
       const commPct  = job.commission_pct ?? 20;
 
       // Contabilidad:
-      // - Cliente paga: visitAmt + workAmt
-      // - VOLT retiene: visitAmt (cargo de visita) + commAmt (% del trabajo)
-      // - Trabajador recibe: workAmt - commAmt
+      // - Cliente paga: visitAmt + matsAmt + workAmt
+      // - VOLT retiene: visitAmt + commAmt (% solo de la mano de obra)
+      // - Trabajador recibe: workAmt - commAmt + matsAmt (recupera el costo de materiales)
       const commAmt   = Math.round(workAmt * commPct / 100);
-      const workerAmt = workAmt - commAmt;
-      const grossAmt  = visitAmt + workAmt;
+      const grossAmt  = visitAmt + matsAmt + workAmt;
       const voltTotal = visitAmt + commAmt;
+      const workerAmt = workAmt - commAmt + matsAmt;
 
       await supabase.from('payments').upsert({
         job_id:         jobId,

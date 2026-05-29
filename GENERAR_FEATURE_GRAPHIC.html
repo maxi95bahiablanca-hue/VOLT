@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>VOLT — Feature Graphic 1024×500</title>
+<style>
+  body { background:#111; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:Arial,sans-serif; gap:20px; }
+  canvas { border:1px solid #333; }
+  button { background:#FFD600; color:#0A0A0A; border:none; padding:14px 32px; border-radius:10px; font-size:16px; font-weight:900; cursor:pointer; }
+  button:hover { background:#f0c800; }
+  p { color:#555; font-size:13px; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1024" height="500"></canvas>
+<button onclick="download()">⬇ Descargar feature-graphic.png</button>
+<p>Guardar en assets/ como feature-graphic.png (subir a Play Store en la ficha de la app)</p>
+
+<script>
+const c   = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+const W = 1024, H = 500;
+const BLACK  = '#0A0A0A';
+const YELLOW = '#FFD600';
+const WHITE  = '#F5F5F5';
+const GRAY   = '#1E1E1E';
+const BLUE   = '#4285F4';
+
+function drawBolt(ctx, cx, cy, h, color) {
+  const w = h * 0.52;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(cx + w * 0.18,  cy - h * 0.50);
+  ctx.lineTo(cx - w * 0.05,  cy - h * 0.04);
+  ctx.lineTo(cx + w * 0.22,  cy - h * 0.04);
+  ctx.lineTo(cx - w * 0.18,  cy + h * 0.50);
+  ctx.lineTo(cx + w * 0.05,  cy + h * 0.04);
+  ctx.lineTo(cx - w * 0.22,  cy + h * 0.04);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function roundRect(ctx, x, y, w, h, r, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fill();
+}
+
+function draw() {
+  // ── Fondo ────────────────────────────────────────────────────────────────
+  ctx.fillStyle = BLACK;
+  ctx.fillRect(0, 0, W, H);
+
+  // Gradiente sutil de fondo
+  const grd = ctx.createLinearGradient(0, 0, W, H);
+  grd.addColorStop(0, 'rgba(255,214,0,0.03)');
+  grd.addColorStop(1, 'rgba(66,133,244,0.05)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Línea separadora vertical ─────────────────────────────────────────────
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(W * 0.48, 40, 1, H - 80);
+
+  // ── LADO IZQUIERDO: logo + tagline ───────────────────────────────────────
+  const leftCX = W * 0.24;
+
+  // Rayo grande
+  drawBolt(ctx, leftCX - 30, H * 0.38, 180, YELLOW);
+
+  // Texto VOLT
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 96px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('VOLT', leftCX - 10, H * 0.38 + 80);
+
+  // Tagline
+  ctx.fillStyle = '#888';
+  ctx.font = '22px Arial';
+  ctx.fillText('Profesionales verificados', leftCX - 30, H * 0.38 + 120);
+  ctx.fillText('a domicilio · 24/7', leftCX - 30, H * 0.38 + 148);
+
+  // Badge rating
+  roundRect(ctx, leftCX - 30, H * 0.38 + 168, 220, 38, 10, '#1a1a1a');
+  ctx.fillStyle = YELLOW;
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('★ 4.9', leftCX - 14, H * 0.38 + 192);
+  ctx.fillStyle = '#555';
+  ctx.font = '14px Arial';
+  ctx.fillText('· Antecedentes verificados', leftCX + 44, H * 0.38 + 192);
+
+  // ── LADO DERECHO: tarjetas de servicios ──────────────────────────────────
+  const rightX = W * 0.52;
+  const cardW  = W * 0.44;
+  const cardH  = 80;
+  const gap    = 16;
+  const startY = H * 0.12;
+
+  const services = [
+    { icon: '⚡', name: 'Electricista',  sub: 'Instalaciones · tableros · tomas',   color: '#1A1A00', accent: YELLOW },
+    { icon: '🔧', name: 'Plomero',        sub: 'Cañerías · pérdidas · instalaciones', color: '#001A0D', accent: '#4CAF50' },
+    { icon: '🔥', name: 'Gasista',         sub: 'Calderas · estufas · habilitaciones', color: '#1A0000', accent: '#FF5722' },
+    { icon: '🎨', name: 'Pintor',           sub: 'Interior · exterior · decoración',   color: '#000D1A', accent: BLUE },
+  ];
+
+  services.forEach((s, i) => {
+    const y = startY + i * (cardH + gap);
+
+    // Card bg
+    roundRect(ctx, rightX, y, cardW, cardH, 14, s.color);
+    // Border
+    ctx.strokeStyle = s.accent + '30';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(rightX, y, cardW, cardH, 14);
+    ctx.stroke();
+
+    // Icon circle
+    roundRect(ctx, rightX + 14, y + (cardH - 52) / 2, 52, 52, 12, '#0A0A0A');
+    ctx.font = '26px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.icon, rightX + 40, y + cardH / 2 + 9);
+
+    // Name
+    ctx.fillStyle = WHITE;
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(s.name, rightX + 78, y + 34);
+
+    // Sub
+    ctx.fillStyle = '#555';
+    ctx.font = '13px Arial';
+    ctx.fillText(s.sub, rightX + 78, y + 55);
+
+    // Accent dot
+    ctx.fillStyle = s.accent;
+    ctx.beginPath();
+    ctx.arc(rightX + cardW - 20, y + cardH / 2, 5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // ── Bottom bar ───────────────────────────────────────────────────────────
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, H - 52, W, 52);
+
+  const items = [
+    { icon: '🔒', text: 'Pago 100% seguro' },
+    { icon: '✅', text: 'Antecedentes verificados' },
+    { icon: '⚡', text: 'En menos de 30 min' },
+    { icon: '📍', text: 'Bahía Blanca y alrededores' },
+  ];
+
+  ctx.textAlign = 'center';
+  items.forEach((item, i) => {
+    const x = W * (0.125 + i * 0.25);
+    ctx.fillStyle = '#444';
+    ctx.font = '15px Arial';
+    ctx.fillText(item.icon + '  ' + item.text, x, H - 20);
+  });
+}
+
+draw();
+
+function download() {
+  const link = document.createElement('a');
+  link.download = 'feature-graphic.png';
+  link.href = c.toDataURL('image/png');
+  link.click();
+}
+</script>
+</body>
+</html>

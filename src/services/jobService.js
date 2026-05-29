@@ -71,15 +71,16 @@ const jobService = {
     return data;
   },
 
-  accept: async (jobId, preDiagnosis, arrivalEstimate, materialsNeeded) => {
+  accept: async (jobId, preDiagnosis, arrivalEstimate, materialsNeeded, workDuration) => {
     const code = String(Math.floor(1000 + Math.random() * 9000));
     return update(jobId, {
       status: 'accepted',
       accepted_at: new Date().toISOString(),
       verification_code: code,
-      ...(preDiagnosis    ? { pre_diagnosis:    preDiagnosis    } : {}),
-      ...(arrivalEstimate ? { arrival_estimate: arrivalEstimate } : {}),
+      ...(preDiagnosis    ? { pre_diagnosis:      preDiagnosis    } : {}),
+      ...(arrivalEstimate ? { arrival_estimate:    arrivalEstimate } : {}),
       ...(materialsNeeded != null ? { materials_needed: materialsNeeded } : {}),
+      ...(workDuration    ? { work_duration_est:   workDuration    } : {}),
     });
   },
 
@@ -96,11 +97,64 @@ const jobService = {
   complete: async (jobId) => update(jobId, { status: 'completed',  completed_at:    new Date().toISOString() }),
   cancel:  async (jobId, userId) => update(jobId, { status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: userId }),
 
+  startBuyingMaterials: async (jobId, minutesAway) => {
+    const eta = new Date(Date.now() + minutesAway * 60000).toISOString();
+    return update(jobId, { is_buying_materials: true, materials_eta: eta });
+  },
+
+  returnedWithMaterials: async (jobId) =>
+    update(jobId, { is_buying_materials: false, materials_eta: null }),
+
+  // ─── Sesiones multi-día ──────────────────────────────────────────────────
+  setMultidayConfig: async (jobId, sessions, hrsPerSession) =>
+    update(jobId, {
+      is_multiday:           true,
+      estimated_sessions:    parseInt(sessions, 10),
+      estimated_hrs_session: hrsPerSession,
+    }),
+
+  startSession: async (jobId) =>
+    update(jobId, {
+      status: 'in_progress',
+      work_started_at:       new Date().toISOString(),
+      current_session_start: new Date().toISOString(),
+    }),
+
+  endSession: async (jobId, sessionStartIso, completedSessions, totalMinutesBefore) => {
+    const started  = new Date(sessionStartIso);
+    const now      = new Date();
+    const minutes  = Math.round((now - started) / 60000);
+    return update(jobId, {
+      status:                'arrived',
+      current_session_start: null,
+      completed_sessions:    completedSessions + 1,
+      total_minutes_worked:  totalMinutesBefore + minutes,
+    });
+  },
+
+  completeMultidayJob: async (jobId, laborAmount, materialsCost = 0, sessionStartIso, completedSessions, totalMinutesBefore) => {
+    const extraMinutes = sessionStartIso
+      ? Math.round((Date.now() - new Date(sessionStartIso)) / 60000)
+      : 0;
+    return update(jobId, {
+      status:                'awaiting_payment',
+      work_amount:           laborAmount,
+      materials_cost:        materialsCost,
+      current_session_start: null,
+      completed_sessions:    completedSessions + (sessionStartIso ? 1 : 0),
+      total_minutes_worked:  totalMinutesBefore + extraMinutes,
+    });
+  },
+
   updateDiagnosis: async (jobId, diagnosis, isFinal = false) =>
     update(jobId, isFinal ? { final_diagnosis: diagnosis } : { pre_diagnosis: diagnosis }),
 
-  setWorkAmount: async (jobId, amount) =>
-    update(jobId, { status: 'awaiting_payment', work_amount: amount }),
+  setWorkAmount: async (jobId, laborAmount, materialsCost = 0) =>
+    update(jobId, {
+      status:         'awaiting_payment',
+      work_amount:    laborAmount,
+      materials_cost: materialsCost,
+    }),
 
   submitReview: async ({ jobId, clientId, professionalId, rating, comment }) => {
     const { error } = await supabase.from('reviews').insert({

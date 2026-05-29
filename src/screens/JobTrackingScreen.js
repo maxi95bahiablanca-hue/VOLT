@@ -38,12 +38,14 @@ const CLIENT_TIPS = {
 
 const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete, onCancel }) => {
   const [job, setJob]               = useState(initialJob);
-  const [workAmount, setWorkAmount] = useState('');
+  const [workAmount, setWorkAmount]     = useState('');
+  const [materialsAmount, setMaterialsAmount] = useState('');
   const [loading, setLoading]       = useState(false);
   const [codeModal, setCodeModal]     = useState(false);
   const [enteredCode, setEnteredCode] = useState('');
-  const [codeResult, setCodeResult]   = useState(null); // null | 'ok' | 'error'
+  const [codeResult, setCodeResult]   = useState(null);
   const [completedModal, setCompletedModal] = useState(false);
+  const [sessionElapsed, setSessionElapsed] = useState(0); // segundos desde inicio de sesión actual
   const completedShownRef = useRef(false);
   const webRef = useRef(null);
 
@@ -53,9 +55,21 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   // Suscribir a cambios del job
   useEffect(() => {
-    const channel = jobService.subscribeToJob(job.id, (updated) => setJob(updated));
+    const channel = jobService.subscribeToJob(job.id, (updated) => setJob(prev => ({ ...prev, ...updated })));
     return () => { if (channel) channel.unsubscribe?.(); };
   }, [job.id]);
+
+  // Timer de sesión actual (cuando current_session_start está seteado)
+  useEffect(() => {
+    if (!job.current_session_start) { setSessionElapsed(0); return; }
+    const calc = () => {
+      const diff = Math.floor((Date.now() - new Date(job.current_session_start)) / 1000);
+      setSessionElapsed(Math.max(0, diff));
+    };
+    calc();
+    const t = setInterval(calc, 1000);
+    return () => clearInterval(t);
+  }, [job.current_session_start]);
 
   // Cancelación o finalización detectada vía realtime
   useEffect(() => {
@@ -109,17 +123,23 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         notifTitle = '🔧 Trabajo iniciado';
         notifBody  = 'El profesional comenzó el trabajo.';
       } else if (action === 'set_amount') {
-        const amount = parseInt(workAmount.replace(/\D/g, ''), 10);
-        if (!amount || amount < 1000) {
-          Alert.alert('Revisá el monto', 'Ingresá el costo del trabajo (sin incluir la visita).');
+        const labor = parseInt(workAmount.replace(/\D/g, ''), 10);
+        if (!labor || labor < 1000) {
+          Alert.alert('Revisá el monto', 'Ingresá el costo de la mano de obra (sin visita ni materiales).');
           setLoading(false);
           return;
         }
-        await jobService.setWorkAmount(job.id, amount);
-        const visitAmount = job.visit_amount || 30000;
-        const total = visitAmount + amount;
+        const mats  = parseInt(materialsAmount.replace(/\D/g, ''), 10) || 0;
+        await jobService.setWorkAmount(job.id, labor, mats);
+        const visitAmt = job.visit_amount || 30000;
+        const total    = visitAmt + mats + labor;
         notifTitle = '💳 Pago pendiente';
-        notifBody  = `Visita $${visitAmount.toLocaleString('es-AR')} + Trabajo $${amount.toLocaleString('es-AR')} = Total $${total.toLocaleString('es-AR')}. Confirmá para pagar.`;
+        notifBody  = [
+          mats > 0
+            ? `Visita $${visitAmt.toLocaleString('es-AR')} + Materiales $${mats.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`
+            : `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`,
+          'Confirmá para pagar.',
+        ].join(' ');
       }
 
       if (notifTitle) {
@@ -180,6 +200,26 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const statusInfo = STATUS_INFO[job.status] || STATUS_INFO.pending;
   const tip = isWorker ? WORKER_TIPS[job.status] : CLIENT_TIPS[job.status];
+
+  const fmtTime = (secs) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    if (h > 0) return `${h}h ${m.toString().padStart(2,'0')}min`;
+    if (m > 0) return `${m}min ${s.toString().padStart(2,'0')}s`;
+    return `${s}s`;
+  };
+
+  const totalMinutesFormatted = () => {
+    const total = (job.total_minutes_worked || 0) + Math.floor(sessionElapsed / 60);
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    if (h > 0) return `${h}h ${m}min`;
+    return `${m}min`;
+  };
+
+  const isMultiday = !!job.is_multiday;
+  const inSession  = !!job.current_session_start;
 
   const mapHtml = `
 <!DOCTYPE html><html>
@@ -349,13 +389,19 @@ window.addEventListener('message', e => {
           )}
 
           {/* Respuesta del profesional — cliente cuando status = accepted */}
-          {!isWorker && job.status === 'accepted' && (job.arrival_estimate || job.pre_diagnosis || job.materials_needed) && (
+          {!isWorker && job.status === 'accepted' && (job.arrival_estimate || job.pre_diagnosis || job.materials_needed || job.work_duration_est) && (
             <View style={styles.workerResponseCard}>
               <Text style={styles.workerResponseTitle}>Respuesta del profesional</Text>
               {job.arrival_estimate ? (
                 <View style={styles.workerResponseRow}>
                   <Ionicons name="time-outline" size={15} color="#4285F4" />
                   <Text style={styles.workerResponseText}>Llega en {job.arrival_estimate}</Text>
+                </View>
+              ) : null}
+              {job.work_duration_est ? (
+                <View style={styles.workerResponseRow}>
+                  <Ionicons name="calendar-outline" size={15} color="#4CAF50" />
+                  <Text style={styles.workerResponseText}>Duración estimada: {job.work_duration_est}</Text>
                 </View>
               ) : null}
               {job.pre_diagnosis ? (
@@ -367,14 +413,53 @@ window.addEventListener('message', e => {
               {job.materials_needed ? (
                 <View style={styles.workerResponseRow}>
                   <Ionicons name="construct-outline" size={15} color="#FF9800" />
-                  <Text style={styles.workerResponseText}>El profesional va a necesitar materiales para el trabajo</Text>
+                  <Text style={styles.workerResponseText}>Va a necesitar materiales para el trabajo</Text>
                 </View>
               ) : null}
             </View>
           )}
 
-          {/* Botón verificar código — cliente cuando llegó el trabajador */}
-          {!isWorker && job.status === 'arrived' && (
+          {/* Progreso multi-día — visible para ambas partes */}
+          {isMultiday && ['accepted','arrived','in_progress'].includes(job.status) && (
+            <View style={styles.sessionCard}>
+              <View style={styles.sessionCardRow}>
+                <Ionicons name="calendar" size={18} color="#FFD600" />
+                <Text style={styles.sessionCardTitle}>
+                  Sesión {(job.completed_sessions || 0) + (inSession ? 1 : 0)} de {job.estimated_sessions || '?'}
+                </Text>
+                <Text style={styles.sessionCardHours}>{totalMinutesFormatted()} trabajadas</Text>
+              </View>
+              {job.estimated_hrs_session && (
+                <Text style={styles.sessionCardSub}>
+                  Estimado: {job.estimated_hrs_session} por día · {job.estimated_sessions} días total
+                </Text>
+              )}
+              {inSession && (
+                <View style={styles.sessionTimerRow}>
+                  <View style={styles.sessionTimerDot} />
+                  <Text style={styles.sessionTimerText}>Sesión en curso: {fmtTime(sessionElapsed)}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Comprando materiales — info para cliente */}
+          {!isWorker && job.status === 'arrived' && job.is_buying_materials && (
+            <View style={styles.buyingCard}>
+              <Ionicons name="cart-outline" size={20} color="#FF9800" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.buyingText}>El profesional está comprando materiales</Text>
+                {job.materials_eta && (
+                  <Text style={styles.buyingEta}>
+                    Vuelve estimado: {new Date(job.materials_eta).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Botón verificar código — cliente cuando llegó el trabajador y NO está comprando */}
+          {!isWorker && job.status === 'arrived' && !job.is_buying_materials && (
             <TouchableOpacity style={styles.verifyCodeBtn} onPress={() => { setEnteredCode(''); setCodeResult(null); setCodeModal(true); }}>
               <Ionicons name="shield-checkmark-outline" size={18} color="#FFD600" />
               <Text style={styles.verifyCodeBtnText}>Verificar código del profesional</Text>
@@ -398,7 +483,9 @@ window.addEventListener('message', e => {
             </View>
           </View>
 
-          {/* Acciones del trabajador */}
+          {/* ─── Acciones del trabajador ─── */}
+
+          {/* Llegué al domicilio (status = accepted) */}
           {isWorker && job.status === 'accepted' && (
             <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('arrive')} disabled={loading}>
               {loading ? <ActivityIndicator color="#0A0A0A" /> : (
@@ -407,40 +494,195 @@ window.addEventListener('message', e => {
             </TouchableOpacity>
           )}
 
-          {isWorker && job.status === 'arrived' && (
-            <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('start')} disabled={loading}>
-              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                <><Ionicons name="construct" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Iniciar trabajo</Text></>
+          {/* arrived + single-day: iniciar trabajo o salir a comprar materiales */}
+          {isWorker && job.status === 'arrived' && !isMultiday && !job.is_buying_materials && (
+            <>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('start')} disabled={loading}>
+                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                  <><Ionicons name="construct" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Iniciar trabajo</Text></>
+                )}
+              </TouchableOpacity>
+              {job.materials_needed && (
+                <TouchableOpacity
+                  style={styles.actionBtnSecondary}
+                  onPress={() => Alert.alert('¿Salir a comprar materiales?', '¿Cuánto tardás?', [
+                    { text: '15 min',  onPress: () => jobService.startBuyingMaterials(job.id, 15) },
+                    { text: '30 min',  onPress: () => jobService.startBuyingMaterials(job.id, 30) },
+                    { text: '45 min',  onPress: () => jobService.startBuyingMaterials(job.id, 45) },
+                    { text: '1 hora',  onPress: () => jobService.startBuyingMaterials(job.id, 60) },
+                    { text: 'Cancelar', style: 'cancel' },
+                  ])}
+                  disabled={loading}
+                >
+                  <Ionicons name="cart-outline" size={18} color="#FF9800" />
+                  <Text style={styles.actionBtnSecondaryText}>Necesito comprar materiales</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </>
           )}
 
-          {isWorker && job.status === 'in_progress' && (
+          {/* arrived + comprando materiales */}
+          {isWorker && job.status === 'arrived' && job.is_buying_materials && (
+            <View style={styles.buyingCard}>
+              <Ionicons name="cart" size={22} color="#FF9800" />
+              <Text style={styles.buyingText}>Comprando materiales...</Text>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => jobService.returnedWithMaterials(job.id)} disabled={loading}>
+                <Ionicons name="checkmark-circle" size={18} color="#0A0A0A" />
+                <Text style={styles.actionBtnText}>Volví con los materiales</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* arrived + multi-día: iniciar sesión del día */}
+          {isWorker && job.status === 'arrived' && isMultiday && !inSession && (
+            <>
+              <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+                setLoading(true);
+                try { await jobService.startSession(job.id); } catch { Alert.alert('Error', 'No se pudo iniciar la sesión.'); }
+                finally { setLoading(false); }
+              }} disabled={loading}>
+                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                  <><Ionicons name="play" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Iniciar sesión de hoy</Text></>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* in_progress + single-day: cobrar */}
+          {isWorker && job.status === 'in_progress' && !isMultiday && (
             <View style={styles.amountRow}>
+              {job.materials_needed && (
+                <View style={styles.amountInputWrap}>
+                  <Ionicons name="cart-outline" size={18} color="#FF9800" />
+                  <TextInput
+                    style={styles.amountInput}
+                    placeholder="Costo materiales (sin comisión)"
+                    placeholderTextColor="#444"
+                    value={materialsAmount}
+                    onChangeText={v => setMaterialsAmount(v.replace(/\D/g, ''))}
+                    keyboardType="numeric"
+                  />
+                </View>
+              )}
               <View style={styles.amountInputWrap}>
                 <Text style={styles.currency}>$</Text>
                 <TextInput
                   style={styles.amountInput}
-                  placeholder="Costo del trabajo (sin visita)"
+                  placeholder="Mano de obra (sin visita)"
                   placeholderTextColor="#444"
                   value={workAmount}
                   onChangeText={v => setWorkAmount(v.replace(/\D/g, ''))}
                   keyboardType="numeric"
                 />
               </View>
+              {(workAmount || materialsAmount) ? (
+                <View style={styles.amountPreview}>
+                  {job.materials_needed && materialsAmount ? (
+                    <Text style={styles.amountPreviewLine}>
+                      Materiales: ${parseInt(materialsAmount || '0').toLocaleString('es-AR')} <Text style={styles.amountPreviewNote}>(sin comisión)</Text>
+                    </Text>
+                  ) : null}
+                  <Text style={styles.amountPreviewLine}>
+                    Mano de obra: ${parseInt(workAmount || '0').toLocaleString('es-AR')}
+                  </Text>
+                  <Text style={styles.amountPreviewTotal}>
+                    Total cliente: ${((job.visit_amount || 30000) + (parseInt(materialsAmount || '0')) + (parseInt(workAmount || '0'))).toLocaleString('es-AR')}
+                  </Text>
+                </View>
+              ) : null}
               <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('set_amount')} disabled={loading}>
                 {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                  <><Ionicons name="send" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Cobrar</Text></>
+                  <><Ionicons name="send" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Enviar cobro al cliente</Text></>
                 )}
               </TouchableOpacity>
             </View>
           )}
 
+          {/* in_progress + multi-día: terminar sesión de hoy o cobrar si es el último día */}
+          {isWorker && job.status === 'in_progress' && isMultiday && inSession && (
+            <View style={styles.sessionActions}>
+              <TouchableOpacity
+                style={styles.actionBtnSecondary}
+                onPress={async () => {
+                  setLoading(true);
+                  try {
+                    await jobService.endSession(job.id, job.current_session_start, job.completed_sessions || 0, job.total_minutes_worked || 0);
+                    await notificationService.sendToUser(clientId, {
+                      title: '📋 Jornada terminada',
+                      body: `El profesional terminó por hoy. Sesión ${(job.completed_sessions || 0) + 1} de ${job.estimated_sessions || '?'} completada.`,
+                      data: { jobId: job.id },
+                    });
+                  } catch { Alert.alert('Error', 'No se pudo guardar la sesión.'); }
+                  finally { setLoading(false); }
+                }}
+                disabled={loading}
+              >
+                <Ionicons name="moon-outline" size={18} color="#4285F4" />
+                <Text style={styles.actionBtnSecondaryText}>Terminar por hoy · vuelvo mañana</Text>
+              </TouchableOpacity>
+
+              <View style={styles.amountRow}>
+                {job.materials_needed && (
+                  <View style={styles.amountInputWrap}>
+                    <Ionicons name="cart-outline" size={18} color="#FF9800" />
+                    <TextInput
+                      style={styles.amountInput}
+                      placeholder="Materiales (sin comisión)"
+                      placeholderTextColor="#444"
+                      value={materialsAmount}
+                      onChangeText={v => setMaterialsAmount(v.replace(/\D/g, ''))}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                )}
+                <View style={styles.amountInputWrap}>
+                  <Text style={styles.currency}>$</Text>
+                  <TextInput
+                    style={styles.amountInput}
+                    placeholder="Mano de obra total"
+                    placeholderTextColor="#444"
+                    value={workAmount}
+                    onChangeText={v => setWorkAmount(v.replace(/\D/g, ''))}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={async () => {
+                    const labor = parseInt(workAmount.replace(/\D/g, ''), 10);
+                    if (!labor || labor < 1000) { Alert.alert('Revisá el monto', 'Ingresá el costo de mano de obra.'); return; }
+                    const mats = parseInt(materialsAmount.replace(/\D/g, ''), 10) || 0;
+                    setLoading(true);
+                    try {
+                      await jobService.completeMultidayJob(job.id, labor, mats, job.current_session_start, job.completed_sessions || 0, job.total_minutes_worked || 0);
+                      const visitAmt = job.visit_amount || 30000;
+                      const total = visitAmt + mats + labor;
+                      await notificationService.sendToUser(clientId, {
+                        title: '💳 Trabajo terminado — hora de pagar',
+                        body: mats > 0
+                          ? `Visita $${visitAmt.toLocaleString('es-AR')} + Materiales $${mats.toLocaleString('es-AR')} + Mano de obra $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`
+                          : `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`,
+                        data: { jobId: job.id },
+                      });
+                    } catch { Alert.alert('Error', 'No se pudo completar el trabajo.'); }
+                    finally { setLoading(false); }
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                    <><Ionicons name="checkmark-done" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Trabajo listo · cobrar</Text></>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {/* Acción del cliente — confirmar pago */}
           {!isWorker && job.status === 'awaiting_payment' && (() => {
-            const visitAmt = job.visit_amount || 30000;
-            const workAmt  = job.work_amount  || 0;
-            const total    = visitAmt + workAmt;
+            const visitAmt = job.visit_amount    || 30000;
+            const matsAmt  = job.materials_cost  || 0;
+            const workAmt  = job.work_amount     || 0;
+            const total    = visitAmt + matsAmt + workAmt;
             return (
               <View style={styles.paySection}>
                 <View style={styles.payBreakdown}>
@@ -448,8 +690,17 @@ window.addEventListener('message', e => {
                     <Text style={styles.payRowLabel}>Visita / diagnóstico</Text>
                     <Text style={styles.payRowVal}>${visitAmt.toLocaleString('es-AR')}</Text>
                   </View>
+                  {matsAmt > 0 && (
+                    <View style={styles.payRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.payRowLabel}>Materiales</Text>
+                        <Text style={styles.payRowNote}>sin comisión VOLT</Text>
+                      </View>
+                      <Text style={styles.payRowVal}>${matsAmt.toLocaleString('es-AR')}</Text>
+                    </View>
+                  )}
                   <View style={styles.payRow}>
-                    <Text style={styles.payRowLabel}>Trabajo realizado</Text>
+                    <Text style={styles.payRowLabel}>Mano de obra</Text>
                     <Text style={styles.payRowVal}>${workAmt.toLocaleString('es-AR')}</Text>
                   </View>
                   <View style={styles.payDivider} />
@@ -565,6 +816,15 @@ const styles = StyleSheet.create({
   currency:    { color: '#F5F5F5', fontSize: 20, fontWeight: '700' },
   amountInput: { flex: 1, color: '#F5F5F5', fontSize: 20, fontWeight: '700' },
 
+  amountPreview: {
+    backgroundColor: '#0A1500', borderRadius: 12,
+    borderWidth: 1, borderColor: '#FFD60020',
+    padding: 12, gap: 4,
+  },
+  amountPreviewLine: { fontSize: 13, color: '#BBBBBB' },
+  amountPreviewNote: { fontSize: 11, color: '#555' },
+  amountPreviewTotal: { fontSize: 15, fontWeight: '900', color: '#FFD600', marginTop: 4 },
+
   paySection:    { gap: 10 },
   payBreakdown: {
     backgroundColor: '#0A0A0A', borderRadius: 14,
@@ -573,6 +833,7 @@ const styles = StyleSheet.create({
   },
   payRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   payRowLabel:   { fontSize: 14, color: '#888' },
+  payRowNote:    { fontSize: 11, color: '#555', marginTop: 2 },
   payRowVal:     { fontSize: 14, color: '#F5F5F5', fontWeight: '600' },
   payDivider:    { height: 1, backgroundColor: '#1E1E1E' },
   payTotalLabel: { fontSize: 16, fontWeight: '900', color: '#F5F5F5' },
@@ -625,6 +886,38 @@ const styles = StyleSheet.create({
   },
   workerResponseRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   workerResponseText: { flex: 1, fontSize: 13, color: '#BBBBBB', lineHeight: 18 },
+
+  // Sesión multi-día
+  sessionCard: {
+    backgroundColor: '#0A1500', borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#FFD60030',
+    padding: 14, gap: 8,
+  },
+  sessionCardRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sessionCardTitle: { flex: 1, fontSize: 14, fontWeight: '800', color: '#FFD600' },
+  sessionCardHours: { fontSize: 13, color: '#888', fontWeight: '600' },
+  sessionCardSub:   { fontSize: 12, color: '#555', lineHeight: 17 },
+  sessionTimerRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  sessionTimerDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
+  sessionTimerText: { fontSize: 13, color: '#4CAF50', fontWeight: '700' },
+
+  sessionActions: { gap: 10 },
+  actionBtnSecondary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderRadius: 14, paddingVertical: 15,
+    borderWidth: 1.5, borderColor: '#4285F430',
+    backgroundColor: 'rgba(66,133,244,0.06)',
+  },
+  actionBtnSecondaryText: { color: '#4285F4', fontSize: 14, fontWeight: '800' },
+
+  // Comprando materiales
+  buyingCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#1A0D00', borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#FF980040', padding: 14,
+  },
+  buyingText: { fontSize: 13, color: '#FF9800', fontWeight: '700', lineHeight: 18 },
+  buyingEta:  { fontSize: 12, color: '#FF980088', marginTop: 4 },
 
   // Modal de verificación de código
   modalOverlay: {

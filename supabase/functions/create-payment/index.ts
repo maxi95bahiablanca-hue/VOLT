@@ -40,7 +40,7 @@ serve(async (req) => {
     const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: job, error: jobErr } = await adminClient
       .from('jobs')
-      .select('id, work_amount, visit_amount, status, client_id')
+      .select('id, work_amount, visit_amount, materials_cost, status, client_id')
       .eq('id', jobId)
       .single();
 
@@ -55,19 +55,36 @@ serve(async (req) => {
     }
 
     // ── 5. Calcular monto DESDE LA DB — NUNCA confiar en el cliente ─────────
-    const visitAmount = job.visit_amount ?? 30000;
-    const workAmount  = job.work_amount  ?? 0;
-    const totalAmount = visitAmount + workAmount;
+    // materials_cost no lleva comisión VOLT: el trabajador adelantó el dinero
+    const visitAmount = job.visit_amount   ?? 30000;
+    const matsAmount  = job.materials_cost ?? 0;
+    const workAmount  = job.work_amount    ?? 0;
+    const totalAmount = visitAmount + matsAmount + workAmount;
     if (totalAmount <= 0) return json({ error: 'Monto inválido' }, 400);
 
     // ── 6. Crear preferencia en Mercado Pago ────────────────────────────────
+    // Ítems separados para que el extracto del cliente sea claro
     const preference = {
-      items: [{
-        title: 'VOLT — Servicio profesional a domicilio',
-        quantity: 1,
-        unit_price: totalAmount,
-        currency_id: 'ARS',
-      }],
+      items: [
+        {
+          title:       'VOLT — Visita / diagnóstico',
+          quantity:    1,
+          unit_price:  visitAmount,
+          currency_id: 'ARS',
+        },
+        ...(matsAmount > 0 ? [{
+          title:       'VOLT — Materiales (sin comisión)',
+          quantity:    1,
+          unit_price:  matsAmount,
+          currency_id: 'ARS',
+        }] : []),
+        ...(workAmount > 0 ? [{
+          title:       'VOLT — Mano de obra',
+          quantity:    1,
+          unit_price:  workAmount,
+          currency_id: 'ARS',
+        }] : []),
+      ],
       payer: { email: user.email ?? 'cliente@volt.app' },
       back_urls: {
         success: `volt://payment-success?jobId=${jobId}`,

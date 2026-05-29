@@ -10,10 +10,12 @@ import notificationService from '../services/notificationService';
 const TIMEOUT_SEC = 45;
 
 const WorkerQuoteCard = ({ job, onSelect, selecting }) => {
-  const prof       = job.professionals;
-  const responded  = job.status === 'accepted';
-  const stars      = Math.round(parseFloat(prof?.avg_rating) || 0);
-  const visitFmt   = `$${(job.visit_amount || 30000).toLocaleString('es-AR')}`;
+  const prof        = job.professionals;
+  const responded   = job.status === 'accepted';
+  const displayRating = parseFloat(prof?.effective_rating ?? prof?.avg_rating) || 0;
+  const stars       = Math.round(displayRating);
+  const onTime      = prof?.on_time_completions || 0;
+  const visitFmt    = `$${(job.visit_amount || 30000).toLocaleString('es-AR')}`;
 
   return (
     <View style={[styles.card, responded && styles.cardActive]}>
@@ -33,9 +35,15 @@ const WorkerQuoteCard = ({ job, onSelect, selecting }) => {
                 <Ionicons key={i} name={i <= stars ? 'star' : 'star-outline'} size={12} color="#FFD600" />
               ))}
               <Text style={styles.ratingText}>
-                {prof?.avg_rating ? Number(prof.avg_rating).toFixed(1) : 'Nuevo'}
+                {displayRating ? Number(displayRating).toFixed(1) : 'Nuevo'}
                 {' · '}{prof?.completed_jobs || 0} trabajos
               </Text>
+              {onTime > 0 && (
+                <View style={styles.onTimeBadge}>
+                  <Ionicons name="timer-outline" size={9} color="#4CAF50" />
+                  <Text style={styles.onTimeBadgeText}>{onTime}⚡</Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -296,8 +304,15 @@ const styles = StyleSheet.create({
   avatarActive: { borderColor: '#FFD60060' },
   workerName: { fontSize: 15, fontWeight: '800', color: '#F5F5F5', marginBottom: 4 },
   workerNameDim: { color: '#333' },
-  starsRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  starsRow: { flexDirection: 'row', alignItems: 'center', gap: 2, flexWrap: 'wrap' },
   ratingText: { fontSize: 11, color: '#555', marginLeft: 4 },
+  onTimeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: 'rgba(76,175,80,0.10)',
+    borderWidth: 1, borderColor: 'rgba(76,175,80,0.25)',
+    borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1, marginLeft: 4,
+  },
+  onTimeBadgeText: { color: '#4CAF50', fontSize: 9, fontWeight: '800' },
 
   visitWrap: { alignItems: 'flex-end' },
   visitAmt: { fontSize: 17, fontWeight: '900', color: '#FFD600' },

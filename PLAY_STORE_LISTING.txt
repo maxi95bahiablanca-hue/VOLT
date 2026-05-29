@@ -1,0 +1,96 @@
+======================================================
+  VOLT — FICHA PARA GOOGLE PLAY STORE
+======================================================
+
+NOMBRE DE LA APP (max 30 chars):
+  VOLT — Profesionales a domicilio
+
+DESCRIPCIÓN CORTA (max 80 chars):
+  Electricistas, plomeros y más · verificados · en menos de 30 minutos
+
+DESCRIPCIÓN COMPLETA (max 4000 chars):
+---
+⚡ VOLT conecta clientes con profesionales del hogar verificados, en minutos.
+
+¿Se te rompió algo en casa? Con VOLT encontrás electricistas, plomeros, gasistas, pintores, cerrajeros y más — todos con antecedentes verificados — que llegan en menos de 30 minutos.
+
+🔒 SEGURIDAD GARANTIZADA
+Cada profesional pasa por verificación de identidad (DNI + selfie) antes de poder trabajar en la plataforma. Al llegar a tu casa, el profesional te muestra un código de 4 dígitos que debés verificar antes de abrir la puerta.
+
+⚡ ASÍ FUNCIONA (para clientes):
+1. Elegí el tipo de servicio que necesitás
+2. La app te muestra hasta 3 profesionales disponibles cerca tuyo
+3. El profesional más rápido en aceptar llega en menos de 30 minutos
+4. Verificá su identidad con el código en la puerta
+5. Pagá de forma segura con tarjeta — solo a través de la app
+
+💼 PARA PROFESIONALES:
+¿Sos electricista, plomero, gasista o cualquier otro profesional del hogar? Registrate en VOLT y empezá a recibir trabajos cerca tuyo.
+- Sin cuotas fijas: solo pagás comisión cuando cobrás
+- Mejor calificación = menor comisión (hasta el 10%)
+- Sistema justo: los materiales no se comisionan
+- Historial y estadísticas en tiempo real
+
+💳 PAGOS 100% DIGITALES
+Todos los pagos se procesan de forma segura a través de Mercado Pago. Nunca necesitás efectivo.
+
+📍 DISPONIBLE EN BAHÍA BLANCA Y ALREDEDORES
+Expandiéndonos constantemente a nuevas ciudades.
+
+📞 SOPORTE
+¿Problemas con un profesional? Nuestro equipo de soporte está disponible para ayudarte.
+
+Política de privacidad: https://maxi95bahiablanca-hue.github.io/VOLT/privacy.html
+---
+
+CATEGORÍA:
+  Estilo de vida  (o "Casa y hogar" si está disponible)
+
+CATEGORÍA SECUNDARIA:
+  Empresa y empresa local
+
+TIPO DE CONTENIDO:
+  Para todos
+
+EMAIL DE CONTACTO DEL DESARROLLADOR:
+  maxi95.bahiablanca@gmail.com
+
+SITIO WEB:
+  https://maxi95bahiablanca-hue.github.io/VOLT/
+
+POLÍTICA DE PRIVACIDAD:
+  https://maxi95bahiablanca-hue.github.io/VOLT/privacy.html
+
+======================================================
+  CHECKLIST PLAY STORE
+======================================================
+
+Antes de subir:
+[ ] Crear cuenta Google Play Console (play.google.com/console) — u$s 25 pago único
+[ ] Abrir GENERAR_FEATURE_GRAPHIC.html en Chrome → descargar feature-graphic.png
+[ ] Tomar capturas de pantalla del APK instalado (mínimo 2, recomendado 4-8)
+     - HomeScreen con mapa y trabajadores
+     - JobTrackingScreen con el mapa en vivo
+     - WorkerIncoming (desde un dispositivo de test como trabajador)
+     - RatingScreen post-trabajo
+[ ] Subir en Play Console:
+     ✓ Ícono 512×512 → usar assets/icon.png (redimensionar a 512×512 si necesario)
+     ✓ Feature Graphic 1024×500 → feature-graphic.png generado arriba
+     ✓ Screenshots (mínimo 2 de teléfono)
+     ✓ Título, descripción corta y larga → copiar de arriba
+     ✓ Política de privacidad → URL de arriba
+     ✓ Email de contacto
+[ ] En "Seguridad de los datos" completar el formulario:
+     - Datos recolectados: ubicación (sí, solo durante el uso) · email · nombre
+     - Datos compartidos: con otros usuarios (nombre y calificación del profesional)
+     - Cifrado en tránsito: sí
+[ ] Calificación del contenido: completar cuestionario (resultado: "Para todos")
+[ ] Subir volt-aab (Android App Bundle) desde GitHub Actions → Artifacts → volt-aab
+[ ] Crear lanzamiento en "Pruebas internas" primero → probarlo → luego "Producción"
+
+PERMISOS ESPECIALES A DECLARAR:
+  - ACCESS_FINE_LOCATION: "Para mostrar profesionales cercanos y ubicación en tiempo real"
+  - POST_NOTIFICATIONS: "Para alertar al profesional de nuevos trabajos"
+  (Estos se declaran en el formulario de "Seguridad de los datos" de Play Console)
+
+======================================================

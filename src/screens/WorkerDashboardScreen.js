@@ -198,6 +198,9 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
               {professional.avg_rating ? Number(professional.avg_rating).toFixed(1) : '—'}
             </Text>
             <Text style={styles.statLbl}>Promedio{'\n'}de estrellas</Text>
+            {(professional.on_time_completions || 0) > 0 && (
+              <Text style={styles.statOnTime}>+{professional.on_time_completions} en tiempo ⚡</Text>
+            )}
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statBox}>
@@ -404,6 +407,7 @@ const styles = StyleSheet.create({
   statBox: { flex: 1, alignItems: 'center' },
   statVal: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginBottom: 6 },
   statLbl: { fontSize: 11, color: '#555', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 15 },
+  statOnTime: { fontSize: 10, color: '#4CAF50', fontWeight: '700', marginTop: 4, textAlign: 'center' },
   statDiv: { width: 1, height: 36, backgroundColor: '#1E1E1E' },
 
   nextLevelCard: {

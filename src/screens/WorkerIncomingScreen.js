@@ -8,7 +8,10 @@ import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 
 const TIMEOUT_SEC = 45;
-const ARRIVAL_OPTIONS = ['~15 min', '~30 min', '~45 min', '~1 hora', '+1 hora'];
+const ARRIVAL_OPTIONS   = ['~15 min', '~30 min', '~45 min', '~1 hora', '+1 hora'];
+const DURATION_OPTIONS  = ['~30 min', '~1 hora', '~2 horas', '~3 horas', '+3 horas'];
+const SESSION_OPTIONS   = ['2', '3', '4', '5', '6', '7+'];
+const HRS_DAY_OPTIONS   = ['~2 hs', '~3 hs', '~4 hs', '~6 hs', '~8 hs'];
 
 const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onRejected }) => {
   const [timeLeft, setTimeLeft]               = useState(TIMEOUT_SEC);
@@ -17,6 +20,10 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   const [showDiag, setShowDiag]               = useState(false);
   const [arrivalEst, setArrivalEst]           = useState('~30 min');
   const [materialsNeeded, setMaterialsNeeded] = useState(false);
+  const [workDuration, setWorkDuration]       = useState('~1 hora');
+  const [isMultiday, setIsMultiday]           = useState(false);
+  const [estimatedSessions, setEstSessions]   = useState('3');
+  const [hrsPerSession, setHrsPerSession]     = useState('~4 hs');
 
   const timerRef  = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -51,7 +58,13 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     try {
       const diagText = diagnosis.trim() || null;
       const mats = showDiag ? materialsNeeded : null;
-      await jobService.accept(job.id, diagText, arrivalEst, mats);
+      const dur = isMultiday
+        ? `multi-día: ${estimatedSessions} días × ${hrsPerSession}`
+        : workDuration;
+      await jobService.accept(job.id, diagText, arrivalEst, mats, dur);
+      if (isMultiday) {
+        await jobService.setMultidayConfig(job.id, estimatedSessions, hrsPerSession);
+      }
 
       let notifBody = `${job.professions?.name || 'Tu profesional'} llega en ${arrivalEst}.`;
       if (diagText) notifBody += ` Posible problema: "${diagText}".`;
@@ -178,6 +191,74 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+
+        {/* ─── Duración estimada del trabajo ─── */}
+        <View style={styles.arrivalCard}>
+          <Text style={styles.arrivalTitle}>¿Cuánto va a durar el trabajo?</Text>
+          <Text style={styles.arrivalHint}>El cliente lo verá y podrá organizar su día.</Text>
+          <View style={styles.arrivalOptions}>
+            {DURATION_OPTIONS.map(opt => (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.arrivalOpt, workDuration === opt && styles.arrivalOptActive]}
+                onPress={() => setWorkDuration(opt)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.arrivalOptText, workDuration === opt && styles.arrivalOptTextActive]}>{opt}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* ─── ¿Trabajo de varios días? ─── */}
+        <View style={styles.arrivalCard}>
+          <View style={styles.multidayRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.arrivalTitle}>¿Es un trabajo de varios días?</Text>
+              <Text style={styles.arrivalHint}>Habilitá esto para trabajos en etapas: pintura, remodelación, instalaciones grandes.</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.multidayToggle, isMultiday && styles.multidayToggleOn]}
+              onPress={() => setIsMultiday(v => !v)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.multidayToggleText, isMultiday && styles.multidayToggleTextOn]}>
+                {isMultiday ? 'Sí' : 'No'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {isMultiday && (
+            <>
+              <Text style={[styles.arrivalTitle, { marginTop: 16 }]}>¿Cuántos días estimás?</Text>
+              <View style={styles.arrivalOptions}>
+                {SESSION_OPTIONS.map(opt => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.arrivalOpt, estimatedSessions === opt && styles.arrivalOptActive]}
+                    onPress={() => setEstSessions(opt)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.arrivalOptText, estimatedSessions === opt && styles.arrivalOptTextActive]}>{opt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.arrivalTitle, { marginTop: 12 }]}>¿Horas por día?</Text>
+              <View style={styles.arrivalOptions}>
+                {HRS_DAY_OPTIONS.map(opt => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.arrivalOpt, hrsPerSession === opt && styles.arrivalOptActive]}
+                    onPress={() => setHrsPerSession(opt)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.arrivalOptText, hrsPerSession === opt && styles.arrivalOptTextActive]}>{opt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         {/* ─── Diagnóstico opcional ─── */}
@@ -363,6 +444,16 @@ const styles = StyleSheet.create({
   matBtnText:     { fontSize: 13, fontWeight: '700', color: '#444' },
   matBtnTextNo:   { color: '#4CAF50' },
   matBtnTextYes:  { color: '#FF9800' },
+
+  multidayRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+  multidayToggle: {
+    paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#222', backgroundColor: '#0D0D0D',
+    minWidth: 52, alignItems: 'center',
+  },
+  multidayToggleOn:     { borderColor: '#FFD60060', backgroundColor: '#1A1500' },
+  multidayToggleText:   { fontSize: 14, fontWeight: '800', color: '#444' },
+  multidayToggleTextOn: { color: '#FFD600' },
 
   penaltyNote: {
     width: '100%', flexDirection: 'row', alignItems: 'center', gap: 6,

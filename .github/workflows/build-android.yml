@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK + AAB
 
 on:
   push:
@@ -70,10 +70,10 @@ jobs:
         run: |
           echo "${{ secrets.VOLT_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
 
-      - name: Build release APK
+      - name: Build release APK + AAB
         run: |
           cd android
-          ./gradlew assembleRelease \
+          ./gradlew assembleRelease bundleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
             -Pandroid.injected.signing.store.password=voltpass2024 \
             -Pandroid.injected.signing.key.alias=voltkey \
@@ -87,9 +87,16 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Upload APK
+      - name: Upload APK (para sideload / testing directo)
         uses: actions/upload-artifact@v4
         with:
-          name: volt-release
+          name: volt-apk
           path: android/app/build/outputs/apk/release/app-release.apk
-          retention-days: 3
+          retention-days: 7
+
+      - name: Upload AAB (para Play Store)
+        uses: actions/upload-artifact@v4
+        with:
+          name: volt-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30

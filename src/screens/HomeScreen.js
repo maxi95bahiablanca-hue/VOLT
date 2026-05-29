@@ -45,7 +45,9 @@ const WORKER_TIPS = [
 
 // Tarjeta del trabajador seleccionado (sube desde abajo)
 const WorkerCard = ({ worker, slideAnim, onContact, onClose }) => {
-  const stars = Math.round(worker.avg_rating || 0);
+  const displayRating = worker.effective_rating ?? worker.avg_rating ?? 0;
+  const stars = Math.round(displayRating);
+  const onTime = worker.on_time_completions || 0;
   return (
     <Animated.View style={[styles.card, { transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.cardHandle} />
@@ -67,8 +69,14 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose }) => {
               <Ionicons key={i} name={i <= stars ? 'star' : 'star-outline'} size={14} color="#FFD600" />
             ))}
             <Text style={styles.cardRatingNum}>
-              {worker.avg_rating ? Number(worker.avg_rating).toFixed(1) : 'Nuevo'}
+              {displayRating ? Number(displayRating).toFixed(1) : 'Nuevo'}
             </Text>
+            {onTime > 0 && (
+              <View style={styles.onTimeBadge}>
+                <Ionicons name="timer-outline" size={10} color="#4CAF50" />
+                <Text style={styles.onTimeBadgeText}>{onTime} en tiempo</Text>
+              </View>
+            )}
           </View>
         </View>
         <View style={styles.cardDistBadge}>
@@ -94,9 +102,9 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose }) => {
         <View style={styles.cardStatDiv} />
         <View style={styles.cardStat}>
           <Text style={styles.cardStatVal}>
-            {worker.completed_jobs >= 100 && worker.avg_rating >= 4.8 ? 'Elite'
-              : worker.completed_jobs >= 50 && worker.avg_rating >= 4.5 ? 'Pro'
-              : worker.completed_jobs >= 10 && worker.avg_rating >= 4.0 ? 'Verificado'
+            {worker.completed_jobs >= 100 && displayRating >= 4.8 ? 'Elite'
+              : worker.completed_jobs >= 50 && displayRating >= 4.5 ? 'Pro'
+              : worker.completed_jobs >= 10 && displayRating >= 4.0 ? 'Verificado'
               : 'Nuevo'}
           </Text>
           <Text style={styles.cardStatLbl}>Nivel</Text>
@@ -260,11 +268,15 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   const fetchWorkers = async (professionId, lat, lng) => {
     try {
       const data = await professionalService.getNearbyWorkers(professionId, lat, lng, 20);
-      // Mapear a formato con lat/lng para los markers
+      // Mapear a formato con lat/lng para los markers.
+      // Se aplica un desplazamiento aleatorio (±~400m) para no revelar la posición
+      // exacta del trabajador antes de que acepte el trabajo.
+      // Las coordenadas reales (latitude/longitude) se preservan para cálculos internos.
+      const JITTER = 0.004;
       const mapped = data.map(w => ({
         ...w,
-        lat: w.latitude  ?? (userLocation?.latitude  + (Math.random() - 0.5) * 0.02),
-        lng: w.longitude ?? (userLocation?.longitude + (Math.random() - 0.5) * 0.02),
+        lat: (w.latitude  ?? userLocation?.latitude)  + (Math.random() - 0.5) * JITTER,
+        lng: (w.longitude ?? userLocation?.longitude) + (Math.random() - 0.5) * JITTER,
         profession_name: selectedProfession?.name || '',
       }));
       setWorkers(mapped);
@@ -830,8 +842,15 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   cardName: { fontSize: 18, fontWeight: '800', color: '#F5F5F5', marginBottom: 2 },
   cardProfession: { fontSize: 13, color: '#888', marginBottom: 6 },
-  cardStars: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  cardStars: { flexDirection: 'row', alignItems: 'center', gap: 2, flexWrap: 'wrap' },
   cardRatingNum: { color: '#888', fontSize: 12, marginLeft: 4 },
+  onTimeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(76,175,80,0.12)',
+    borderWidth: 1, borderColor: 'rgba(76,175,80,0.3)',
+    borderRadius: 8, paddingHorizontal: 5, paddingVertical: 2, marginLeft: 4,
+  },
+  onTimeBadgeText: { color: '#4CAF50', fontSize: 10, fontWeight: '700' },
   cardDistBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: '#1A1A1A',
