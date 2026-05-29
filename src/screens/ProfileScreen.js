@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Alert, Platform, Image,
+  SafeAreaView, ScrollView, Alert, Platform, Image, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { supabase } from '../supabase';
 import WorkerDashboardScreen from './WorkerDashboardScreen';
 import AdminScreen from './AdminScreen';
@@ -21,6 +23,8 @@ const ProfileScreen = ({ session, professional, onClose }) => {
   const [signingOut, setSigningOut]       = useState(false);
   const [showWorkerPanel, setWorkerPanel] = useState(false);
   const [showAdmin, setShowAdmin]         = useState(false);
+  const [photoUrl, setPhotoUrl]           = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email);
 
@@ -34,19 +38,60 @@ const ProfileScreen = ({ session, professional, onClose }) => {
   const user      = session?.user;
   const email     = user?.email ?? '';
   const name      = user?.user_metadata?.full_name ?? email.split('@')[0];
-  const userPhoto = professional?.avatar_url ?? user?.user_metadata?.avatar_url ?? null;
+  const basePhoto = professional?.avatar_url ?? user?.user_metadata?.avatar_url ?? null;
+  const displayPhoto = photoUrl ?? basePhoto;
 
-  const handleSignOut = () => {
-    Alert.alert('¿Cerrar sesión?', 'Deberás volver a iniciar sesión.', [
+  const uploadAndSave = async (file) => {
+    setUploadingPhoto(true);
+    try {
+      const ext      = file.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const path     = `${user.id}/avatar.${ext}`;
+      const base64   = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const binary   = atob(base64);
+      const bytes    = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, bytes, { upsert: true, contentType: `image/${ext}` });
+      if (upErr) throw upErr;
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+      const url = data.publicUrl;
+
+      await supabase.auth.updateUser({ data: { avatar_url: url } });
+
+      if (professional) {
+        await supabase.from('professionals').update({ avatar_url: url }).eq('user_id', user.id);
+      }
+
+      setPhotoUrl(url);
+    } catch {
+      Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const pickFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.'); return; }
+    const r = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+    if (!r.canceled) await uploadAndSave(r.assets[0]);
+  };
+
+  const pickFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+    const r = await ImagePicker.launchImageLibraryAsync({ quality: 0.85 });
+    if (!r.canceled) await uploadAndSave(r.assets[0]);
+  };
+
+  const handleChangePhoto = () => {
+    Alert.alert('Foto de perfil', '', [
+      { text: 'Cámara',  onPress: pickFromCamera },
+      { text: 'Galería', onPress: pickFromGallery },
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Salir',
-        style: 'destructive',
-        onPress: async () => {
-          setSigningOut(true);
-          await supabase.auth.signOut();
-        },
-      },
     ]);
   };
 
@@ -75,11 +120,18 @@ const ProfileScreen = ({ session, professional, onClose }) => {
 
         {/* Avatar + nombre */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            {userPhoto
-              ? <Image source={{ uri: userPhoto }} style={styles.avatarImg} />
-              : <Ionicons name="person" size={44} color="#FFD600" />}
-          </View>
+          <TouchableOpacity style={styles.avatarWrapper} onPress={handleChangePhoto} activeOpacity={0.8} disabled={uploadingPhoto}>
+            <View style={styles.avatar}>
+              {uploadingPhoto
+                ? <ActivityIndicator color="#FFD600" />
+                : displayPhoto
+                ? <Image source={{ uri: displayPhoto }} style={styles.avatarImg} />
+                : <Ionicons name="person" size={44} color="#FFD600" />}
+            </View>
+            <View style={styles.avatarEditBadge}>
+              <Ionicons name="camera" size={13} color="#0A0A0A" />
+            </View>
+          </TouchableOpacity>
           <Text style={styles.userName}>{name}</Text>
           <Text style={styles.userEmail}>{email}</Text>
           {level && (
@@ -222,15 +274,22 @@ const styles = StyleSheet.create({
   scroll: { padding: 20, paddingBottom: 48 },
 
   avatarSection: { alignItems: 'center', paddingVertical: 24 },
+  avatarWrapper: { marginBottom: 14 },
   avatar: {
     width: 88, height: 88, borderRadius: 44,
     backgroundColor: '#1A1A1A',
     borderWidth: 2.5, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 14,
     overflow: 'hidden',
   },
   avatarImg: { width: '100%', height: '100%' },
+  avatarEditBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#0A0A0A',
+  },
   userName: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
   userEmail: { fontSize: 14, color: '#555', marginBottom: 12 },
   levelBadge: {
