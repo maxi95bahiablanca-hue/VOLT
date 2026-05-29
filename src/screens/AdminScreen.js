@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import notificationService from '../services/notificationService';
+import { showSuccess, showError } from '../utils/toast';
 
 const ADMIN_EMAILS = ['maxi95.bahiablanca@gmail.com'];
 
@@ -147,10 +148,10 @@ const AdminScreen = ({ session, onClose }) => {
         headers: { Authorization: `Bearer ${s?.access_token}` },
       });
 
-      Alert.alert(action === 'approved' ? '¡Aprobado!' : 'Rechazado', 'El trabajador fue notificado.');
+      showSuccess('El trabajador fue notificado.', action === 'approved' ? '¡Aprobado! ✅' : 'Rechazado');
       loadAll();
     } catch {
-      Alert.alert('Error', 'No se pudo actualizar el estado.');
+      showError('No se pudo actualizar el estado.');
     }
   };
 

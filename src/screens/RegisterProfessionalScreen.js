@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, SafeAreaView, ActivityIndicator, Image,
-  Alert, Platform, KeyboardAvoidingView,
+  Alert, Platform, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import professionService from '../services/professionService';
 import professionalService from '../services/professionalService';
+import { showSuccess } from '../utils/toast';
 
 const MIN_PRICE = 30000;
 
@@ -85,6 +87,9 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
   const [cuit, setCuit]             = useState('');
   const [cbu, setCbu]               = useState('');
   const [criminalRecord, setCriminalRecord] = useState(false);
+  const [antecedentes, setAntecedentes] = useState(null);
+  const [estudios, setEstudios]         = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('cbu');
 
   // ─── Carga inicial ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -114,10 +119,13 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
             });
             setSelections(sels);
           }
-          if (prof.avatar_url)    setAvatar({ uri: prof.avatar_url });
-          if (prof.selfie_url)    setSelfie({ uri: prof.selfie_url });
-          if (prof.dni_front_url) setDniFront({ uri: prof.dni_front_url });
-          if (prof.dni_back_url)  setDniBack({ uri: prof.dni_back_url });
+          if (prof.avatar_url)       setAvatar({ uri: prof.avatar_url });
+          if (prof.selfie_url)       setSelfie({ uri: prof.selfie_url });
+          if (prof.dni_front_url)    setDniFront({ uri: prof.dni_front_url });
+          if (prof.dni_back_url)     setDniBack({ uri: prof.dni_back_url });
+          if (prof.antecedentes_url) setAntecedentes({ uri: prof.antecedentes_url });
+          if (prof.estudios_url)     setEstudios({ uri: prof.estudios_url });
+          if (prof.payment_method)   setPaymentMethod(prof.payment_method);
         } else {
           // Primera vez: pre-popular nombre/apellido desde Google OAuth
           const meta = session?.user?.user_metadata;
@@ -153,6 +161,34 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
     Alert.alert(`DNI — ${side === 'front' ? 'Frente' : 'Dorso'}`, '', [
       { text: 'Cámara',  onPress: () => launchCamera(side === 'front' ? setDniFront : setDniBack) },
       { text: 'Galería', onPress: () => launchGallery(side === 'front' ? setDniFront : setDniBack) },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const pickAntecedentes = () => {
+    Alert.alert('Certificado de antecedentes', 'Elegí el formato', [
+      { text: 'Cámara',           onPress: () => launchCamera(setAntecedentes) },
+      { text: 'Galería',          onPress: () => launchGallery(setAntecedentes) },
+      { text: 'PDF desde archivo', onPress: async () => {
+        try {
+          const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+          if (!r.canceled && r.assets?.[0]) setAntecedentes({ uri: r.assets[0].uri, name: r.assets[0].name });
+        } catch { /* silent */ }
+      }},
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const pickEstudios = () => {
+    Alert.alert('Estudios o certificaciones', '', [
+      { text: 'Cámara',           onPress: () => launchCamera(setEstudios) },
+      { text: 'Galería',          onPress: () => launchGallery(setEstudios) },
+      { text: 'PDF desde archivo', onPress: async () => {
+        try {
+          const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+          if (!r.canceled && r.assets?.[0]) setEstudios({ uri: r.assets[0].uri, name: r.assets[0].name });
+        } catch { /* silent */ }
+      }},
       { text: 'Cancelar', style: 'cancel' },
     ]);
   };
@@ -220,6 +256,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
     if (!selfie)   { Alert.alert('Necesitamos tu selfie con DNI para verificar tu identidad.'); return false; }
     if (!dniFront) { Alert.alert('Subí el frente de tu DNI.'); return false; }
     if (!dniBack)  { Alert.alert('Subí el dorso de tu DNI.'); return false; }
+    if (!antecedentes) { Alert.alert('Certificado requerido', 'Necesitamos el certificado de antecedentes penales. Podés tramitarlo gratis en argentina.gob.ar/justicia/reincidencia'); return false; }
     if (!criminalRecord) { Alert.alert('Debés aceptar la declaración jurada para continuar.'); return false; }
     return true;
   };
@@ -230,11 +267,13 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
     setSaving(true);
     try {
       // Subir imágenes a Storage
-      const [avatarUrl, selfieUrl, dniFrontUrl, dniBackUrl] = await Promise.all([
-        avatar  && !avatar.uri.startsWith('https') ? uploadImage(userId, avatar,   'avatar')    : Promise.resolve(avatar?.uri),
-        selfie  && !selfie.uri.startsWith('https') ? uploadImage(userId, selfie,   'selfie')    : Promise.resolve(selfie?.uri),
-        dniFront && !dniFront.uri.startsWith('https') ? uploadImage(userId, dniFront, 'dni_front') : Promise.resolve(dniFront?.uri),
-        dniBack  && !dniBack.uri.startsWith('https') ? uploadImage(userId, dniBack,  'dni_back')  : Promise.resolve(dniBack?.uri),
+      const [avatarUrl, selfieUrl, dniFrontUrl, dniBackUrl, antecedentesUrl, estudiosUrl] = await Promise.all([
+        avatar       && !avatar.uri.startsWith('https')       ? uploadImage(userId, avatar,       'avatar')       : Promise.resolve(avatar?.uri),
+        selfie       && !selfie.uri.startsWith('https')       ? uploadImage(userId, selfie,       'selfie')       : Promise.resolve(selfie?.uri),
+        dniFront     && !dniFront.uri.startsWith('https')     ? uploadImage(userId, dniFront,     'dni_front')    : Promise.resolve(dniFront?.uri),
+        dniBack      && !dniBack.uri.startsWith('https')      ? uploadImage(userId, dniBack,      'dni_back')     : Promise.resolve(dniBack?.uri),
+        antecedentes && !antecedentes.uri.startsWith('https') ? uploadImage(userId, antecedentes, 'antecedentes') : Promise.resolve(antecedentes?.uri),
+        estudios     && !estudios.uri.startsWith('https')     ? uploadImage(userId, estudios,     'estudios')     : Promise.resolve(estudios?.uri),
       ]);
 
       await professionalService.save(userId, {
@@ -248,14 +287,14 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
         selfieUrl,
         dniFrontUrl,
         dniBackUrl,
+        antecedentesUrl,
+        estudiosUrl,
+        paymentMethod,
         verificationStatus: existingStatus === 'approved' ? 'approved' : 'pending',
       });
 
-      Alert.alert(
-        '¡Solicitud enviada!',
-        'Revisaremos tu documentación y te avisaremos por notificación en 24–48 hs hábiles.',
-        [{ text: 'Entendido', onPress: onBack }]
-      );
+      showSuccess('Revisaremos tu documentación y te avisaremos por notificación en 24–48 hs.', '¡Solicitud enviada!');
+      setTimeout(onBack, 2500);
     } catch (err) {
       Alert.alert('Error al enviar', err?.message || 'No se pudo enviar la solicitud. Revisá tu conexión e intentá de nuevo.');
     } finally {
@@ -510,6 +549,77 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
               <PhotoButton label="Dorso del DNI" hint="Lado con el código de barras" uri={dniBack?.uri} onPress={() => pickDniSide('back')} />
             </View>
 
+            {/* Antecedentes penales */}
+            <View style={styles.docSection}>
+              <Text style={styles.docSectionTitle}>Antecedentes penales</Text>
+              <Text style={styles.docSectionHint}>Certificado del Registro Nacional de Reincidencia.</Text>
+              <TouchableOpacity
+                style={styles.linkBtn}
+                onPress={() => Linking.openURL('https://www.argentina.gob.ar/justicia/reincidencia')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="open-outline" size={14} color="#FFD600" />
+                <Text style={styles.linkBtnText}>Tramitarlo gratis en argentina.gob.ar →</Text>
+              </TouchableOpacity>
+              <PhotoButton
+                label="Certificado de antecedentes"
+                hint="Foto o PDF del certificado oficial"
+                uri={antecedentes?.uri}
+                onPress={pickAntecedentes}
+                icon="document-text-outline"
+              />
+            </View>
+
+            {/* Estudios / Certificaciones */}
+            <View style={styles.docSection}>
+              <Text style={styles.docSectionTitle}>
+                Estudios / Certificaciones{' '}
+                <Text style={{ color: '#555', fontWeight: '400' }}>(opcional)</Text>
+              </Text>
+              <Text style={styles.docSectionHint}>Título o habilitación — aparece como badge verificado en tu perfil.</Text>
+              <PhotoButton
+                label="Subir título o certificación"
+                hint="Foto o PDF (gasista, electricista matriculado, etc.)"
+                uri={estudios?.uri}
+                onPress={pickEstudios}
+                icon="school-outline"
+              />
+            </View>
+
+            {/* Método de pago */}
+            <View style={styles.docSection}>
+              <Text style={styles.docSectionTitle}>¿Cómo querés cobrar?</Text>
+              <Text style={styles.docSectionHint}>Podés cambiarlo desde tu perfil en cualquier momento.</Text>
+              <TouchableOpacity
+                style={[styles.payMethodRow, paymentMethod === 'cbu' && styles.payMethodSelected]}
+                onPress={() => setPaymentMethod('cbu')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.check, paymentMethod === 'cbu' && styles.checkSelected]}>
+                  {paymentMethod === 'cbu' && <Ionicons name="checkmark" size={14} color="#0A0A0A" />}
+                </View>
+                <Ionicons name="card-outline" size={20} color={paymentMethod === 'cbu' ? '#FFD600' : '#555'} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.payMethodLabel, paymentMethod === 'cbu' && { color: '#FFD600' }]}>CBU / CVU</Text>
+                  <Text style={styles.payMethodSub}>Transferencia bancaria directa</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payMethodRow, paymentMethod === 'mercadopago' && styles.payMethodSelected]}
+                onPress={() => setPaymentMethod('mercadopago')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.check, paymentMethod === 'mercadopago' && styles.checkSelected]}>
+                  {paymentMethod === 'mercadopago' && <Ionicons name="checkmark" size={14} color="#0A0A0A" />}
+                </View>
+                <Text style={{ fontSize: 18 }}>💳</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.payMethodLabel, paymentMethod === 'mercadopago' && { color: '#FFD600' }]}>Mercado Pago</Text>
+                  <Text style={styles.payMethodSub}>Acreditación inmediata en tu cuenta MP</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
             {/* Declaración jurada */}
             <TouchableOpacity
               style={[styles.declRow, criminalRecord && styles.declRowChecked]}
@@ -650,6 +760,24 @@ const styles = StyleSheet.create({
   photoBtnLabel:     { fontSize: 14, fontWeight: '700', color: '#F5F5F5' },
   photoBtnLabelDone: { fontSize: 13, color: '#4CAF50' },
   photoBtnHint:      { fontSize: 12, color: '#555', marginTop: 2 },
+
+  // Link
+  linkBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 6, marginBottom: 10,
+  },
+  linkBtnText: { fontSize: 13, color: '#FFD600', textDecorationLine: 'underline' },
+
+  // Método de pago
+  payMethodRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 14, marginBottom: 8,
+  },
+  payMethodSelected: { borderColor: '#FFD600', backgroundColor: '#1A1A00' },
+  payMethodLabel: { fontSize: 14, fontWeight: '700', color: '#888' },
+  payMethodSub: { fontSize: 12, color: '#555', marginTop: 2 },
 
   // Declaración
   declRow: {

@@ -3,7 +3,9 @@ import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import * as Notifications from 'expo-notifications';
+import Toast from 'react-native-toast-message';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import { toastConfig } from './src/utils/toast';
 import { supabase } from './src/supabase';
 import notificationService from './src/services/notificationService';
 import jobService from './src/services/jobService';
@@ -27,15 +29,13 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Screens: 'home' | 'jobRequest' | 'quoteSelection' | 'workerIncoming' | 'jobTracking' | 'rating'
-
 export default function App() {
   const [session, setSession]           = useState(null);
   const [loading, setLoading]           = useState(true);
   const [screen, setScreen]             = useState('home');
   const [professional, setProfessional] = useState(null);
 
-  const [jobRequestData, setJobRequestData] = useState(null); // { worker, profession, userLocation }
+  const [jobRequestData, setJobRequestData] = useState(null);
   const [quoteGroupId, setQuoteGroupId]     = useState(null);
   const [quoteJobs, setQuoteJobs]           = useState([]);
   const [activeJob, setActiveJob]           = useState(null);
@@ -67,7 +67,6 @@ export default function App() {
     notificationService.setup(userId);
     loadProfessionalAndJobs(userId);
 
-    // Listener: notificación recibida con app en primer plano
     const receivedSub = Notifications.addNotificationReceivedListener(notification => {
       const data = notification.request.content.data;
       if (data?.screen === 'tracking' && data?.jobId) {
@@ -77,7 +76,6 @@ export default function App() {
       }
     });
 
-    // Listener: usuario toca la notificación
     const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
       if (data?.screen === 'tracking' && data?.jobId) {
@@ -100,7 +98,6 @@ export default function App() {
       setProfessional(prof);
 
       if (prof) {
-        // Trabajador: buscar trabajo activo o pendiente
         const [active, pending] = await Promise.all([
           jobService.getActiveForWorker(prof.id),
           jobService.getPendingForWorker(prof.id),
@@ -116,13 +113,11 @@ export default function App() {
           return;
         }
 
-        // Suscribir a nuevos trabajos
         newJobChannelRef.current = jobService.subscribeNewJobsForWorker(prof.id, (job) => {
           setIncomingJob(job);
           setScreen('workerIncoming');
         });
       } else {
-        // Cliente: primero buscar grupo de cotización activo
         const quoteData = await jobService.getActiveQuoteForClient(userId);
         if (quoteData) {
           setQuoteGroupId(quoteData.quoteGroupId);
@@ -131,7 +126,6 @@ export default function App() {
           return;
         }
 
-        // Luego buscar trabajo activo (post-selección)
         const active = await jobService.getActiveForClient(userId);
         if (active) {
           setActiveJob(active);
@@ -141,23 +135,14 @@ export default function App() {
     } catch { /* silent */ }
   };
 
-  // Listener de notificaciones — activo solo en build de producción (EAS)
-
   // ─── Callbacks de HomeScreen ──────────────────────────
   const handleRequestJob = (worker, profession, userLocation) => {
     setJobRequestData({ worker, profession, userLocation });
     setScreen('jobRequest');
   };
 
-  const handleActiveJob = (job) => {
-    setActiveJob(job);
-    setScreen('jobTracking');
-  };
-
-  const handleIncomingJob = (job) => {
-    setIncomingJob(job);
-    setScreen('workerIncoming');
-  };
+  const handleActiveJob   = (job) => { setActiveJob(job);   setScreen('jobTracking');   };
+  const handleIncomingJob = (job) => { setIncomingJob(job); setScreen('workerIncoming'); };
 
   // ─── Callbacks de JobRequestScreen ───────────────────
   const handleQuoteGroupCreated = (groupId, jobs) => {
@@ -169,20 +154,12 @@ export default function App() {
 
   // ─── Callbacks de QuoteSelectionScreen ───────────────
   const handleWorkerSelected = (job) => {
-    setQuoteGroupId(null);
-    setQuoteJobs([]);
-    setActiveJob(job);
-    setScreen('jobTracking');
+    setQuoteGroupId(null); setQuoteJobs([]); setActiveJob(job); setScreen('jobTracking');
   };
 
-  const handleQuoteExpired = () => {
-    setQuoteGroupId(null);
-    setQuoteJobs([]);
-    setScreen('home');
-  };
+  const handleQuoteExpired = () => { setQuoteGroupId(null); setQuoteJobs([]); setScreen('home'); };
 
   const handleQuoteBack = async () => {
-    // Cancelar todos los jobs del grupo
     if (quoteGroupId && quoteJobs.length > 0) {
       await Promise.all(
         quoteJobs
@@ -190,17 +167,11 @@ export default function App() {
           .map(j => jobService.cancel(j.id, session?.user?.id))
       ).catch(() => {});
     }
-    setQuoteGroupId(null);
-    setQuoteJobs([]);
-    setScreen('home');
+    setQuoteGroupId(null); setQuoteJobs([]); setScreen('home');
   };
 
   // ─── Callbacks de WorkerIncomingScreen ───────────────
-  const handleWorkerAccepted = (job) => {
-    setIncomingJob(null);
-    setActiveJob(job);
-    setScreen('jobTracking');
-  };
+  const handleWorkerAccepted = (job) => { setIncomingJob(null); setActiveJob(job); setScreen('jobTracking'); };
 
   const handleWorkerRejected = () => {
     setIncomingJob(null);
@@ -217,46 +188,27 @@ export default function App() {
   // ─── Callbacks de JobTrackingScreen ──────────────────
   const handleJobComplete = (job) => {
     setActiveJob(null);
-    if (!professional) {
-      setCompletedJob(job);
-      setScreen('rating');
-    } else {
-      setScreen('home');
-    }
+    if (!professional) { setCompletedJob(job); setScreen('rating'); }
+    else               { setScreen('home'); }
   };
 
-  const handleJobCancel = () => {
-    setActiveJob(null);
-    setScreen('home');
-  };
+  const handleJobCancel = () => { setActiveJob(null); setScreen('home'); };
 
   // ─── Callbacks de RatingScreen ────────────────────────
-  const handleRatingDone = () => {
-    setCompletedJob(null);
-    setScreen('home');
-  };
+  const handleRatingDone = () => { setCompletedJob(null); setScreen('home'); };
 
-  // ─── Loading ─────────────────────────────────────────
-  if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A0A0A' }}>
-        <ActivityIndicator size="large" color="#FFD600" />
-      </View>
-    );
-  }
-
-  if (!session) {
-    return (
-      <ErrorBoundary>
-        <LoginScreen />
-        <StatusBar style="light" />
-      </ErrorBoundary>
-    );
-  }
-
-  if (screen === 'jobRequest' && jobRequestData) {
-    return (
-      <ErrorBoundary>
+  // ─── Render ───────────────────────────────────────────
+  const renderScreen = () => {
+    if (loading) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A0A0A' }}>
+          <ActivityIndicator size="large" color="#FFD600" />
+        </View>
+      );
+    }
+    if (!session) return <LoginScreen />;
+    if (screen === 'jobRequest' && jobRequestData) {
+      return (
         <JobRequestScreen
           worker={jobRequestData.worker}
           profession={jobRequestData.profession}
@@ -265,14 +217,10 @@ export default function App() {
           onQuoteGroupCreated={handleQuoteGroupCreated}
           onBack={() => setScreen('home')}
         />
-        <StatusBar style="light" />
-      </ErrorBoundary>
-    );
-  }
-
-  if (screen === 'quoteSelection' && quoteGroupId) {
-    return (
-      <ErrorBoundary>
+      );
+    }
+    if (screen === 'quoteSelection' && quoteGroupId) {
+      return (
         <QuoteSelectionScreen
           quoteGroupId={quoteGroupId}
           jobs={quoteJobs}
@@ -281,14 +229,10 @@ export default function App() {
           onExpired={handleQuoteExpired}
           onBack={handleQuoteBack}
         />
-        <StatusBar style="light" />
-      </ErrorBoundary>
-    );
-  }
-
-  if (screen === 'workerIncoming' && incomingJob) {
-    return (
-      <ErrorBoundary>
+      );
+    }
+    if (screen === 'workerIncoming' && incomingJob) {
+      return (
         <WorkerIncomingScreen
           job={incomingJob}
           professional={professional}
@@ -296,14 +240,10 @@ export default function App() {
           onAccepted={handleWorkerAccepted}
           onRejected={handleWorkerRejected}
         />
-        <StatusBar style="light" />
-      </ErrorBoundary>
-    );
-  }
-
-  if (screen === 'jobTracking' && activeJob) {
-    return (
-      <ErrorBoundary>
+      );
+    }
+    if (screen === 'jobTracking' && activeJob) {
+      return (
         <JobTrackingScreen
           job={activeJob}
           session={session}
@@ -311,27 +251,19 @@ export default function App() {
           onComplete={handleJobComplete}
           onCancel={handleJobCancel}
         />
-        <StatusBar style="light" />
-      </ErrorBoundary>
-    );
-  }
-
-  if (screen === 'rating' && completedJob) {
-    return (
-      <ErrorBoundary>
+      );
+    }
+    if (screen === 'rating' && completedJob) {
+      return (
         <RatingScreen
           job={completedJob}
           session={session}
           professional={professional}
           onDone={handleRatingDone}
         />
-        <StatusBar style="light" />
-      </ErrorBoundary>
-    );
-  }
-
-  return (
-    <ErrorBoundary>
+      );
+    }
+    return (
       <HomeScreen
         session={session}
         professional={professional}
@@ -339,7 +271,14 @@ export default function App() {
         onActiveJob={handleActiveJob}
         onIncomingJob={handleIncomingJob}
       />
+    );
+  };
+
+  return (
+    <ErrorBoundary>
+      {renderScreen()}
       <StatusBar style="light" />
+      <Toast config={toastConfig} />
     </ErrorBoundary>
   );
 }

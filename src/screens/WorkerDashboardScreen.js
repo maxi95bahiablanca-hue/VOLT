@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, ActivityIndicator, Platform, RefreshControl, Image, Modal,
+  SafeAreaView, ScrollView, ActivityIndicator, Platform, RefreshControl, Image, Modal, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { supabase } from '../supabase';
+import { showSuccess, showError } from '../utils/toast';
 import MacheteScreen from './MacheteScreen';
 
 const STATUS_LABEL = {
@@ -32,6 +35,8 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
   const [availableAt, setAvailableAt] = useState(professional.available_at ?? null);
   const [availModal, setAvailModal]   = useState(false);
   const [savingAvail, setSavingAvail] = useState(false);
+  const [localAvatar, setLocalAvatar]       = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const commission = professional.completed_jobs >= 100 && professional.avg_rating >= 4.8 ? 10
     : professional.completed_jobs >= 50  && professional.avg_rating >= 4.5 ? 14
@@ -76,6 +81,51 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
     setSavingAvail(false);
   };
 
+  const uploadAndSaveAvatar = async (file) => {
+    setUploadingAvatar(true);
+    try {
+      const ext    = file.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const path   = `${professional.user_id}/avatar.${ext}`;
+      const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const binary = atob(base64);
+      const bytes  = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const { error: upErr } = await supabase.storage
+        .from('avatars').upload(path, bytes, { upsert: true, contentType: `image/${ext}` });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+      const url = data.publicUrl;
+      await Promise.all([
+        supabase.auth.updateUser({ data: { avatar_url: url } }),
+        supabase.from('professionals').update({ avatar_url: url }).eq('id', professional.id),
+      ]);
+      setLocalAvatar(url);
+      showSuccess('Foto de perfil actualizada.');
+    } catch {
+      showError('No se pudo subir la foto. Intentá de nuevo.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleChangeAvatar = () => {
+    Alert.alert('Foto de perfil', '', [
+      { text: 'Cámara', onPress: async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') return;
+        const r = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+        if (!r.canceled) uploadAndSaveAvatar(r.assets[0]);
+      }},
+      { text: 'Galería', onPress: async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') return;
+        const r = await ImagePicker.launchImageLibraryAsync({ quality: 0.85 });
+        if (!r.canceled) uploadAndSaveAvatar(r.assets[0]);
+      }},
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
   const fetchJobs = async () => {
     try {
       const { data, error } = await supabase
@@ -117,11 +167,18 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
       >
         {/* Perfil del trabajador */}
         <View style={styles.profileCard}>
-          <View style={styles.profileAvatar}>
-            {professional.avatar_url
-              ? <Image source={{ uri: professional.avatar_url }} style={styles.profileAvatarImg} />
-              : <Ionicons name="person" size={32} color="#FFD600" />}
-          </View>
+          <TouchableOpacity style={styles.profileAvatarWrap} onPress={handleChangeAvatar} activeOpacity={0.8} disabled={uploadingAvatar}>
+            <View style={styles.profileAvatar}>
+              {uploadingAvatar
+                ? <ActivityIndicator color="#FFD600" />
+                : (localAvatar ?? professional.avatar_url)
+                ? <Image source={{ uri: localAvatar ?? professional.avatar_url }} style={styles.profileAvatarImg} />
+                : <Ionicons name="person" size={32} color="#FFD600" />}
+            </View>
+            <View style={styles.profileAvatarBadge}>
+              <Ionicons name="camera" size={10} color="#0A0A0A" />
+            </View>
+          </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.profileName}>{professional.first_name} {professional.last_name}</Text>
             <View style={[styles.levelBadge, { borderColor: levelColor + '60' }]}>
@@ -351,11 +408,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#111', borderRadius: 18,
     borderWidth: 1, borderColor: '#1E1E1E',
   },
+  profileAvatarWrap: { position: 'relative' },
   profileAvatar: {
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
+  },
+  profileAvatarBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center',
   },
   profileAvatarImg: { width: '100%', height: '100%' },
   profileName: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 6 },

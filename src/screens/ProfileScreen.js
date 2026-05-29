@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../supabase';
+import { showSuccess, showError } from '../utils/toast';
 import WorkerDashboardScreen from './WorkerDashboardScreen';
 import AdminScreen from './AdminScreen';
 
@@ -66,8 +67,9 @@ const ProfileScreen = ({ session, professional, onClose }) => {
       }
 
       setPhotoUrl(url);
+      showSuccess('Foto de perfil actualizada.');
     } catch {
-      Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
+      showError('No se pudo subir la foto. Intentá de nuevo.');
     } finally {
       setUploadingPhoto(false);
     }
@@ -93,6 +95,12 @@ const ProfileScreen = ({ session, professional, onClose }) => {
       { text: 'Galería', onPress: pickFromGallery },
       { text: 'Cancelar', style: 'cancel' },
     ]);
+  };
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await supabase.auth.signOut().catch(() => {});
+    setSigningOut(false);
   };
 
   const level = professional
