@@ -69,7 +69,7 @@ const AdminScreen = ({ session, onClose }) => {
         const now = new Date();
         setSummary({ totalWorkers, activeWorkers, pendingCount, totalJobs, completedJobs, totalRevenue });
         // También actualizar el badge de pendientes en el tab
-        setPending(Array(pendingCount ?? 0).fill(null));
+        setSummary(s => ({ ...s, pendingCount: pendingCount ?? 0 }));
       } else if (tab === 'pending') {
         const { data } = await supabase
           .from('professionals')
@@ -233,8 +233,8 @@ const AdminScreen = ({ session, onClose }) => {
             onPress={() => setTab(key)}
           >
             <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
-            {key === 'pending' && pending.length > 0 && (
-              <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{pending.length}</Text></View>
+            {key === 'pending' && (summary?.pendingCount ?? pending.length) > 0 && (
+              <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{summary?.pendingCount ?? pending.length}</Text></View>
             )}
           </TouchableOpacity>
         ))}
