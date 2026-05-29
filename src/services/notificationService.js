@@ -16,7 +16,7 @@ import { supabase } from '../supabase';
 //          "mode": "production"
 //        }]
 //   5. Cambiar PUSH_ENABLED a true y hacer build nuevo.
-const PUSH_ENABLED = false;
+const PUSH_ENABLED = true;
 
 let _Notifications = null;
 const getNotif = async () => {
