@@ -17,8 +17,8 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
   const [address, setAddress]         = useState(userLocation?.address || '');
   const [editingAddress, setEditingAddress] = useState(false);
 
-  const stars      = Math.round(parseFloat(worker.avg_rating) || 0);
-  const visitPrice = worker.min_price || 30000;
+  const stars      = Math.round(parseFloat(worker?.avg_rating) || 0);
+  const visitPrice = worker?.min_price || 30000;
 
   const handleConfirm = async () => {
     if (notes.trim().length < 10) {
@@ -27,8 +27,8 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
     }
     setLoading(true);
     try {
-      // Buscar hasta 2 trabajadores más cercanos del mismo oficio
-      let workers = [worker];
+      let workers = worker ? [worker] : [];
+
       if (userLocation?.latitude && userLocation?.longitude) {
         const nearby = await professionalService.getNearbyWorkers(
           profession.id,
@@ -36,8 +36,18 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
           userLocation.longitude,
           8
         );
-        const others = nearby.filter(w => w.id !== worker.id && w.user_id !== clientId).slice(0, 2);
-        workers = [worker, ...others];
+        if (worker) {
+          const others = nearby.filter(w => w.id !== worker.id && w.user_id !== clientId).slice(0, 2);
+          workers = [worker, ...others];
+        } else {
+          workers = nearby.filter(w => w.user_id !== clientId).slice(0, 3);
+        }
+      }
+
+      if (workers.length === 0) {
+        Alert.alert('Sin profesionales', 'No hay profesionales disponibles cerca ahora. Intentá en unos minutos.');
+        setLoading(false);
+        return;
       }
 
       // Crear grupo de cotización (un job por trabajador)
@@ -83,33 +93,48 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-        {/* Worker Card */}
-        <View style={styles.workerCard}>
-          <View style={styles.workerAvatar}>
-            <Ionicons name="person" size={32} color="#FFD600" />
-          </View>
-          <View style={styles.workerInfo}>
-            <Text style={styles.workerName}>{worker.first_name} {worker.last_name}</Text>
-            <Text style={styles.workerProfession}>{profession.name}</Text>
-            <View style={styles.workerStars}>
-              {[1,2,3,4,5].map(i => (
-                <Ionicons key={i} name={i <= stars ? 'star' : 'star-outline'} size={13} color="#FFD600" />
-              ))}
-              <Text style={styles.workerRating}>
-                {worker.avg_rating ? Number(worker.avg_rating).toFixed(1) : 'Nuevo'}
-                {' · '}{worker.completed_jobs || 0} trabajos
+        {/* Worker Card — específico o modo automático */}
+        {worker ? (
+          <View style={styles.workerCard}>
+            <View style={styles.workerAvatar}>
+              <Ionicons name="person" size={32} color="#FFD600" />
+            </View>
+            <View style={styles.workerInfo}>
+              <Text style={styles.workerName}>{worker.first_name} {worker.last_name}</Text>
+              <Text style={styles.workerProfession}>{profession.name}</Text>
+              <View style={styles.workerStars}>
+                {[1,2,3,4,5].map(i => (
+                  <Ionicons key={i} name={i <= stars ? 'star' : 'star-outline'} size={13} color="#FFD600" />
+                ))}
+                <Text style={styles.workerRating}>
+                  {worker.avg_rating ? Number(worker.avg_rating).toFixed(1) : 'Nuevo'}
+                  {' · '}{worker.completed_jobs || 0} trabajos
+                </Text>
+              </View>
+            </View>
+            <View style={styles.distBadge}>
+              <Ionicons name="location-sharp" size={12} color="#FFD600" />
+              <Text style={styles.distText}>
+                {worker.distance_meters < 1000
+                  ? `${Math.round(worker.distance_meters)} m`
+                  : `${(worker.distance_meters / 1000).toFixed(1)} km`}
               </Text>
             </View>
           </View>
-          <View style={styles.distBadge}>
-            <Ionicons name="location-sharp" size={12} color="#FFD600" />
-            <Text style={styles.distText}>
-              {worker.distance_meters < 1000
-                ? `${Math.round(worker.distance_meters)} m`
-                : `${(worker.distance_meters / 1000).toFixed(1)} km`}
-            </Text>
+        ) : (
+          <View style={styles.autoCard}>
+            <View style={styles.autoIcon}>
+              <Ionicons name="people" size={28} color="#FFD600" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.autoTitle}>{profession.name}</Text>
+              <Text style={styles.autoSub}>
+                El sistema enviará tu solicitud a los 3 profesionales más cercanos disponibles.
+                Recibís su respuesta y elegís el que más te conviene.
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* ─── Dirección del servicio ─── */}
         <View style={styles.addressSection}>
@@ -331,6 +356,20 @@ const styles = StyleSheet.create({
     padding: 14, marginBottom: 24,
   },
   infoText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 19 },
+
+  autoCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#111', borderRadius: 18,
+    borderWidth: 1.5, borderColor: '#2a2a1a',
+    padding: 16, marginBottom: 16,
+  },
+  autoIcon: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  autoTitle: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 4 },
+  autoSub:   { fontSize: 12, color: '#888', lineHeight: 17 },
 
   confirmBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

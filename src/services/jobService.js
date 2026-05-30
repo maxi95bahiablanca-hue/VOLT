@@ -15,6 +15,16 @@ function commissionFor(worker) {
 }
 
 const jobService = {
+  getById: async (jobId) => {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('*, professions(name)')
+      .eq('id', jobId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
   create: async ({ clientId, professionalId, professionId, professionName, clientLat, clientLng, address, notes, commissionPct, visitAmount }) => {
     const { data, error } = await supabase
       .from('jobs')

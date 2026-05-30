@@ -594,6 +594,26 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
             })}
           </ScrollView>
 
+          {/* Botón solicitud directa — visible cuando hay profesionales disponibles */}
+          {selectedProfession && workers.length > 0 && (
+            <TouchableOpacity
+              style={styles.directRequestBtn}
+              onPress={() => onRequestJob?.(null, selectedProfession, userLocation)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="flash" size={18} color="#0A0A0A" />
+              <Text style={styles.directRequestBtnText}>
+                Solicitar {selectedProfession.name}
+              </Text>
+              <View style={styles.directRequestCount}>
+                <View style={styles.directRequestDot} />
+                <Text style={styles.directRequestCountText}>
+                  {workers.length} disponible{workers.length > 1 ? 's' : ''}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
           {/* Banner método de pago — solo para clientes sin pago verificado */}
           {!professional && !paymentVerified && (
             <TouchableOpacity
@@ -791,6 +811,23 @@ const styles = StyleSheet.create({
   workerToggleTextOn: { color: '#0A0A0A' },
   dashboardLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   dashboardLinkText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
+
+  // Botón solicitud directa
+  directRequestBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#FFD600', borderRadius: 14,
+    paddingVertical: 14, paddingHorizontal: 16,
+  },
+  directRequestBtnText: {
+    flex: 1, fontSize: 15, fontWeight: '900', color: '#0A0A0A',
+  },
+  directRequestCount: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  directRequestDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#0A0A0A' },
+  directRequestCountText: { fontSize: 11, color: '#0A0A0A', fontWeight: '700' },
 
   // Banner pago
   paymentBanner: {

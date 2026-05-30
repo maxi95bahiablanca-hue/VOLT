@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import * as Notifications from 'expo-notifications';
@@ -42,7 +42,9 @@ export default function App() {
   const [incomingJob, setIncomingJob]       = useState(null);
   const [completedJob, setCompletedJob]     = useState(null);
 
-  const newJobChannelRef = useRef(null);
+  const newJobChannelRef  = useRef(null);
+  const professionalRef   = useRef(null);  // ref para acceder desde AppState / notif handlers
+  const screenRef         = useRef('home');
 
   // ─── Auth ─────────────────────────────────────────────
   useEffect(() => {
@@ -59,6 +61,10 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Mantener refs sincronizados para acceso desde closures (AppState / notif handlers)
+  useEffect(() => { professionalRef.current = professional; }, [professional]);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
+
   // ─── Setup notificaciones + profesional + trabajo activo ──
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -67,27 +73,48 @@ export default function App() {
     notificationService.setup(userId);
     loadProfessionalAndJobs(userId);
 
-    const receivedSub = Notifications.addNotificationReceivedListener(notification => {
-      const data = notification.request.content.data;
-      if (data?.screen === 'tracking' && data?.jobId) {
-        jobService.getById?.(data.jobId).then(job => {
+    const handleNotifData = (data) => {
+      if (!data) return;
+      if (data.screen === 'tracking' && data.jobId) {
+        jobService.getById(data.jobId).then(job => {
           if (job) { setActiveJob(job); setScreen('jobTracking'); }
         }).catch(() => {});
       }
-    });
+      if (data.screen === 'worker_incoming' && data.jobId) {
+        jobService.getById(data.jobId).then(job => {
+          if (job) { setIncomingJob(job); setScreen('workerIncoming'); }
+        }).catch(() => {});
+      }
+    };
 
-    const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      if (data?.screen === 'tracking' && data?.jobId) {
-        jobService.getById?.(data.jobId).then(job => {
-          if (job) { setActiveJob(job); setScreen('jobTracking'); }
-        }).catch(() => {});
-      }
+    const receivedSub = Notifications.addNotificationReceivedListener(n =>
+      handleNotifData(n.request.content.data)
+    );
+    const responseSub = Notifications.addNotificationResponseReceivedListener(r =>
+      handleNotifData(r.notification.request.content.data)
+    );
+
+    // Cuando la app vuelve a primer plano, re-chequeamos trabajos pendientes
+    // Esto cubre el caso donde el Realtime falló o el teléfono estaba sin red.
+    const appStateSub = AppState.addEventListener('change', async (nextState) => {
+      if (nextState !== 'active') return;
+      const prof = professionalRef.current;
+      const sc   = screenRef.current;
+      if (!prof || sc !== 'home') return;
+      try {
+        const [active, pending] = await Promise.all([
+          jobService.getActiveForWorker(prof.id),
+          jobService.getPendingForWorker(prof.id),
+        ]);
+        if (active) { setActiveJob(active); setScreen('jobTracking'); return; }
+        if (pending.length > 0) { setIncomingJob(pending[0]); setScreen('workerIncoming'); }
+      } catch { /* silent */ }
     });
 
     return () => {
       receivedSub.remove();
       responseSub.remove();
+      appStateSub.remove();
       newJobChannelRef.current?.unsubscribe?.();
     };
   }, [session?.user?.id]);
