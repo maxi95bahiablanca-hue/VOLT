@@ -211,13 +211,20 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   };
 
   const handleCancel = () => {
-    Alert.alert('¿Cancelar trabajo?', 'Esta acción no se puede deshacer.', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
-        await jobService.cancel(job.id, userId);
-        onCancel();
-      }},
-    ]);
+    const awaitingPayment = job.status === 'awaiting_payment';
+    Alert.alert(
+      awaitingPayment ? '¿Cancelar el cobro?' : '¿Cancelar trabajo?',
+      awaitingPayment
+        ? 'El trabajo ya fue realizado. Al cancelar no habrá cobro por esta visita.'
+        : 'Esta acción no se puede deshacer.',
+      [
+        { text: 'No, volver', style: 'cancel' },
+        { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
+          try { await jobService.cancel(job.id, userId); } catch {}
+          onCancel();
+        }},
+      ]
+    );
   };
 
   const handleEmergency = () => {
@@ -424,7 +431,7 @@ window.addEventListener('message', e => {
       <View style={styles.header}>
         <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
         <Text style={styles.headerStatus}>{statusInfo.label}</Text>
-        {job.status === 'pending' && (
+        {['pending', 'awaiting_payment'].includes(job.status) && (
           <TouchableOpacity onPress={handleCancel} style={styles.cancelBtn}>
             <Text style={styles.cancelBtnText}>Cancelar</Text>
           </TouchableOpacity>
@@ -765,6 +772,20 @@ window.addEventListener('message', e => {
                   )}
                 </TouchableOpacity>
               </View>
+            </View>
+          )}
+
+          {/* Trabajador esperando pago */}
+          {isWorker && job.status === 'awaiting_payment' && (
+            <View style={styles.waitingPayCard}>
+              <View style={styles.waitingPayRow}>
+                <ActivityIndicator size="small" color="#4CAF50" />
+                <Text style={styles.waitingPayText}>Esperando que el cliente pague...</Text>
+              </View>
+              <TouchableOpacity style={styles.cancelJobBtn} onPress={handleCancel} disabled={loading}>
+                <Ionicons name="close-circle-outline" size={16} color="#ff4444" />
+                <Text style={styles.cancelJobBtnText}>El cliente no quiere pagar — cancelar</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -1115,6 +1136,22 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 16, marginTop: 12,
   },
   supportBtnText: { color: '#25D366', fontSize: 15, fontWeight: '800' },
+
+  // Trabajador esperando pago
+  waitingPayCard: {
+    backgroundColor: '#0A1200', borderRadius: 14,
+    borderWidth: 1, borderColor: '#4CAF5030',
+    padding: 14, gap: 12,
+  },
+  waitingPayRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  waitingPayText: { flex: 1, fontSize: 14, color: '#4CAF50', fontWeight: '700' },
+  cancelJobBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 11, borderRadius: 10,
+    borderWidth: 1, borderColor: '#ff444430',
+    backgroundColor: 'rgba(255,68,68,0.06)',
+  },
+  cancelJobBtnText: { color: '#ff4444', fontSize: 13, fontWeight: '700' },
 
   // Pago — opción de problema
   payProblemBtn: {
