@@ -78,6 +78,12 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose }) => {
               </View>
             )}
           </View>
+          {worker.estudios_url && (
+            <View style={styles.cardEstudiosBadge}>
+              <Ionicons name="school" size={10} color="#4285F4" />
+              <Text style={styles.cardEstudiosBadgeText}>Certificado</Text>
+            </View>
+          )}
         </View>
         <View style={styles.cardDistBadge}>
           <Ionicons name="location-sharp" size={12} color="#FFD600" />
@@ -899,6 +905,13 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 5, paddingVertical: 2, marginLeft: 4,
   },
   onTimeBadgeText: { color: '#4CAF50', fontSize: 10, fontWeight: '700' },
+  cardEstudiosBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginTop: 6, borderWidth: 1, borderColor: 'rgba(66,133,244,0.35)',
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: 'rgba(66,133,244,0.08)', alignSelf: 'flex-start',
+  },
+  cardEstudiosBadgeText: { fontSize: 10, color: '#4285F4', fontWeight: '700' },
   cardDistBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: '#1A1A1A',

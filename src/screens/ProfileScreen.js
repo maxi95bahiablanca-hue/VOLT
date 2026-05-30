@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Alert, Platform, Image, ActivityIndicator, Linking,
@@ -26,14 +26,15 @@ const ProfileScreen = ({ session, professional, onClose }) => {
   const [showAdmin, setShowAdmin]         = useState(false);
   const [photoUrl, setPhotoUrl]           = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [paymentVerified, setPaymentVerified] = useState(false);
-  const [loadingPayment, setLoadingPayment]   = useState(false);
+  const [paymentVerified, setPaymentVerified]     = useState(false);
+  const [loadingPayment, setLoadingPayment]       = useState(false);
+  const [localPaymentMethod, setLocalPaymentMethod] = useState(professional?.payment_method || 'cbu');
 
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email);
   const user    = session?.user;
 
   // Verificar si el cliente tiene al menos un pago aprobado
-  React.useEffect(() => {
+  useEffect(() => {
     if (professional || !user?.id) return;
     setLoadingPayment(true);
     supabase
@@ -114,6 +115,27 @@ const ProfileScreen = ({ session, professional, onClose }) => {
     ]);
   };
 
+  const handleEditPaymentMethod = () => {
+    Alert.alert('Método de cobro', '¿Cómo querés recibir los pagos?', [
+      { text: localPaymentMethod === 'cbu' ? 'CBU / CVU ✓ (actual)' : 'CBU / CVU',
+        onPress: () => applyPaymentMethod('cbu') },
+      { text: localPaymentMethod === 'mercadopago' ? 'Mercado Pago ✓ (actual)' : 'Mercado Pago',
+        onPress: () => applyPaymentMethod('mercadopago') },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const applyPaymentMethod = async (method) => {
+    if (method === localPaymentMethod) return;
+    try {
+      await supabase.from('professionals').update({ payment_method: method }).eq('user_id', user.id);
+      setLocalPaymentMethod(method);
+      showSuccess(`Ahora cobrás por ${method === 'cbu' ? 'CBU / CVU' : 'Mercado Pago'}.`);
+    } catch {
+      showError('No se pudo actualizar el método de cobro.');
+    }
+  };
+
   const handleSignOut = async () => {
     setSigningOut(true);
     await supabase.auth.signOut().catch(() => {});
@@ -162,6 +184,12 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           {level && (
             <View style={[styles.levelBadge, { borderColor: level.color + '60' }]}>
               <Text style={[styles.levelText, { color: level.color }]}>{level.label}</Text>
+            </View>
+          )}
+          {professional?.estudios_url && (
+            <View style={styles.estudiosBadge}>
+              <Ionicons name="school" size={13} color="#4285F4" />
+              <Text style={styles.estudiosBadgeText}>Certificado verificado</Text>
             </View>
           )}
         </View>
@@ -225,6 +253,16 @@ const ProfileScreen = ({ session, professional, onClose }) => {
                   <View style={styles.rowDivider} />
                 </>
               )}
+              <TouchableOpacity style={styles.row} onPress={handleEditPaymentMethod} activeOpacity={0.7}>
+                <Text style={{ fontSize: 16 }}>
+                  {localPaymentMethod === 'mercadopago' ? '💳' : '🏦'}
+                </Text>
+                <Text style={[styles.rowText, { flex: 1 }]}>
+                  Cobra por {localPaymentMethod === 'mercadopago' ? 'Mercado Pago' : 'CBU / CVU'}
+                </Text>
+                <Text style={{ fontSize: 11, color: '#FFD600' }}>Cambiar</Text>
+              </TouchableOpacity>
+              <View style={styles.rowDivider} />
             </>
           )}
 
@@ -360,6 +398,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 5,
   },
   levelText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  estudiosBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: 8, borderWidth: 1, borderColor: '#4285F440',
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4,
+    backgroundColor: 'rgba(66,133,244,0.08)',
+  },
+  estudiosBadgeText: { fontSize: 12, color: '#4285F4', fontWeight: '700' },
 
   statsCard: {
     flexDirection: 'row', alignItems: 'center',
