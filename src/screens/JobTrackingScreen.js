@@ -59,7 +59,8 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const [workElapsed, setWorkElapsed]       = useState(0);
   const [problemModal, setProblemModal]     = useState(false);
-  const completedShownRef = useRef(false);
+  const completedShownRef  = useRef(false);
+  const selfCancelledRef   = useRef(false); // evita alert "Trabajo cancelado" al auto-cancelar
   const webRef = useRef(null);
 
   const isWorker = !!professional;
@@ -98,8 +99,8 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   // Cancelación o finalización detectada vía realtime
   useEffect(() => {
-    if (job.status === 'cancelled' && isWorker) {
-      Alert.alert('Trabajo cancelado', 'El cliente eligió otro profesional.', [{ text: 'Entendido', onPress: onCancel }]);
+    if (job.status === 'cancelled' && isWorker && !selfCancelledRef.current) {
+      Alert.alert('Trabajo cancelado', 'El cliente canceló el trabajo.', [{ text: 'Entendido', onPress: onCancel }]);
     }
     if (job.status === 'completed' && isWorker && !completedShownRef.current) {
       completedShownRef.current = true;
@@ -220,8 +221,16 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
       [
         { text: 'No, volver', style: 'cancel' },
         { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
-          try { await jobService.cancel(job.id, userId); } catch {}
-          onCancel();
+          selfCancelledRef.current = true;
+          setLoading(true);
+          try {
+            await jobService.cancel(job.id, userId);
+            onCancel();
+          } catch {
+            // Si falla el cancel en el servidor, igual salir
+            // (el AppState listener en App.js tiene el lock del job ID)
+            onCancel();
+          }
         }},
       ]
     );
@@ -455,8 +464,16 @@ window.addEventListener('message', e => {
       )}
 
       {/* Panel inferior */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView style={styles.panel} contentContainerStyle={styles.panelContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={isWorker ? { flex: 1 } : undefined}
+      >
+        <ScrollView
+          style={isWorker ? [styles.panel, { flex: 1 }] : [styles.panel, styles.panelClient]}
+          contentContainerStyle={styles.panelContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
 
           {/* Tip contextual */}
           {tip && (
@@ -830,6 +847,16 @@ window.addEventListener('message', e => {
                     <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar ${total.toLocaleString('es-AR')}</Text></>
                   )}
                 </TouchableOpacity>
+                <TouchableOpacity style={styles.testPayBtn} disabled={loading} onPress={async () => {
+                  setLoading(true);
+                  try {
+                    await jobService.complete(job.id);
+                    onComplete(job);
+                  } catch { setLoading(false); }
+                }}>
+                  <Ionicons name="flask-outline" size={14} color="#888" />
+                  <Text style={styles.testPayBtnText}>Simular pago aprobado (solo testing)</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.payProblemBtn} onPress={() => setProblemModal(true)}>
                   <Ionicons name="warning-outline" size={14} color="#FF9800" />
                   <Text style={styles.payProblemText}>¿Algo salió mal? Reportar un problema</Text>
@@ -878,8 +905,8 @@ const styles = StyleSheet.create({
   panel: {
     backgroundColor: '#111',
     borderTopWidth: 1, borderTopColor: '#1E1E1E',
-    maxHeight: '60%',
   },
+  panelClient: { maxHeight: '52%' },
   panelContent: {
     padding: 16,
     paddingBottom: Platform.OS === 'android' ? 64 : 28,
@@ -1152,6 +1179,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,68,68,0.06)',
   },
   cancelJobBtnText: { color: '#ff4444', fontSize: 13, fontWeight: '700' },
+
+  testPayBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 10,
+    borderWidth: 1, borderColor: '#333', borderStyle: 'dashed',
+  },
+  testPayBtnText: { color: '#555', fontSize: 12, fontWeight: '600' },
 
   // Pago — opción de problema
   payProblemBtn: {

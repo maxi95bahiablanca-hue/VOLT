@@ -42,9 +42,10 @@ export default function App() {
   const [incomingJob, setIncomingJob]       = useState(null);
   const [completedJob, setCompletedJob]     = useState(null);
 
-  const newJobChannelRef  = useRef(null);
-  const professionalRef   = useRef(null);  // ref para acceder desde AppState / notif handlers
-  const screenRef         = useRef('home');
+  const newJobChannelRef        = useRef(null);
+  const professionalRef         = useRef(null);
+  const screenRef               = useRef('home');
+  const recentlyCancelledJobRef = useRef(null); // evita re-navegar al job recién cancelado
 
   // ─── Auth ─────────────────────────────────────────────
   useEffect(() => {
@@ -106,7 +107,10 @@ export default function App() {
           jobService.getActiveForWorker(prof.id),
           jobService.getPendingForWorker(prof.id),
         ]);
-        if (active) { setActiveJob(active); setScreen('jobTracking'); return; }
+        if (active) {
+          if (active.id === recentlyCancelledJobRef.current) return; // recién cancelado, ignorar
+          setActiveJob(active); setScreen('jobTracking'); return;
+        }
         if (pending.length > 0) { setIncomingJob(pending[0]); setScreen('workerIncoming'); }
       } catch { /* silent */ }
     });
@@ -219,7 +223,21 @@ export default function App() {
     else               { setScreen('home'); }
   };
 
-  const handleJobCancel = () => { setActiveJob(null); setScreen('home'); };
+  const handleJobCancel = () => {
+    // Bloquear el AppState listener para que no re-navegue al mismo job durante 10 seg
+    recentlyCancelledJobRef.current = activeJob?.id;
+    setTimeout(() => { recentlyCancelledJobRef.current = null; }, 10000);
+    setActiveJob(null);
+    setScreen('home');
+    // Re-suscribir al trabajador para que reciba nuevos jobs
+    if (professional) {
+      newJobChannelRef.current?.unsubscribe?.();
+      newJobChannelRef.current = jobService.subscribeNewJobsForWorker(professional.id, (job) => {
+        setIncomingJob(job);
+        setScreen('workerIncoming');
+      });
+    }
+  };
 
   // ─── Callbacks de RatingScreen ────────────────────────
   const handleRatingDone = () => { setCompletedJob(null); setScreen('home'); };
