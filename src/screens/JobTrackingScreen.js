@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   TextInput, Alert, ActivityIndicator, Platform, KeyboardAvoidingView,
-  Modal, Linking,
+  Modal, Linking, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
+import { supabase } from '../supabase';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import paymentService from '../services/paymentService';
@@ -36,6 +37,16 @@ const CLIENT_TIPS = {
   awaiting_payment: '💳 El pago es seguro y solo a través de la app. Nunca pagues en efectivo.',
 };
 
+const PROBLEM_ISSUES = [
+  { icon: 'time-outline',          text: 'El profesional no llega o no responde' },
+  { icon: 'cash-outline',          text: 'Me pidieron pagar en efectivo (prohibido)' },
+  { icon: 'construct-outline',     text: 'El trabajo no se realizó correctamente' },
+  { icon: 'alert-circle-outline',  text: 'Me siento inseguro/a en este momento' },
+  { icon: 'card-outline',          text: 'Problema con el monto a pagar' },
+  { icon: 'person-remove-outline', text: 'El profesional actuó de manera inapropiada' },
+  { icon: 'help-circle-outline',   text: 'Otro problema' },
+];
+
 const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete, onCancel }) => {
   const [job, setJob]               = useState(initialJob);
   const [workAmount, setWorkAmount]     = useState('');
@@ -45,7 +56,9 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [enteredCode, setEnteredCode] = useState('');
   const [codeResult, setCodeResult]   = useState(null);
   const [completedModal, setCompletedModal] = useState(false);
-  const [sessionElapsed, setSessionElapsed] = useState(0); // segundos desde inicio de sesión actual
+  const [sessionElapsed, setSessionElapsed] = useState(0);
+  const [workElapsed, setWorkElapsed]       = useState(0);
+  const [problemModal, setProblemModal]     = useState(false);
   const completedShownRef = useRef(false);
   const webRef = useRef(null);
 
@@ -59,7 +72,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     return () => { if (channel) channel.unsubscribe?.(); };
   }, [job.id]);
 
-  // Timer de sesión actual (cuando current_session_start está seteado)
+  // Timer de sesión multi-día
   useEffect(() => {
     if (!job.current_session_start) { setSessionElapsed(0); return; }
     const calc = () => {
@@ -70,6 +83,18 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     const t = setInterval(calc, 1000);
     return () => clearInterval(t);
   }, [job.current_session_start]);
+
+  // Timer de trabajo en curso (single-day)
+  useEffect(() => {
+    if (job.status !== 'in_progress' || job.is_multiday || !job.work_started_at) { setWorkElapsed(0); return; }
+    const calc = () => {
+      const diff = Math.floor((Date.now() - new Date(job.work_started_at)) / 1000);
+      setWorkElapsed(Math.max(0, diff));
+    };
+    calc();
+    const t = setInterval(calc, 1000);
+    return () => clearInterval(t);
+  }, [job.status, job.work_started_at, job.is_multiday]);
 
   // Cancelación o finalización detectada vía realtime
   useEffect(() => {
@@ -116,8 +141,8 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
       if (action === 'arrive') {
         await jobService.arrive(job.id);
-        notifTitle = '📍 El profesional llegó';
-        notifBody  = '🔒 IMPORTANTE: antes de abrir, pedile el código de 4 dígitos que aparece en su app. Si no te da el código, no abras.';
+        notifTitle = '⚡ ESTÁ POR LLEGAR UN VOLT';
+        notifBody  = 'POR FAVOR RECORDÁ PEDIRLE EL CÓDIGO PARA ASEGURARTE QUE ES UN TRABAJADOR VERIFICADO.';
       } else if (action === 'start') {
         await jobService.start(job.id);
         notifTitle = '🔧 Trabajo iniciado';
@@ -133,17 +158,15 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         await jobService.setWorkAmount(job.id, labor, mats);
         const visitAmt = job.visit_amount || 30000;
         const total    = visitAmt + mats + labor;
-        notifTitle = '💳 Pago pendiente';
-        notifBody  = [
-          mats > 0
+        notifTitle = '💳 Trabajo listo — hora de pagar';
+        notifBody  = (mats > 0
             ? `Visita $${visitAmt.toLocaleString('es-AR')} + Materiales $${mats.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`
-            : `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`,
-          'Confirmá para pagar.',
-        ].join(' ');
+            : `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`) +
+          ' Abrí la app para pagar.';
       }
 
       if (notifTitle) {
-        await notificationService.sendToUser(clientId, { title: notifTitle, body: notifBody, data: { jobId: job.id } });
+        await notificationService.sendToUser(clientId, { title: notifTitle, body: notifBody, data: { jobId: job.id, screen: 'tracking' } });
       }
     } catch {
       Alert.alert('Error', 'No se pudo actualizar el estado.');
@@ -158,13 +181,27 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
       const { checkoutUrl } = await paymentService.createPreference({ jobId: job.id });
       const result = await paymentService.openCheckout(checkoutUrl);
       if (result === 'success') {
+        try {
+          const { data: prof } = await supabase
+            .from('professionals')
+            .select('user_id')
+            .eq('id', job.professional_id)
+            .maybeSingle();
+          if (prof?.user_id) {
+            await notificationService.sendToUser(prof.user_id, {
+              title: '💰 ¡Pago recibido!',
+              body:  'El cliente completó el pago. ¡Excelente trabajo! Ya podés tomar nuevos pedidos.',
+              data:  { jobId: job.id },
+            });
+          }
+        } catch {}
         onComplete(job);
       } else if (result === 'failure') {
-        Alert.alert('Pago rechazado', 'El pago no fue procesado. Intentá con otra tarjeta.');
+        Alert.alert('Pago rechazado', 'El pago no fue procesado.\n\nPodés intentar con otra tarjeta de débito, crédito o billetera digital (Naranja X, Ualá, etc.).');
       } else if (result === 'pending') {
         Alert.alert('Procesando pago', 'Tu pago está siendo verificado. Te avisaremos cuando se confirme.');
       } else {
-        Alert.alert('Pago cancelado', 'Cerraste el pago sin completarlo. El profesional sigue esperando.\n\nPodés volver a pagar cuando quieras.');
+        Alert.alert('Pago cancelado', 'Cerraste el pago sin completarlo. El profesional sigue esperando.\n\nPodés volver a intentarlo cuando quieras.');
       }
     } catch {
       Alert.alert('Error', 'No se pudo iniciar el pago. Intentá de nuevo.');
@@ -198,6 +235,15 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     }
   };
 
+  const handleReportIssue = (issueText) => {
+    setProblemModal(false);
+    Alert.alert(
+      'Problema reportado',
+      `Registramos tu reporte:\n"${issueText}"\n\nNuestro equipo te contactará pronto. Si estás en peligro, llamá al 911 ahora mismo.`,
+      [{ text: 'OK' }]
+    );
+  };
+
   const statusInfo = STATUS_INFO[job.status] || STATUS_INFO.pending;
   const tip = isWorker ? WORKER_TIPS[job.status] : CLIENT_TIPS[job.status];
 
@@ -220,6 +266,10 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const isMultiday = !!job.is_multiday;
   const inSession  = !!job.current_session_start;
+
+  const professionalName = job.professionals
+    ? `${job.professionals.first_name || ''} ${job.professionals.last_name || ''}`.trim() || 'Profesional'
+    : 'Profesional en camino';
 
   const mapHtml = `
 <!DOCTYPE html><html>
@@ -284,7 +334,7 @@ window.addEventListener('message', e => {
 
       {/* Modal de verificación de código (cliente) */}
       <Modal visible={codeModal} transparent animationType="slide" onRequestClose={() => { setCodeModal(false); setEnteredCode(''); setCodeResult(null); }}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
               <Ionicons name="shield-checkmark" size={28} color="#FFD600" />
@@ -341,6 +391,35 @@ window.addEventListener('message', e => {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Modal TENGO UN PROBLEMA */}
+      <Modal visible={problemModal} transparent animationType="slide" onRequestClose={() => setProblemModal(false)}>
+        <TouchableOpacity style={styles.problemOverlay} activeOpacity={1} onPress={() => setProblemModal(false)}>
+          <TouchableOpacity style={styles.problemBox} activeOpacity={1} onPress={() => {}}>
+            <View style={styles.problemHeader}>
+              <Ionicons name="warning" size={22} color="#FF9800" />
+              <Text style={styles.problemTitle}>¿Cuál es el problema?</Text>
+              <TouchableOpacity onPress={() => setProblemModal(false)}>
+                <Ionicons name="close" size={22} color="#555" />
+              </TouchableOpacity>
+            </View>
+            {PROBLEM_ISSUES.map(issue => (
+              <TouchableOpacity key={issue.text} style={styles.problemItem} onPress={() => handleReportIssue(issue.text)}>
+                <Ionicons name={issue.icon} size={16} color="#888" />
+                <Text style={styles.problemItemText}>{issue.text}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#333" />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.supportBtn} onPress={() => {
+              setProblemModal(false);
+              Linking.openURL('https://wa.me/5492914000000?text=Hola%2C%20necesito%20soporte%20con%20un%20trabajo%20VOLT');
+            }}>
+              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+              <Text style={styles.supportBtnText}>Contactar soporte VOLT</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Header */}
       <View style={styles.header}>
         <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
@@ -369,8 +448,8 @@ window.addEventListener('message', e => {
       )}
 
       {/* Panel inferior */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.panel}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView style={styles.panel} contentContainerStyle={styles.panelContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
           {/* Tip contextual */}
           {tip && (
@@ -443,6 +522,15 @@ window.addEventListener('message', e => {
             </View>
           )}
 
+          {/* Contador de tiempo de trabajo — single-day, visible para ambas partes */}
+          {job.status === 'in_progress' && !isMultiday && (
+            <View style={styles.workTimerCard}>
+              <View style={styles.workTimerDot} />
+              <Text style={styles.workTimerLabel}>Trabajo en curso</Text>
+              <Text style={styles.workTimerValue}>{fmtTime(workElapsed)}</Text>
+            </View>
+          )}
+
           {/* Comprando materiales — info para cliente */}
           {!isWorker && job.status === 'arrived' && job.is_buying_materials && (
             <View style={styles.buyingCard}>
@@ -472,8 +560,11 @@ window.addEventListener('message', e => {
             <Ionicons name={statusInfo.icon} size={22} color={statusInfo.color} />
             <View style={{ flex: 1 }}>
               <Text style={styles.jobInfoTitle}>
-                {isWorker ? `Cliente · ${job.address || 'Ver ubicación'}` : 'Profesional en camino'}
+                {isWorker ? `Cliente · ${job.address || 'Ver ubicación'}` : professionalName}
               </Text>
+              {!isWorker && job.status !== 'pending' && (
+                <Text style={styles.jobInfoSub}>{job.address || ''}</Text>
+              )}
               {job.work_amount && (
                 <Text style={styles.jobAmount}>Total: ${job.work_amount.toLocaleString('es-AR')}</Text>
               )}
@@ -711,18 +802,29 @@ window.addEventListener('message', e => {
                 </View>
                 <View style={styles.cardOnlyBadge}>
                   <Ionicons name="card-outline" size={14} color="#4285F4" />
-                  <Text style={styles.cardOnlyText}>Solo tarjeta de débito o crédito</Text>
+                  <Text style={styles.cardOnlyText}>Tarjeta de débito, crédito o billetera digital</Text>
                 </View>
                 <TouchableOpacity style={styles.payBtn} onPress={handleClientPay} disabled={loading}>
                   {loading ? <ActivityIndicator color="#fff" /> : (
-                    <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar ${total.toLocaleString('es-AR')} con tarjeta</Text></>
+                    <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar ${total.toLocaleString('es-AR')}</Text></>
                   )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.payProblemBtn} onPress={() => setProblemModal(true)}>
+                  <Ionicons name="warning-outline" size={14} color="#FF9800" />
+                  <Text style={styles.payProblemText}>¿Algo salió mal? Reportar un problema</Text>
                 </TouchableOpacity>
               </View>
             );
           })()}
 
-        </View>
+          {/* Botón TENGO UN PROBLEMA — siempre visible */}
+          <TouchableOpacity style={styles.problemBtn} onPress={() => setProblemModal(true)}>
+            <Ionicons name="warning-outline" size={15} color="#FF9800" />
+            <Text style={styles.problemBtnText}>TENGO UN PROBLEMA</Text>
+            <Ionicons name="chevron-forward" size={14} color="#FF9800" />
+          </TouchableOpacity>
+
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -755,7 +857,11 @@ const styles = StyleSheet.create({
   panel: {
     backgroundColor: '#111',
     borderTopWidth: 1, borderTopColor: '#1E1E1E',
-    padding: 16, paddingBottom: 28,
+    maxHeight: '60%',
+  },
+  panelContent: {
+    padding: 16,
+    paddingBottom: Platform.OS === 'android' ? 64 : 28,
     gap: 12,
   },
 
@@ -791,7 +897,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0A0A', borderRadius: 14,
     borderWidth: 1, borderColor: '#1E1E1E', padding: 14,
   },
-  jobInfoTitle: { fontSize: 14, color: '#F5F5F5', fontWeight: '600' },
+  jobInfoTitle: { fontSize: 14, color: '#F5F5F5', fontWeight: '700' },
+  jobInfoSub:   { fontSize: 12, color: '#555', marginTop: 2 },
   jobAmount:    { fontSize: 13, color: '#888', marginTop: 3 },
   visitBadge: {
     backgroundColor: '#1a1a1a', borderRadius: 8,
@@ -958,6 +1065,63 @@ const styles = StyleSheet.create({
   codeErrorSub:   { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 },
   codeRetryBtn: { backgroundColor: 'rgba(255,68,68,0.12)', borderWidth: 1.5, borderColor: '#ff444450', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32, marginTop: 8 },
   codeRetryBtnText: { color: '#ff4444', fontSize: 15, fontWeight: '900' },
+
+  // Timer de trabajo en curso
+  workTimerCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#0A1500', borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#4CAF5040',
+    paddingVertical: 12, paddingHorizontal: 14,
+  },
+  workTimerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
+  workTimerLabel: { flex: 1, fontSize: 13, color: '#4CAF50', fontWeight: '700' },
+  workTimerValue: { fontSize: 20, fontWeight: '900', color: '#4CAF50', letterSpacing: 1 },
+
+  // Botón TENGO UN PROBLEMA
+  problemBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, paddingHorizontal: 16,
+    borderRadius: 12, borderWidth: 1, borderColor: '#FF980030',
+    backgroundColor: 'rgba(255,152,0,0.05)',
+  },
+  problemBtnText: { flex: 1, color: '#FF9800', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+
+  // Modal TENGO UN PROBLEMA
+  problemOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'flex-end',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
+  },
+  problemBox: {
+    backgroundColor: '#111',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopWidth: 1, borderColor: '#1E1E1E',
+    padding: 20, paddingBottom: Platform.OS === 'android' ? 36 : 20, gap: 2,
+  },
+  problemHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginBottom: 14,
+  },
+  problemTitle: { flex: 1, fontSize: 17, fontWeight: '900', color: '#F5F5F5' },
+  problemItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+  },
+  problemItemText: { flex: 1, fontSize: 14, color: '#BBBBBB', lineHeight: 20 },
+  supportBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: 'rgba(37,211,102,0.08)',
+    borderWidth: 1, borderColor: 'rgba(37,211,102,0.25)',
+    borderRadius: 14, paddingVertical: 16, marginTop: 12,
+  },
+  supportBtnText: { color: '#25D366', fontSize: 15, fontWeight: '800' },
+
+  // Pago — opción de problema
+  payProblemBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10,
+  },
+  payProblemText: { color: '#FF9800', fontSize: 13, fontWeight: '600' },
 });
 
 export default JobTrackingScreen;

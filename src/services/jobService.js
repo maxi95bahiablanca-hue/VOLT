@@ -18,7 +18,7 @@ const jobService = {
   getById: async (jobId) => {
     const { data, error } = await supabase
       .from('jobs')
-      .select('*, professions(name)')
+      .select('*, professions(name), professionals(id, user_id, first_name, last_name, phone, avatar_url)')
       .eq('id', jobId)
       .maybeSingle();
     if (error) throw error;

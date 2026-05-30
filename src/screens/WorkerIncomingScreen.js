@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  Animated, Easing, Platform, Alert, TextInput, ScrollView, BackHandler, Vibration,
+  Animated, Easing, Platform, Alert, TextInput, ScrollView, BackHandler, Vibration, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
@@ -17,6 +17,7 @@ const HRS_DAY_OPTIONS   = ['~2 hs', '~3 hs', '~4 hs', '~6 hs', '~8 hs'];
 const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onRejected }) => {
   const [timeLeft, setTimeLeft]               = useState(TIMEOUT_SEC);
   const [loading, setLoading]                 = useState(false);
+  const [timedOut, setTimedOut]               = useState(false);
   const [diagnosis, setDiagnosis]             = useState('');
   const [showDiag, setShowDiag]               = useState(false);
   const [arrivalEst, setArrivalEst]           = useState('~30 min');
@@ -76,6 +77,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
       setTimeLeft(t => {
         if (t <= 1) {
           clearInterval(timerRef.current);
+          setTimedOut(true);
           handleReject(true);
           return 0;
         }
@@ -112,8 +114,8 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
       if (showDiag && materialsNeeded) notifBody += ' Necesita comprar materiales para el trabajo.';
 
       await notificationService.sendToUser(clientUserId, {
-        title: `⚡ Profesional en camino — llega en ${arrivalEst}`,
-        body:  notifBody,
+        title: `⚡ ESTÁ POR LLEGAR UN VOLT`,
+        body:  `POR FAVOR RECORDÁ PEDIRLE EL CÓDIGO PARA ASEGURARTE QUE ES UN TRABAJADOR VERIFICADO. Llega en ${arrivalEst}.`,
         data:  { jobId: job.id, screen: 'tracking' },
       });
       onAccepted(job);
@@ -365,32 +367,41 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         </View>
 
         {/* Botones */}
-        <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={styles.rejectBtn}
-            onPress={() => Alert.alert('¿Rechazar trabajo?', 'Esto reducirá levemente tu calificación.', [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Rechazar', style: 'destructive', onPress: () => handleReject(false) },
-            ])}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={22} color="#ff4444" />
-            <Text style={styles.rejectBtnText}>Rechazar</Text>
+        {timedOut ? (
+          <TouchableOpacity style={styles.timedOutBtn} onPress={onRejected} disabled={loading}>
+            <Ionicons name="home" size={20} color="#F5F5F5" />
+            <Text style={styles.timedOutBtnText}>{loading ? 'Liberando...' : 'Volver al inicio'}</Text>
           </TouchableOpacity>
-
-          <Animated.View style={[{ flex: 1 }, { transform: [{ scale: pulseAnim }] }]}>
+        ) : (
+          <View style={styles.btnRow}>
             <TouchableOpacity
-              style={styles.acceptBtn}
-              onPress={handleAccept}
+              style={styles.rejectBtn}
+              onPress={() => Alert.alert('¿Rechazar trabajo?', 'Esto reducirá levemente tu calificación.', [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Rechazar', style: 'destructive', onPress: () => handleReject(false) },
+              ])}
               disabled={loading}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
             >
-              <Ionicons name="checkmark" size={22} color="#0A0A0A" />
-              <Text style={styles.acceptBtnText}>Aceptar</Text>
+              <Ionicons name="close" size={22} color="#ff4444" />
+              <Text style={styles.rejectBtnText}>Rechazar</Text>
             </TouchableOpacity>
-          </Animated.View>
-        </View>
+
+            <Animated.View style={[{ flex: 1 }, { transform: [{ scale: pulseAnim }] }]}>
+              <TouchableOpacity
+                style={styles.acceptBtn}
+                onPress={handleAccept}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading
+                  ? <ActivityIndicator color="#0A0A0A" />
+                  : <><Ionicons name="checkmark" size={22} color="#0A0A0A" /><Text style={styles.acceptBtnText}>Aceptar</Text></>
+                }
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -517,6 +528,14 @@ const styles = StyleSheet.create({
     gap: 8, backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 18,
   },
   acceptBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+
+  timedOutBtn: {
+    width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, backgroundColor: '#1a1a1a',
+    borderRadius: 16, paddingVertical: 20,
+    borderWidth: 1, borderColor: '#333',
+  },
+  timedOutBtnText: { color: '#F5F5F5', fontSize: 16, fontWeight: '700' },
 });
 
 export default WorkerIncomingScreen;
