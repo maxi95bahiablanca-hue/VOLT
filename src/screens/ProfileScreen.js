@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Alert, Platform, Image, ActivityIndicator,
+  SafeAreaView, ScrollView, Alert, Platform, Image, ActivityIndicator, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,8 +26,26 @@ const ProfileScreen = ({ session, professional, onClose }) => {
   const [showAdmin, setShowAdmin]         = useState(false);
   const [photoUrl, setPhotoUrl]           = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [paymentVerified, setPaymentVerified] = useState(false);
+  const [loadingPayment, setLoadingPayment]   = useState(false);
 
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email);
+  const user    = session?.user;
+
+  // Verificar si el cliente tiene al menos un pago aprobado
+  React.useEffect(() => {
+    if (professional || !user?.id) return;
+    setLoadingPayment(true);
+    supabase
+      .from('jobs')
+      .select('id')
+      .eq('client_id', user.id)
+      .eq('status', 'completed')
+      .limit(1)
+      .then(({ data }) => setPaymentVerified((data?.length ?? 0) > 0))
+      .catch(() => {})
+      .finally(() => setLoadingPayment(false));
+  }, []);
 
   if (showWorkerPanel && professional) {
     return <WorkerDashboardScreen professional={professional} session={session} onClose={() => setWorkerPanel(false)} />;
@@ -36,7 +54,6 @@ const ProfileScreen = ({ session, professional, onClose }) => {
     return <AdminScreen session={session} onClose={() => setShowAdmin(false)} />;
   }
 
-  const user      = session?.user;
   const email     = user?.email ?? '';
   const name      = user?.user_metadata?.full_name ?? email.split('@')[0];
   const basePhoto = professional?.avatar_url ?? user?.user_metadata?.avatar_url ?? null;
@@ -217,6 +234,44 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           </View>
         </View>
 
+        {/* Método de pago — solo para clientes */}
+        {!professional && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Método de pago</Text>
+            <View style={styles.paymentCard}>
+              <View style={styles.paymentRow}>
+                <Text style={{ fontSize: 22, marginRight: 4 }}>💳</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.paymentLabel}>Mercado Pago</Text>
+                  {loadingPayment ? (
+                    <ActivityIndicator size="small" color="#555" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
+                  ) : (
+                    <Text style={[styles.paymentStatus, { color: paymentVerified ? '#4CAF50' : '#FF9800' }]}>
+                      {paymentVerified ? '✓ Verificado' : 'Sin pagos registrados aún'}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.paymentBtn}
+                  onPress={() => Linking.openURL('https://www.mercadopago.com.ar')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.paymentBtnText}>Gestionar</Text>
+                  <Ionicons name="open-outline" size={13} color="#FFD600" />
+                </TouchableOpacity>
+              </View>
+              {!paymentVerified && !loadingPayment && (
+                <View style={styles.paymentHint}>
+                  <Ionicons name="information-circle-outline" size={14} color="#555" />
+                  <Text style={styles.paymentHintText}>
+                    Tu método se verifica automáticamente al completar tu primer pago.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Info de la plataforma */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Sobre VOLT</Text>
@@ -352,6 +407,26 @@ const styles = StyleSheet.create({
   },
   adminBtn: { borderColor: '#FFD60020' },
   panelBtnText: { flex: 1, fontSize: 15, color: '#F5F5F5', fontWeight: '600' },
+
+  paymentCard: {
+    backgroundColor: '#111', borderRadius: 16,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 16, gap: 12,
+  },
+  paymentRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  paymentLabel: { fontSize: 15, fontWeight: '700', color: '#F5F5F5', marginBottom: 3 },
+  paymentStatus: { fontSize: 13, fontWeight: '600' },
+  paymentBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1, borderColor: '#FFD60040',
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
+  },
+  paymentBtnText: { fontSize: 13, color: '#FFD600', fontWeight: '700' },
+  paymentHint: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 7,
+    borderTopWidth: 1, borderTopColor: '#1E1E1E', paddingTop: 10,
+  },
+  paymentHintText: { flex: 1, fontSize: 12, color: '#555', lineHeight: 17 },
 
   signOutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

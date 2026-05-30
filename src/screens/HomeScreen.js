@@ -183,6 +183,9 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   // Tips rotativos
   const [tipIndex, setTipIndex] = useState(0);
 
+  // Banner de pago para clientes sin pago verificado
+  const [paymentVerified, setPaymentVerified] = useState(true); // default true para no mostrar banner innecesariamente
+
   // Radar animation
   const pulse1 = useRef(new Animated.Value(0)).current;
   const pulse2 = useRef(new Animated.Value(0)).current;
@@ -220,6 +223,17 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   useEffect(() => {
     professionService.getProfessions().then(setProfessions).catch(() => {});
     initLocation();
+    // Verificar si el cliente (no trabajador) tiene pagos completados
+    if (!professional && userId) {
+      supabase
+        .from('jobs')
+        .select('id')
+        .eq('client_id', userId)
+        .eq('status', 'completed')
+        .limit(1)
+        .then(({ data }) => setPaymentVerified((data?.length ?? 0) > 0))
+        .catch(() => {});
+    }
   }, []);
 
   // Rotación de tips cada 7 segundos
@@ -574,6 +588,22 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
             })}
           </ScrollView>
 
+          {/* Banner método de pago — solo para clientes sin pago verificado */}
+          {!professional && !paymentVerified && (
+            <TouchableOpacity
+              style={styles.paymentBanner}
+              onPress={() => setShowProfile(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 18 }}>💳</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.paymentBannerTitle}>Configurá tu método de pago</Text>
+                <Text style={styles.paymentBannerSub}>Mercado Pago · Tocá para ver tu perfil</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#FFD600" />
+            </TouchableOpacity>
+          )}
+
           {/* Tip rotativo — visible al expandir */}
           {(() => {
             const tips = professional ? WORKER_TIPS : CLIENT_TIPS;
@@ -755,6 +785,16 @@ const styles = StyleSheet.create({
   workerToggleTextOn: { color: '#0A0A0A' },
   dashboardLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   dashboardLinkText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
+
+  // Banner pago
+  paymentBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#1A1200', borderRadius: 12,
+    borderWidth: 1, borderColor: '#FFD60030',
+    paddingVertical: 10, paddingHorizontal: 12,
+  },
+  paymentBannerTitle: { fontSize: 13, fontWeight: '700', color: '#FFD600' },
+  paymentBannerSub:   { fontSize: 11, color: '#888', marginTop: 1 },
 
   // Tip rotativo
   tipCard: {
