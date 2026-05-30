@@ -139,8 +139,31 @@ const jobService = {
       current_session_start: null,
       completed_sessions:    completedSessions + 1,
       total_minutes_worked:  totalMinutesBefore + minutes,
+      scheduled_return:      null,
     });
   },
+
+  endSessionWithReturn: async (jobId, sessionStartIso, completedSessions, totalMinutesBefore, returnIso) => {
+    const started  = new Date(sessionStartIso);
+    const now      = new Date();
+    const minutes  = Math.round((now - started) / 60000);
+    return update(jobId, {
+      status:                'arrived',
+      current_session_start: null,
+      completed_sessions:    completedSessions + 1,
+      total_minutes_worked:  totalMinutesBefore + minutes,
+      scheduled_return:      returnIso,
+    });
+  },
+
+  markVisitPaid: async (jobId) => update(jobId, { visit_paid: true }),
+
+  convertToMultiday: async (jobId, sessions, hrsPerSession) =>
+    update(jobId, {
+      is_multiday:           true,
+      estimated_sessions:    parseInt(sessions, 10),
+      estimated_hrs_session: hrsPerSession,
+    }),
 
   completeMultidayJob: async (jobId, laborAmount, materialsCost = 0, sessionStartIso, completedSessions, totalMinutesBefore) => {
     const extraMinutes = sessionStartIso
@@ -189,7 +212,10 @@ const jobService = {
       quote_group_id:    quoteGroupId,
       ...(problemPhotoUrl ? { problem_photo_url: problemPhotoUrl } : {}),
     }));
-    const { data, error } = await supabase.from('jobs').insert(rows).select('*, professions(name)');
+    const { data, error } = await supabase
+      .from('jobs')
+      .insert(rows)
+      .select('*, professions(name), professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, avatar_url, on_time_completions, effective_rating)');
     if (error) throw error;
     return { quoteGroupId, jobs: data };
   },

@@ -37,15 +37,86 @@ const CLIENT_TIPS = {
   awaiting_payment: '💳 El pago es seguro y solo a través de la app. Nunca pagues en efectivo.',
 };
 
-const PROBLEM_ISSUES = [
-  { icon: 'time-outline',          text: 'El profesional no llega o no responde' },
-  { icon: 'cash-outline',          text: 'Me pidieron pagar en efectivo (prohibido)' },
-  { icon: 'construct-outline',     text: 'El trabajo no se realizó correctamente' },
-  { icon: 'alert-circle-outline',  text: 'Me siento inseguro/a en este momento' },
-  { icon: 'card-outline',          text: 'Problema con el monto a pagar' },
-  { icon: 'person-remove-outline', text: 'El profesional actuó de manera inapropiada' },
-  { icon: 'help-circle-outline',   text: 'Otro problema' },
-];
+const getProblemIssues = (isWorker, status) => {
+  if (isWorker) {
+    switch (status) {
+      case 'accepted':
+        return [
+          { icon: 'navigate-outline',      text: 'No encuentro el domicilio / dirección incorrecta' },
+          { icon: 'car-outline',           text: 'Tuve un inconveniente en el camino' },
+          { icon: 'alert-circle-outline',  text: 'Me siento inseguro/a en esta zona' },
+          { icon: 'close-circle-outline',  text: 'No voy a poder llegar — necesito cancelar' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      case 'arrived':
+        return [
+          { icon: 'person-outline',        text: 'El cliente no abre la puerta / no responde' },
+          { icon: 'alert-circle-outline',  text: 'Me siento inseguro/a en este domicilio' },
+          { icon: 'clipboard-outline',     text: 'El trabajo es diferente al descripto' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      case 'in_progress':
+        return [
+          { icon: 'time-outline',          text: 'El trabajo es más complejo — necesito más tiempo' },
+          { icon: 'cart-outline',          text: 'Necesito materiales no disponibles' },
+          { icon: 'person-remove-outline', text: 'El cliente interfiere con el trabajo' },
+          { icon: 'warning-outline',       text: 'Encontré un problema estructural o peligroso' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      case 'awaiting_payment':
+        return [
+          { icon: 'cash-outline',          text: 'El cliente se niega a pagar' },
+          { icon: 'card-outline',          text: 'El cliente quiere pagar en efectivo (no permitido)' },
+          { icon: 'calculator-outline',    text: 'No hay acuerdo en el monto' },
+          { icon: 'alert-circle-outline',  text: 'El cliente actúa de forma intimidatoria' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      default:
+        return [{ icon: 'help-circle-outline', text: 'Tengo un problema general' }];
+    }
+  } else {
+    switch (status) {
+      case 'pending':
+        return [
+          { icon: 'time-outline',          text: 'Tardó más de 30 min sin confirmación' },
+          { icon: 'close-circle-outline',  text: 'Quiero cancelar y buscar otro profesional' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      case 'accepted':
+        return [
+          { icon: 'navigate-outline',      text: 'El profesional tarda demasiado o no llega' },
+          { icon: 'chatbubble-outline',    text: 'No puedo contactar al profesional' },
+          { icon: 'alert-circle-outline',  text: 'El profesional me pidió cancelar por fuera de la app' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      case 'arrived':
+        return [
+          { icon: 'shield-outline',        text: '⚠️ El código NO coincide — no abrir la puerta' },
+          { icon: 'alert-circle-outline',  text: 'Me siento inseguro/a con el profesional' },
+          { icon: 'person-remove-outline', text: 'El profesional actuó de forma inapropiada' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      case 'in_progress':
+        return [
+          { icon: 'construct-outline',     text: 'El trabajo no se está realizando correctamente' },
+          { icon: 'warning-outline',       text: 'El profesional rompió algo o causó daños' },
+          { icon: 'cash-outline',          text: 'El profesional me pidió pagar extra en efectivo' },
+          { icon: 'alert-circle-outline',  text: 'Me siento en peligro' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      case 'awaiting_payment':
+        return [
+          { icon: 'calculator-outline',    text: 'El monto no es el acordado' },
+          { icon: 'construct-outline',     text: 'El trabajo quedó incompleto' },
+          { icon: 'alert-circle-outline',  text: 'Me están presionando para pagar' },
+          { icon: 'time-outline',          text: 'Quiero una segunda opinión antes de pagar' },
+          { icon: 'help-circle-outline',   text: 'Otro problema' },
+        ];
+      default:
+        return [{ icon: 'help-circle-outline', text: 'Tengo un problema general' }];
+    }
+  }
+};
 
 const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete, onCancel }) => {
   const [job, setJob]               = useState(initialJob);
@@ -59,8 +130,13 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const [workElapsed, setWorkElapsed]       = useState(0);
   const [problemModal, setProblemModal]     = useState(false);
+  const [visitPayModal, setVisitPayModal]   = useState(false);
+  const [multidayModal, setMultidayModal]   = useState(false);
+  const [multidaySessions, setMultidaySessions] = useState('');
+  const [multidayHrs, setMultidayHrs]       = useState('');
   const completedShownRef  = useRef(false);
   const selfCancelledRef   = useRef(false); // evita alert "Trabajo cancelado" al auto-cancelar
+  const visitPayShownRef   = useRef(false); // no mostrar el modal de visita más de una vez
   const webRef = useRef(null);
 
   const isWorker = !!professional;
@@ -84,6 +160,14 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     const t = setInterval(calc, 1000);
     return () => clearInterval(t);
   }, [job.current_session_start]);
+
+  // Auto-mostrar pago de visita al cliente cuando el trabajador llega
+  useEffect(() => {
+    if (!isWorker && job.status === 'arrived' && !job.visit_paid && !visitPayShownRef.current) {
+      visitPayShownRef.current = true;
+      setVisitPayModal(true);
+    }
+  }, [job.status, job.visit_paid]);
 
   // Timer de trabajo en curso (single-day)
   useEffect(() => {
@@ -155,15 +239,22 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
           setLoading(false);
           return;
         }
-        const mats  = parseInt(materialsAmount.replace(/\D/g, ''), 10) || 0;
+        const mats      = parseInt(materialsAmount.replace(/\D/g, ''), 10) || 0;
+        const visitPaid = !!job.visit_paid;
+        const visitAmt  = job.visit_amount || 30000;
         await jobService.setWorkAmount(job.id, labor, mats);
-        const visitAmt = job.visit_amount || 30000;
-        const total    = visitAmt + mats + labor;
+        const totalAPagar = (visitPaid ? 0 : visitAmt) + mats + labor;
         notifTitle = '💳 Trabajo listo — hora de pagar';
-        notifBody  = (mats > 0
-            ? `Visita $${visitAmt.toLocaleString('es-AR')} + Materiales $${mats.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`
-            : `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`) +
-          ' Abrí la app para pagar.';
+        if (visitPaid) {
+          notifBody = (mats > 0
+            ? `Materiales $${mats.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${totalAPagar.toLocaleString('es-AR')} (visita ya pagada)`
+            : `Mano de obra $${labor.toLocaleString('es-AR')} (visita ya pagada) Abrí la app para pagar.`);
+        } else {
+          notifBody = (mats > 0
+            ? `Visita $${visitAmt.toLocaleString('es-AR')} + Materiales $${mats.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${totalAPagar.toLocaleString('es-AR')}`
+            : `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${totalAPagar.toLocaleString('es-AR')}`) +
+            ' Abrí la app para pagar.';
+        }
       }
 
       if (notifTitle) {
@@ -234,6 +325,75 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         }},
       ]
     );
+  };
+
+  const handleVisitPay = async () => {
+    setLoading(true);
+    try {
+      const { checkoutUrl } = await paymentService.createPreference({ jobId: job.id, visitOnly: true });
+      const result = await paymentService.openCheckout(checkoutUrl);
+      if (result === 'success') {
+        await jobService.markVisitPaid(job.id);
+        setVisitPayModal(false);
+      } else if (result === 'failure') {
+        Alert.alert('Pago rechazado', 'No se pudo cobrar la visita. Intentá con otra tarjeta.');
+      } else {
+        Alert.alert('Pago pendiente', 'El profesional te está esperando. Pagá la visita para que pueda comenzar.');
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo iniciar el pago. Intentá de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConvertToMultiday = async () => {
+    const sessions = parseInt(multidaySessions, 10);
+    if (!sessions || sessions < 2) {
+      Alert.alert('Revisá los datos', 'Ingresá al menos 2 días de trabajo.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await jobService.convertToMultiday(job.id, sessions, multidayHrs || `${multidayHrs || '?'}h`);
+      setMultidayModal(false);
+      setMultidaySessions('');
+      setMultidayHrs('');
+      await notificationService.sendToUser(clientId, {
+        title: '📅 Trabajo de varios días',
+        body: `El profesional confirmó que el trabajo requiere ${sessions} días. Te avisará cada vez que termine una jornada.`,
+        data: { jobId: job.id },
+      });
+    } catch {
+      Alert.alert('Error', 'No se pudo actualizar el trabajo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEndSessionWithReturn = (daysFromNow) => {
+    const returnDate = new Date();
+    returnDate.setDate(returnDate.getDate() + daysFromNow);
+    returnDate.setHours(9, 0, 0, 0);
+    return async () => {
+      setLoading(true);
+      try {
+        await jobService.endSessionWithReturn(
+          job.id,
+          job.current_session_start,
+          job.completed_sessions || 0,
+          job.total_minutes_worked || 0,
+          returnDate.toISOString(),
+        );
+        const label = daysFromNow === 1 ? 'mañana' : `en ${daysFromNow} días`;
+        await notificationService.sendToUser(clientId, {
+          title: '📋 Jornada terminada',
+          body: `Sesión ${(job.completed_sessions || 0) + 1} de ${job.estimated_sessions || '?'} completada. El profesional regresa ${label}.`,
+          data: { jobId: job.id },
+        });
+      } catch { Alert.alert('Error', 'No se pudo guardar la sesión.'); }
+      finally { setLoading(false); }
+    };
   };
 
   const handleEmergency = () => {
@@ -319,6 +479,90 @@ window.addEventListener('message', e => {
 
   return (
     <SafeAreaView style={styles.container}>
+
+      {/* Modal: Pago de visita (cliente, auto al llegar el trabajador) */}
+      <Modal visible={visitPayModal} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="home-outline" size={28} color="#FFD600" />
+              <Text style={styles.modalTitle}>El profesional llegó</Text>
+            </View>
+            <Text style={styles.modalSub}>
+              Para que pueda comenzar el trabajo, necesitás abonar la visita. Este monto se descuenta del total al finalizar.
+            </Text>
+            <View style={styles.visitModalAmount}>
+              <Text style={styles.visitModalAmountLabel}>Visita / diagnóstico</Text>
+              <Text style={styles.visitModalAmountValue}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
+            </View>
+            <View style={styles.cardOnlyBadge}>
+              <Ionicons name="card-outline" size={14} color="#4285F4" />
+              <Text style={styles.cardOnlyText}>Tarjeta de débito, crédito o billetera digital</Text>
+            </View>
+            <TouchableOpacity style={styles.payBtn} onPress={handleVisitPay} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : (
+                <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar visita ${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text></>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.testPayBtn} disabled={loading} onPress={async () => {
+              setLoading(true);
+              try { await jobService.markVisitPaid(job.id); setVisitPayModal(false); }
+              catch { setLoading(false); }
+            }}>
+              <Ionicons name="flask-outline" size={14} color="#888" />
+              <Text style={styles.testPayBtnText}>Simular pago de visita (solo testing)</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: Convertir a trabajo de varios días */}
+      <Modal visible={multidayModal} transparent animationType="slide" onRequestClose={() => setMultidayModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="calendar" size={28} color="#4285F4" />
+              <Text style={styles.modalTitle}>Trabajo de varios días</Text>
+              <TouchableOpacity onPress={() => setMultidayModal(false)}>
+                <Ionicons name="close" size={22} color="#555" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>
+              Indicá cuántos días estimás y cuántas horas por día. El cliente verá esta información y recibirá notificaciones al terminar cada jornada.
+            </Text>
+            <View style={styles.amountInputWrap}>
+              <Ionicons name="calendar-outline" size={18} color="#4285F4" />
+              <TextInput
+                style={styles.amountInput}
+                placeholder="Cantidad de días (ej: 3)"
+                placeholderTextColor="#444"
+                value={multidaySessions}
+                onChangeText={v => setMultidaySessions(v.replace(/\D/g, ''))}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.amountInputWrap}>
+              <Ionicons name="time-outline" size={18} color="#4285F4" />
+              <TextInput
+                style={styles.amountInput}
+                placeholder="Horas por día (ej: 4 horas)"
+                placeholderTextColor="#444"
+                value={multidayHrs}
+                onChangeText={setMultidayHrs}
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: '#4285F4' }, (!multidaySessions || parseInt(multidaySessions) < 2) && { opacity: 0.4 }]}
+              onPress={handleConvertToMultiday}
+              disabled={loading || !multidaySessions || parseInt(multidaySessions) < 2}
+            >
+              {loading ? <ActivityIndicator color="#fff" /> : (
+                <><Ionicons name="checkmark" size={18} color="#fff" /><Text style={[styles.actionBtnText, { color: '#fff' }]}>Confirmar plan de trabajo</Text></>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Modal de disponibilidad post-trabajo (trabajador) */}
       <Modal visible={completedModal} transparent animationType="slide" onRequestClose={() => {}}>
@@ -418,7 +662,7 @@ window.addEventListener('message', e => {
                 <Ionicons name="close" size={22} color="#555" />
               </TouchableOpacity>
             </View>
-            {PROBLEM_ISSUES.map(issue => (
+            {getProblemIssues(isWorker, job.status).map(issue => (
               <TouchableOpacity key={issue.text} style={styles.problemItem} onPress={() => handleReportIssue(issue.text)}>
                 <Ionicons name={issue.icon} size={16} color="#888" />
                 <Text style={styles.problemItemText}>{issue.text}</Text>
@@ -552,6 +796,24 @@ window.addEventListener('message', e => {
               <View style={styles.workTimerDot} />
               <Text style={styles.workTimerLabel}>Trabajo en curso</Text>
               <Text style={styles.workTimerValue}>{fmtTime(workElapsed)}</Text>
+            </View>
+          )}
+
+          {/* Fecha de regreso — cliente en trabajo multi-día entre jornadas */}
+          {!isWorker && isMultiday && job.status === 'arrived' && !inSession && job.scheduled_return && (
+            <View style={styles.returnCard}>
+              <Ionicons name="calendar" size={18} color="#4285F4" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.returnCardTitle}>El profesional regresa</Text>
+                <Text style={styles.returnCardDate}>
+                  {new Date(job.scheduled_return).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  {' a las '}
+                  {new Date(job.scheduled_return).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs
+                </Text>
+                <Text style={styles.returnCardSub}>
+                  Sesión {job.completed_sessions || 0} de {job.estimated_sessions || '?'} completada
+                </Text>
+              </View>
             </View>
           )}
 
@@ -700,8 +962,17 @@ window.addEventListener('message', e => {
                   <Text style={styles.amountPreviewLine}>
                     Mano de obra: ${parseInt(workAmount || '0').toLocaleString('es-AR')}
                   </Text>
+                  {job.visit_paid ? (
+                    <Text style={styles.amountPreviewLine}>
+                      Visita: <Text style={{ color: '#4CAF50' }}>ya cobrada ✓</Text>
+                    </Text>
+                  ) : null}
                   <Text style={styles.amountPreviewTotal}>
-                    Total cliente: ${((job.visit_amount || 30000) + (parseInt(materialsAmount || '0')) + (parseInt(workAmount || '0'))).toLocaleString('es-AR')}
+                    Total cliente: ${(
+                      (job.visit_paid ? 0 : (job.visit_amount || 30000)) +
+                      (parseInt(materialsAmount || '0')) +
+                      (parseInt(workAmount || '0'))
+                    ).toLocaleString('es-AR')}
                   </Text>
                 </View>
               ) : null}
@@ -713,22 +984,27 @@ window.addEventListener('message', e => {
             </View>
           )}
 
+          {/* in_progress + single-day: opción de convertir a multi-día */}
+          {isWorker && job.status === 'in_progress' && !isMultiday && (
+            <TouchableOpacity style={styles.actionBtnSecondary} onPress={() => setMultidayModal(true)}>
+              <Ionicons name="calendar-outline" size={18} color="#4285F4" />
+              <Text style={styles.actionBtnSecondaryText}>Este trabajo requiere varios días</Text>
+            </TouchableOpacity>
+          )}
+
           {/* in_progress + multi-día: terminar sesión de hoy o cobrar si es el último día */}
           {isWorker && job.status === 'in_progress' && isMultiday && inSession && (
             <View style={styles.sessionActions}>
               <TouchableOpacity
                 style={styles.actionBtnSecondary}
-                onPress={async () => {
-                  setLoading(true);
-                  try {
-                    await jobService.endSession(job.id, job.current_session_start, job.completed_sessions || 0, job.total_minutes_worked || 0);
-                    await notificationService.sendToUser(clientId, {
-                      title: '📋 Jornada terminada',
-                      body: `El profesional terminó por hoy. Sesión ${(job.completed_sessions || 0) + 1} de ${job.estimated_sessions || '?'} completada.`,
-                      data: { jobId: job.id },
-                    });
-                  } catch { Alert.alert('Error', 'No se pudo guardar la sesión.'); }
-                  finally { setLoading(false); }
+                onPress={() => {
+                  Alert.alert('¿Cuándo volvés?', 'Avisale al cliente cuándo regresás para continuar el trabajo.', [
+                    { text: 'Mañana',            onPress: handleEndSessionWithReturn(1) },
+                    { text: 'En 2 días',         onPress: handleEndSessionWithReturn(2) },
+                    { text: 'En 3 días',         onPress: handleEndSessionWithReturn(3) },
+                    { text: 'La semana que viene', onPress: handleEndSessionWithReturn(7) },
+                    { text: 'Cancelar', style: 'cancel' },
+                  ]);
                 }}
                 disabled={loading}
               >
@@ -806,18 +1082,26 @@ window.addEventListener('message', e => {
             </View>
           )}
 
-          {/* Acción del cliente — confirmar pago */}
+          {/* Acción del cliente — confirmar pago final */}
           {!isWorker && job.status === 'awaiting_payment' && (() => {
-            const visitAmt = job.visit_amount    || 30000;
-            const matsAmt  = job.materials_cost  || 0;
-            const workAmt  = job.work_amount     || 0;
-            const total    = visitAmt + matsAmt + workAmt;
+            const visitAmt  = job.visit_amount   || 30000;
+            const matsAmt   = job.materials_cost || 0;
+            const workAmt   = job.work_amount    || 0;
+            const visitPaid = !!job.visit_paid;
+            const total     = (visitPaid ? 0 : visitAmt) + matsAmt + workAmt;
             return (
               <View style={styles.paySection}>
                 <View style={styles.payBreakdown}>
                   <View style={styles.payRow}>
                     <Text style={styles.payRowLabel}>Visita / diagnóstico</Text>
-                    <Text style={styles.payRowVal}>${visitAmt.toLocaleString('es-AR')}</Text>
+                    {visitPaid ? (
+                      <View style={styles.visitPaidBadge}>
+                        <Ionicons name="checkmark-circle" size={13} color="#4CAF50" />
+                        <Text style={styles.visitPaidText}>Ya pagada</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.payRowVal}>${visitAmt.toLocaleString('es-AR')}</Text>
+                    )}
                   </View>
                   {matsAmt > 0 && (
                     <View style={styles.payRow}>
@@ -834,7 +1118,7 @@ window.addEventListener('message', e => {
                   </View>
                   <View style={styles.payDivider} />
                   <View style={styles.payRow}>
-                    <Text style={styles.payTotalLabel}>TOTAL</Text>
+                    <Text style={styles.payTotalLabel}>TOTAL A PAGAR</Text>
                     <Text style={styles.payTotalVal}>${total.toLocaleString('es-AR')}</Text>
                   </View>
                 </View>
@@ -1186,6 +1470,36 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#333', borderStyle: 'dashed',
   },
   testPayBtnText: { color: '#555', fontSize: 12, fontWeight: '600' },
+
+  // Visita ya pagada badge (en breakdown de pago final)
+  visitPaidBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(76,175,80,0.1)',
+    borderWidth: 1, borderColor: 'rgba(76,175,80,0.25)',
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  visitPaidText: { color: '#4CAF50', fontSize: 12, fontWeight: '700' },
+
+  // Modal de pago de visita
+  visitModalAmount: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: '#0A1500', borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#FFD60030',
+    paddingVertical: 16, paddingHorizontal: 18,
+  },
+  visitModalAmountLabel: { fontSize: 14, color: '#888', fontWeight: '600' },
+  visitModalAmountValue: { fontSize: 22, fontWeight: '900', color: '#FFD600' },
+
+  // Fecha de regreso del trabajador (cliente, multi-día)
+  returnCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#0A0F1A', borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#4285F440',
+    padding: 14,
+  },
+  returnCardTitle: { fontSize: 11, fontWeight: '800', color: '#4285F4', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
+  returnCardDate:  { fontSize: 15, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
+  returnCardSub:   { fontSize: 12, color: '#555' },
 
   // Pago — opción de problema
   payProblemBtn: {
