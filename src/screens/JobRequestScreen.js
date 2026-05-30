@@ -36,7 +36,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
           userLocation.longitude,
           8
         );
-        const others = nearby.filter(w => w.id !== worker.id).slice(0, 2);
+        const others = nearby.filter(w => w.id !== worker.id && w.user_id !== clientId).slice(0, 2);
         workers = [worker, ...others];
       }
 

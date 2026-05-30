@@ -268,17 +268,15 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   const fetchWorkers = async (professionId, lat, lng) => {
     try {
       const data = await professionalService.getNearbyWorkers(professionId, lat, lng, 20);
-      // Mapear a formato con lat/lng para los markers.
-      // Se aplica un desplazamiento aleatorio (±~400m) para no revelar la posición
-      // exacta del trabajador antes de que acepte el trabajo.
-      // Las coordenadas reales (latitude/longitude) se preservan para cálculos internos.
       const JITTER = 0.004;
-      const mapped = data.map(w => ({
-        ...w,
-        lat: (w.latitude  ?? userLocation?.latitude)  + (Math.random() - 0.5) * JITTER,
-        lng: (w.longitude ?? userLocation?.longitude) + (Math.random() - 0.5) * JITTER,
-        profession_name: selectedProfession?.name || '',
-      }));
+      const mapped = data
+        .filter(w => !professional || w.user_id !== userId)  // no mostrar el propio perfil como cliente
+        .map(w => ({
+          ...w,
+          lat: (w.latitude  ?? userLocation?.latitude)  + (Math.random() - 0.5) * JITTER,
+          lng: (w.longitude ?? userLocation?.longitude) + (Math.random() - 0.5) * JITTER,
+          profession_name: selectedProfession?.name || '',
+        }));
       setWorkers(mapped);
     } catch { /* silent */ }
   };
@@ -400,6 +398,16 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     const next = !available;
     setAvailable(next);
     try {
+      if (next) {
+        // Guardar ubicación ANTES de aparecer como disponible
+        const granted = await locationService.requestPermission();
+        if (granted) {
+          const pos = await locationService.getCurrentLocation().catch(() => null);
+          if (pos) {
+            await professionalService.updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
+          }
+        }
+      }
       await professionalService.setAvailability(userId, next);
       if (next) {
         await locationService.startBackgroundTracking();
