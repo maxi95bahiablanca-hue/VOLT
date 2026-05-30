@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, ActivityIndicator, Alert, Platform,
+  SafeAreaView, ScrollView, ActivityIndicator, Alert, Platform, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { supabase } from '../supabase';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import professionalService from '../services/professionalService';
@@ -13,9 +16,36 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
   const [loading, setLoading] = useState(false);
   const [notesTouched, setNotesTouched] = useState(false);
 
+  // Foto opcional del problema
+  const [problemPhoto, setProblemPhoto] = useState(null); // { uri, ext }
+
   // Dirección del servicio — auto-detectada, editable si el usuario no está en el lugar
   const [address, setAddress]         = useState(userLocation?.address || '');
   const [editingAddress, setEditingAddress] = useState(false);
+
+  const pickProblemPhoto = () => {
+    Alert.alert('Foto del problema', 'Ayudá al profesional a entender el problema antes de llegar.', [
+      { text: 'Cámara', onPress: async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') { Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.'); return; }
+        const r = await ImagePicker.launchCameraAsync({ quality: 0.75, allowsEditing: true });
+        if (!r.canceled) {
+          const uri = r.assets[0].uri;
+          setProblemPhoto({ uri, ext: uri.split('.').pop()?.toLowerCase() ?? 'jpg' });
+        }
+      }},
+      { text: 'Galería', onPress: async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') return;
+        const r = await ImagePicker.launchImageLibraryAsync({ quality: 0.75, allowsEditing: true });
+        if (!r.canceled) {
+          const uri = r.assets[0].uri;
+          setProblemPhoto({ uri, ext: uri.split('.').pop()?.toLowerCase() ?? 'jpg' });
+        }
+      }},
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
 
   const stars      = Math.round(parseFloat(worker?.avg_rating) || 0);
   const visitPrice = worker?.min_price || 30000;
@@ -50,15 +80,35 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
         return;
       }
 
+      // Subir foto del problema si hay una
+      let problemPhotoUrl = null;
+      if (problemPhoto?.uri) {
+        try {
+          const path = `problem-photos/${clientId}/${Date.now()}.${problemPhoto.ext}`;
+          const base64 = await FileSystem.readAsStringAsync(problemPhoto.uri, { encoding: FileSystem.EncodingType.Base64 });
+          const binary = atob(base64);
+          const bytes  = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const { error: upErr } = await supabase.storage
+            .from('avatars')
+            .upload(path, bytes, { upsert: true, contentType: `image/${problemPhoto.ext}` });
+          if (!upErr) {
+            const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+            problemPhotoUrl = data.publicUrl;
+          }
+        } catch { /* si falla la foto, seguimos sin ella */ }
+      }
+
       // Crear grupo de cotización (un job por trabajador)
       const { quoteGroupId, jobs } = await jobService.createQuoteGroup({
         clientId,
         workers,
-        professionId: profession.id,
-        clientLat:    userLocation?.latitude,
-        clientLng:    userLocation?.longitude,
-        address:      address.trim() || 'Ubicación GPS',
-        notes:        notes.trim(),
+        professionId:    profession.id,
+        clientLat:       userLocation?.latitude,
+        clientLng:       userLocation?.longitude,
+        address:         address.trim() || 'Ubicación GPS',
+        notes:           notes.trim(),
+        problemPhotoUrl: problemPhotoUrl,
       });
 
       // Notificar a todos los trabajadores
@@ -190,6 +240,25 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
           />
           {notesTouched && notes.trim().length < 10 && (
             <Text style={styles.notesError}>Describí el problema con un poco más de detalle para continuar.</Text>
+          )}
+
+          {/* Foto del problema (opcional) */}
+          {problemPhoto ? (
+            <View style={styles.photoPreview}>
+              <Image source={{ uri: problemPhoto.uri }} style={styles.photoPreviewImg} />
+              <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => setProblemPhoto(null)}>
+                <Ionicons name="close-circle" size={22} color="#ff4444" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.photoChangeBtn} onPress={pickProblemPhoto}>
+                <Ionicons name="camera-outline" size={13} color="#888" />
+                <Text style={styles.photoChangeBtnText}>Cambiar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.photoPickBtn} onPress={pickProblemPhoto} activeOpacity={0.8}>
+              <Ionicons name="camera-outline" size={18} color="#888" />
+              <Text style={styles.photoPickBtnText}>Agregar foto del problema <Text style={{ color: '#555' }}>(opcional)</Text></Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -356,6 +425,31 @@ const styles = StyleSheet.create({
     padding: 14, marginBottom: 24,
   },
   infoText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 19 },
+
+  // Foto del problema
+  photoPickBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 12, paddingVertical: 12, paddingHorizontal: 14,
+    borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
+    borderStyle: 'dashed', backgroundColor: '#0D0D0D',
+  },
+  photoPickBtnText: { fontSize: 13, color: '#888' },
+  photoPreview: {
+    marginTop: 12, borderRadius: 12, overflow: 'hidden',
+    position: 'relative',
+  },
+  photoPreviewImg: { width: '100%', height: 160, borderRadius: 12 },
+  photoRemoveBtn: {
+    position: 'absolute', top: 8, right: 8,
+    backgroundColor: '#0A0A0A', borderRadius: 12,
+  },
+  photoChangeBtn: {
+    position: 'absolute', bottom: 8, right: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 5,
+  },
+  photoChangeBtnText: { fontSize: 11, color: '#888' },
 
   autoCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,

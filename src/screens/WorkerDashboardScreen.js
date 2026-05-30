@@ -167,18 +167,25 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
       >
         {/* Perfil del trabajador */}
         <View style={styles.profileCard}>
-          <TouchableOpacity style={styles.profileAvatarWrap} onPress={handleChangeAvatar} activeOpacity={0.8} disabled={uploadingAvatar}>
-            <View style={styles.profileAvatar}>
-              {uploadingAvatar
-                ? <ActivityIndicator color="#FFD600" />
-                : (localAvatar ?? professional.avatar_url)
-                ? <Image source={{ uri: localAvatar ?? professional.avatar_url }} style={styles.profileAvatarImg} />
-                : <Ionicons name="person" size={32} color="#FFD600" />}
-            </View>
-            <View style={styles.profileAvatarBadge}>
-              <Ionicons name="camera" size={10} color="#0A0A0A" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.profileAvatarWrap}>
+            <TouchableOpacity style={{ width: 56, height: 56 }} onPress={handleChangeAvatar} activeOpacity={0.8} disabled={uploadingAvatar}>
+              <View style={styles.profileAvatar}>
+                {uploadingAvatar
+                  ? <ActivityIndicator color="#FFD600" />
+                  : (localAvatar ?? professional.avatar_url)
+                  ? <Image source={{ uri: localAvatar ?? professional.avatar_url }} style={styles.profileAvatarImg} />
+                  : <Ionicons name="person" size={32} color="#FFD600" />}
+              </View>
+              <View style={styles.profileAvatarBadge}>
+                <Ionicons name="camera" size={10} color="#0A0A0A" />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleChangeAvatar} disabled={uploadingAvatar} activeOpacity={0.7} style={styles.profileChangePhotoBtn}>
+              <Text style={styles.profileChangePhotoText}>
+                {uploadingAvatar ? 'Subiendo...' : 'Cambiar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.profileName}>{professional.first_name} {professional.last_name}</Text>
             <View style={[styles.levelBadge, { borderColor: levelColor + '60' }]}>
@@ -408,7 +415,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111', borderRadius: 18,
     borderWidth: 1, borderColor: '#1E1E1E',
   },
-  profileAvatarWrap: { position: 'relative' },
+  profileAvatarWrap: { alignItems: 'center', gap: 4 },
   profileAvatar: {
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD600',
@@ -421,6 +428,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
+  profileChangePhotoBtn: { paddingVertical: 2, paddingHorizontal: 4 },
+  profileChangePhotoText: { fontSize: 10, color: '#FFD600', fontWeight: '700' },
   profileAvatarImg: { width: '100%', height: '100%' },
   profileName: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 6 },
   levelBadge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },

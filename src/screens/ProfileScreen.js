@@ -167,18 +167,26 @@ const ProfileScreen = ({ session, professional, onClose }) => {
 
         {/* Avatar + nombre */}
         <View style={styles.avatarSection}>
-          <TouchableOpacity style={styles.avatarWrapper} onPress={handleChangePhoto} activeOpacity={0.8} disabled={uploadingPhoto}>
-            <View style={styles.avatar}>
-              {uploadingPhoto
-                ? <ActivityIndicator color="#FFD600" />
-                : displayPhoto
-                ? <Image source={{ uri: displayPhoto }} style={styles.avatarImg} />
-                : <Ionicons name="person" size={44} color="#FFD600" />}
-            </View>
-            <View style={styles.avatarEditBadge}>
-              <Ionicons name="camera" size={13} color="#0A0A0A" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.avatarWrapper}>
+            <TouchableOpacity style={styles.avatarTap} onPress={handleChangePhoto} activeOpacity={0.8} disabled={uploadingPhoto}>
+              <View style={styles.avatar}>
+                {uploadingPhoto
+                  ? <ActivityIndicator color="#FFD600" />
+                  : displayPhoto
+                  ? <Image source={{ uri: displayPhoto }} style={styles.avatarImg} />
+                  : <Ionicons name="person" size={44} color="#FFD600" />}
+              </View>
+              <View style={styles.avatarEditBadge}>
+                <Ionicons name="camera" size={14} color="#0A0A0A" />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.changePhotoBtn} onPress={handleChangePhoto} disabled={uploadingPhoto} activeOpacity={0.7}>
+              <Ionicons name="camera-outline" size={13} color="#FFD600" />
+              <Text style={styles.changePhotoBtnText}>
+                {uploadingPhoto ? 'Subiendo...' : 'Cambiar foto'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.userName}>{name}</Text>
           <Text style={styles.userEmail}>{email}</Text>
           {level && (
@@ -375,7 +383,8 @@ const styles = StyleSheet.create({
   scroll: { padding: 20, paddingBottom: 48 },
 
   avatarSection: { alignItems: 'center', paddingVertical: 24 },
-  avatarWrapper: { marginBottom: 14 },
+  avatarWrapper: { alignItems: 'center', marginBottom: 14 },
+  avatarTap: { width: 88, height: 88 },
   avatar: {
     width: 88, height: 88, borderRadius: 44,
     backgroundColor: '#1A1A1A',
@@ -386,11 +395,18 @@ const styles = StyleSheet.create({
   avatarImg: { width: '100%', height: '100%' },
   avatarEditBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 26, height: 26, borderRadius: 13,
+    width: 28, height: 28, borderRadius: 14,
     backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: '#0A0A0A',
   },
+  changePhotoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: 8, paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 10, borderWidth: 1, borderColor: '#FFD60030',
+    backgroundColor: 'rgba(255,214,0,0.06)',
+  },
+  changePhotoBtnText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
   userName: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
   userEmail: { fontSize: 14, color: '#555', marginBottom: 12 },
   levelBadge: {

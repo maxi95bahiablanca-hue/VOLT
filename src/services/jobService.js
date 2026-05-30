@@ -174,19 +174,20 @@ const jobService = {
     if (error) throw error;
   },
 
-  createQuoteGroup: async ({ clientId, workers, professionId, clientLat, clientLng, address, notes }) => {
+  createQuoteGroup: async ({ clientId, workers, professionId, clientLat, clientLng, address, notes, problemPhotoUrl }) => {
     const quoteGroupId = uuidv4();
     const rows = workers.map(w => ({
-      client_id:       clientId,
-      professional_id: w.id,
-      profession_id:   professionId,
-      client_lat:      clientLat,
-      client_lng:      clientLng,
+      client_id:         clientId,
+      professional_id:   w.id,
+      profession_id:     professionId,
+      client_lat:        clientLat,
+      client_lng:        clientLng,
       address,
       notes,
-      visit_amount:    w.min_price || 30000,
-      commission_pct:  commissionFor(w),
-      quote_group_id:  quoteGroupId,
+      visit_amount:      w.min_price || 30000,
+      commission_pct:    commissionFor(w),
+      quote_group_id:    quoteGroupId,
+      ...(problemPhotoUrl ? { problem_photo_url: problemPhotoUrl } : {}),
     }));
     const { data, error } = await supabase.from('jobs').insert(rows).select('*, professions(name)');
     if (error) throw error;
