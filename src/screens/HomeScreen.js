@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Easing, Dimensions, ScrollView,
+  SafeAreaView, Animated, Easing, Dimensions, ScrollView, FlatList,
   ActivityIndicator, Platform, Image, Linking, Alert, PanResponder,
 } from 'react-native';
 import VoltMap from '../components/VoltMap';
@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import locationService from '../services/locationService';
 import * as Location from 'expo-location';
+import favoriteService from '../services/favoriteService';
 import professionService from '../services/professionService';
 import professionalService from '../services/professionalService';
 import RegisterProfessionalScreen from './RegisterProfessionalScreen';
@@ -190,7 +191,10 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   const [tipIndex, setTipIndex] = useState(0);
 
   // Banner de pago para clientes sin pago verificado
-  const [paymentVerified, setPaymentVerified] = useState(true); // default true para no mostrar banner innecesariamente
+  const [paymentVerified, setPaymentVerified] = useState(true);
+
+  // Favoritos (solo clientes)
+  const [favorites, setFavorites] = useState([]);
 
   // Radar animation
   const pulse1 = useRef(new Animated.Value(0)).current;
@@ -239,6 +243,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
         .limit(1)
         .then(({ data }) => setPaymentVerified((data?.length ?? 0) > 0))
         .catch(() => {});
+      favoriteService.getFavorites(userId).then(setFavorites).catch(() => {});
     }
   }, []);
 
@@ -630,6 +635,49 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
             </TouchableOpacity>
           )}
 
+          {/* Favoritos — solo clientes con al menos 1 favorito */}
+          {!professional && favorites.length > 0 && (
+            <View>
+              <Text style={styles.favSectionTitle}>Tus profesionales favoritos</Text>
+              <FlatList
+                data={favorites}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={w => w.id}
+                contentContainerStyle={{ gap: 10 }}
+                renderItem={({ item: w }) => {
+                  const rating = w.effective_rating ?? w.avg_rating ?? 0;
+                  return (
+                    <View style={styles.favCard}>
+                      <View style={styles.favAvatar}>
+                        {w.avatar_url
+                          ? <Image source={{ uri: w.avatar_url }} style={styles.favAvatarImg} />
+                          : <Ionicons name="person" size={20} color="#FFD600" />}
+                      </View>
+                      <Text style={styles.favName} numberOfLines={1}>{w.first_name}</Text>
+                      <View style={styles.favRatingRow}>
+                        <Ionicons name="star" size={10} color="#FFD600" />
+                        <Text style={styles.favRating}>{rating ? Number(rating).toFixed(1) : 'Nuevo'}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.favRequestBtn, !w.available && styles.favRequestBtnOff]}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (!w.available) { Alert.alert('No disponible', `${w.first_name} no está disponible en este momento.`); return; }
+                          onRequestJob?.(w, selectedProfession, userLocation);
+                        }}
+                      >
+                        <Text style={[styles.favRequestBtnText, !w.available && styles.favRequestBtnTextOff]}>
+                          {w.available ? 'Solicitar' : 'Ocupado'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }}
+              />
+            </View>
+          )}
+
           {/* Tip rotativo — visible al expandir */}
           {(() => {
             const tips = professional ? WORKER_TIPS : CLIENT_TIPS;
@@ -973,6 +1021,36 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 16,
   },
   requestBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 },
+
+  // Favoritos
+  favSectionTitle: {
+    fontSize: 11, fontWeight: '800', color: '#555',
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+  },
+  favCard: {
+    width: 90, alignItems: 'center', gap: 4,
+    backgroundColor: '#111', borderRadius: 16,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 10,
+  },
+  favAvatar: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1.5, borderColor: '#FFD60060',
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  favAvatarImg: { width: '100%', height: '100%' },
+  favName:       { fontSize: 12, fontWeight: '700', color: '#F5F5F5', textAlign: 'center' },
+  favRatingRow:  { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  favRating:     { fontSize: 11, color: '#888' },
+  favRequestBtn: {
+    backgroundColor: '#FFD600', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 5, marginTop: 2,
+  },
+  favRequestBtnOff:     { backgroundColor: '#1a1a1a' },
+  favRequestBtnText:    { fontSize: 11, fontWeight: '900', color: '#0A0A0A' },
+  favRequestBtnTextOff: { color: '#444' },
 });
 
 

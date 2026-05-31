@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   TextInput, Alert, ActivityIndicator, Platform, KeyboardAvoidingView,
-  Modal, Linking, ScrollView,
+  Modal, Linking, ScrollView, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
@@ -11,6 +11,9 @@ import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import paymentService from '../services/paymentService';
 import professionalService from '../services/professionalService';
+import chatService from '../services/chatService';
+import favoriteService from '../services/favoriteService';
+import ChatScreen from './ChatScreen';
 
 const STATUS_INFO = {
   pending:          { icon: 'time-outline',            color: '#888',    label: 'Esperando confirmación...' },
@@ -118,6 +121,14 @@ const getProblemIssues = (isWorker, status) => {
   }
 };
 
+const haversineMeters = (lat1, lng1, lat2, lng2) => {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+};
+
 const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete, onCancel }) => {
   const [job, setJob]               = useState(initialJob);
   const [workAmount, setWorkAmount]     = useState('');
@@ -134,9 +145,26 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [multidayModal, setMultidayModal]   = useState(false);
   const [multidaySessions, setMultidaySessions] = useState('');
   const [multidayHrs, setMultidayHrs]       = useState('');
+  // Chat
+  const [showChat, setShowChat]             = useState(false);
+  const [unreadCount, setUnreadCount]       = useState(0);
+  // Favorito
+  const [isFav, setIsFav]                   = useState(false);
+  const [favLoading, setFavLoading]         = useState(false);
+  // Resumen del trabajo (trabajador)
+  const [summaryModal, setSummaryModal]     = useState(false);
+  const [summaryObs, setSummaryObs]         = useState('');
+  const [summarySolution, setSummarySolution] = useState('');
+  const [summaryMats, setSummaryMats]       = useState('');
+  const [summaryWarranty, setSummaryWarranty] = useState('');
+  // Alertas
+  const [nearbyAlert, setNearbyAlert]       = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
   const completedShownRef  = useRef(false);
-  const selfCancelledRef   = useRef(false); // evita alert "Trabajo cancelado" al auto-cancelar
-  const visitPayShownRef   = useRef(false); // no mostrar el modal de visita más de una vez
+  const selfCancelledRef   = useRef(false);
+  const visitPayShownRef   = useRef(false);
+  const nearbyShownRef     = useRef(false);
+  const chatChannelRef     = useRef(null);
   const webRef = useRef(null);
 
   const isWorker = !!professional;
@@ -148,6 +176,34 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     const channel = jobService.subscribeToJob(job.id, (updated) => setJob(prev => ({ ...prev, ...updated })));
     return () => { if (channel) channel.unsubscribe?.(); };
   }, [job.id]);
+
+  // Pulso animado del statusDot
+  useEffect(() => {
+    const pulse = Animated.loop(Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1.5, duration: 900, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1,   duration: 900, useNativeDriver: true }),
+    ]));
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  // Unread count del chat
+  useEffect(() => {
+    chatService.getUnreadCount(job.id, userId).then(setUnreadCount).catch(() => {});
+    chatChannelRef.current = chatService.subscribeToMessages(job.id, (msg) => {
+      if (msg.sender_id !== userId && !showChat) {
+        setUnreadCount(c => c + 1);
+      }
+    });
+    return () => { if (chatChannelRef.current) chatChannelRef.current.unsubscribe?.(); };
+  }, [job.id]);
+
+  // Favorito inicial (solo cliente, cuando hay profesional asignado)
+  useEffect(() => {
+    if (isWorker || !job.professional_id) return;
+    favoriteService.isFavorite(userId, job.professional_id)
+      .then(setIsFav).catch(() => {});
+  }, [job.professional_id]);
 
   // Timer de sesión multi-día
   useEffect(() => {
@@ -211,13 +267,23 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     const channel = jobService.subscribeWorkerLocation(job.professional_id, (locationStr) => {
       const match = locationStr.match(/POINT\(([^ ]+) ([^ )]+)\)/);
       if (match) {
-        const lng = parseFloat(match[1]);
-        const lat = parseFloat(match[2]);
-        webRef.current?.postMessage(JSON.stringify({ type: 'WORKER_MOVE', lat, lng }));
+        const wLng = parseFloat(match[1]);
+        const wLat = parseFloat(match[2]);
+        webRef.current?.postMessage(JSON.stringify({ type: 'WORKER_MOVE', lat: wLat, lng: wLng }));
+        // Alerta de proximidad cuando el trabajador está a < 500m
+        if (job.client_lat && job.client_lng && !nearbyShownRef.current && job.status === 'accepted') {
+          const dist = haversineMeters(wLat, wLng, job.client_lat, job.client_lng);
+          if (dist < 500) {
+            nearbyShownRef.current = true;
+            setNearbyAlert(true);
+            jobService.setSubStatus(job.id, 'nearby').catch(() => {});
+            setTimeout(() => setNearbyAlert(false), 8000);
+          }
+        }
       }
     });
     return () => { if (channel) channel.unsubscribe?.(); };
-  }, [isWorker, job.professional_id]);
+  }, [isWorker, job.professional_id, job.status]);
 
   const handleWorkerAction = async (action) => {
     setLoading(true);
@@ -394,6 +460,35 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
       } catch { Alert.alert('Error', 'No se pudo guardar la sesión.'); }
       finally { setLoading(false); }
     };
+  };
+
+  const handleFavoriteToggle = async () => {
+    if (favLoading || !job.professional_id) return;
+    setFavLoading(true);
+    try {
+      const nowFav = await favoriteService.toggle(userId, job.professional_id);
+      setIsFav(nowFav);
+    } catch {}
+    finally { setFavLoading(false); }
+  };
+
+  const handleSaveSummary = async () => {
+    if (!summaryObs.trim() && !summarySolution.trim()) {
+      Alert.alert('Completá el resumen', 'Describí al menos qué fue el problema y cómo lo resolviste.');
+      return;
+    }
+    try {
+      await jobService.setWorkSummary(job.id, {
+        observations: summaryObs.trim() || null,
+        solution:     summarySolution.trim() || null,
+        materials:    summaryMats.trim() || null,
+        warranty:     summaryWarranty.trim() || null,
+        saved_at:     new Date().toISOString(),
+      });
+      setSummaryModal(false);
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar el resumen.');
+    }
   };
 
   const handleEmergency = () => {
@@ -680,20 +775,94 @@ window.addEventListener('message', e => {
         </TouchableOpacity>
       </Modal>
 
+      {/* Chat overlay */}
+      {showChat && (
+        <Modal visible animationType="slide" onRequestClose={() => setShowChat(false)}>
+          <ChatScreen
+            job={job}
+            userId={userId}
+            isWorker={isWorker}
+            onClose={() => { setShowChat(false); setUnreadCount(0); chatService.markAsRead(job.id, userId).catch(() => {}); }}
+          />
+        </Modal>
+      )}
+
+      {/* Modal: Resumen del trabajo (trabajador antes de cobrar) */}
+      <Modal visible={summaryModal} transparent animationType="slide" onRequestClose={() => setSummaryModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView style={[styles.modalBox, { maxHeight: '90%' }]} contentContainerStyle={{ gap: 14, paddingBottom: 20 }}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="clipboard" size={26} color="#4CAF50" />
+              <Text style={styles.modalTitle}>Resumen del trabajo</Text>
+              <TouchableOpacity onPress={() => setSummaryModal(false)}>
+                <Ionicons name="close" size={22} color="#555" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>El cliente lo verá junto al recibo del pago.</Text>
+            {[
+              { label: 'Descripción del problema', ph: 'Ej: Disyuntor quemado por sobrecarga...', val: summaryObs, set: setSummaryObs },
+              { label: 'Solución aplicada', ph: 'Ej: Reemplacé el disyuntor, rearmé el tablero...', val: summarySolution, set: setSummarySolution },
+              { label: 'Materiales usados (opcional)', ph: 'Ej: 1 disyuntor 16A, cable 2.5mm...', val: summaryMats, set: setSummaryMats },
+              { label: 'Garantía (opcional)', ph: 'Ej: 30 días por mano de obra', val: summaryWarranty, set: setSummaryWarranty },
+            ].map(f => (
+              <View key={f.label}>
+                <Text style={styles.summaryFieldLabel}>{f.label}</Text>
+                <TextInput
+                  style={[styles.amountInput, { minHeight: 60, paddingTop: 10, textAlignVertical: 'top', backgroundColor: '#0A0A0A', borderRadius: 14, borderWidth: 1, borderColor: '#1E1E1E', color: '#F5F5F5', padding: 14, fontSize: 14 }]}
+                  placeholder={f.ph}
+                  placeholderTextColor="#333"
+                  value={f.val}
+                  onChangeText={f.set}
+                  multiline
+                  maxLength={400}
+                />
+              </View>
+            ))}
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#4CAF50' }]} onPress={handleSaveSummary}>
+              <Ionicons name="checkmark" size={18} color="#fff" />
+              <Text style={[styles.actionBtnText, { color: '#fff' }]}>Guardar resumen</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
+        <Animated.View style={[styles.statusDot, { backgroundColor: statusInfo.color, transform: [{ scale: pulseAnim }] }]} />
         <Text style={styles.headerStatus}>{statusInfo.label}</Text>
         {['pending', 'awaiting_payment'].includes(job.status) && (
           <TouchableOpacity onPress={handleCancel} style={styles.cancelBtn}>
             <Text style={styles.cancelBtnText}>Cancelar</Text>
           </TouchableOpacity>
         )}
+        {/* Favorito (solo cliente cuando hay profesional asignado) */}
+        {!isWorker && job.professional_id && ['accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
+          <TouchableOpacity onPress={handleFavoriteToggle} style={styles.favBtn} disabled={favLoading}>
+            <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={22} color={isFav ? '#ff4444' : '#444'} />
+          </TouchableOpacity>
+        )}
+        {/* Chat button */}
+        <TouchableOpacity onPress={() => setShowChat(true)} style={styles.chatHeaderBtn}>
+          <Ionicons name="chatbubble-outline" size={20} color="#F5F5F5" />
+          {unreadCount > 0 && (
+            <View style={styles.chatBadge}>
+              <Text style={styles.chatBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
         <TouchableOpacity onPress={handleEmergency} style={styles.emergencyBtn}>
           <Ionicons name="call" size={18} color="#ff4444" />
           <Text style={styles.emergencyBtnText}>911</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Alerta de proximidad */}
+      {nearbyAlert && !isWorker && (
+        <View style={styles.nearbyAlert}>
+          <Ionicons name="locate" size={18} color="#4CAF50" />
+          <Text style={styles.nearbyAlertText}>El profesional está muy cerca — ¡ya llega!</Text>
+        </View>
+      )}
 
       {/* Mapa */}
       {!isWorker && (
@@ -736,7 +905,7 @@ window.addEventListener('message', e => {
           )}
 
           {/* Respuesta del profesional — cliente cuando status = accepted */}
-          {!isWorker && job.status === 'accepted' && (job.arrival_estimate || job.pre_diagnosis || job.materials_needed || job.work_duration_est) && (
+          {!isWorker && job.status === 'accepted' && (job.arrival_estimate || job.pre_diagnosis || job.materials_needed || job.work_duration_est || job.diagnosis_structured) && (
             <View style={styles.workerResponseCard}>
               <Text style={styles.workerResponseTitle}>Respuesta del profesional</Text>
               {job.arrival_estimate ? (
@@ -757,10 +926,42 @@ window.addEventListener('message', e => {
                   <Text style={styles.workerResponseText}>Posible problema: "{job.pre_diagnosis}"</Text>
                 </View>
               ) : null}
+              {job.diagnosis_structured?.confidence ? (
+                <View style={styles.workerResponseRow}>
+                  <Ionicons name="analytics-outline" size={15} color="#888" />
+                  <Text style={styles.workerResponseText}>
+                    Confianza en diagnóstico: {job.diagnosis_structured.confidence}
+                    {job.diagnosis_structured.cause ? ` · Causa: ${job.diagnosis_structured.cause}` : ''}
+                  </Text>
+                </View>
+              ) : null}
+              {job.diagnosis_structured?.cost_min ? (
+                <View style={styles.workerResponseRow}>
+                  <Ionicons name="cash-outline" size={15} color="#4CAF50" />
+                  <Text style={styles.workerResponseText}>
+                    Costo estimado: ${job.diagnosis_structured.cost_min.toLocaleString('es-AR')} — ${(job.diagnosis_structured.cost_max || job.diagnosis_structured.cost_min).toLocaleString('es-AR')}
+                  </Text>
+                </View>
+              ) : null}
+              {job.diagnosis_structured?.time_est ? (
+                <View style={styles.workerResponseRow}>
+                  <Ionicons name="timer-outline" size={15} color="#FF9800" />
+                  <Text style={styles.workerResponseText}>Tiempo estimado: {job.diagnosis_structured.time_est}</Text>
+                </View>
+              ) : null}
               {job.materials_needed ? (
                 <View style={styles.workerResponseRow}>
                   <Ionicons name="construct-outline" size={15} color="#FF9800" />
                   <Text style={styles.workerResponseText}>Va a necesitar materiales para el trabajo</Text>
+                </View>
+              ) : null}
+              {job.diagnosis_structured?.materials?.length > 0 ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                  {job.diagnosis_structured.materials.map(m => (
+                    <View key={m} style={styles.diagMatChip}>
+                      <Text style={styles.diagMatChipText}>{m}</Text>
+                    </View>
+                  ))}
                 </View>
               ) : null}
             </View>
@@ -926,6 +1127,13 @@ window.addEventListener('message', e => {
           )}
 
           {/* in_progress + single-day: cobrar */}
+          {isWorker && job.status === 'in_progress' && !isMultiday && (
+            <TouchableOpacity style={styles.summaryBtn} onPress={() => setSummaryModal(true)}>
+              <Ionicons name="clipboard-outline" size={16} color="#4CAF50" />
+              <Text style={styles.summaryBtnText}>Completar resumen del trabajo (opcional)</Text>
+              <Ionicons name="chevron-forward" size={14} color="#4CAF50" />
+            </TouchableOpacity>
+          )}
           {isWorker && job.status === 'in_progress' && !isMultiday && (
             <View style={styles.amountRow}>
               {job.materials_needed && (
@@ -1507,6 +1715,49 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   payProblemText: { color: '#FF9800', fontSize: 13, fontWeight: '600' },
+
+  // Chat header button
+  chatHeaderBtn: {
+    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+  },
+  chatBadge: {
+    position: 'absolute', top: -2, right: -4,
+    backgroundColor: '#ff4444', borderRadius: 8,
+    minWidth: 16, height: 16,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  chatBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
+
+  // Favorito
+  favBtn: { padding: 6 },
+
+  // Alerta de proximidad
+  nearbyAlert: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(76,175,80,0.12)',
+    borderBottomWidth: 1, borderBottomColor: '#4CAF5040',
+    paddingVertical: 10, paddingHorizontal: 20,
+  },
+  nearbyAlertText: { flex: 1, fontSize: 13, color: '#4CAF50', fontWeight: '700' },
+
+  // Resumen del trabajo
+  summaryBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 12, paddingHorizontal: 14,
+    borderRadius: 12, borderWidth: 1, borderColor: '#4CAF5030',
+    backgroundColor: 'rgba(76,175,80,0.05)',
+  },
+  summaryBtnText: { flex: 1, fontSize: 13, color: '#4CAF50', fontWeight: '700' },
+  summaryFieldLabel: { fontSize: 12, fontWeight: '800', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+
+  // Chips de materiales del diagnóstico (vista cliente)
+  diagMatChip: {
+    backgroundColor: '#1A0D00', borderRadius: 12,
+    borderWidth: 1, borderColor: '#FF980040',
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  diagMatChipText: { fontSize: 11, color: '#FF9800', fontWeight: '600' },
 });
 
 export default JobTrackingScreen;

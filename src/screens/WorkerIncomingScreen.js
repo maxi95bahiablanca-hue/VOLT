@@ -2,11 +2,23 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   Animated, Easing, Platform, Alert, TextInput, ScrollView, BackHandler, Vibration, ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
+
+const REJECTION_REASONS = [
+  { key: 'too_far',      icon: 'navigate-outline',      label: 'Queda muy lejos',               note: 'La distancia supera mi zona de trabajo.' },
+  { key: 'busy',         icon: 'time-outline',           label: 'Estoy ocupado ahora',            note: 'No puedo ir en este momento.' },
+  { key: 'out_of_scope', icon: 'build-outline',          label: 'No es mi especialidad',          note: 'El trabajo está fuera de mi área.' },
+  { key: 'pricing',      icon: 'cash-outline',           label: 'El precio no me conviene',       note: 'El monto de visita no cubre el trabajo.' },
+  { key: 'personal',     icon: 'alert-circle-outline',   label: 'Motivo personal',                note: 'Tengo un inconveniente personal.' },
+];
+
+const CONFIDENCE_LEVELS = ['Alta', 'Media', 'Baja'];
+const MATERIAL_CHIPS = ['Cable', 'Llave térmica', 'Disyuntor', 'Cañería', 'Sellador', 'Tornillos', 'Pintura', 'Cemento', 'Membrana', 'Otro'];
 
 const TIMEOUT_SEC = 45;
 const ARRIVAL_OPTIONS   = ['~15 min', '~30 min', '~45 min', '~1 hora', '+1 hora'];
@@ -26,6 +38,15 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   const [isMultiday, setIsMultiday]           = useState(false);
   const [estimatedSessions, setEstSessions]   = useState('3');
   const [hrsPerSession, setHrsPerSession]     = useState('~4 hs');
+  // Motivos de rechazo
+  const [rejectModal, setRejectModal]         = useState(false);
+  // Diagnóstico avanzado
+  const [confidence, setConfidence]           = useState('Media');
+  const [probableCause, setProbableCause]     = useState('');
+  const [selectedMaterials, setSelectedMaterials] = useState([]);
+  const [costMin, setCostMin]                 = useState('');
+  const [costMax, setCostMax]                 = useState('');
+  const [timeEst, setTimeEst]                 = useState('');
 
   const timerRef  = useRef(null);
   const soundRef  = useRef(null);
@@ -108,10 +129,18 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
       if (isMultiday) {
         await jobService.setMultidayConfig(job.id, estimatedSessions, hrsPerSession);
       }
-
-      let notifBody = `${job.professions?.name || 'Tu profesional'} llega en ${arrivalEst}.`;
-      if (diagText) notifBody += ` Posible problema: "${diagText}".`;
-      if (showDiag && materialsNeeded) notifBody += ' Necesita comprar materiales para el trabajo.';
+      // Guardar diagnóstico estructurado si hay info
+      if (showDiag && (diagText || probableCause || selectedMaterials.length > 0)) {
+        await jobService.setStructuredDiagnosis(job.id, {
+          summary:     diagText,
+          cause:       probableCause.trim() || null,
+          confidence,
+          materials:   selectedMaterials,
+          cost_min:    costMin ? parseInt(costMin.replace(/\D/g, ''), 10) : null,
+          cost_max:    costMax ? parseInt(costMax.replace(/\D/g, ''), 10) : null,
+          time_est:    timeEst.trim() || null,
+        }).catch(() => {});
+      }
 
       await notificationService.sendToUser(clientUserId, {
         title: `⚡ ESTÁ POR LLEGAR UN VOLT`,
@@ -125,30 +154,77 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     }
   };
 
-  const handleReject = async (timeout = false) => {
-    if (loading) return;
+  const handleRejectWithReason = async (reason) => {
+    setRejectModal(false);
     clearInterval(timerRef.current);
     stopAlarm();
     setLoading(true);
     try {
-      await jobService.reject(job.id, professional?.id);
-      if (!timeout) {
-        await notificationService.sendToUser(clientUserId, {
-          title: 'El profesional no está disponible',
-          body:  'No te preocupes, estamos buscando otro profesional cercano para vos.',
-          data:  { jobId: job.id },
-        });
-      }
+      await jobService.reject(job.id, professional?.id, reason.key, reason.note);
+      await notificationService.sendToUser(clientUserId, {
+        title: 'El profesional no está disponible',
+        body:  'No te preocupes, estamos buscando otro profesional cercano para vos.',
+        data:  { jobId: job.id },
+      });
       onRejected();
     } catch {
       onRejected();
     }
   };
 
+  const handleReject = async (timeout = false) => {
+    if (loading) return;
+    if (!timeout) { setRejectModal(true); return; }
+    clearInterval(timerRef.current);
+    stopAlarm();
+    setLoading(true);
+    try {
+      await jobService.reject(job.id, professional?.id, 'timeout', 'No respondió a tiempo');
+      onRejected();
+    } catch {
+      onRejected();
+    }
+  };
+
+  const toggleMaterial = (mat) => {
+    setSelectedMaterials(prev =>
+      prev.includes(mat) ? prev.filter(m => m !== mat) : [...prev, mat]
+    );
+  };
+
   const urgencyColor = timeLeft <= 10 ? '#ff4444' : timeLeft <= 20 ? '#FF9800' : '#FFD600';
 
   return (
     <SafeAreaView style={styles.container}>
+
+      {/* Modal: Motivo de rechazo */}
+      <Modal visible={rejectModal} transparent animationType="slide" onRequestClose={() => setRejectModal(false)}>
+        <TouchableOpacity style={styles.rejectOverlay} activeOpacity={1} onPress={() => setRejectModal(false)}>
+          <TouchableOpacity style={styles.rejectModalBox} activeOpacity={1} onPress={() => {}}>
+            <View style={styles.rejectModalHeader}>
+              <Ionicons name="close-circle-outline" size={24} color="#ff4444" />
+              <Text style={styles.rejectModalTitle}>¿Por qué rechazás?</Text>
+            </View>
+            <Text style={styles.rejectModalSub}>Ayudanos a mejorar el sistema.</Text>
+            {REJECTION_REASONS.map(r => (
+              <TouchableOpacity
+                key={r.key}
+                style={styles.rejectOption}
+                onPress={() => handleRejectWithReason(r)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={r.icon} size={18} color="#555" />
+                <Text style={styles.rejectOptionText}>{r.label}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#333" />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.rejectCancel} onPress={() => setRejectModal(false)}>
+              <Text style={styles.rejectCancelText}>Volver — no rechazar</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
         {/* Contador */}
@@ -322,6 +398,8 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
             <Text style={styles.diagHint}>
               El cliente lo verá cuando aceptes. Podés modificarlo cuando llegues al lugar.
             </Text>
+
+            {/* Resumen libre */}
             <TextInput
               style={styles.diagInput}
               placeholder={`Ej: "Probablemente el disyuntor del baño, puede ser un cortocircuito."`}
@@ -335,26 +413,86 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
             />
             <Text style={styles.diagCounter}>{diagnosis.length}/300</Text>
 
-            {/* Materiales */}
-            <Text style={styles.materialsLabel}>¿Necesitás comprar materiales?</Text>
+            {/* Causa probable */}
+            <Text style={styles.materialsLabel}>Causa probable (opcional)</Text>
+            <TextInput
+              style={[styles.diagInput, { minHeight: 44, marginBottom: 12 }]}
+              placeholder="Ej: Cortocircuito por humedad"
+              placeholderTextColor="#333"
+              value={probableCause}
+              onChangeText={setProbableCause}
+              maxLength={150}
+            />
+
+            {/* Nivel de confianza */}
+            <Text style={styles.materialsLabel}>Nivel de confianza en el diagnóstico</Text>
             <View style={styles.materialsRow}>
-              <TouchableOpacity
-                style={[styles.matBtn, !materialsNeeded && styles.matBtnNo]}
-                onPress={() => setMaterialsNeeded(false)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="checkmark-circle" size={16} color={!materialsNeeded ? '#4CAF50' : '#333'} />
-                <Text style={[styles.matBtnText, !materialsNeeded && styles.matBtnTextNo]}>No necesito</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.matBtn, materialsNeeded && styles.matBtnYes]}
-                onPress={() => setMaterialsNeeded(true)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="construct" size={16} color={materialsNeeded ? '#FF9800' : '#333'} />
-                <Text style={[styles.matBtnText, materialsNeeded && styles.matBtnTextYes]}>Sí, necesito materiales</Text>
-              </TouchableOpacity>
+              {CONFIDENCE_LEVELS.map(lvl => {
+                const color = lvl === 'Alta' ? '#4CAF50' : lvl === 'Media' ? '#FF9800' : '#ff4444';
+                const active = confidence === lvl;
+                return (
+                  <TouchableOpacity
+                    key={lvl}
+                    style={[styles.matBtn, active && { borderColor: color + '60', backgroundColor: color + '15' }]}
+                    onPress={() => setConfidence(lvl)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.matBtnText, active && { color }]}>{lvl}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+
+            {/* Materiales probables */}
+            <Text style={[styles.materialsLabel, { marginTop: 12 }]}>Materiales que podrías necesitar</Text>
+            <View style={styles.chipsWrap}>
+              {MATERIAL_CHIPS.map(mat => {
+                const sel = selectedMaterials.includes(mat);
+                return (
+                  <TouchableOpacity
+                    key={mat}
+                    style={[styles.chip, sel && styles.chipActive]}
+                    onPress={() => toggleMaterial(mat)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, sel && styles.chipTextActive]}>{mat}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Rango de costo */}
+            <Text style={[styles.materialsLabel, { marginTop: 12 }]}>Rango estimado de costo (opcional)</Text>
+            <View style={styles.costRangeRow}>
+              <TextInput
+                style={[styles.diagInput, { flex: 1, minHeight: 44 }]}
+                placeholder="$ mín"
+                placeholderTextColor="#333"
+                value={costMin}
+                onChangeText={v => setCostMin(v.replace(/\D/g, ''))}
+                keyboardType="numeric"
+              />
+              <Text style={{ color: '#555', fontSize: 16, marginHorizontal: 8 }}>—</Text>
+              <TextInput
+                style={[styles.diagInput, { flex: 1, minHeight: 44 }]}
+                placeholder="$ máx"
+                placeholderTextColor="#333"
+                value={costMax}
+                onChangeText={v => setCostMax(v.replace(/\D/g, ''))}
+                keyboardType="numeric"
+              />
+            </View>
+
+            {/* Tiempo estimado */}
+            <Text style={[styles.materialsLabel, { marginTop: 12 }]}>Tiempo estimado de trabajo</Text>
+            <TextInput
+              style={[styles.diagInput, { minHeight: 44, marginBottom: 4 }]}
+              placeholder="Ej: ~2 horas"
+              placeholderTextColor="#333"
+              value={timeEst}
+              onChangeText={setTimeEst}
+              maxLength={50}
+            />
           </View>
         )}
 
@@ -536,6 +674,42 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#333',
   },
   timedOutBtnText: { color: '#F5F5F5', fontSize: 16, fontWeight: '700' },
+
+  /* Modal rechazo */
+  rejectOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  rejectModalBox: {
+    backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 36,
+  },
+  rejectModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  rejectModalTitle:  { fontSize: 16, fontWeight: '800', color: '#F5F5F5' },
+  rejectModalSub:    { fontSize: 13, color: '#555', marginBottom: 16 },
+  rejectOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+  },
+  rejectOptionText: { flex: 1, fontSize: 14, color: '#F5F5F5' },
+  rejectCancel: {
+    marginTop: 16, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: '#1a1a1a', alignItems: 'center',
+  },
+  rejectCancelText: { color: '#555', fontSize: 14, fontWeight: '700' },
+
+  /* Chips de materiales */
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    borderWidth: 1.5, borderColor: '#2a2a2a', backgroundColor: '#0A0A0A',
+  },
+  chipActive:     { borderColor: '#FF980060', backgroundColor: '#1A0D00' },
+  chipText:       { fontSize: 12, color: '#555', fontWeight: '600' },
+  chipTextActive: { color: '#FF9800' },
+
+  /* Rango de costo */
+  costRangeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
 });
 
 export default WorkerIncomingScreen;

@@ -94,9 +94,13 @@ const jobService = {
     });
   },
 
-  reject: async (jobId, professionalId) => {
-    await update(jobId, { status: 'cancelled', cancelled_at: new Date().toISOString() });
-    // Penalizar calificación del trabajador
+  reject: async (jobId, professionalId, category, note) => {
+    await update(jobId, {
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      ...(category ? { rejection_category: category } : {}),
+      ...(note     ? { rejection_note: note }         : {}),
+    });
     if (professionalId) {
       await supabase.rpc('penalize_worker_rejection', { p_professional_id: professionalId });
     }
@@ -164,6 +168,15 @@ const jobService = {
       estimated_sessions:    parseInt(sessions, 10),
       estimated_hrs_session: hrsPerSession,
     }),
+
+  setStructuredDiagnosis: async (jobId, diagnosis) =>
+    update(jobId, { diagnosis_structured: diagnosis }),
+
+  setWorkSummary: async (jobId, summary) =>
+    update(jobId, { work_summary: summary }),
+
+  setSubStatus: async (jobId, subStatus) =>
+    update(jobId, { sub_status: subStatus }),
 
   completeMultidayJob: async (jobId, laborAmount, materialsCost = 0, sessionStartIso, completedSessions, totalMinutesBefore) => {
     const extraMinutes = sessionStartIso
