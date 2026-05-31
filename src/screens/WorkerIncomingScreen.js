@@ -31,7 +31,7 @@ const HRS_DAY_OPTIONS  = ['~2 hs', '~3 hs', '~4 hs', '~6 hs', '~8 hs'];
 // ─────────────────────────────────────────────────────────────────────────────
 // FASE 1: Pantalla de alerta (alarma activa, mínima info)
 // ─────────────────────────────────────────────────────────────────────────────
-const AlertPhase = ({ job, timeLeft, onView, onAutoReject }) => {
+const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const ringAnim  = useRef(new Animated.Value(0)).current;
 
@@ -82,15 +82,25 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject }) => {
           Visita: ${(job.visit_amount || 30000).toLocaleString('es-AR')}
         </Text>
 
-        {/* Botón principal */}
+        {/* Aceptar rápido — sin completar formulario */}
+        <TouchableOpacity
+          style={alertStyles.quickAcceptBtn}
+          onPress={() => onAutoAccept({ arrivalEst: '~30 min', workDuration: '~1 hora' })}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="checkmark-circle" size={22} color="#0A0A0A" />
+          <Text style={alertStyles.quickAcceptBtnText}>ACEPTAR AHORA</Text>
+        </TouchableOpacity>
+
+        {/* Ver detalles */}
         <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%' }}>
           <TouchableOpacity style={alertStyles.viewBtn} onPress={onView} activeOpacity={0.85}>
-            <Ionicons name="eye-outline" size={22} color="#0A0A0A" />
-            <Text style={alertStyles.viewBtnText}>VER EL TRABAJO</Text>
+            <Ionicons name="eye-outline" size={20} color="#0A0A0A" />
+            <Text style={alertStyles.viewBtnText}>Ver detalles</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        <Text style={alertStyles.hint}>Tocá para leer los detalles y decidir</Text>
+        <Text style={alertStyles.hint}>Aceptar ahora usa valores por defecto</Text>
       </View>
     </SafeAreaView>
   );
@@ -123,7 +133,8 @@ const DetailsPhase = ({
   const toggleMaterial = (mat) =>
     setSelectedMaterials(prev => prev.includes(mat) ? prev.filter(m => m !== mat) : [...prev, mat]);
 
-  const diagData = showDiag ? {
+  // diagData se envía si el trabajador abrió la sección (con o sin materiales)
+  const diagData = showDiag && (diagnosis.trim() || probableCause.trim() || selectedMaterials.length > 0) ? {
     summary:    diagnosis.trim() || null,
     cause:      probableCause.trim() || null,
     confidence,
@@ -544,6 +555,16 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         timeLeft={timeLeft}
         onView={handleViewDetails}
         onAutoReject={handleRejectWithReason}
+        onAutoAccept={(defaults) => handleAccept({
+          diagnosis: null,
+          arrivalEst: defaults.arrivalEst,
+          materialsNeeded: false,
+          workDuration: defaults.workDuration,
+          isMultiday: false,
+          estimatedSessions: '1',
+          hrsPerSession: '~1 hs',
+          diagData: null,
+        })}
       />
     );
   }
@@ -623,6 +644,13 @@ const styles = StyleSheet.create({
   },
   quietTimerDot:  { width: 8, height: 8, borderRadius: 4 },
   quietTimerText: { fontSize: 13, fontWeight: '700' },
+
+  quickAcceptBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, backgroundColor: '#FFD600',
+    borderRadius: 18, paddingVertical: 18, width: '100%',
+  },
+  quickAcceptBtnText: { color: '#0A0A0A', fontSize: 17, fontWeight: '900', letterSpacing: 0.5 },
 
   card: {
     width: '100%', backgroundColor: '#111',

@@ -2,28 +2,48 @@ import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 
 const FUNCTION_URL = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1`;
+const TIMEOUT_MS   = 15000;
+
+const fetchWithTimeout = async (url, options) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('La solicitud tardó demasiado. Verificá tu conexión e intentá de nuevo.');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 const paymentService = {
-  createPreference: async ({ jobId }) => {
+  createPreference: async ({ jobId, visitOnly = false }) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) throw new Error('Sesión expirada');
-    const res = await fetch(`${FUNCTION_URL}/create-payment`, {
+    if (!session?.access_token) {
+      // Intentar refrescar la sesión antes de fallar
+      const { data: refreshed } = await supabase.auth.refreshSession().catch(() => ({ data: null }));
+      if (!refreshed?.session?.access_token) throw new Error('Sesión expirada. Cerrá y volvé a abrir la app.');
+    }
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+    const res = await fetchWithTimeout(`${FUNCTION_URL}/create-payment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${currentSession.access_token}`,
       },
-      body: JSON.stringify({ jobId }),
+      body: JSON.stringify({ jobId, visitOnly }),
     });
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Error al crear el pago');
+      const msg = err.error || `Error del servidor (${res.status}). Intentá de nuevo.`;
+      throw new Error(msg);
     }
-    return res.json(); // { checkoutUrl, sandboxCheckoutUrl, preferenceId }
+    return res.json();
   },
 
-  // Abre el checkout de MP en el navegador del sistema.
-  // Retorna 'success' | 'cancelled' | 'dismissed'
   openCheckout: async (url) => {
     const result = await WebBrowser.openAuthSessionAsync(url, 'volt://');
     if (result.type === 'success') {

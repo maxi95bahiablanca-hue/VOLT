@@ -12,7 +12,7 @@ import * as Location from 'expo-location';
 import favoriteService from '../services/favoriteService';
 import ReputationCard from '../components/ReputationCard';
 import DemoToggle from '../components/DemoToggle';
-import { isDemoMode } from '../demo/demoMode';
+import { isDemoMode, toggleDemo } from '../demo/demoMode';
 import { DEMO_PROFESSIONAL, DEMO_QUOTE_JOBS } from '../demo/demoData';
 import professionService from '../services/professionService';
 import professionalService from '../services/professionalService';
@@ -896,8 +896,14 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
             )}
           </View>
 
-          {/* Logo */}
-          <Text style={styles.logoText}>VOLT</Text>
+          {/* Logo — long-press 3s activa Demo Mode */}
+          <TouchableOpacity
+            onLongPress={() => { setDemoOn(v => !v); toggleDemo(); }}
+            delayLongPress={3000}
+            activeOpacity={1}
+          >
+            <Text style={[styles.logoText, demoOn && { color: '#FFD600', opacity: 0.7 }]}>VOLT</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Resultados del buscador */}
@@ -1003,25 +1009,24 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
             </TouchableOpacity>
           )}
 
-          {/* Demo Mode toggle + botón de inicio */}
-          {!professional && (
+          {/* Demo Mode — visible solo cuando está activo (se activa desde DemoToggle oculto por long-press) */}
+          {!professional && demoOn && (
             <View style={styles.demoWrap}>
               <DemoToggle onToggle={setDemoOn} />
-              {demoOn && (
-                <TouchableOpacity
-                  style={styles.demoStartBtn}
-                  onPress={() => {
-                    const prof = DEMO_PROFESSIONAL;
-                    const fakeProfession = { id: 1, name: 'Electricidad' };
-                    onRequestJob?.(prof, fakeProfession, userLocation || { latitude: -38.7196, longitude: -62.2724, address: 'Demo — Bahía Blanca' });
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.demoStartBtnText}>▶ Iniciar demo completo</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.demoStartBtn}
+                onPress={() => {
+                  const prof = DEMO_PROFESSIONAL;
+                  const fakeProfession = { id: 1, name: 'Electricidad' };
+                  onRequestJob?.(prof, fakeProfession, userLocation || { latitude: -38.7196, longitude: -62.2724, address: 'Demo — Bahía Blanca' });
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.demoStartBtnText}>▶ Iniciar demo completo</Text>
+              </TouchableOpacity>
             </View>
           )}
+
 
           {/* Botón Emergencia — solo para clientes */}
           {!professional && (

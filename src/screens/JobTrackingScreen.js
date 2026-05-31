@@ -708,14 +708,16 @@ window.addEventListener('message', e => {
                 <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar visita ${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text></>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.testPayBtn} disabled={loading} onPress={async () => {
-              setLoading(true);
-              try { await jobService.markVisitPaid(job.id); setVisitPayModal(false); }
-              catch { setLoading(false); }
-            }}>
-              <Ionicons name="flask-outline" size={14} color="#888" />
-              <Text style={styles.testPayBtnText}>Simular pago de visita (solo testing)</Text>
-            </TouchableOpacity>
+            {isDemoMode() && (
+              <TouchableOpacity style={styles.testPayBtn} disabled={loading} onPress={async () => {
+                setLoading(true);
+                try { await jobService.markVisitPaid(job.id); setVisitPayModal(false); }
+                catch { setLoading(false); }
+              }}>
+                <Ionicons name="flask-outline" size={14} color="#888" />
+                <Text style={styles.testPayBtnText}>Simular pago de visita (demo)</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -1569,16 +1571,18 @@ window.addEventListener('message', e => {
                     <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar ${total.toLocaleString('es-AR')}</Text></>
                   )}
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.testPayBtn} disabled={loading} onPress={async () => {
-                  setLoading(true);
-                  try {
-                    await jobService.complete(job.id);
-                    onComplete(job);
-                  } catch { setLoading(false); }
-                }}>
-                  <Ionicons name="flask-outline" size={14} color="#888" />
-                  <Text style={styles.testPayBtnText}>Simular pago aprobado (solo testing)</Text>
-                </TouchableOpacity>
+                {isDemoMode() && (
+                  <TouchableOpacity style={styles.testPayBtn} disabled={loading} onPress={async () => {
+                    setLoading(true);
+                    try {
+                      await jobService.complete(job.id);
+                      onComplete(job);
+                    } catch { setLoading(false); }
+                  }}>
+                    <Ionicons name="flask-outline" size={14} color="#888" />
+                    <Text style={styles.testPayBtnText}>Simular pago aprobado (demo)</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity style={styles.payProblemBtn} onPress={() => setProblemModal(true)}>
                   <Ionicons name="warning-outline" size={14} color="#FF9800" />
                   <Text style={styles.payProblemText}>¿Algo salió mal? Reportar un problema</Text>
