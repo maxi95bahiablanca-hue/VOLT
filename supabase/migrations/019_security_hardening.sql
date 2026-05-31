@@ -53,10 +53,9 @@ FOR INSERT WITH CHECK (
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3. PUSH TOKENS — PENDIENTE (requiere mover el envío de push a Edge Function)
---    Hoy `notificationService.sendToUser` lee el token del destinatario
---    client-side, por eso necesita la política pública `push_tokens_read_any`.
---    Quitarla SIN antes mover el envío server-side rompería las notificaciones.
---    TODO: crear Edge Function `send-push` (service_role) y recién ahí ejecutar:
---        DROP POLICY IF EXISTS "push_tokens_read_any" ON push_tokens;
+-- 3. PUSH TOKENS: quitar lectura pública (antes cualquiera leía los tokens de todos)
+--    El envío de push ahora se hace server-side con la Edge Function `send-push`
+--    (service_role, que bypasea RLS). La app ya no lee tokens de otros usuarios.
+--    IMPORTANTE: deployar la Edge Function `send-push` ANTES de correr esto.
 -- ─────────────────────────────────────────────────────────────────────────────
+DROP POLICY IF EXISTS "push_tokens_read_any" ON push_tokens;

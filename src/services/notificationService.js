@@ -81,27 +81,14 @@ const notificationService = {
     }
     if (!userId) return;
     try {
-      const { data: row } = await supabase
-        .from('push_tokens')
-        .select('token')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (!row?.token) return;
-      await fetch('https://exp.host/--/api/v2/push/send', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to:        row.token,
-          title,
-          body,
-          data,
-          sound:     'default',
-          channelId: 'volt-jobs',
-          priority:  'high',
-          ttl:       60,
-        }),
+      // El envío se hace server-side (Edge Function): la app ya NO lee tokens
+      // de otros usuarios. La función valida auth + relación y envía por Expo.
+      await supabase.functions.invoke('send-push', {
+        body: { userId, title, body, data },
       });
-    } catch { /* silent */ }
+    } catch (e) {
+      console.warn('send-push error:', e?.message || e);
+    }
   },
 };
 
