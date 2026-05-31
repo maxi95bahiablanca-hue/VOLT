@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import volt from '../utils/voltVoice';
+import { isDemoMode } from '../demo/demoMode';
+import { DEMO_QUOTE_JOBS } from '../demo/demoData';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, ActivityIndicator, Alert, Platform, Image,
+  SafeAreaView, ScrollView, ActivityIndicator, Alert, Platform, Image, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,10 +14,111 @@ import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import professionalService from '../services/professionalService';
 
+// ─── Overlay de búsqueda animado ─────────────────────────────────────────────
+const SearchingOverlay = ({ foundCount }) => {
+  const [step, setStep] = useState(1);
+  const ring1 = useRef(new Animated.Value(0)).current;
+  const ring2 = useRef(new Animated.Value(0)).current;
+  const ring3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animRing = (anim, delay) =>
+      Animated.loop(Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(anim, { toValue: 1, duration: 1800, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 0,    useNativeDriver: true }),
+        Animated.delay(Math.max(0, 1800 * 2 - delay)),
+      ]));
+    animRing(ring1, 0).start();
+    animRing(ring2, 700).start();
+    animRing(ring3, 1400).start();
+
+    const t1 = setTimeout(() => setStep(2), 1800);
+    const t2 = setTimeout(() => setStep(s => s < 3 ? 3 : s), 3600);
+    const t3 = setTimeout(() => setStep(s => s < 4 ? 4 : s), 5400);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
+
+  // Avanzar a paso 3 ni bien llega el count real
+  useEffect(() => {
+    if (foundCount > 0 && step === 2) setStep(3);
+  }, [foundCount, step]);
+
+  // Avanzar a paso 4 un momento después de mostrar el count
+  useEffect(() => {
+    if (step !== 3) return;
+    const t = setTimeout(() => setStep(4), 1600);
+    return () => clearTimeout(t);
+  }, [step]);
+
+  const count    = foundCount > 0 ? foundCount : '...';
+  const rScale   = (r) => r.interpolate({ inputRange: [0, 1], outputRange: [1, 5] });
+  const rOpacity = (r) => r.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.28, 0] });
+
+  const TEXTS = [
+    '',
+    volt.searchStep1,
+    volt.searchStep2,
+    volt.searchStep3(foundCount > 0 ? foundCount : 0),
+    volt.searchStep4,
+  ];
+
+  return (
+    <View style={searchStyles.overlay}>
+      {/* Radar */}
+      <View style={searchStyles.radarWrap}>
+        {[ring1, ring2, ring3].map((r, i) => (
+          <Animated.View key={i} pointerEvents="none" style={[
+            searchStyles.ring,
+            { transform: [{ scale: rScale(r) }], opacity: rOpacity(r) },
+          ]} />
+        ))}
+        <View style={searchStyles.centerCircle}>
+          <Ionicons name="flash" size={38} color="#FFD600" />
+        </View>
+      </View>
+
+      {/* Indicador de paso */}
+      <View style={searchStyles.dotsRow}>
+        {[1, 2, 3, 4].map(i => (
+          <View key={i} style={[searchStyles.dot, step >= i && searchStyles.dotActive]} />
+        ))}
+      </View>
+
+      {/* Texto del paso */}
+      <Text style={searchStyles.stepText}>{TEXTS[step]}</Text>
+
+      {/* Badge de count (paso 3) */}
+      {step === 3 && foundCount > 0 && (
+        <View style={searchStyles.countBadge}>
+          <Text style={searchStyles.countNum}>{foundCount}</Text>
+          <Text style={searchStyles.countLbl}>
+            {foundCount === 1 ? 'profesional notificado' : 'profesionales notificados'}
+          </Text>
+        </View>
+      )}
+
+      {/* Waiting indicator (paso 4) */}
+      {step === 4 && (
+        <View style={searchStyles.waitingRow}>
+          <ActivityIndicator color="#FFD600" size="small" />
+          <Text style={searchStyles.waitingText}>Red activada · esperando respuesta</Text>
+        </View>
+      )}
+
+      <Text style={searchStyles.hint}>
+        Los primeros en responder son los que llegan antes
+      </Text>
+    </View>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteGroupCreated, onBack }) => {
   const [notes, setNotes]     = useState('');
   const [loading, setLoading] = useState(false);
   const [notesTouched, setNotesTouched] = useState(false);
+  const [foundCount, setFoundCount]     = useState(0);
 
   // Foto opcional del problema
   const [problemPhoto, setProblemPhoto] = useState(null); // { uri, ext }
@@ -65,6 +169,17 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
       return;
     }
 
+    // ── DEMO MODE ────────────────────────────────────────────────────────────
+    if (isDemoMode()) {
+      setLoading(true);
+      setTimeout(() => setFoundCount(2), 1500);
+      setTimeout(() => {
+        onQuoteGroupCreated('demo-quote-1', DEMO_QUOTE_JOBS);
+      }, 4500);
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     setLoading(true);
     try {
       let workers = worker ? [worker] : [];
@@ -88,6 +203,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
         setLoading(false);
         return;
       }
+      setFoundCount(workers.length);
 
       // Subir foto del problema si hay una
       let problemPhotoUrl = null;
@@ -143,6 +259,14 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <SearchingOverlay foundCount={foundCount} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -489,6 +613,66 @@ const styles = StyleSheet.create({
   confirmBtnDisabled: { opacity: 0.6 },
   confirmBtnText: { color: '#0A0A0A', fontSize: 17, fontWeight: '900' },
   cancelNote: { textAlign: 'center', fontSize: 12, color: '#444' },
+});
+
+// ─── Estilos del overlay de búsqueda ─────────────────────────────────────────
+const searchStyles = StyleSheet.create({
+  overlay: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#0A0A0A',
+    paddingHorizontal: 32, gap: 28,
+  },
+
+  radarWrap: {
+    width: 160, height: 160,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ring: {
+    position: 'absolute',
+    width: 100, height: 100, borderRadius: 50,
+    borderWidth: 1.5, borderColor: '#FFD600',
+  },
+  centerCircle: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#1A1A00',
+    borderWidth: 2.5, borderColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#FFD600', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4, shadowRadius: 16, elevation: 12,
+  },
+
+  dotsRow: { flexDirection: 'row', gap: 8 },
+  dot: {
+    width: 6, height: 6, borderRadius: 3, backgroundColor: '#222',
+  },
+  dotActive: { backgroundColor: '#FFD600' },
+
+  stepText: {
+    fontSize: 18, fontWeight: '700', color: '#F5F5F5',
+    textAlign: 'center', lineHeight: 26,
+  },
+
+  countBadge: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,214,0,0.08)',
+    borderWidth: 1.5, borderColor: 'rgba(255,214,0,0.25)',
+    borderRadius: 20, paddingHorizontal: 28, paddingVertical: 16,
+  },
+  countNum: { fontSize: 48, fontWeight: '900', color: '#FFD600', lineHeight: 52 },
+  countLbl: { fontSize: 13, color: '#888', fontWeight: '600', marginTop: 4 },
+
+  waitingRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: 'rgba(255,214,0,0.06)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.15)',
+    borderRadius: 20, paddingHorizontal: 20, paddingVertical: 12,
+  },
+  waitingText: { fontSize: 14, color: '#888', fontWeight: '600' },
+
+  hint: {
+    fontSize: 12, color: '#333', textAlign: 'center',
+    position: 'absolute', bottom: 48, paddingHorizontal: 24,
+  },
 });
 
 export default JobRequestScreen;

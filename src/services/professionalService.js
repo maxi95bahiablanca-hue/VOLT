@@ -98,6 +98,15 @@ const professionalService = {
     if (error) throw error;
     return data ?? [];
   },
+
+  getNearestAvailable: async (lat, lng) => {
+    const { data, error } = await supabase.rpc('nearest_available_worker', {
+      p_lat: lat,
+      p_lng: lng,
+    });
+    if (error) throw error;
+    return data?.[0] ?? null;
+  },
 };
 
 export default professionalService;

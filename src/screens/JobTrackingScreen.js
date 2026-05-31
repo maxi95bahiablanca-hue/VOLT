@@ -1,4 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import volt from '../utils/voltVoice';
+import { isDemoMode } from '../demo/demoMode';
+import demoJobService from '../demo/demoJobService';
+import demoChatService from '../demo/demoChatService';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   TextInput, Alert, ActivityIndicator, Platform, KeyboardAvoidingView,
@@ -15,6 +19,29 @@ import chatService from '../services/chatService';
 import favoriteService from '../services/favoriteService';
 import ChatScreen from './ChatScreen';
 
+const EVENT_ICONS = {
+  received:       { icon: 'search-outline',           color: '#888'    },
+  accepted:       { icon: 'checkmark-circle-outline', color: '#4285F4' },
+  reviewing:      { icon: 'eye-outline',              color: '#4285F4' },
+  photo_reviewed: { icon: 'image-outline',            color: '#FF9800' },
+  estimated:      { icon: 'time-outline',             color: '#4285F4' },
+  trip_started:   { icon: 'navigate-outline',         color: '#4285F4' },
+  halfway:        { icon: 'locate-outline',           color: '#4285F4' },
+  nearby:         { icon: 'radio-outline',            color: '#4CAF50' },
+  arrived:        { icon: 'home-outline',             color: '#FFD600' },
+  work_started:   { icon: 'construct-outline',        color: '#FF9800' },
+  work_done:      { icon: 'checkmark-done-outline',   color: '#4CAF50' },
+};
+
+const PROGRESS_STEPS = [
+  { label: 'Aceptado',  step: 1 },
+  { label: 'En camino', step: 2 },
+  { label: 'Cerca',     step: 3 },
+  { label: 'Llegó',     step: 4 },
+  { label: 'Iniciado',  step: 5 },
+  { label: 'Listo',     step: 6 },
+];
+
 const STATUS_INFO = {
   pending:          { icon: 'time-outline',            color: '#888',    label: 'Esperando confirmación...' },
   accepted:         { icon: 'navigate-outline',         color: '#4285F4', label: 'El profesional está en camino' },
@@ -26,18 +53,18 @@ const STATUS_INFO = {
 };
 
 const WORKER_TIPS = {
-  accepted:         '⚡ Conducí con precaución. El cliente ya fue notificado que vas en camino.',
-  arrived:          '🔑 Mostrá tu código al cliente antes de que te abra. Es obligatorio.',
-  in_progress:      '🔧 Describí el trabajo al cliente antes de empezar para evitar malentendidos.',
-  awaiting_payment: '💳 El cliente pagará por la app. No aceptes efectivo por el trabajo.',
+  accepted:         volt.tipWorkerAccepted,
+  arrived:          volt.tipWorkerArrived,
+  in_progress:      volt.tipWorkerInProgress,
+  awaiting_payment: volt.tipWorkerAwaitingPayment,
 };
 
 const CLIENT_TIPS = {
-  pending:          '💡 Estamos buscando al profesional más cercano. Generalmente llega en menos de 30 min.',
-  accepted:         '📍 Podés seguir en tiempo real por dónde viene el profesional.',
-  arrived:          '🔒 IMPORTANTE: pedile el código de 4 dígitos ANTES de abrir la puerta.',
-  in_progress:      '✅ Todos los profesionales VOLT tienen antecedentes verificados.',
-  awaiting_payment: '💳 El pago es seguro y solo a través de la app. Nunca pagues en efectivo.',
+  pending:          volt.tipPending,
+  accepted:         volt.tipAccepted,
+  arrived:          volt.tipArrived,
+  in_progress:      volt.tipInProgress,
+  awaiting_payment: volt.tipAwaitingPayment,
 };
 
 const getProblemIssues = (isWorker, status) => {
@@ -159,23 +186,67 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [summaryWarranty, setSummaryWarranty] = useState('');
   // Alertas
   const [nearbyAlert, setNearbyAlert]       = useState(false);
+  const [events, setEvents]                 = useState([]);
+  const [timeSinceUpdate, setTimeSinceUpdate] = useState(0);
+  const [inactivityAlert, setInactivityAlert] = useState(false);
+  const [workerDistKm, setWorkerDistKm]       = useState(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const completedShownRef  = useRef(false);
   const selfCancelledRef   = useRef(false);
   const visitPayShownRef   = useRef(false);
   const nearbyShownRef     = useRef(false);
+  const halfwayShownRef    = useRef(false);
+  const initialDistRef     = useRef(null);
+  const eventsChannelRef   = useRef(null);
+  const lastActivityRef    = useRef(Date.now());
   const chatChannelRef     = useRef(null);
   const webRef = useRef(null);
 
   const isWorker = !!professional;
   const userId   = session?.user?.id;
   const clientId = job.client_id;
+  const workerFirstName = professional?.first_name ||
+    (job.professionals?.first_name || '') ||
+    'El profesional';
 
   // Suscribir a cambios del job
   useEffect(() => {
-    const channel = jobService.subscribeToJob(job.id, (updated) => setJob(prev => ({ ...prev, ...updated })));
+    const svc = isDemoMode() ? demoJobService : jobService;
+    const channel = svc.subscribeToJob(job.id, (updated) => setJob(prev => ({ ...prev, ...updated })));
     return () => { if (channel) channel.unsubscribe?.(); };
   }, [job.id]);
+
+  // Cargar eventos históricos del timeline
+  useEffect(() => {
+    jobService.getEvents(job.id).then(setEvents).catch(() => {});
+  }, [job.id]);
+
+  // Suscribir a nuevos eventos del timeline en tiempo real
+  useEffect(() => {
+    eventsChannelRef.current = jobService.subscribeToEvents(job.id, (ev) => {
+      setEvents(prev => [...prev, ev]);
+      lastActivityRef.current = Date.now();
+    });
+    return () => { eventsChannelRef.current?.unsubscribe?.(); };
+  }, [job.id]);
+
+  // Actualizar actividad cuando el job cambia
+  useEffect(() => {
+    lastActivityRef.current = Date.now();
+  }, [job.updated_at, job.status]);
+
+  // Timer: calcula tiempo desde última actividad y detecta inactividad > 10 min
+  useEffect(() => {
+    const compute = () => {
+      const mins = Math.floor((Date.now() - lastActivityRef.current) / 60000);
+      setTimeSinceUpdate(mins);
+      const isInactive = ['accepted', 'arrived'].includes(job.status) && mins >= 10 && !isWorker;
+      setInactivityAlert(isInactive);
+    };
+    compute();
+    const t = setInterval(compute, 30000);
+    return () => clearInterval(t);
+  }, [job.status, isWorker]);
 
   // Pulso animado del statusDot
   useEffect(() => {
@@ -189,8 +260,9 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   // Unread count del chat
   useEffect(() => {
-    chatService.getUnreadCount(job.id, userId).then(setUnreadCount).catch(() => {});
-    chatChannelRef.current = chatService.subscribeToMessages(job.id, (msg) => {
+    const cs = isDemoMode() ? demoChatService : chatService;
+    cs.getUnreadCount(job.id, userId).then(setUnreadCount).catch(() => {});
+    chatChannelRef.current = cs.subscribeToMessages(job.id, (msg) => {
       if (msg.sender_id !== userId && !showChat) {
         setUnreadCount(c => c + 1);
       }
@@ -264,19 +336,30 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   // Suscribir a ubicación del trabajador (solo cliente)
   useEffect(() => {
     if (isWorker || !job.professional_id) return;
-    const channel = jobService.subscribeWorkerLocation(job.professional_id, (locationStr) => {
+    const svc = isDemoMode() ? demoJobService : jobService;
+    const channel = svc.subscribeWorkerLocation(job.professional_id, (locationStr) => {
       const match = locationStr.match(/POINT\(([^ ]+) ([^ )]+)\)/);
       if (match) {
         const wLng = parseFloat(match[1]);
         const wLat = parseFloat(match[2]);
         webRef.current?.postMessage(JSON.stringify({ type: 'WORKER_MOVE', lat: wLat, lng: wLng }));
-        // Alerta de proximidad cuando el trabajador está a < 500m
-        if (job.client_lat && job.client_lng && !nearbyShownRef.current && job.status === 'accepted') {
+        lastActivityRef.current = Date.now();
+        // Detección de proximidad del trabajador
+        if (job.client_lat && job.client_lng && job.status === 'accepted') {
           const dist = haversineMeters(wLat, wLng, job.client_lat, job.client_lng);
-          if (dist < 500) {
+          setWorkerDistKm(dist / 1000);
+          if (!initialDistRef.current) initialDistRef.current = dist;
+          const halfwayThreshold = initialDistRef.current / 2;
+          if (!halfwayShownRef.current && !nearbyShownRef.current && dist < halfwayThreshold && dist > 500) {
+            halfwayShownRef.current = true;
+            jobService.addEvent(job.id, 'halfway', `${job.professionals?.first_name || 'El profesional'} ya recorrió más de la mitad del trayecto.`).catch(() => {});
+          }
+          if (!nearbyShownRef.current && dist < 500) {
             nearbyShownRef.current = true;
             setNearbyAlert(true);
             jobService.setSubStatus(job.id, 'nearby').catch(() => {});
+            jobService.addEvent(job.id, 'nearby', `${job.professionals?.first_name || 'El profesional'} está muy cerca.`).catch(() => {});
+            chatService.sendSystemMessage(job.id, volt.chatNearby).catch(() => {});
             setTimeout(() => setNearbyAlert(false), 8000);
           }
         }
@@ -287,15 +370,20 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const handleWorkerAction = async (action) => {
     setLoading(true);
+    if (isDemoMode()) { setTimeout(() => setLoading(false), 600); return; }
     try {
       let notifTitle = '', notifBody = '';
 
       if (action === 'arrive') {
         await jobService.arrive(job.id);
+        jobService.addEvent(job.id, 'arrived', `${workerFirstName} llegó al lugar.`).catch(() => {});
+        chatService.sendSystemMessage(job.id, volt.chatArrived(workerFirstName)).catch(() => {});
         notifTitle = '⚡ ESTÁ POR LLEGAR UN VOLT';
         notifBody  = 'POR FAVOR RECORDÁ PEDIRLE EL CÓDIGO PARA ASEGURARTE QUE ES UN TRABAJADOR VERIFICADO.';
       } else if (action === 'start') {
         await jobService.start(job.id);
+        jobService.addEvent(job.id, 'work_started', `${workerFirstName} comenzó el trabajo.`).catch(() => {});
+        chatService.sendSystemMessage(job.id, volt.chatStarted).catch(() => {});
         notifTitle = '🔧 Trabajo iniciado';
         notifBody  = 'El profesional comenzó el trabajo.';
       } else if (action === 'set_amount') {
@@ -309,6 +397,8 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         const visitPaid = !!job.visit_paid;
         const visitAmt  = job.visit_amount || 30000;
         await jobService.setWorkAmount(job.id, labor, mats);
+        jobService.addEvent(job.id, 'work_done', `${workerFirstName} indicó que el trabajo fue completado.`).catch(() => {});
+        chatService.sendSystemMessage(job.id, volt.chatDone).catch(() => {});
         const totalAPagar = (visitPaid ? 0 : visitAmt) + mats + labor;
         notifTitle = '💳 Trabajo listo — hora de pagar';
         if (visitPaid) {
@@ -517,6 +607,25 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const statusInfo = STATUS_INFO[job.status] || STATUS_INFO.pending;
   const tip = isWorker ? WORKER_TIPS[job.status] : CLIENT_TIPS[job.status];
+
+  const currentStep = (() => {
+    switch (job.status) {
+      case 'accepted':    return job.sub_status === 'nearby' ? 3 : 2;
+      case 'arrived':     return 4;
+      case 'in_progress': return 5;
+      case 'awaiting_payment':
+      case 'completed':   return 6;
+      default:            return 1;
+    }
+  })();
+
+  const fmtAgo = (minutes) => {
+    if (minutes < 1) return 'Ahora mismo';
+    if (minutes === 1) return 'Hace 1 minuto';
+    if (minutes < 60) return `Hace ${minutes} min`;
+    const h = Math.floor(minutes / 60);
+    return h === 1 ? 'Hace 1 hora' : `Hace ${h} hs`;
+  };
 
   const fmtTime = (secs) => {
     const h = Math.floor(secs / 3600);
@@ -782,7 +891,7 @@ window.addEventListener('message', e => {
             job={job}
             userId={userId}
             isWorker={isWorker}
-            onClose={() => { setShowChat(false); setUnreadCount(0); chatService.markAsRead(job.id, userId).catch(() => {}); }}
+            onClose={() => { setShowChat(false); setUnreadCount(0); if (!isDemoMode()) chatService.markAsRead(job.id, userId).catch(() => {}); }}
           />
         </Modal>
       )}
@@ -864,6 +973,97 @@ window.addEventListener('message', e => {
         </View>
       )}
 
+      {/* Barra de estado siempre visible */}
+      {['pending','accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
+        <View style={styles.infoStrip}>
+          <View style={styles.infoStripItem}>
+            <Text style={styles.infoStripLabel}>ESTADO</Text>
+            <View style={styles.infoStripValueRow}>
+              <View style={[styles.infoStripDot, { backgroundColor: statusInfo.color }]} />
+              <Text style={[styles.infoStripValue, { color: statusInfo.color }]} numberOfLines={1}>
+                {statusInfo.label}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.infoStripSep} />
+          <View style={styles.infoStripItem}>
+            <Text style={styles.infoStripLabel}>ACTUALIZACIÓN</Text>
+            <Text style={styles.infoStripValue}>{fmtAgo(timeSinceUpdate)}</Text>
+          </View>
+          {job.status === 'accepted' && job.arrival_estimate && (
+            <>
+              <View style={styles.infoStripSep} />
+              <View style={styles.infoStripItem}>
+                <Text style={styles.infoStripLabel}>LLEGA EN</Text>
+                <Text style={[styles.infoStripValue, { color: '#4285F4' }]}>{job.arrival_estimate}</Text>
+              </View>
+            </>
+          )}
+          {!isWorker && workerDistKm !== null && job.status === 'accepted' && (
+            <>
+              <View style={styles.infoStripSep} />
+              <View style={styles.infoStripItem}>
+                <Text style={styles.infoStripLabel}>DISTANCIA</Text>
+                <Text style={styles.infoStripValue}>
+                  {workerDistKm < 1
+                    ? `${Math.round(workerDistKm * 1000)} m`
+                    : `${workerDistKm.toFixed(1)} km`}
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+      )}
+
+      {/* Alerta de inactividad */}
+      {inactivityAlert && (
+        <View style={styles.inactivityAlert}>
+          <Ionicons name="warning-outline" size={15} color="#FF9800" />
+          <Text style={styles.inactivityAlertText}>
+            No recibimos actividad reciente del profesional. Estamos verificando la situación.
+          </Text>
+        </View>
+      )}
+
+      {/* Barra de progreso del trabajo */}
+      {job.status !== 'cancelled' && (
+        <View style={styles.progressWrap}>
+          {PROGRESS_STEPS.map((s, i) => {
+            const isDone    = s.step < currentStep;
+            const isCurrent = s.step === currentStep;
+            const isLast    = i === PROGRESS_STEPS.length - 1;
+            return (
+              <React.Fragment key={s.step}>
+                <View style={styles.progressNode}>
+                  <View style={[
+                    styles.progressCircle,
+                    isDone    && styles.progressCircleDone,
+                    isCurrent && styles.progressCircleCurrent,
+                  ]}>
+                    {isDone    && <Ionicons name="checkmark" size={9} color="#0A0A0A" />}
+                    {isCurrent && <View style={styles.progressInnerDot} />}
+                  </View>
+                  <Text style={[
+                    styles.progressLabel,
+                    isDone    && styles.progressLabelDone,
+                    isCurrent && styles.progressLabelCurrent,
+                  ]} numberOfLines={2}>
+                    {s.label}
+                  </Text>
+                </View>
+                {!isLast && (
+                  <View style={[
+                    styles.progressLine,
+                    isDone    && styles.progressLineDone,
+                    isCurrent && styles.progressLineCurrent,
+                  ]} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
+      )}
+
       {/* Mapa */}
       {!isWorker && (
         <WebView
@@ -887,6 +1087,35 @@ window.addEventListener('message', e => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+
+          {/* Timeline viva — solo para el cliente */}
+          {!isWorker && events.length > 0 && (
+            <View style={styles.timeline}>
+              <Text style={styles.timelineTitle}>Estado en tiempo real</Text>
+              {events.map((ev, i) => {
+                const isLast = i === events.length - 1;
+                const evInfo = EVENT_ICONS[ev.event_type] || { icon: 'ellipse-outline', color: '#555' };
+                const time = new Date(ev.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <View key={ev.id || i} style={styles.timelineItem}>
+                    <View style={styles.timelineIconCol}>
+                      {i > 0 && <View style={styles.timelineLineTop} />}
+                      <View style={[styles.timelineDotWrap, { borderColor: isLast ? evInfo.color : '#222' }]}>
+                        <Ionicons name={evInfo.icon} size={12} color={isLast ? evInfo.color : '#333'} />
+                      </View>
+                      {!isLast && <View style={styles.timelineLineBot} />}
+                    </View>
+                    <View style={styles.timelineTextCol}>
+                      <Text style={[styles.timelineMsg, isLast && styles.timelineMsgActive]}>
+                        {ev.message}
+                      </Text>
+                      <Text style={styles.timelineTime}>{time}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
           {/* Tip contextual */}
           {tip && (
@@ -1254,6 +1483,7 @@ window.addEventListener('message', e => {
                     setLoading(true);
                     try {
                       await jobService.completeMultidayJob(job.id, labor, mats, job.current_session_start, job.completed_sessions || 0, job.total_minutes_worked || 0);
+                      jobService.addEvent(job.id, 'work_done', `${workerFirstName} indicó que el trabajo fue completado.`).catch(() => {});
                       const visitAmt = job.visit_amount || 30000;
                       const total = visitAmt + mats + labor;
                       await notificationService.sendToUser(clientId, {
@@ -1758,6 +1988,86 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4,
   },
   diagMatChipText: { fontSize: 11, color: '#FF9800', fontWeight: '600' },
+
+  // Barra de progreso del trabajo
+  progressWrap: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingHorizontal: 10, paddingVertical: 10,
+    backgroundColor: '#0D0D0D',
+    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+  },
+  progressNode: { alignItems: 'center', width: 46, gap: 5 },
+  progressCircle: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 1.5, borderColor: '#222',
+    backgroundColor: '#0A0A0A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  progressCircleDone:    { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
+  progressCircleCurrent: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
+  progressInnerDot:      { width: 7, height: 7, borderRadius: 4, backgroundColor: '#0A0A0A' },
+  progressLabel: {
+    fontSize: 7.5, color: '#333', textAlign: 'center',
+    fontWeight: '600', lineHeight: 10,
+  },
+  progressLabelDone:    { color: '#4CAF50' },
+  progressLabelCurrent: { color: '#FFD600', fontWeight: '800' },
+  progressLine: {
+    flex: 1, height: 1.5, backgroundColor: '#1E1E1E', marginTop: 10,
+  },
+  progressLineDone:    { backgroundColor: '#4CAF50' },
+  progressLineCurrent: { backgroundColor: '#FFD600' },
+
+  // Barra de estado siempre visible
+  infoStrip: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#0D0D0D',
+    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+    paddingVertical: 10, paddingHorizontal: 4,
+  },
+  infoStripItem: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
+  infoStripLabel: {
+    fontSize: 8, fontWeight: '800', color: '#333',
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4,
+  },
+  infoStripValue:    { fontSize: 11, fontWeight: '700', color: '#888' },
+  infoStripValueRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  infoStripDot:      { width: 6, height: 6, borderRadius: 3 },
+  infoStripSep:      { width: 1, height: 28, backgroundColor: '#1E1E1E' },
+
+  // Alerta de inactividad
+  inactivityAlert: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: 'rgba(255,152,0,0.07)',
+    borderBottomWidth: 1, borderBottomColor: '#FF980020',
+    paddingVertical: 10, paddingHorizontal: 16,
+  },
+  inactivityAlertText: {
+    flex: 1, fontSize: 12, color: '#FF9800', lineHeight: 17, fontWeight: '600',
+  },
+
+  // Timeline viva
+  timeline: {
+    backgroundColor: '#0A0A0A', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 16,
+  },
+  timelineTitle: {
+    fontSize: 10, fontWeight: '800', color: '#333',
+    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 14,
+  },
+  timelineItem: { flexDirection: 'row', gap: 10 },
+  timelineIconCol: { width: 26, alignItems: 'center' },
+  timelineLineTop: { width: 1, height: 10, backgroundColor: '#1E1E1E' },
+  timelineLineBot: { flex: 1, width: 1, minHeight: 10, backgroundColor: '#1E1E1E', marginTop: 2 },
+  timelineDotWrap: {
+    width: 26, height: 26, borderRadius: 13, borderWidth: 1.5,
+    backgroundColor: '#111', alignItems: 'center', justifyContent: 'center',
+  },
+  timelineTextCol: { flex: 1, paddingBottom: 14 },
+  timelineMsg:       { fontSize: 13, color: '#444', lineHeight: 18 },
+  timelineMsgActive: { color: '#F5F5F5', fontWeight: '700' },
+  timelineTime:      { fontSize: 11, color: '#2a2a2a', marginTop: 3 },
 });
 
 export default JobTrackingScreen;

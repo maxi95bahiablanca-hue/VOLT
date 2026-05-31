@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
+import chatService from '../services/chatService';
+import volt from '../utils/voltVoice';
 
 const REJECTION_REASONS = [
   { key: 'too_far',      icon: 'navigate-outline',    label: 'Queda muy lejos',         note: 'La distancia supera mi zona de trabajo.' },
@@ -498,6 +500,17 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         body:  `POR FAVOR PEDILE EL CÓDIGO ANTES DE ABRIR LA PUERTA. Llega en ${arrivalEst}.`,
         data:  { jobId: job.id, screen: 'tracking' },
       }).catch(() => {});
+      const firstName = professional?.first_name || 'El profesional';
+      // Mensajes automáticos del sistema en el chat
+      chatService.sendSystemMessage(job.id, volt.chatAccepted).catch(() => {});
+      chatService.sendSystemMessage(job.id, volt.chatInTransit).catch(() => {});
+      await jobService.addEvent(job.id, 'accepted',      `${firstName} aceptó tu solicitud.`).catch(() => {});
+      await jobService.addEvent(job.id, 'reviewing',     `${firstName} está revisando los detalles del trabajo.`).catch(() => {});
+      if (job.problem_photo_url) {
+        await jobService.addEvent(job.id, 'photo_reviewed', `${firstName} revisó las imágenes enviadas.`).catch(() => {});
+      }
+      await jobService.addEvent(job.id, 'estimated',    `${firstName} estima llegar en ${arrivalEst}.`).catch(() => {});
+      await jobService.addEvent(job.id, 'trip_started', `${firstName} inició el recorrido hacia tu ubicación.`).catch(() => {});
       onAccepted(job);
     } catch {
       Alert.alert('Error', 'No se pudo aceptar el trabajo. Intentá de nuevo.');

@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import volt from '../utils/voltVoice';
 
 function uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -42,6 +43,15 @@ const jobService = {
       .select()
       .single();
     if (error) throw error;
+    supabase.from('job_events').insert({
+      job_id: data.id,
+      event_type: 'received',
+      message: 'Estamos buscando profesionales disponibles cerca tuyo.',
+    }).catch(() => {});
+    supabase.from('messages').insert({
+      job_id: data.id, sender_id: null, type: 'system',
+      content: volt.chatCreated,
+    }).catch(() => {});
     return data;
   },
 
@@ -228,7 +238,7 @@ const jobService = {
     const { data, error } = await supabase
       .from('jobs')
       .insert(rows)
-      .select('*, professions(name), professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, avatar_url)');
+      .select('*, professions(name), professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url)');
     if (error) throw error;
     return { quoteGroupId, jobs: data };
   },
@@ -236,7 +246,7 @@ const jobService = {
   getQuoteGroup: async (quoteGroupId) => {
     const { data, error } = await supabase
       .from('jobs')
-      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, avatar_url), professions(name)')
+      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url), professions(name)')
       .eq('quote_group_id', quoteGroupId);
     if (error) throw error;
     return data ?? [];
@@ -255,7 +265,7 @@ const jobService = {
     if (!job?.quote_group_id) return null;
     const { data: groupJobs, error } = await supabase
       .from('jobs')
-      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, avatar_url), professions(name)')
+      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url), professions(name)')
       .eq('quote_group_id', job.quote_group_id)
       .not('status', 'eq', 'cancelled');
     if (error) throw error;
@@ -273,7 +283,7 @@ const jobService = {
     await supabase.from('jobs').update({ quote_group_id: null }).eq('id', selectedJobId);
     const { data, error } = await supabase
       .from('jobs')
-      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs), professions(name)')
+      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct), professions(name)')
       .eq('id', selectedJobId)
       .single();
     if (error) throw error;
@@ -314,6 +324,30 @@ const jobService = {
     supabase.channel(`worker-loc-${professionalId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'professionals', filter: `id=eq.${professionalId}` },
         p => { if (p.new.location) onUpdate(p.new.location); })
+      .subscribe(),
+
+  addEvent: async (jobId, eventType, message) => {
+    const { error } = await supabase
+      .from('job_events')
+      .insert({ job_id: jobId, event_type: eventType, message });
+    if (error) throw error;
+  },
+
+  getEvents: async (jobId) => {
+    const { data, error } = await supabase
+      .from('job_events')
+      .select('id, event_type, message, created_at')
+      .eq('job_id', jobId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  subscribeToEvents: (jobId, onNew) =>
+    supabase.channel(`events-${jobId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'job_events', filter: `job_id=eq.${jobId}`,
+      }, p => onNew(p.new))
       .subscribe(),
 };
 

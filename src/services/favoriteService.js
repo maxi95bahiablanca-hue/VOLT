@@ -4,11 +4,49 @@ const favoriteService = {
   getFavorites: async (clientId) => {
     const { data, error } = await supabase
       .from('favorite_professionals')
-      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, avatar_url, min_price, available, on_time_completions, effective_rating)')
+      .select(`
+        created_at,
+        professionals(
+          id, user_id, first_name, last_name, avg_rating, completed_jobs,
+          avatar_url, min_price, available, on_time_completions, effective_rating,
+          avg_arrival_minutes, complaints_count, recommend_pct
+        )
+      `)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map(row => row.professionals).filter(Boolean);
+
+    const profs = (data ?? []).map(row => row.professionals).filter(Boolean);
+
+    // Enriquecer con último trabajo y calificación del cliente (consultas en paralelo)
+    const enriched = await Promise.all(profs.map(async (prof) => {
+      const [{ data: lastJob }, { data: review }] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('created_at, profession_id, professions(id, name)')
+          .eq('client_id', clientId)
+          .eq('professional_id', prof.id)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('reviews')
+          .select('rating')
+          .eq('client_id', clientId)
+          .eq('professional_id', prof.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      return {
+        ...prof,
+        lastJob:  lastJob  || null,
+        myRating: review?.rating ?? null,
+      };
+    }));
+
+    return enriched;
   },
 
   isFavorite: async (clientId, professionalId) => {

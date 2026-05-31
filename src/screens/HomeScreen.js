@@ -10,6 +10,10 @@ import { supabase } from '../supabase';
 import locationService from '../services/locationService';
 import * as Location from 'expo-location';
 import favoriteService from '../services/favoriteService';
+import ReputationCard from '../components/ReputationCard';
+import DemoToggle from '../components/DemoToggle';
+import { isDemoMode } from '../demo/demoMode';
+import { DEMO_PROFESSIONAL, DEMO_QUOTE_JOBS } from '../demo/demoData';
 import professionService from '../services/professionService';
 import professionalService from '../services/professionalService';
 import RegisterProfessionalScreen from './RegisterProfessionalScreen';
@@ -23,7 +27,7 @@ import DrawerMenu from '../components/DrawerMenu';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const BUTTON_SIZE = 64;
-const CARD_H = 260;
+const CARD_H = 400;
 
 const PANEL_FULL   = 330;
 const PANEL_PEEK   = 155;
@@ -44,11 +48,318 @@ const WORKER_TIPS = [
   { icon: 'thumbs-up-outline',   color: '#FF9800', text: 'Un buen pre-diagnóstico genera más confianza y mejores calificaciones' },
 ];
 
-// Tarjeta del trabajador seleccionado (sube desde abajo)
-const WorkerCard = ({ worker, slideAnim, onContact, onClose }) => {
+// ─── Helper: fecha relativa ────────────────────────────────────────────────
+const formatRelativeDate = (isoDate) => {
+  if (!isoDate) return null;
+  const diff = Math.floor((Date.now() - new Date(isoDate)) / 86400000);
+  if (diff === 0) return 'hoy';
+  if (diff === 1) return 'ayer';
+  if (diff < 7) return `hace ${diff} días`;
+  if (diff < 30) return `hace ${Math.floor(diff / 7)} semanas`;
+  if (diff < 365) return `hace ${Math.floor(diff / 30)} meses`;
+  return 'hace más de un año';
+};
+
+// ─── Tarjeta de "Mis profesionales" ────────────────────────────────────────
+const MisProfesionalesCard = ({ w, onHire, selectedProfession, userLocation }) => {
+  const rating       = parseFloat(w.effective_rating ?? w.avg_rating) || 0;
+  const lastJobDate  = formatRelativeDate(w.lastJob?.created_at);
+  const profName     = `${w.first_name || ''} ${w.last_name || ''}`.trim();
+  const specialty    = w.lastJob?.professions?.name || null;
+  const professionObj = w.lastJob
+    ? { id: w.lastJob.profession_id, name: w.lastJob.professions?.name }
+    : selectedProfession;
+
+  return (
+    <View style={styles.misProCard}>
+      <View style={styles.misProHeader}>
+        {w.avatar_url
+          ? <Image source={{ uri: w.avatar_url }} style={styles.misProAvatar} />
+          : (
+            <View style={styles.misProAvatarPlaceholder}>
+              <Text style={styles.misProAvatarInitial}>
+                {(w.first_name?.[0] || 'P').toUpperCase()}
+              </Text>
+            </View>
+          )
+        }
+        <View style={styles.misProInfo}>
+          <Text style={styles.misProName}>{profName}</Text>
+          {specialty && <Text style={styles.misProRole}>{specialty}</Text>}
+          <View style={styles.misProRatingRow}>
+            <Ionicons name="star" size={13} color="#FFD600" />
+            <Text style={styles.misProRatingVal}>{rating ? rating.toFixed(1) : '—'}</Text>
+            {w.completed_jobs > 0 && (
+              <Text style={styles.misProRatingJobs}>· {w.completed_jobs} trabajos</Text>
+            )}
+          </View>
+        </View>
+        {!w.available && (
+          <View style={styles.misProBusyBadge}>
+            <Text style={styles.misProBusyText}>Ocupado</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Último trabajo */}
+      {(specialty || lastJobDate) && (
+        <View style={styles.misProLastJob}>
+          <Ionicons name="briefcase-outline" size={12} color="#444" />
+          <Text style={styles.misProLastJobText}>
+            {specialty || 'Servicio'}{lastJobDate ? ` · ${lastJobDate}` : ''}
+          </Text>
+        </View>
+      )}
+
+      {/* Mi calificación */}
+      {w.myRating && (
+        <View style={styles.misProMyRating}>
+          <Text style={styles.misProMyRatingLabel}>Mi calificación</Text>
+          <View style={styles.misProMyRatingStars}>
+            {[1,2,3,4,5].map(i => (
+              <Ionicons key={i} name={i <= w.myRating ? 'star' : 'star-outline'} size={14} color="#FFD600" />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Botón solicitar */}
+      <TouchableOpacity
+        style={[styles.misProBtn, !w.available && styles.misProBtnOff]}
+        onPress={() => {
+          if (!w.available) {
+            Alert.alert('No disponible ahora', `${w.first_name} no está disponible en este momento. Intentá más tarde.`);
+            return;
+          }
+          if (!professionObj?.id) {
+            Alert.alert('Seleccioná un servicio', 'Primero seleccioná qué servicio necesitás para contactar a este profesional.');
+            return;
+          }
+          onHire?.(w, professionObj, userLocation);
+        }}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="flash" size={16} color={w.available ? '#0A0A0A' : '#444'} />
+        <Text style={[styles.misProBtnText, !w.available && styles.misProBtnTextOff]}>
+          {w.available ? 'Solicitar nuevamente' : 'No disponible ahora'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+// ─── Modal de emergencia ───────────────────────────────────────────────────
+const EmergencyModal = ({ worker, onConfirm, onClose, loading }) => {
+  if (!worker && !loading) return null;
+
+  const dist   = worker?.distance_meters;
+  const distFmt = dist != null
+    ? dist < 1000 ? `${Math.round(dist)} m` : `${(dist / 1000).toFixed(1)} km`
+    : '—';
+  const estMinutes = dist != null ? Math.max(3, Math.ceil(dist / 40000 * 60)) : null;
+  const rating = parseFloat(worker?.effective_rating ?? worker?.avg_rating) || 0;
+
+  return (
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <View style={emStyles.overlay}>
+        <View style={emStyles.sheet}>
+          <View style={emStyles.handle} />
+
+          {/* Header */}
+          <View style={emStyles.header}>
+            <View style={emStyles.headerBadge}>
+              <Text style={emStyles.headerBadgeText}>🚨 EMERGENCIA</Text>
+            </View>
+          </View>
+          <Text style={emStyles.headline}>
+            Buscaremos el profesional disponible más cercano.
+          </Text>
+
+          {loading ? (
+            <View style={emStyles.loadingWrap}>
+              <ActivityIndicator color="#ff4444" size="large" />
+              <Text style={emStyles.loadingText}>Buscando profesionales...</Text>
+            </View>
+          ) : worker ? (
+            <>
+              {/* Profesional encontrado */}
+              <View style={emStyles.workerCard}>
+                <View style={emStyles.workerAvatar}>
+                  {worker.avatar_url
+                    ? <Image source={{ uri: worker.avatar_url }} style={emStyles.workerAvatarImg} />
+                    : (
+                      <View style={emStyles.workerAvatarPlaceholder}>
+                        <Text style={emStyles.workerAvatarInitial}>
+                          {(worker.first_name?.[0] || 'P').toUpperCase()}
+                        </Text>
+                      </View>
+                    )
+                  }
+                  <View style={emStyles.availableDot} />
+                </View>
+                <View style={emStyles.workerInfo}>
+                  <Text style={emStyles.workerName}>
+                    {worker.first_name} {worker.last_name}
+                  </Text>
+                  <Text style={emStyles.workerRole}>{worker.profession_name}</Text>
+                  {rating > 0 && (
+                    <View style={emStyles.ratingRow}>
+                      <Ionicons name="star" size={12} color="#FFD600" />
+                      <Text style={emStyles.ratingVal}>{rating.toFixed(1)}</Text>
+                      {worker.completed_jobs > 0 && (
+                        <Text style={emStyles.ratingJobs}>· {worker.completed_jobs} trabajos</Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Métricas de emergencia */}
+              <View style={emStyles.metricsRow}>
+                <View style={emStyles.metric}>
+                  <Ionicons name="time-outline" size={20} color="#ff4444" />
+                  <Text style={emStyles.metricVal}>
+                    {estMinutes ? `~${estMinutes} min` : '—'}
+                  </Text>
+                  <Text style={emStyles.metricLabel}>Tiempo estimado</Text>
+                </View>
+                <View style={emStyles.metricDiv} />
+                <View style={emStyles.metric}>
+                  <Ionicons name="location-outline" size={20} color="#ff4444" />
+                  <Text style={emStyles.metricVal}>{distFmt}</Text>
+                  <Text style={emStyles.metricLabel}>Distancia</Text>
+                </View>
+                <View style={emStyles.metricDiv} />
+                <View style={emStyles.metric}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
+                  <Text style={[emStyles.metricVal, { color: '#4CAF50', fontSize: 12 }]}>
+                    Disponible
+                  </Text>
+                  <Text style={emStyles.metricLabel}>Ahora mismo</Text>
+                </View>
+              </View>
+
+              <Text style={emStyles.priceNote}>
+                Visita desde ${(worker.min_price || 30000).toLocaleString('es-AR')} · Precio mínimo para urgencias
+              </Text>
+            </>
+          ) : null}
+
+          {/* Botones */}
+          <TouchableOpacity
+            style={[emStyles.confirmBtn, (!worker || loading) && { opacity: 0.4 }]}
+            onPress={() => onConfirm(worker)}
+            disabled={!worker || loading}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="flash" size={20} color="#fff" />
+            <Text style={emStyles.confirmBtnText}>Solicitar emergencia</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={emStyles.cancelBtn} onPress={onClose}>
+            <Text style={emStyles.cancelBtnText}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const emStyles = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#0D0505',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopWidth: 1.5, borderColor: '#ff444430',
+    padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 28, gap: 16,
+  },
+  handle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: '#ff444440', alignSelf: 'center', marginBottom: 4,
+  },
+
+  header:       { alignItems: 'center' },
+  headerBadge:  {
+    backgroundColor: '#ff4444',
+    borderRadius: 20, paddingHorizontal: 20, paddingVertical: 9,
+  },
+  headerBadgeText: { fontSize: 14, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
+
+  headline: {
+    fontSize: 15, color: '#BBBBBB', textAlign: 'center', lineHeight: 22,
+  },
+
+  loadingWrap: { alignItems: 'center', gap: 12, paddingVertical: 20 },
+  loadingText: { fontSize: 14, color: '#555' },
+
+  workerCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#1a0808', borderRadius: 14,
+    borderWidth: 1, borderColor: '#ff444425', padding: 14,
+  },
+  workerAvatar: { position: 'relative' },
+  workerAvatarImg: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: '#ff4444' },
+  workerAvatarPlaceholder: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#2a0a0a', borderWidth: 2, borderColor: '#ff4444',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  workerAvatarInitial: { fontSize: 22, fontWeight: '900', color: '#ff4444' },
+  availableDot: {
+    position: 'absolute', bottom: 1, right: 1,
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#0D0505',
+  },
+  workerInfo:  { flex: 1 },
+  workerName:  { fontSize: 16, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
+  workerRole:  { fontSize: 12, color: '#666', marginBottom: 5 },
+  ratingRow:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ratingVal:   { fontSize: 13, fontWeight: '800', color: '#FFD600' },
+  ratingJobs:  { fontSize: 11, color: '#444' },
+
+  metricsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#1a0808', borderRadius: 14,
+    borderWidth: 1, borderColor: '#ff444420', padding: 14,
+  },
+  metric:      { flex: 1, alignItems: 'center', gap: 6 },
+  metricDiv:   { width: 1, height: 44, backgroundColor: '#2a1010' },
+  metricVal:   { fontSize: 16, fontWeight: '900', color: '#ff4444' },
+  metricLabel: { fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
+
+  priceNote: { fontSize: 12, color: '#444', textAlign: 'center' },
+
+  confirmBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: '#ff4444',
+    borderRadius: 16, paddingVertical: 18,
+  },
+  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+
+  cancelBtn: { alignItems: 'center', paddingVertical: 8 },
+  cancelBtnText: { fontSize: 14, color: '#444' },
+});
+
+// ─── Tarjeta del trabajador seleccionado (sube desde abajo) ───────────────
+const WorkerCard = ({ worker, slideAnim, onContact, onClose, isFavorite }) => {
   const displayRating = worker.effective_rating ?? worker.avg_rating ?? 0;
-  const stars = Math.round(displayRating);
-  const onTime = worker.on_time_completions || 0;
+  const completed     = worker.completed_jobs || 0;
+  const onTimePct     = completed > 5 ? Math.round((worker.on_time_completions / completed) * 100) : null;
+  const dist          = worker.distance_meters < 1000
+    ? `${Math.round(worker.distance_meters)} m`
+    : `${(worker.distance_meters / 1000).toFixed(1)} km`;
+  const initial = (worker.first_name?.[0] || '?').toUpperCase();
+
+  const badges = [];
+  if (worker.avg_arrival_minutes && worker.avg_arrival_minutes <= 15) badges.push('⚡ Responde rápido');
+  if (displayRating >= 4.8 && completed >= 20)                        badges.push('🏆 Top valorado');
+  if (completed >= 50)                                                  badges.push('🔧 Especialista');
+  if (isFavorite)                                                       badges.push('⭐ Tu favorito');
+  if (worker.estudios_url)                                              badges.push('🛡️ Perfil verificado');
+
   return (
     <Animated.View style={[styles.card, { transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.cardHandle} />
@@ -56,67 +367,82 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose }) => {
         <Ionicons name="close" size={20} color="#888" />
       </TouchableOpacity>
 
+      {/* Foto grande + info */}
       <View style={styles.cardHeader}>
-        <View style={styles.cardAvatar}>
+        <View style={styles.cardAvatarWrap}>
           {worker.avatar_url
             ? <Image source={{ uri: worker.avatar_url }} style={styles.cardAvatarImg} />
-            : <Ionicons name="person" size={28} color="#FFD600" />}
+            : (
+              <View style={styles.cardAvatarPlaceholder}>
+                <Text style={styles.cardAvatarInitial}>{initial}</Text>
+              </View>
+            )
+          }
+          <View style={styles.cardOnlineDot} />
         </View>
         <View style={styles.cardInfo}>
-          <Text style={styles.cardName}>{worker.first_name} {worker.last_name}</Text>
+          <Text style={styles.cardName} numberOfLines={1}>
+            {worker.first_name} {worker.last_name}
+          </Text>
           <Text style={styles.cardProfession}>{worker.profession_name}</Text>
-          <View style={styles.cardStars}>
-            {[1,2,3,4,5].map(i => (
-              <Ionicons key={i} name={i <= stars ? 'star' : 'star-outline'} size={14} color="#FFD600" />
-            ))}
-            <Text style={styles.cardRatingNum}>
-              {displayRating ? Number(displayRating).toFixed(1) : 'Nuevo'}
+          <View style={styles.cardRatingRow}>
+            <Ionicons name="star" size={14} color="#FFD600" />
+            <Text style={styles.cardRatingVal}>
+              {displayRating ? Number(displayRating).toFixed(1) : '—'}
             </Text>
-            {onTime > 0 && (
-              <View style={styles.onTimeBadge}>
-                <Ionicons name="timer-outline" size={10} color="#4CAF50" />
-                <Text style={styles.onTimeBadgeText}>{onTime} en tiempo</Text>
-              </View>
+            {completed > 0 && (
+              <Text style={styles.cardRatingJobs}>· {completed} trabajos</Text>
             )}
           </View>
-          {worker.estudios_url && (
-            <View style={styles.cardEstudiosBadge}>
-              <Ionicons name="school" size={10} color="#4285F4" />
-              <Text style={styles.cardEstudiosBadgeText}>Certificado</Text>
-            </View>
-          )}
         </View>
         <View style={styles.cardDistBadge}>
           <Ionicons name="location-sharp" size={12} color="#FFD600" />
-          <Text style={styles.cardDistText}>
-            {worker.distance_meters < 1000
-              ? `${Math.round(worker.distance_meters)} m`
-              : `${(worker.distance_meters / 1000).toFixed(1)} km`}
-          </Text>
+          <Text style={styles.cardDistText}>{dist}</Text>
         </View>
       </View>
 
+      {/* Stats: trabajos · puntualidad · respuesta */}
       <View style={styles.cardStats}>
         <View style={styles.cardStat}>
-          <Text style={styles.cardStatVal}>{worker.completed_jobs || 0}</Text>
-          <Text style={styles.cardStatLbl}>Trabajos</Text>
+          <Text style={styles.cardStatVal}>{completed}</Text>
+          <Text style={styles.cardStatLbl}>trabajos</Text>
         </View>
+        {onTimePct !== null && (
+          <>
+            <View style={styles.cardStatDiv} />
+            <View style={styles.cardStat}>
+              <Text style={[styles.cardStatVal, { color: '#4CAF50' }]}>{onTimePct}%</Text>
+              <Text style={styles.cardStatLbl}>puntualidad</Text>
+            </View>
+          </>
+        )}
         <View style={styles.cardStatDiv} />
-        <View style={styles.cardStat}>
-          <Text style={styles.cardStatVal}>${(worker.min_price || 0).toLocaleString('es-AR')}</Text>
-          <Text style={styles.cardStatLbl}>Precio mín.</Text>
-        </View>
-        <View style={styles.cardStatDiv} />
-        <View style={styles.cardStat}>
-          <Text style={styles.cardStatVal}>
-            {worker.completed_jobs >= 100 && displayRating >= 4.8 ? 'Elite'
-              : worker.completed_jobs >= 50 && displayRating >= 4.5 ? 'Pro'
-              : worker.completed_jobs >= 10 && displayRating >= 4.0 ? 'Verificado'
-              : 'Nuevo'}
-          </Text>
-          <Text style={styles.cardStatLbl}>Nivel</Text>
-        </View>
+        {worker.avg_arrival_minutes ? (
+          <View style={styles.cardStat}>
+            <Text style={styles.cardStatVal}>{worker.avg_arrival_minutes} min</Text>
+            <Text style={styles.cardStatLbl}>respuesta</Text>
+          </View>
+        ) : (
+          <View style={styles.cardStat}>
+            <Text style={styles.cardStatVal}>${(worker.min_price || 30000).toLocaleString('es-AR')}</Text>
+            <Text style={styles.cardStatLbl}>visita</Text>
+          </View>
+        )}
       </View>
+
+      {/* Badges */}
+      {badges.length > 0 && (
+        <View style={styles.cardBadgesRow}>
+          {badges.map(b => (
+            <View key={b} style={styles.cardBadge}>
+              <Text style={styles.cardBadgeText}>{b}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Barras de reputación (compactas) */}
+      <ReputationCard prof={worker} compact />
 
       <TouchableOpacity style={styles.requestBtn} onPress={() => onContact(worker)} activeOpacity={0.85}>
         <Ionicons name="flash" size={20} color="#0A0A0A" />
@@ -195,6 +521,13 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
 
   // Favoritos (solo clientes)
   const [favorites, setFavorites] = useState([]);
+
+  const [demoOn, setDemoOn] = useState(false);
+
+  // Emergencia
+  const [showEmergency, setShowEmergency]       = useState(false);
+  const [emergencyWorker, setEmergencyWorker]   = useState(null);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
 
   // Radar animation
   const pulse1 = useRef(new Animated.Value(0)).current;
@@ -446,11 +779,36 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     }
   };
 
-  const handleEmergency = () => {
-    Alert.alert('🚨 Emergencia', '¿Querés llamar al 911?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Llamar al 911', style: 'destructive', onPress: () => Linking.openURL('tel:911') },
-    ]);
+  const handleEmergencyPress = async () => {
+    if (!userLocation?.latitude) {
+      Alert.alert('Ubicación requerida', 'Activá el GPS para buscar el profesional más cercano.');
+      return;
+    }
+    setEmergencyWorker(null);
+    setShowEmergency(true);
+    setEmergencyLoading(true);
+    try {
+      const nearest = await professionalService.getNearestAvailable(
+        userLocation.latitude, userLocation.longitude
+      );
+      setEmergencyWorker(nearest || null);
+      if (!nearest) {
+        Alert.alert('Sin disponibilidad', 'No hay profesionales disponibles en este momento. Intentá en unos minutos.');
+        setShowEmergency(false);
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo buscar profesionales. Verificá tu conexión.');
+      setShowEmergency(false);
+    } finally {
+      setEmergencyLoading(false);
+    }
+  };
+
+  const handleEmergencyConfirm = (worker) => {
+    if (!worker) return;
+    setShowEmergency(false);
+    const profession = { id: worker.profession_id, name: worker.profession_name };
+    onRequestJob?.(worker, profession, userLocation);
   };
 
   // ─── Drawer navigation ───────────────────────────────
@@ -492,6 +850,16 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   // ─── RENDER ──────────────────────────────────────────
   return (
     <View style={styles.container}>
+
+      {/* Modal de emergencia */}
+      {showEmergency && (
+        <EmergencyModal
+          worker={emergencyWorker}
+          loading={emergencyLoading}
+          onConfirm={handleEmergencyConfirm}
+          onClose={() => { setShowEmergency(false); setEmergencyWorker(null); }}
+        />
+      )}
 
       {/* MAPA */}
       <VoltMap
@@ -635,46 +1003,61 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
             </TouchableOpacity>
           )}
 
-          {/* Favoritos — solo clientes con al menos 1 favorito */}
+          {/* Demo Mode toggle + botón de inicio */}
+          {!professional && (
+            <View style={styles.demoWrap}>
+              <DemoToggle onToggle={setDemoOn} />
+              {demoOn && (
+                <TouchableOpacity
+                  style={styles.demoStartBtn}
+                  onPress={() => {
+                    const prof = DEMO_PROFESSIONAL;
+                    const fakeProfession = { id: 1, name: 'Electricidad' };
+                    onRequestJob?.(prof, fakeProfession, userLocation || { latitude: -38.7196, longitude: -62.2724, address: 'Demo — Bahía Blanca' });
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.demoStartBtnText}>▶ Iniciar demo completo</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Botón Emergencia — solo para clientes */}
+          {!professional && (
+            <TouchableOpacity
+              style={styles.emergencyBtn}
+              onPress={handleEmergencyPress}
+              activeOpacity={0.85}
+            >
+              <View style={styles.emergencyBtnLeft}>
+                <Text style={styles.emergencyBtnEmoji}>🚨</Text>
+                <View>
+                  <Text style={styles.emergencyBtnTitle}>Emergencia</Text>
+                  <Text style={styles.emergencyBtnSub}>Profesional disponible más cercano · Ahora</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#ff4444" />
+            </TouchableOpacity>
+          )}
+
+          {/* Mis profesionales — red personal de confianza */}
           {!professional && favorites.length > 0 && (
-            <View>
-              <Text style={styles.favSectionTitle}>Tus profesionales favoritos</Text>
-              <FlatList
-                data={favorites}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={w => w.id}
-                contentContainerStyle={{ gap: 10 }}
-                renderItem={({ item: w }) => {
-                  const rating = w.effective_rating ?? w.avg_rating ?? 0;
-                  return (
-                    <View style={styles.favCard}>
-                      <View style={styles.favAvatar}>
-                        {w.avatar_url
-                          ? <Image source={{ uri: w.avatar_url }} style={styles.favAvatarImg} />
-                          : <Ionicons name="person" size={20} color="#FFD600" />}
-                      </View>
-                      <Text style={styles.favName} numberOfLines={1}>{w.first_name}</Text>
-                      <View style={styles.favRatingRow}>
-                        <Ionicons name="star" size={10} color="#FFD600" />
-                        <Text style={styles.favRating}>{rating ? Number(rating).toFixed(1) : 'Nuevo'}</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={[styles.favRequestBtn, !w.available && styles.favRequestBtnOff]}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          if (!w.available) { Alert.alert('No disponible', `${w.first_name} no está disponible en este momento.`); return; }
-                          onRequestJob?.(w, selectedProfession, userLocation);
-                        }}
-                      >
-                        <Text style={[styles.favRequestBtnText, !w.available && styles.favRequestBtnTextOff]}>
-                          {w.available ? 'Solicitar' : 'Ocupado'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                }}
-              />
+            <View style={styles.misSectionWrap}>
+              <View style={styles.misSectionHeader}>
+                <Ionicons name="heart" size={16} color="#ff4444" />
+                <Text style={styles.misSectionTitle}>Mis profesionales</Text>
+                <Text style={styles.misSectionCount}>{favorites.length}</Text>
+              </View>
+              {favorites.map(w => (
+                <MisProfesionalesCard
+                  key={w.id}
+                  w={w}
+                  onHire={onRequestJob}
+                  selectedProfession={selectedProfession}
+                  userLocation={userLocation}
+                />
+              ))}
             </View>
           )}
 
@@ -727,6 +1110,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
           slideAnim={slideAnim}
           onContact={handleContact}
           onClose={closeCard}
+          isFavorite={favorites.some(f => f.id === selectedWorker.id)}
         />
       )}
 
@@ -963,43 +1347,42 @@ const styles = StyleSheet.create({
   },
   cardHandle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: '#333', alignSelf: 'center', marginBottom: 12,
+    backgroundColor: '#333', alignSelf: 'center', marginBottom: 14,
   },
-  cardClose: {
-    position: 'absolute', top: 16, right: 16,
-    padding: 4,
+  cardClose: { position: 'absolute', top: 16, right: 16, padding: 4 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 18 },
+
+  cardAvatarWrap: {
+    position: 'relative',
+    width: 72, height: 72,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
-  cardAvatar: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 2, borderColor: '#FFD600',
+  cardAvatarImg: {
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 2.5, borderColor: '#FFD600',
+  },
+  cardAvatarPlaceholder: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#1A1A00',
+    borderWidth: 2.5, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden',
   },
-  cardAvatarImg: { width: '100%', height: '100%' },
+  cardAvatarInitial: { fontSize: 28, fontWeight: '900', color: '#FFD600' },
+  cardOnlineDot: {
+    position: 'absolute', bottom: 2, right: 2,
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#111',
+  },
+
   cardInfo: { flex: 1 },
-  cardName: { fontSize: 18, fontWeight: '800', color: '#F5F5F5', marginBottom: 2 },
+  cardName: { fontSize: 18, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
   cardProfession: { fontSize: 13, color: '#888', marginBottom: 6 },
-  cardStars: { flexDirection: 'row', alignItems: 'center', gap: 2, flexWrap: 'wrap' },
-  cardRatingNum: { color: '#888', fontSize: 12, marginLeft: 4 },
-  onTimeBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: 'rgba(76,175,80,0.12)',
-    borderWidth: 1, borderColor: 'rgba(76,175,80,0.3)',
-    borderRadius: 8, paddingHorizontal: 5, paddingVertical: 2, marginLeft: 4,
-  },
-  onTimeBadgeText: { color: '#4CAF50', fontSize: 10, fontWeight: '700' },
-  cardEstudiosBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    marginTop: 6, borderWidth: 1, borderColor: 'rgba(66,133,244,0.35)',
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
-    backgroundColor: 'rgba(66,133,244,0.08)', alignSelf: 'flex-start',
-  },
-  cardEstudiosBadgeText: { fontSize: 10, color: '#4285F4', fontWeight: '700' },
+  cardRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  cardRatingVal: { fontSize: 15, fontWeight: '800', color: '#FFD600' },
+  cardRatingJobs: { fontSize: 12, color: '#555' },
+
   cardDistBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#1A1A1A', alignSelf: 'flex-start',
     borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
     borderWidth: 1, borderColor: '#2a2a1a',
   },
@@ -1008,12 +1391,20 @@ const styles = StyleSheet.create({
   cardStats: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#141414', borderRadius: 14,
-    padding: 16, marginBottom: 16,
+    padding: 14, marginBottom: 12,
   },
   cardStat: { flex: 1, alignItems: 'center' },
-  cardStatVal: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 2 },
-  cardStatLbl: { fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+  cardStatVal: { fontSize: 15, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
+  cardStatLbl: { fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
   cardStatDiv: { width: 1, height: 32, backgroundColor: '#222' },
+
+  cardBadgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
+  cardBadge: {
+    backgroundColor: '#1A1A1A', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderWidth: 1, borderColor: '#2a2a2a',
+  },
+  cardBadgeText: { fontSize: 12, color: '#BBBBBB', fontWeight: '600' },
 
   requestBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -1022,7 +1413,85 @@ const styles = StyleSheet.create({
   },
   requestBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 },
 
-  // Favoritos
+  // ── Demo Mode ─────────────────────────────────────────────────────────────────
+  demoWrap:      { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  demoStartBtn:  {
+    backgroundColor: '#FFD60015', borderRadius: 20,
+    borderWidth: 1, borderColor: '#FFD60040',
+    paddingHorizontal: 14, paddingVertical: 7,
+  },
+  demoStartBtnText: { fontSize: 12, fontWeight: '800', color: '#FFD600' },
+
+  // ── Emergencia ────────────────────────────────────────────────────────────────
+  emergencyBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,68,68,0.07)',
+    borderWidth: 1.5, borderColor: 'rgba(255,68,68,0.25)',
+    borderRadius: 16, padding: 16, gap: 12,
+  },
+  emergencyBtnLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  emergencyBtnEmoji: { fontSize: 28 },
+  emergencyBtnTitle: { fontSize: 16, fontWeight: '900', color: '#ff4444', marginBottom: 2 },
+  emergencyBtnSub:   { fontSize: 12, color: '#884444' },
+
+  // ── Mis profesionales ────────────────────────────────────────────────────────
+  misSectionWrap: { gap: 10 },
+  misSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  misSectionTitle: { flex: 1, fontSize: 14, fontWeight: '900', color: '#F5F5F5' },
+  misSectionCount: {
+    fontSize: 11, fontWeight: '800', color: '#ff444488',
+    backgroundColor: 'rgba(255,68,68,0.1)',
+    borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2,
+    borderWidth: 1, borderColor: 'rgba(255,68,68,0.2)',
+  },
+
+  misProCard: {
+    backgroundColor: '#0D0D0D', borderRadius: 16,
+    borderWidth: 1, borderColor: '#1E1E1E',
+    padding: 14, gap: 10,
+  },
+  misProHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  misProAvatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: '#FFD600' },
+  misProAvatarPlaceholder: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  misProAvatarInitial: { fontSize: 20, fontWeight: '900', color: '#FFD600' },
+  misProInfo: { flex: 1 },
+  misProName: { fontSize: 15, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
+  misProRole: { fontSize: 12, color: '#555', marginBottom: 4 },
+  misProRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  misProRatingVal:  { fontSize: 13, fontWeight: '800', color: '#FFD600' },
+  misProRatingJobs: { fontSize: 11, color: '#444' },
+  misProBusyBadge: {
+    backgroundColor: 'rgba(255,68,68,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,68,68,0.2)',
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+  },
+  misProBusyText: { fontSize: 10, fontWeight: '800', color: '#ff4444' },
+
+  misProLastJob: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#111', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  misProLastJobText: { fontSize: 12, color: '#555', flex: 1 },
+
+  misProMyRating: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  misProMyRatingLabel: { fontSize: 12, color: '#444' },
+  misProMyRatingStars: { flexDirection: 'row', gap: 2 },
+
+  misProBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: '#FFD600',
+    borderRadius: 12, paddingVertical: 13,
+  },
+  misProBtnOff: { backgroundColor: '#1a1a1a' },
+  misProBtnText: { fontSize: 14, fontWeight: '900', color: '#0A0A0A' },
+  misProBtnTextOff: { color: '#444' },
+
+  // Favoritos (legacy — se pueden eliminar si no hay otros usos)
   favSectionTitle: {
     fontSize: 11, fontWeight: '800', color: '#555',
     textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
