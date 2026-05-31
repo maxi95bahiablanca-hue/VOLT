@@ -111,22 +111,24 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
         problemPhotoUrl: problemPhotoUrl,
       });
 
-      // Notificar a todos los trabajadores
-      await Promise.all(
+      // Navegar ANTES de las notificaciones — las notifs no deben bloquear el flujo
+      onQuoteGroupCreated(quoteGroupId, jobs);
+
+      // Notificar (best-effort, fallo silencioso)
+      Promise.all(
         jobs.map(job => {
           const w = workers.find(w => w.id === job.professional_id);
           if (!w?.user_id) return Promise.resolve();
           return notificationService.sendToUser(w.user_id, {
             title: '⚡ Nueva solicitud de trabajo',
-            body:  `${profession.name} — $${(w.min_price || 30000).toLocaleString('es-AR')} visita. Tenés 45 seg para responder.`,
+            body:  `${profession?.name || 'Servicio'} — $${(w.min_price || 30000).toLocaleString('es-AR')} visita. Tenés 45 seg para responder.`,
             data:  { jobId: job.id, screen: 'worker_incoming' },
           });
         })
-      );
+      ).catch(() => { /* notificaciones no críticas */ });
 
-      onQuoteGroupCreated(quoteGroupId, jobs);
-    } catch {
-      Alert.alert('Error', 'No se pudo crear la solicitud. Intentá de nuevo.');
+    } catch (err) {
+      Alert.alert('Error', 'No se pudo crear la solicitud. Revisá tu conexión e intentá de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -147,7 +149,9 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
         {worker ? (
           <View style={styles.workerCard}>
             <View style={styles.workerAvatar}>
-              <Ionicons name="person" size={32} color="#FFD600" />
+              {worker.avatar_url
+                ? <Image source={{ uri: worker.avatar_url }} style={styles.workerAvatarImg} />
+                : <Ionicons name="person" size={32} color="#FFD600" />}
             </View>
             <View style={styles.workerInfo}>
               <Text style={styles.workerName}>{worker.first_name} {worker.last_name}</Text>
@@ -349,7 +353,9 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
   },
+  workerAvatarImg: { width: '100%', height: '100%' },
   workerInfo: { flex: 1 },
   workerName: { fontSize: 16, fontWeight: '800', color: '#F5F5F5' },
   workerProfession: { fontSize: 13, color: '#888', marginTop: 2, marginBottom: 6 },
