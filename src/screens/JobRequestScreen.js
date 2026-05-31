@@ -55,23 +55,32 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
       setNotesTouched(true);
       return;
     }
+
+    // Bloquear si no hay ubicación — los campos client_lat/lng son NOT NULL en la DB
+    if (!userLocation?.latitude || !userLocation?.longitude) {
+      Alert.alert(
+        'Ubicación no disponible',
+        'Necesitamos tu ubicación para enviar la solicitud. Activá el GPS y volvé a intentar.'
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       let workers = worker ? [worker] : [];
 
-      if (userLocation?.latitude && userLocation?.longitude) {
-        const nearby = await professionalService.getNearbyWorkers(
-          profession.id,
-          userLocation.latitude,
-          userLocation.longitude,
-          8
-        );
-        if (worker) {
-          const others = nearby.filter(w => w.id !== worker.id && w.user_id !== clientId).slice(0, 2);
-          workers = [worker, ...others];
-        } else {
-          workers = nearby.filter(w => w.user_id !== clientId).slice(0, 3);
-        }
+      const nearby = await professionalService.getNearbyWorkers(
+        profession.id,
+        userLocation.latitude,
+        userLocation.longitude,
+        8
+      ).catch(() => []);
+
+      if (worker) {
+        const others = nearby.filter(w => w.id !== worker.id && w.user_id !== clientId).slice(0, 2);
+        workers = [worker, ...others];
+      } else {
+        workers = nearby.filter(w => w.user_id !== clientId).slice(0, 3);
       }
 
       if (workers.length === 0) {
@@ -128,7 +137,8 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
       ).catch(() => { /* notificaciones no críticas */ });
 
     } catch (err) {
-      Alert.alert('Error', 'No se pudo crear la solicitud. Revisá tu conexión e intentá de nuevo.');
+      const msg = err?.message || err?.error_description || JSON.stringify(err) || 'Error desconocido';
+      Alert.alert('Error al enviar solicitud', msg);
     } finally {
       setLoading(false);
     }

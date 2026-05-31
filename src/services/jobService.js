@@ -228,7 +228,7 @@ const jobService = {
     const { data, error } = await supabase
       .from('jobs')
       .insert(rows)
-      .select('*, professions(name), professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, avatar_url, on_time_completions, effective_rating)');
+      .select('*, professions(name), professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, avatar_url)');
     if (error) throw error;
     return { quoteGroupId, jobs: data };
   },
