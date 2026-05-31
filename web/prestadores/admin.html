@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOVOLT — Panel de prestadores</title>
+<meta name="robots" content="noindex">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0A0A0A;--surf:#111;--surf2:#161616;--bord:#1f1f1f;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#00d68f;--blue:#4dabf7;--red:#ff4466}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding-bottom:40px}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 18px}
+  a{color:inherit;text-decoration:none}
+
+  nav{border-bottom:1px solid var(--bord);background:var(--surf);position:sticky;top:0;z-index:20}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;max-width:1100px;margin:0 auto}
+  .logo{font-size:1.25rem;font-weight:900;letter-spacing:1px}.logo span{color:var(--yellow)}
+  .logout{font-size:.8rem;color:var(--muted);cursor:pointer;border:1px solid var(--bord);padding:6px 12px;border-radius:10px}
+
+  /* LOGIN */
+  .login-box{max-width:380px;margin:90px auto;background:var(--surf);border:1px solid var(--bord);border-radius:20px;padding:30px 26px}
+  .login-box h1{font-size:1.4rem;font-weight:900;margin-bottom:4px;text-align:center}
+  .login-box p{color:var(--muted);font-size:.85rem;text-align:center;margin-bottom:22px}
+  label{display:block;font-size:.78rem;font-weight:700;color:var(--muted);margin:14px 0 5px}
+  input,select{width:100%;background:var(--surf2);border:1px solid var(--bord);color:var(--text);border-radius:11px;padding:12px 13px;font-family:inherit;font-size:.92rem;outline:none}
+  input:focus,select:focus{border-color:rgba(255,214,0,.5)}
+  .btn{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:12px;padding:14px;font-family:inherit;font-weight:800;font-size:1rem;cursor:pointer;margin-top:18px}
+  .btn:disabled{opacity:.6}
+  .err{color:var(--red);font-size:.84rem;text-align:center;margin-top:12px;min-height:18px}
+
+  /* DASHBOARD */
+  #app{display:none;padding-top:22px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+  @media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:16px}
+  .stat .n{font-size:1.8rem;font-weight:900}
+  .stat .l{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+  .section-ttl{font-size:1rem;font-weight:800;margin:20px 0 12px}
+  .prof-bars{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px}
+  @media(max-width:680px){.prof-bars{grid-template-columns:1fr}}
+  .pbar{background:var(--surf);border:1px solid var(--bord);border-radius:11px;padding:10px 12px}
+  .pbar-top{display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;margin-bottom:6px}
+  .pbar-track{height:6px;background:var(--surf2);border-radius:3px;overflow:hidden}
+  .pbar-fill{height:100%;background:var(--yellow);border-radius:3px;transition:width .4s}
+  .pbar-fill.done{background:var(--green)}
+
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+  .filters select{width:auto;min-width:150px}
+  .count-pill{font-size:.8rem;color:var(--muted);margin-left:auto}
+
+  .lead{background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:15px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .lead-main{flex:1;min-width:200px}
+  .lead-name{font-weight:800;font-size:1rem}
+  .lead-prof{display:inline-block;font-size:.72rem;font-weight:700;color:var(--yellow);background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.25);border-radius:8px;padding:2px 8px;margin-top:4px}
+  .lead-meta{font-size:.82rem;color:var(--muted);margin-top:6px;line-height:1.7}
+  .lead-meta b{color:var(--text);font-weight:600}
+  .lead-actions{display:flex;flex-direction:column;gap:7px;min-width:150px}
+  .wa{background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.3);color:#25D366;border-radius:10px;padding:9px;text-align:center;font-weight:700;font-size:.82rem}
+  .estado-sel{font-size:.82rem}
+  .badge{display:inline-block;font-size:.66rem;font-weight:800;border-radius:7px;padding:2px 8px;text-transform:uppercase;letter-spacing:.5px}
+  .b-nuevo{background:rgba(77,171,247,.15);color:var(--blue)}
+  .b-contactado{background:rgba(255,214,0,.15);color:var(--yellow)}
+  .b-aceptado{background:rgba(0,214,143,.15);color:var(--green)}
+  .b-rechazado{background:rgba(255,68,102,.12);color:var(--red)}
+  .empty{text-align:center;color:var(--muted2);padding:40px 0}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-in">
+  <div class="logo">GO<span>VOLT</span> · Prestadores</div>
+  <div class="logout" id="logoutBtn" style="display:none" onclick="logout()">Salir</div>
+</div></nav>
+
+<!-- LOGIN (código por email — funciona con cuenta Google o email) -->
+<div class="login-box" id="loginBox">
+  <h1>Panel de admin</h1>
+  <p>Te enviamos un código a tu email para entrar</p>
+
+  <div id="step1">
+    <label>Email de administrador</label>
+    <input id="email" type="email" placeholder="maxi95.bahiablanca@gmail.com" autocomplete="username" onkeydown="if(event.key==='Enter')enviarCodigo()">
+    <button class="btn" id="sendBtn" onclick="enviarCodigo()">Enviarme el código</button>
+  </div>
+
+  <div id="step2" style="display:none">
+    <p style="margin-bottom:6px">Revisá tu email y pegá el código de 6 dígitos:</p>
+    <label>Código</label>
+    <input id="codigo" type="text" inputmode="numeric" maxlength="6" placeholder="123456" onkeydown="if(event.key==='Enter')verificar()">
+    <button class="btn" id="verifyBtn" onclick="verificar()">Entrar</button>
+    <p style="text-align:center;margin-top:12px;font-size:.8rem;color:var(--muted2);cursor:pointer" onclick="document.getElementById('step1').style.display='block';document.getElementById('step2').style.display='none';">← Usar otro email</p>
+  </div>
+
+  <div class="err" id="loginErr"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="app"><div class="wrap">
+  <div class="stats" id="stats"></div>
+
+  <div class="section-ttl">📊 Progreso por profesión <span style="color:var(--muted);font-weight:400;font-size:.82rem">(meta: 25 por oficio)</span></div>
+  <div class="prof-bars" id="profBars"></div>
+
+  <div class="section-ttl">📋 Registros</div>
+  <div class="filters">
+    <select id="fProf" onchange="render()"><option value="">Todas las profesiones</option></select>
+    <select id="fEstado" onchange="render()">
+      <option value="">Todos los estados</option>
+      <option value="nuevo">Nuevos</option>
+      <option value="contactado">Contactados</option>
+      <option value="aceptado">Aceptados</option>
+      <option value="rechazado">Rechazados</option>
+    </select>
+    <span class="count-pill" id="countPill"></span>
+  </div>
+  <div id="leads"></div>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
+  const ADMIN_EMAIL  = 'maxi95.bahiablanca@gmail.com';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let LEADS = [];
+
+  let _email = '';
+  async function enviarCodigo(){
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const err = document.getElementById('loginErr');
+    const btn = document.getElementById('sendBtn');
+    err.textContent = '';
+    if (email !== ADMIN_EMAIL){ err.textContent = 'Solo el email de administrador puede entrar.'; return; }
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    btn.disabled = false; btn.textContent = 'Enviarme el código';
+    if (error){ err.textContent = 'No se pudo enviar el código: ' + error.message; return; }
+    _email = email;
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+    err.textContent = '';
+  }
+
+  async function verificar(){
+    const token = document.getElementById('codigo').value.trim();
+    const err = document.getElementById('loginErr');
+    const btn = document.getElementById('verifyBtn');
+    err.textContent = '';
+    if (token.length < 6){ err.textContent = 'Ingresá el código de 6 dígitos.'; return; }
+    btn.disabled = true; btn.textContent = 'Entrando...';
+    const { data, error } = await sb.auth.verifyOtp({ email: _email, token, type: 'email' });
+    btn.disabled = false; btn.textContent = 'Entrar';
+    if (error){ err.textContent = 'Código incorrecto o vencido.'; return; }
+    if (data.user?.email !== ADMIN_EMAIL){ await sb.auth.signOut(); err.textContent = 'Cuenta no autorizada.'; return; }
+    enterApp();
+  }
+
+  async function logout(){ await sb.auth.signOut(); location.reload(); }
+
+  function enterApp(){
+    document.getElementById('loginBox').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('logoutBtn').style.display = 'block';
+    cargar();
+  }
+
+  async function cargar(){
+    const { data, error } = await sb.from('prestador_leads').select('*').order('created_at', { ascending: false });
+    if (error){ alert('Error cargando: ' + error.message); return; }
+    LEADS = data || [];
+    // llenar filtro de profesiones
+    const profs = [...new Set(LEADS.map(l => l.profesion))].sort();
+    const sel = document.getElementById('fProf');
+    sel.innerHTML = '<option value="">Todas las profesiones</option>' + profs.map(p => `<option>${esc(p)}</option>`).join('');
+    pintarStats();
+    render();
+  }
+
+  function esc(t){ const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
+  function waLink(tel){ const n=(tel||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10)); return 'https://wa.me/'+full+'?text='+encodeURIComponent('Hola! Te contactamos de GOVOLT por tu registro como profesional. ¿Cómo estás?'); }
+
+  function pintarStats(){
+    const total = LEADS.length;
+    const aceptados = LEADS.filter(l=>l.estado==='aceptado').length;
+    const nuevos = LEADS.filter(l=>l.estado==='nuevo').length;
+    const profs = new Set(LEADS.map(l=>l.profesion)).size;
+    document.getElementById('stats').innerHTML = `
+      <div class="stat"><div class="n">${total}</div><div class="l">Registros</div></div>
+      <div class="stat"><div class="n" style="color:var(--blue)">${nuevos}</div><div class="l">Nuevos sin contactar</div></div>
+      <div class="stat"><div class="n" style="color:var(--green)">${aceptados}</div><div class="l">Aceptados</div></div>
+      <div class="stat"><div class="n" style="color:var(--yellow)">${profs}</div><div class="l">Oficios distintos</div></div>`;
+
+    // barras por profesión
+    const META = 25;
+    const byProf = {};
+    LEADS.forEach(l => { byProf[l.profesion] = (byProf[l.profesion]||0)+1; });
+    const bars = Object.entries(byProf).sort((a,b)=>b[1]-a[1]).map(([p,n])=>{
+      const pct = Math.min(100, Math.round(n/META*100));
+      return `<div class="pbar"><div class="pbar-top"><span>${esc(p)}</span><span>${n}/${META}</span></div>
+        <div class="pbar-track"><div class="pbar-fill ${n>=META?'done':''}" style="width:${pct}%"></div></div></div>`;
+    }).join('');
+    document.getElementById('profBars').innerHTML = bars || '<div class="empty">Todavía no hay registros.</div>';
+  }
+
+  function render(){
+    const fp = document.getElementById('fProf').value;
+    const fe = document.getElementById('fEstado').value;
+    let list = LEADS;
+    if (fp) list = list.filter(l => l.profesion === fp);
+    if (fe) list = list.filter(l => (l.estado||'nuevo') === fe);
+    document.getElementById('countPill').textContent = list.length + ' registro' + (list.length!==1?'s':'');
+
+    if (!list.length){ document.getElementById('leads').innerHTML = '<div class="empty">No hay registros con esos filtros.</div>'; return; }
+
+    document.getElementById('leads').innerHTML = list.map(l => {
+      const est = l.estado || 'nuevo';
+      const fecha = new Date(l.created_at).toLocaleDateString('es-AR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      return `<div class="lead">
+        <div class="lead-main">
+          <span class="lead-name">${esc(l.nombre)} ${esc(l.apellido||'')}</span>
+          <span class="badge b-${est}" style="margin-left:8px">${est}</span>
+          <div><span class="lead-prof">${esc(l.profesion)}</span></div>
+          <div class="lead-meta">
+            ${l.zona?`📍 <b>${esc(l.zona)}</b> · `:''}📱 <b>${esc(l.telefono)}</b>
+            ${l.precio_visita?`<br>💳 Visita: <b>$${Number(l.precio_visita).toLocaleString('es-AR')}</b>`:''}
+            ${l.experiencia?` · 🔧 ${esc(l.experiencia)}`:''}
+            <br><span style="color:var(--muted2)">${esc(l.fuente||'landing')} · ${fecha}</span>
+          </div>
+        </div>
+        <div class="lead-actions">
+          <a class="wa" href="${waLink(l.telefono)}" target="_blank">💬 WhatsApp</a>
+          <select class="estado-sel" onchange="cambiarEstado('${l.id}', this.value)">
+            <option value="nuevo" ${est==='nuevo'?'selected':''}>🔵 Nuevo</option>
+            <option value="contactado" ${est==='contactado'?'selected':''}>🟡 Contactado</option>
+            <option value="aceptado" ${est==='aceptado'?'selected':''}>🟢 Aceptado</option>
+            <option value="rechazado" ${est==='rechazado'?'selected':''}>🔴 Rechazado</option>
+          </select>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function cambiarEstado(id, estado){
+    const { error } = await sb.from('prestador_leads').update({ estado }).eq('id', id);
+    if (error){ alert('Error: ' + error.message); return; }
+    const l = LEADS.find(x=>x.id===id); if (l) l.estado = estado;
+    pintarStats(); render();
+  }
+
+  // Auto-login si ya hay sesión
+  (async () => {
+    const { data } = await sb.auth.getSession();
+    if (data.session?.user?.email === ADMIN_EMAIL) enterApp();
+  })();
+</script>
+</body>
+</html>
