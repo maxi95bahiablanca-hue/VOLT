@@ -85,9 +85,9 @@
   </div>
 
   <div id="step2" style="display:none">
-    <p style="margin-bottom:6px">Revisá tu email y pegá el código de 6 dígitos:</p>
+    <p style="margin-bottom:6px">Revisá tu email y pegá el código que te enviamos:</p>
     <label>Código</label>
-    <input id="codigo" type="text" inputmode="numeric" maxlength="6" placeholder="123456" onkeydown="if(event.key==='Enter')verificar()">
+    <input id="codigo" type="text" inputmode="numeric" maxlength="10" placeholder="Pegá el código" onkeydown="if(event.key==='Enter')verificar()">
     <button class="btn" id="verifyBtn" onclick="verificar()">Entrar</button>
     <p style="text-align:center;margin-top:12px;font-size:.8rem;color:var(--muted2);cursor:pointer" onclick="document.getElementById('step1').style.display='block';document.getElementById('step2').style.display='none';">← Usar otro email</p>
   </div>
@@ -147,7 +147,7 @@
     const err = document.getElementById('loginErr');
     const btn = document.getElementById('verifyBtn');
     err.textContent = '';
-    if (token.length < 6){ err.textContent = 'Ingresá el código de 6 dígitos.'; return; }
+    if (token.length < 6){ err.textContent = 'Ingresá el código que te enviamos por email.'; return; }
     btn.disabled = true; btn.textContent = 'Entrando...';
     const { data, error } = await sb.auth.verifyOtp({ email: _email, token, type: 'email' });
     btn.disabled = false; btn.textContent = 'Entrar';
