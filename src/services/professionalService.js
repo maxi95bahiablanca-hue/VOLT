@@ -20,8 +20,7 @@ const professionalService = {
           first_name:                form.firstName,
           last_name:                 form.lastName,
           phone:                     form.phone,
-          cuit:                      form.cuit,
-          cbu:                       form.cbu,
+          // cuit/cbu NO van más en professionals (datos sensibles) → professional_payout
           criminal_record_confirmed: form.criminalRecord,
           avatar_url:                form.avatarUrl         ?? undefined,
           selfie_url:                form.selfieUrl         ?? undefined,
@@ -37,6 +36,19 @@ const professionalService = {
       .select()
       .single();
     if (error) throw error;
+
+    // Datos bancarios → tabla protegida (RLS: solo el dueño o el admin)
+    if (form.cuit || form.cbu) {
+      const { error: payoutErr } = await supabase
+        .from('professional_payout')
+        .upsert({
+          professional_id: professional.id,
+          cuit: form.cuit || null,
+          cbu:  form.cbu  || null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'professional_id' });
+      if (payoutErr) console.warn('professional_payout save error:', payoutErr.message);
+    }
 
     await supabase
       .from('professional_professions')

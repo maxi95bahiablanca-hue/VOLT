@@ -1,6 +1,27 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Valida la firma HMAC de Mercado Pago (defensa extra; el dinero ya está
+// protegido porque re-consultamos el pago a la API de MP).
+// Solo se exige si MP_WEBHOOK_SECRET está configurado.
+async function validarFirma(req: Request, dataId: string): Promise<boolean> {
+  const secret = Deno.env.get('MP_WEBHOOK_SECRET');
+  if (!secret) return true; // sin secret → no se valida (se confía en el re-fetch)
+  try {
+    const sig = req.headers.get('x-signature') ?? '';
+    const reqId = req.headers.get('x-request-id') ?? '';
+    const parts = Object.fromEntries(sig.split(',').map((p) => p.split('=').map((s) => s.trim())));
+    const ts = parts['ts']; const v1 = parts['v1'];
+    if (!ts || !v1) return false;
+    const manifest = `id:${dataId};request-id:${reqId};ts:${ts};`;
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(manifest));
+    const hex = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    return hex === v1;
+  } catch { return false; }
+}
+
 serve(async (req) => {
   try {
     const body = await req.json();
@@ -11,6 +32,11 @@ serve(async (req) => {
 
     const paymentId = body.data?.id ?? body.id;
     if (!paymentId) return new Response('ok');
+
+    // Validar firma (si hay secret configurado). Si falla, rechazar.
+    if (!(await validarFirma(req, String(paymentId)))) {
+      return new Response('invalid signature', { status: 401 });
+    }
 
     const MP_ACCESS_TOKEN = Deno.env.get('MP_ACCESS_TOKEN')!;
 

@@ -74,14 +74,14 @@ const AdminScreen = ({ session, onClose }) => {
       } else if (tab === 'pending') {
         const { data } = await supabase
           .from('professionals')
-          .select('*, professional_professions(profession_id, min_price, professions(name))')
+          .select('*, professional_professions(profession_id, min_price, professions(name)), professional_payout(cuit, cbu)')
           .eq('verification_status', 'pending')
           .order('created_at', { ascending: false });
         setPending(data ?? []);
       } else if (tab === 'workers') {
         const { data } = await supabase
           .from('professionals')
-          .select('*, professional_professions(profession_id, min_price, professions(name))')
+          .select('*, professional_professions(profession_id, min_price, professions(name)), professional_payout(cuit, cbu)')
           .in('verification_status', ['approved', 'rejected'])
           .order('created_at', { ascending: false });
         setWorkers(data ?? []);
@@ -348,8 +348,17 @@ const AdminScreen = ({ session, onClose }) => {
                     </TouchableOpacity>
                   ))}
                   <View style={styles.docInfoCol}>
-                    <Text style={styles.docInfoRow}>CUIT: {p.cuit || '—'}</Text>
-                    <Text style={styles.docInfoRow}>CBU: {p.cbu ? `•••• ${p.cbu.slice(-4)}` : '—'}</Text>
+                    {(() => {
+                      const payout = Array.isArray(p.professional_payout) ? p.professional_payout[0] : p.professional_payout;
+                      const cuit = payout?.cuit || p.cuit;
+                      const cbu  = payout?.cbu  || p.cbu;
+                      return (
+                        <>
+                          <Text style={styles.docInfoRow}>CUIT: {cuit || '—'}</Text>
+                          <Text style={styles.docInfoRow}>CBU: {cbu ? `•••• ${cbu.slice(-4)}` : '—'}</Text>
+                        </>
+                      );
+                    })()}
                     <Text style={[styles.docInfoRow, { color: p.criminal_record_confirmed ? '#4CAF50' : '#ff4444' }]}>
                       {p.criminal_record_confirmed ? '✓ Dec. jurada' : '✗ Sin declaración'}
                     </Text>
