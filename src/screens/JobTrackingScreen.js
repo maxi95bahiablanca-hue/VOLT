@@ -703,7 +703,7 @@ window.addEventListener('message', e => {
               <Ionicons name="card-outline" size={14} color="#4285F4" />
               <Text style={styles.cardOnlyText}>Tarjeta de débito, crédito o billetera digital</Text>
             </View>
-            <TouchableOpacity style={styles.payBtn} onPress={handleVisitPay} disabled={loading}>
+            <TouchableOpacity style={styles.payBtn} onPress={handleVisitPay} disabled={loading} accessibilityRole="button" accessibilityLabel="Pagar la visita">
               {loading ? <ActivityIndicator color="#fff" /> : (
                 <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar visita ${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text></>
               )}
@@ -961,7 +961,7 @@ window.addEventListener('message', e => {
             </View>
           )}
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleEmergency} style={styles.emergencyBtn}>
+        <TouchableOpacity onPress={handleEmergency} style={styles.emergencyBtn} accessibilityRole="button" accessibilityLabel="Emergencia: llamar al 911">
           <Ionicons name="call" size={18} color="#ff4444" />
           <Text style={styles.emergencyBtnText}>911</Text>
         </TouchableOpacity>
@@ -1266,7 +1266,7 @@ window.addEventListener('message', e => {
 
           {/* Botón verificar código — cliente cuando llegó el trabajador y NO está comprando */}
           {!isWorker && job.status === 'arrived' && !job.is_buying_materials && (
-            <TouchableOpacity style={styles.verifyCodeBtn} onPress={() => { setEnteredCode(''); setCodeResult(null); setCodeModal(true); }}>
+            <TouchableOpacity style={styles.verifyCodeBtn} accessibilityRole="button" accessibilityLabel="Verificar el código de identidad del profesional" onPress={() => { setEnteredCode(''); setCodeResult(null); setCodeModal(true); }}>
               <Ionicons name="shield-checkmark-outline" size={18} color="#FFD600" />
               <Text style={styles.verifyCodeBtnText}>Verificar código del profesional</Text>
               <Ionicons name="chevron-forward" size={16} color="#FFD600" />
@@ -1566,7 +1566,7 @@ window.addEventListener('message', e => {
                   <Ionicons name="card-outline" size={14} color="#4285F4" />
                   <Text style={styles.cardOnlyText}>Tarjeta de débito, crédito o billetera digital</Text>
                 </View>
-                <TouchableOpacity style={styles.payBtn} onPress={handleClientPay} disabled={loading}>
+                <TouchableOpacity style={styles.payBtn} onPress={handleClientPay} disabled={loading} accessibilityRole="button" accessibilityLabel="Pagar el trabajo completo">
                   {loading ? <ActivityIndicator color="#fff" /> : (
                     <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar ${total.toLocaleString('es-AR')}</Text></>
                   )}

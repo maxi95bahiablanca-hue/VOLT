@@ -750,10 +750,35 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     };
   }, [available, professional?.id]);
 
+  // Divulgación prominente de ubicación en segundo plano (requisito de Google Play):
+  // se muestra ANTES de pedir el permiso del sistema operativo.
+  const pedirConsentimientoUbicacion = () => new Promise((resolve) => {
+    Alert.alert(
+      '📍 Ubicación mientras trabajás',
+      'VOLT usa tu ubicación —incluso en segundo plano y con la app minimizada— ' +
+      'únicamente mientras tenés tu disponibilidad activada, para que los clientes ' +
+      'vean tu recorrido en tiempo real durante un trabajo en curso.\n\n' +
+      'No se rastrea tu ubicación cuando estás fuera de servicio. Podés desactivarla ' +
+      'cuando quieras apagando tu disponibilidad.',
+      [
+        { text: 'No, ahora no', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Entiendo, continuar', onPress: () => resolve(true) },
+      ],
+      { cancelable: false }
+    );
+  });
+
   const handleToggle = async () => {
     if (toggling) return;
     setToggling(true);
     const next = !available;
+
+    // Antes de activarse: pedir consentimiento informado de ubicación en background
+    if (next) {
+      const consiente = await pedirConsentimientoUbicacion();
+      if (!consiente) { setToggling(false); return; }
+    }
+
     setAvailable(next);
     try {
       if (next) {

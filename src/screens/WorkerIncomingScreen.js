@@ -84,6 +84,8 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
 
         {/* Aceptar rápido — sin completar formulario */}
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Aceptar el trabajo ahora con valores por defecto"
           style={alertStyles.quickAcceptBtn}
           onPress={() => onAutoAccept({ arrivalEst: '~30 min', workDuration: '~1 hora' })}
           activeOpacity={0.85}
@@ -377,6 +379,8 @@ const DetailsPhase = ({
           <View style={styles.btnRow}>
             <TouchableOpacity
               style={styles.rejectBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Rechazar el trabajo"
               onPress={() => setRejectModal(true)}
               disabled={loading}
               activeOpacity={0.8}
@@ -386,6 +390,8 @@ const DetailsPhase = ({
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.acceptBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Aceptar el trabajo"
               onPress={() => onAccept({
                 diagnosis: diagData?.summary || null,
                 arrivalEst,
