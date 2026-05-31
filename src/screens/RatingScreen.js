@@ -98,7 +98,7 @@ const RatingScreen = ({ job, session, onDone }) => {
           )}
 
           <View style={styles.voltFarewell}>
-            <Text style={styles.voltFarewellBadge}>⚡ VOLT</Text>
+            <Text style={styles.voltFarewellBadge}>⚡ GOVOLT</Text>
             <Text style={styles.voltFarewellText}>
               {prof
                 ? volt.farewell(profFirstName)

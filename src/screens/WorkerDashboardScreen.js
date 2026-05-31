@@ -357,7 +357,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
                 <Text style={[styles.breakdownVal, { color: levelColor }]}>{level}</Text>
               </View>
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>VOLT retiene</Text>
+                <Text style={styles.breakdownLabel}>GOVOLT retiene</Text>
                 <Text style={styles.breakdownVal}>{commission}% del trabajo</Text>
               </View>
               <View style={styles.breakdownRow}>
@@ -366,7 +366,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
               </View>
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Visita (${(professional.min_price || 30000).toLocaleString('es-AR')})</Text>
-                <Text style={styles.breakdownVal}>La retiene VOLT</Text>
+                <Text style={styles.breakdownVal}>La retiene GOVOLT</Text>
               </View>
             </View>
 

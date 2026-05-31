@@ -317,7 +317,7 @@ const CompareModal = ({ jobs, onClose, onSelect, selecting }) => {
   );
 };
 
-// ─── VOLT: genera recomendación basada en datos reales ────────────────────
+// ─── GOVOLT: genera recomendación basada en datos reales ────────────────────
 const getVoltRecommendation = (respondedJobs) => {
   if (!respondedJobs.length) return null;
   if (respondedJobs.length === 1) {
@@ -348,11 +348,11 @@ const getVoltRecommendation = (respondedJobs) => {
   return { jobId: top.id, message: volt.recommendGeneral(name) };
 };
 
-// ─── Tarjeta VOLT ─────────────────────────────────────────────────────────
+// ─── Tarjeta GOVOLT ─────────────────────────────────────────────────────────
 const VoltCard = ({ message }) => (
   <View style={voltCardStyles.wrap}>
     <View style={voltCardStyles.badge}>
-      <Text style={voltCardStyles.badgeText}>⚡ VOLT</Text>
+      <Text style={voltCardStyles.badgeText}>⚡ GOVOLT</Text>
     </View>
     <Text style={voltCardStyles.message}>{message}</Text>
   </View>
@@ -757,7 +757,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, onSelected, onE
           <Text style={styles.sectionBadgeText}>PROPUESTAS</Text>
         </View>
 
-        {/* Recomendación de VOLT */}
+        {/* Recomendación de GOVOLT */}
         {respondedJobs.length > 0 && (() => {
           const rec = getVoltRecommendation(respondedJobs);
           return rec ? <VoltCard message={rec.message} /> : null;

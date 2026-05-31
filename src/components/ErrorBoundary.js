@@ -13,7 +13,7 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('[VOLT] ErrorBoundary caught:', error, info);
+    console.error('[GOVOLT] ErrorBoundary caught:', error, info);
   }
 
   render() {

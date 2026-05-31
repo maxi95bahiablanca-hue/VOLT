@@ -218,7 +218,7 @@ const AdminScreen = ({ session, onClose }) => {
           <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Panel VOLT</Text>
+          <Text style={styles.headerTitle}>Panel GOVOLT</Text>
           <Text style={styles.headerSub}>Administración</Text>
         </View>
         <View style={styles.adminBadge}>
@@ -277,7 +277,7 @@ const AdminScreen = ({ session, onClose }) => {
                   </View>
                   <View style={[styles.kpiCard, { borderColor: '#FFD60030' }]}>
                     <Text style={[styles.kpiVal, { color: '#FFD600' }]}>${Math.round(summary.totalRevenue ?? 0).toLocaleString('es-AR')}</Text>
-                    <Text style={styles.kpiLabel}>Ingresos VOLT</Text>
+                    <Text style={styles.kpiLabel}>Ingresos GOVOLT</Text>
                   </View>
                 </View>
                 {(summary.pendingCount ?? 0) > 0 && (
@@ -459,7 +459,7 @@ const AdminScreen = ({ session, onClose }) => {
           ) : (
             <>
               <View style={styles.revenueCard}>
-                <Text style={styles.revenueTotalLabel}>Ingresos totales VOLT</Text>
+                <Text style={styles.revenueTotalLabel}>Ingresos totales GOVOLT</Text>
                 <Text style={styles.revenueTotalVal}>${Math.round(revenue.total).toLocaleString('es-AR')}</Text>
                 <Text style={styles.revenueMonthLabel}>Este mes: ${Math.round(revenue.thisMonth).toLocaleString('es-AR')}</Text>
               </View>

@@ -1,4 +1,4 @@
-# 🧪 Guía de pruebas del APK — VOLT
+# 🧪 Guía de pruebas del APK — GOVOLT
 
 ## ⚙️ ANTES de probar (hacer una sola vez)
 
@@ -31,7 +31,7 @@ supabase functions deploy send-worker-notification
 - [ ] **Timeline viva** se va llenando con eventos
 - [ ] **Barra de progreso** (6 pasos) avanza
 - [ ] **Barra de estado** ("última actualización hace X")
-- [ ] Chat con mensajes automáticos de VOLT
+- [ ] Chat con mensajes automáticos de GOVOLT
 - [ ] Pantalla de **calificación** al final + mensaje de comunidad
 
 ### B. Flujo real cliente (con cuenta normal)

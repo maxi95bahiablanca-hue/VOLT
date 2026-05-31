@@ -1,4 +1,4 @@
-# 📦 Kit de publicación Play Store — VOLT
+# 📦 Kit de publicación Play Store — GOVOLT
 
 Todo pre-armado para copiar/pegar en la consola de Google Play.
 
@@ -8,7 +8,7 @@ Todo pre-armado para copiar/pegar en la consola de Google Play.
 
 **Nombre de la app** (máx. 30 caracteres)
 ```
-VOLT — Oficios al instante
+GOVOLT — Oficios al instante
 ```
 
 **Descripción corta** (máx. 80 caracteres)
@@ -18,9 +18,9 @@ Electricistas, plomeros y gasistas verificados, cerca tuyo y en tiempo real.
 
 **Descripción completa** (máx. 4000 caracteres)
 ```
-VOLT conecta a quienes necesitan un oficio con profesionales verificados y disponibles cerca tuyo, al instante.
+GOVOLT conecta a quienes necesitan un oficio con profesionales verificados y disponibles cerca tuyo, al instante.
 
-¿Se te cortó la luz? ¿Una pérdida de agua? ¿Una fuga de gas? Pedí el oficio que necesitás y VOLT busca al profesional disponible más cercano. Seguilo en tiempo real en el mapa, mirá cuánto falta para que llegue y pagá seguro desde la app.
+¿Se te cortó la luz? ¿Una pérdida de agua? ¿Una fuga de gas? Pedí el oficio que necesitás y GOVOLT busca al profesional disponible más cercano. Seguilo en tiempo real en el mapa, mirá cuánto falta para que llegue y pagá seguro desde la app.
 
 ━━━━━━━━━━━━━━━━━━━━
 PARA CLIENTES
@@ -47,7 +47,7 @@ SEGURIDAD ANTE TODO
 ━━━━━━━━━━━━━━━━━━━━
 Todos los profesionales pasan verificación de identidad. Cada uno tiene un código que debés pedirle antes de abrir la puerta. Las calificaciones son reales: solo se pueden dejar después de un trabajo completado.
 
-VOLT — el profesional que necesitás, al instante.
+GOVOLT — el profesional que necesitás, al instante.
 ```
 
 **Categoría:** Estilo de vida (o Productividad / Casa y hogar)
@@ -86,7 +86,7 @@ Google audita esto. Cuando te pregunten:
 
 **¿Por qué necesitás ACCESS_BACKGROUND_LOCATION?**
 ```
-VOLT usa la ubicación en segundo plano ÚNICAMENTE para profesionales que activaron su disponibilidad, para que los clientes puedan ver el recorrido del profesional en tiempo real durante un trabajo en curso, incluso si la app está minimizada. No se rastrea la ubicación cuando el profesional está fuera de servicio. La app muestra una divulgación clara y pide consentimiento explícito antes de solicitar el permiso.
+GOVOLT usa la ubicación en segundo plano ÚNICAMENTE para profesionales que activaron su disponibilidad, para que los clientes puedan ver el recorrido del profesional en tiempo real durante un trabajo en curso, incluso si la app está minimizada. No se rastrea la ubicación cuando el profesional está fuera de servicio. La app muestra una divulgación clara y pide consentimiento explícito antes de solicitar el permiso.
 ```
 > Tip: Google suele pedir un video corto mostrando: (1) la pantalla de divulgación, (2) el toggle de disponibilidad, (3) el cliente viendo al profesional en el mapa.
 
@@ -117,7 +117,7 @@ VOLT usa la ubicación en segundo plano ÚNICAMENTE para profesionales que activ
 ---
 
 ## 6. Otros campos
-- **Email de contacto:** soporte@volt.app (definir mail real)
+- **Email de contacto:** soporte@govolt.app (definir mail real)
 - **Política de privacidad (URL):** subir `web/privacy.html` y poner el link
 - **Público objetivo:** mayores de 18 (maneja pagos y datos sensibles)
 

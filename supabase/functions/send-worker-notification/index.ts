@@ -48,7 +48,7 @@ serve(async (req) => {
             ? 'Ya podés activarte en el mapa y empezar a recibir trabajos en VOLT.'
             : `Tu solicitud fue rechazada. Motivo: ${rejectionNote || 'Documentación incompleta'}. Podés volver a enviarla.`,
           sound:     'default',
-          channelId: 'volt-jobs',
+          channelId: 'govolt-jobs',
           priority:  'high',
           data:      { screen: 'home' },
         }),

@@ -1,4 +1,4 @@
-// VOLT — coordinador invisible. Nunca robótico, siempre profesional.
+// GOVOLT — coordinador invisible. Nunca robótico, siempre profesional.
 
 const volt = {
   // ── Búsqueda ──────────────────────────────────────────────────────────────
@@ -31,25 +31,25 @@ const volt = {
     `${name} llegó al lugar. Verificá el código antes de abrir.`,
   chatStarted:    'Trabajo iniciado. Estaremos atentos por si necesitás algo.',
   chatDone:       'El trabajo fue completado. Podés proceder con el pago.',
-  chatMonitoring: 'Trabajo monitoreado por VOLT.',
+  chatMonitoring: 'Trabajo monitoreado por GOVOLT.',
 
   // ── Tracking tips ─────────────────────────────────────────────────────────
   tipPending:         'Encontramos profesionales disponibles. Generalmente llegan en menos de 30 min.',
   tipAccepted:        'Te avisaremos si hay cambios. Podés seguir en tiempo real su recorrido.',
-  tipArrived:         'Verificá el código antes de abrir. Es tu garantía de que es un profesional VOLT.',
+  tipArrived:         'Verificá el código antes de abrir. Es tu garantía de que es un profesional GOVOLT.',
   tipInProgress:      'El trabajo está en curso. Todos nuestros profesionales tienen antecedentes verificados.',
-  tipAwaitingPayment: 'El pago es seguro y procesado por VOLT. Nunca pagues en efectivo.',
+  tipAwaitingPayment: 'El pago es seguro y procesado por GOVOLT. Nunca pagues en efectivo.',
 
   tipWorkerAccepted:         '⚡ Conducí con precaución. Avisamos al cliente que ya vas en camino.',
   tipWorkerArrived:          '🔑 Mostrá tu código antes de que el cliente abra. Es obligatorio.',
   tipWorkerInProgress:       '🔧 Describí el trabajo al cliente antes de empezar para evitar malentendidos.',
-  tipWorkerAwaitingPayment:  '💳 El cliente pagará por la app. VOLT registra todo.',
+  tipWorkerAwaitingPayment:  '💳 El cliente pagará por la app. GOVOLT registra todo.',
 
   // ── Despedida ─────────────────────────────────────────────────────────────
   farewell: (name) =>
     `Esperamos que el servicio haya salido bien. ${name} queda guardado en Mis profesionales para futuros trabajos.`,
   farewellGeneric:
-    'Esperamos que el servicio haya salido bien. Tu valoración ayuda a toda la comunidad VOLT.',
+    'Esperamos que el servicio haya salido bien. Tu valoración ayuda a toda la comunidad GOVOLT.',
 
   // ── Emergencia ────────────────────────────────────────────────────────────
   emergencyHeadline:
@@ -57,7 +57,7 @@ const volt = {
 
   // ── Estados vacíos ────────────────────────────────────────────────────────
   chatEmpty:
-    'VOLT coordina este trabajo.\nUsá el chat para comunicarte con el profesional.',
+    'GOVOLT coordina este trabajo.\nUsá el chat para comunicarte con el profesional.',
 };
 
 export default volt;

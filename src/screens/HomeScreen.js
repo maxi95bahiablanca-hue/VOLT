@@ -35,7 +35,7 @@ const PANEL_HIDDEN = PANEL_FULL - PANEL_PEEK;
 
 const CLIENT_TIPS = [
   { icon: 'shield-checkmark-outline', color: '#4CAF50', text: 'Siempre pedí el código de verificación antes de abrir la puerta' },
-  { icon: 'star-outline',             color: '#FFD600', text: 'Calificá al profesional para ayudar a la comunidad VOLT' },
+  { icon: 'star-outline',             color: '#FFD600', text: 'Calificá al profesional para ayudar a la comunidad GOVOLT' },
   { icon: 'card-outline',             color: '#4285F4', text: 'El pago es 100% digital. Nunca pagues en efectivo' },
   { icon: 'people-outline',           color: '#FF9800', text: 'Todos los trabajadores tienen antecedentes verificados' },
   { icon: 'time-outline',             color: '#888',    text: 'El costo de visita se cobra aunque no se realice el trabajo' },
@@ -755,7 +755,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   const pedirConsentimientoUbicacion = () => new Promise((resolve) => {
     Alert.alert(
       '📍 Ubicación mientras trabajás',
-      'VOLT usa tu ubicación —incluso en segundo plano y con la app minimizada— ' +
+      'GOVOLT usa tu ubicación —incluso en segundo plano y con la app minimizada— ' +
       'únicamente mientras tenés tu disponibilidad activada, para que los clientes ' +
       'vean tu recorrido en tiempo real durante un trabajo en curso.\n\n' +
       'No se rastrea tu ubicación cuando estás fuera de servicio. Podés desactivarla ' +
@@ -927,7 +927,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
             delayLongPress={3000}
             activeOpacity={1}
           >
-            <Text style={[styles.logoText, demoOn && { color: '#FFD600', opacity: 0.7 }]}>VOLT</Text>
+            <Text style={[styles.logoText, demoOn && { color: '#FFD600', opacity: 0.7 }]}>GOVOLT</Text>
           </TouchableOpacity>
         </View>
 

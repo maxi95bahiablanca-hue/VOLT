@@ -20,7 +20,7 @@ const SECTIONS = [
   },
   {
     title: '4. Pagos',
-    body: 'Los pagos son procesados por Mercado Pago. VOLT retiene el pago hasta que el cliente confirma que el trabajo fue completado satisfactoriamente. Consultá la política de privacidad de Mercado Pago para más detalles sobre el manejo de datos de pago.',
+    body: 'Los pagos son procesados por Mercado Pago. GOVOLT retiene el pago hasta que el cliente confirma que el trabajo fue completado satisfactoriamente. Consultá la política de privacidad de Mercado Pago para más detalles sobre el manejo de datos de pago.',
   },
   {
     title: '5. Ubicación',
@@ -28,7 +28,7 @@ const SECTIONS = [
   },
   {
     title: '6. Seguridad',
-    body: 'Usamos cifrado TLS para todas las comunicaciones. Los documentos de identidad se almacenan de forma segura en Supabase Storage con acceso restringido. Solo el equipo de VOLT puede ver los documentos de verificación, y únicamente para el proceso de aprobación de trabajadores.',
+    body: 'Usamos cifrado TLS para todas las comunicaciones. Los documentos de identidad se almacenan de forma segura en Supabase Storage con acceso restringido. Solo el equipo de GOVOLT puede ver los documentos de verificación, y únicamente para el proceso de aprobación de trabajadores.',
   },
   {
     title: '7. Retención de datos',
@@ -40,7 +40,7 @@ const SECTIONS = [
   },
   {
     title: '9. Cambios a esta política',
-    body: 'Podemos actualizar esta política ocasionalmente. Te notificaremos por email o dentro de la app si hay cambios significativos. El uso continuado de VOLT después de los cambios implica aceptación de la nueva política.',
+    body: 'Podemos actualizar esta política ocasionalmente. Te notificaremos por email o dentro de la app si hay cambios significativos. El uso continuado de GOVOLT después de los cambios implica aceptación de la nueva política.',
   },
   {
     title: '10. Contacto',
@@ -61,12 +61,12 @@ const PrivacyPolicyScreen = ({ onClose }) => (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.badge}>
         <Ionicons name="shield-checkmark" size={14} color="#0A0A0A" />
-        <Text style={styles.badgeText}>VOLT — TUS DATOS, SEGUROS</Text>
+        <Text style={styles.badgeText}>GOVOLT — TUS DATOS, SEGUROS</Text>
       </View>
 
       <Text style={styles.updated}>Última actualización: Mayo 2026</Text>
       <Text style={styles.intro}>
-        En VOLT nos tomamos muy en serio la privacidad de nuestros usuarios. Esta política explica qué información recopilamos, cómo la usamos y cómo la protegemos.
+        En GOVOLT nos tomamos muy en serio la privacidad de nuestros usuarios. Esta política explica qué información recopilamos, cómo la usamos y cómo la protegemos.
       </Text>
 
       {SECTIONS.map((s, i) => (

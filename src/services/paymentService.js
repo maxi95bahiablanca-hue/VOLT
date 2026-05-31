@@ -45,7 +45,7 @@ const paymentService = {
   },
 
   openCheckout: async (url) => {
-    const result = await WebBrowser.openAuthSessionAsync(url, 'volt://');
+    const result = await WebBrowser.openAuthSessionAsync(url, 'govolt://');
     if (result.type === 'success') {
       const returnUrl = result.url ?? '';
       if (returnUrl.includes('payment-success')) return 'success';

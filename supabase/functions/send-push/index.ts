@@ -51,7 +51,7 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         to: row.token, title, body, data,
-        sound: 'default', channelId: 'volt-jobs', priority: 'high', ttl: 60,
+        sound: 'default', channelId: 'govolt-jobs', priority: 'high', ttl: 60,
       }),
     });
     const expoData = await expoRes.json().catch(() => ({}));

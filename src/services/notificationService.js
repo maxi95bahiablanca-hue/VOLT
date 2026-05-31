@@ -5,7 +5,7 @@ import { supabase } from '../supabase';
 // expo-notifications esté en los plugins de app.json.
 //
 // Para activar:
-//   1. Crear proyecto en Firebase Console → agregar app Android (com.pedroxillovich.volt)
+//   1. Crear proyecto en Firebase Console → agregar app Android (com.govolt.app)
 //   2. En Firebase: Configuración → SHA-1 → D6:BB:14:28:09:DB:D1:C4:B1:F4:9F:AA:0E:06:4D:6B:9E:9C:F5:06
 //   3. Descargar google-services.json → reemplazar el de la raíz del proyecto
 //   4. En app.json plugins agregar:
@@ -45,8 +45,8 @@ const notificationService = {
         }),
       });
 
-      await Notif.setNotificationChannelAsync('volt-jobs', {
-        name:       'Trabajos VOLT',
+      await Notif.setNotificationChannelAsync('govolt-jobs', {
+        name:       'Trabajos GOVOLT',
         importance: Notif.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FFD600',
@@ -76,7 +76,7 @@ const notificationService = {
 
   sendToUser: async (userId, { title, body, data = {} }) => {
     if (__DEV__) {
-      console.log(`[VOLT NOTIF → ${userId}] ${title}: ${body}`);
+      console.log(`[GOVOLT NOTIF → ${userId}] ${title}: ${body}`);
       return;
     }
     if (!userId) return;

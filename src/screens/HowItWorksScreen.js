@@ -51,7 +51,7 @@ const HowItWorksScreen = ({ onClose }) => (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.badge}>
         <Ionicons name="flash" size={14} color="#0A0A0A" />
-        <Text style={styles.badgeText}>VOLT — SIMPLE Y SEGURO</Text>
+        <Text style={styles.badgeText}>GOVOLT — SIMPLE Y SEGURO</Text>
       </View>
 
       <Text style={styles.intro}>
@@ -79,7 +79,7 @@ const HowItWorksScreen = ({ onClose }) => (
         <View style={{ flex: 1 }}>
           <Text style={styles.securityTitle}>Tu dinero siempre protegido</Text>
           <Text style={styles.securityDesc}>
-            VOLT retiene el pago hasta que confirmás que el trabajo está hecho. Ningún profesional recibe dinero antes.
+            GOVOLT retiene el pago hasta que confirmás que el trabajo está hecho. Ningún profesional recibe dinero antes.
           </Text>
         </View>
       </View>

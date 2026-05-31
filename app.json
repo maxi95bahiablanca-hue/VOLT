@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "VOLT",
+    "name": "GOVOLT",
     "slug": "volt",
-    "scheme": "volt",
+    "scheme": "govolt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,7 +21,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.pedroxillovich.volt",
+      "bundleIdentifier": "com.govolt.app",
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
@@ -31,7 +31,7 @@
       }
     },
     "android": {
-      "package": "com.pedroxillovich.volt",
+      "package": "com.govolt.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
@@ -53,7 +53,7 @@
           "autoVerify": true,
           "data": [
             {
-              "scheme": "volt"
+              "scheme": "govolt"
             }
           ],
           "category": [
@@ -81,15 +81,15 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "VOLT necesita acceso a tus fotos para subir documentos y fotos de trabajos.",
-          "cameraPermission": "VOLT necesita la cámara para fotografiar documentos y trabajos realizados."
+          "photosPermission": "GOVOLT necesita acceso a tus fotos para subir documentos y fotos de trabajos.",
+          "cameraPermission": "GOVOLT necesita la cámara para fotografiar documentos y trabajos realizados."
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "VOLT usa tu ubicación en segundo plano para que los clientes puedan ver tu posición en tiempo real mientras vas a un trabajo.",
-          "locationWhenInUsePermission": "VOLT usa tu ubicación para encontrar profesionales cercanos y mostrarte en el mapa.",
+          "locationAlwaysAndWhenInUsePermission": "GOVOLT usa tu ubicación en segundo plano para que los clientes puedan ver tu posición en tiempo real mientras vas a un trabajo.",
+          "locationWhenInUsePermission": "GOVOLT usa tu ubicación para encontrar profesionales cercanos y mostrarte en el mapa.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }

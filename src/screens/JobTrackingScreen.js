@@ -378,7 +378,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         await jobService.arrive(job.id);
         jobService.addEvent(job.id, 'arrived', `${workerFirstName} llegó al lugar.`).catch(() => {});
         chatService.sendSystemMessage(job.id, volt.chatArrived(workerFirstName)).catch(() => {});
-        notifTitle = '⚡ ESTÁ POR LLEGAR UN VOLT';
+        notifTitle = '⚡ ESTÁ POR LLEGAR UN GOVOLT';
         notifBody  = 'POR FAVOR RECORDÁ PEDIRLE EL CÓDIGO PARA ASEGURARTE QUE ES UN TRABAJADOR VERIFICADO.';
       } else if (action === 'start') {
         await jobService.start(job.id);
@@ -836,7 +836,7 @@ window.addEventListener('message', e => {
               <View style={styles.codeOkBox}>
                 <Ionicons name="checkmark-circle" size={40} color="#4CAF50" />
                 <Text style={styles.codeOkTitle}>¡Código correcto!</Text>
-                <Text style={styles.codeOkSub}>Es tu profesional VOLT verificado. Podés abrir la puerta.</Text>
+                <Text style={styles.codeOkSub}>Es tu profesional GOVOLT verificado. Podés abrir la puerta.</Text>
                 <TouchableOpacity style={styles.codeCloseBtn} onPress={() => { setCodeModal(false); setEnteredCode(''); setCodeResult(null); }}>
                   <Text style={styles.codeCloseBtnText}>Cerrar</Text>
                 </TouchableOpacity>
@@ -847,7 +847,7 @@ window.addEventListener('message', e => {
               <View style={styles.codeErrorBox}>
                 <Ionicons name="close-circle" size={40} color="#ff4444" />
                 <Text style={styles.codeErrorTitle}>Código incorrecto</Text>
-                <Text style={styles.codeErrorSub}>No abras la puerta. Contactá al soporte de VOLT si el problema continúa.</Text>
+                <Text style={styles.codeErrorSub}>No abras la puerta. Contactá al soporte de GOVOLT si el problema continúa.</Text>
                 <TouchableOpacity style={styles.codeRetryBtn} onPress={() => { setEnteredCode(''); setCodeResult(null); }}>
                   <Text style={styles.codeRetryBtnText}>Reintentar</Text>
                 </TouchableOpacity>
@@ -880,7 +880,7 @@ window.addEventListener('message', e => {
               Linking.openURL('https://wa.me/5492914000000?text=Hola%2C%20necesito%20soporte%20con%20un%20trabajo%20VOLT');
             }}>
               <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-              <Text style={styles.supportBtnText}>Contactar soporte VOLT</Text>
+              <Text style={styles.supportBtnText}>Contactar soporte GOVOLT</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -1547,7 +1547,7 @@ window.addEventListener('message', e => {
                     <View style={styles.payRow}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.payRowLabel}>Materiales</Text>
-                        <Text style={styles.payRowNote}>sin comisión VOLT</Text>
+                        <Text style={styles.payRowNote}>sin comisión GOVOLT</Text>
                       </View>
                       <Text style={styles.payRowVal}>${matsAmt.toLocaleString('es-AR')}</Text>
                     </View>

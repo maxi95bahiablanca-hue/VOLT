@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOVOLT — Sumate como profesional</title>
+<meta name="description" content="Sumate a GOVOLT: recibí trabajos cerca tuyo, cobrá seguro por la app y hacé crecer tu cartera de clientes. Registrate gratis.">
+<meta property="og:title" content="GOVOLT — Trabajá con nosotros">
+<meta property="og:description" content="Recibí trabajos cerca tuyo y cobrá seguro. Registrate gratis y sé de los primeros.">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0A0A0A;--surf:#111;--surf2:#161616;--bord:#1f1f1f;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#00d68f}
+  html{scroll-behavior:smooth}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  a{text-decoration:none;color:inherit}
+
+  nav{position:sticky;top:0;z-index:30;background:rgba(10,10,10,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--bord)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:15px 0}
+  .logo{font-size:1.45rem;font-weight:900;letter-spacing:1px}.logo span{color:var(--yellow)}
+  .nav-cta{background:var(--yellow);color:#0A0A0A;font-weight:800;font-size:.85rem;padding:9px 18px;border-radius:12px}
+
+  .hero{text-align:center;padding:64px 0 40px}
+  .hero .tag{display:inline-block;background:rgba(0,214,143,.1);border:1px solid rgba(0,214,143,.3);color:var(--green);font-weight:700;font-size:.76rem;padding:6px 15px;border-radius:20px;margin-bottom:22px}
+  .hero h1{font-size:2.7rem;font-weight:900;line-height:1.1;letter-spacing:-1px;margin-bottom:16px}
+  .hero h1 span{color:var(--yellow)}
+  .hero p{font-size:1.12rem;color:var(--muted);max-width:540px;margin:0 auto 30px}
+  .hero .btn{display:inline-block;background:var(--yellow);color:#0A0A0A;font-weight:800;font-size:1.05rem;padding:16px 34px;border-radius:14px;box-shadow:0 0 40px rgba(255,214,0,.25);transition:.2s}
+  .hero .btn:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(255,214,0,.45)}
+  .hero .sub{margin-top:14px;font-size:.85rem;color:var(--muted2)}
+  @media(max-width:640px){.hero h1{font-size:2rem}.hero{padding:44px 0 32px}}
+
+  section{padding:48px 0;border-top:1px solid var(--bord)}
+  .s-title{font-size:1.6rem;font-weight:900;text-align:center;margin-bottom:34px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--surf);border:1px solid var(--bord);border-radius:18px;padding:24px}
+  .card .ico{font-size:2rem;margin-bottom:12px}
+  .card h3{font-size:1.05rem;font-weight:800;margin-bottom:6px}
+  .card p{color:var(--muted);font-size:.92rem}
+
+  .steps{max-width:640px;margin:0 auto}
+  .step{display:flex;gap:16px;align-items:flex-start;margin-bottom:22px}
+  .step-n{width:38px;height:38px;border-radius:12px;background:var(--yellow);color:#0A0A0A;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .step h4{font-weight:800;margin-bottom:2px}
+  .step p{color:var(--muted);font-size:.92rem}
+
+  /* FORM */
+  .form-box{background:var(--surf);border:1px solid rgba(255,214,0,.25);border-radius:22px;padding:30px 24px;max-width:560px;margin:0 auto}
+  .form-box h2{font-size:1.6rem;font-weight:900;text-align:center;margin-bottom:6px}
+  .form-box .sub{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.92rem}
+  label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;margin-top:14px}
+  input,select{width:100%;background:var(--surf2);border:1px solid var(--bord);color:var(--text);border-radius:12px;padding:13px 14px;font-family:inherit;font-size:.95rem;outline:none;transition:.15s}
+  input:focus,select:focus{border-color:rgba(255,214,0,.5)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:480px){.row{grid-template-columns:1fr}}
+  .btn-submit{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:900;font-size:1.05rem;cursor:pointer;margin-top:22px;transition:.2s}
+  .btn-submit:hover{box-shadow:0 0 30px rgba(255,214,0,.4)}
+  .btn-submit:disabled{opacity:.6;cursor:default}
+  .msg{margin-top:14px;text-align:center;font-size:.9rem;font-weight:600}
+  .ok-box{display:none;text-align:center;padding:20px 0}
+  .ok-box .em{font-size:3rem;margin-bottom:10px}
+  .ok-box h3{font-size:1.4rem;font-weight:900;color:var(--green);margin-bottom:8px}
+  .ok-box p{color:var(--muted);font-size:.95rem}
+
+  footer{border-top:1px solid var(--bord);padding:30px 0;color:var(--muted2);font-size:.82rem;text-align:center}
+  footer a{color:var(--muted);font-weight:600;margin:0 10px}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap nav-in">
+  <div class="logo">GO<span>VOLT</span></div>
+  <a href="#registro" class="nav-cta">Sumate gratis</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="tag">⚡ Estamos sumando a los primeros profesionales</div>
+  <h1>Más trabajo.<br><span>Cobro seguro.</span></h1>
+  <p>GOVOLT te conecta con clientes de tu zona que necesitan tu oficio. Recibí pedidos, cobrá por la app y hacé crecer tu reputación. Sé de los primeros en tu ciudad.</p>
+  <a href="#registro" class="btn">Quiero sumarme →</a>
+  <div class="sub">Registro gratis · Sin compromiso · 2 minutos</div>
+</div></header>
+
+<section><div class="wrap">
+  <div class="s-title">¿Por qué trabajar con GOVOLT?</div>
+  <div class="grid">
+    <div class="card"><div class="ico">📲</div><h3>Trabajos cerca tuyo</h3><p>Te llegan pedidos de clientes de tu zona. Vos decidís cuáles tomás y cuándo estás disponible.</p></div>
+    <div class="card"><div class="ico">💳</div><h3>Cobrás seguro</h3><p>El pago es por la app, a través de Mercado Pago. Nada de andar persiguiendo la plata.</p></div>
+    <div class="card"><div class="ico">📈</div><h3>Menos comisión, más reputación</h3><p>Cuanto mejor tu calificación, menor la comisión que pagás. Premiamos al que trabaja bien.</p></div>
+    <div class="card"><div class="ico">⭐</div><h3>Tu perfil profesional</h3><p>Calificaciones, trabajos completados y clientes que te eligen. Construí tu marca personal.</p></div>
+    <div class="card"><div class="ico">🛡️</div><h3>Verificado = confianza</h3><p>Los clientes confían más en profesionales verificados. Eso se traduce en más trabajos.</p></div>
+    <div class="card"><div class="ico">🚀</div><h3>Sé de los primeros</h3><p>Los que entran ahora arrancan con ventaja: más visibilidad y los mejores trabajos de la zona.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="s-title">Cómo funciona</div>
+  <div class="steps">
+    <div class="step"><div class="step-n">1</div><div><h4>Te registrás</h4><p>Completás el formulario de acá abajo. Te lleva 2 minutos.</p></div></div>
+    <div class="step"><div class="step-n">2</div><div><h4>Te verificamos</h4><p>Revisamos tus datos y te contactamos por WhatsApp para activarte.</p></div></div>
+    <div class="step"><div class="step-n">3</div><div><h4>Recibís trabajos</h4><p>Activás tu disponibilidad en el mapa y empezás a recibir pedidos cerca tuyo.</p></div></div>
+    <div class="step"><div class="step-n">4</div><div><h4>Cobrás y crecés</h4><p>Hacés el trabajo, cobrás por la app y sumás calificaciones que te traen más clientes.</p></div></div>
+  </div>
+</div></section>
+
+<section id="registro"><div class="wrap">
+  <div class="form-box">
+    <div id="formContent">
+      <h2>Sumate a GOVOLT</h2>
+      <div class="sub">Dejanos tus datos y te contactamos para activarte en tu zona.</div>
+
+      <div class="row">
+        <div><label>Nombre *</label><input id="nombre" type="text" placeholder="Juan"></div>
+        <div><label>Apellido</label><input id="apellido" type="text" placeholder="Pérez"></div>
+      </div>
+
+      <label>WhatsApp *</label>
+      <input id="telefono" type="tel" inputmode="numeric" placeholder="291 4XXXXXX">
+
+      <label>Tu oficio / profesión *</label>
+      <select id="profesion"><option value="">Cargando...</option></select>
+
+      <label>Tu zona o barrio</label>
+      <input id="zona" type="text" placeholder="Ej: Centro, Villa Mitre, Palihue...">
+
+      <div class="row">
+        <div><label>Precio de visita ($)</label><input id="precio" type="number" inputmode="numeric" placeholder="30000"></div>
+        <div><label>Años de experiencia</label><input id="experiencia" type="text" placeholder="Ej: 8 años"></div>
+      </div>
+
+      <button class="btn-submit" id="btnSubmit" onclick="enviar()">Quiero sumarme a GOVOLT</button>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="ok-box" id="okBox">
+      <div class="em">⚡✅</div>
+      <h3>¡Listo! Ya sos parte</h3>
+      <p>Recibimos tu registro. Te vamos a contactar por WhatsApp para verificarte y activarte en tu zona. ¡Gracias por sumarte a GOVOLT!</p>
+    </div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  © 2026 GOVOLT · Bahía Blanca, Argentina
+  <div style="margin-top:8px">
+    <a href="../privacy.html">Privacidad</a><a href="../terms.html">Términos</a>
+  </div>
+</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Detectar la fuente del tráfico (?fuente=instagram, etc.)
+  const FUENTE = new URLSearchParams(location.search).get('fuente') || 'landing';
+
+  // Cargar profesiones desde la base (se mantiene en sync con la app)
+  const FALLBACK = ['Electricista','Plomero','Gasista','Cerrajero','Albañil','Pintor','Carpintero','Técnico de aire acondicionado','Técnico de electrodomésticos','Herrero','Vidriero','Jardinero','Fletes / Mudanzas','Limpieza','Otro'];
+  (async () => {
+    const sel = document.getElementById('profesion');
+    let nombres = [];
+    try {
+      const { data } = await sb.from('professions').select('id,name').order('name');
+      if (data && data.length) nombres = data.map(p => ({ id: p.id, name: p.name }));
+    } catch (e) {}
+    if (!nombres.length) nombres = FALLBACK.map(n => ({ id: null, name: n }));
+    sel.innerHTML = '<option value="">Elegí tu oficio...</option>' +
+      nombres.map(p => `<option value="${p.name}" data-id="${p.id ?? ''}">${p.name}</option>`).join('');
+  })();
+
+  function val(id){ return (document.getElementById(id).value || '').trim(); }
+
+  async function enviar(){
+    const msg = document.getElementById('msg');
+    const nombre = val('nombre'), telefono = val('telefono'), profesion = val('profesion');
+    if (!nombre || !telefono || !profesion){
+      msg.style.color = '#ff5577';
+      msg.textContent = 'Completá al menos nombre, WhatsApp y tu oficio.';
+      return;
+    }
+    const sel = document.getElementById('profesion');
+    const pid = sel.options[sel.selectedIndex]?.dataset.id || null;
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try {
+      const { error } = await sb.from('prestador_leads').insert({
+        nombre,
+        apellido:     val('apellido') || null,
+        telefono:     telefono.replace(/\D/g,''),
+        profesion,
+        profesion_id: pid ? parseInt(pid,10) : null,
+        zona:         val('zona') || null,
+        precio_visita: val('precio') ? parseInt(val('precio').replace(/\D/g,''),10) : null,
+        experiencia:  val('experiencia') || null,
+        fuente:       FUENTE,
+      });
+      if (error) throw error;
+      document.getElementById('formContent').style.display = 'none';
+      document.getElementById('okBox').style.display = 'block';
+      document.getElementById('okBox').scrollIntoView({ behavior:'smooth', block:'center' });
+    } catch (e){
+      btn.disabled = false; btn.textContent = 'Quiero sumarme a GOVOLT';
+      msg.style.color = '#ff5577';
+      msg.textContent = 'Hubo un error. Probá de nuevo en un momento.';
+      console.error(e);
+    }
+  }
+</script>
+</body>
+</html>

@@ -83,7 +83,7 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
 
           {/* Header */}
           <View style={styles.drawerHeader}>
-            <Text style={styles.logo}>VOLT</Text>
+            <Text style={styles.logo}>GOVOLT</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color="#555" />
             </TouchableOpacity>
@@ -110,7 +110,7 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
 
           {/* Solo para no-trabajadores */}
           {!isWorker && (
-            <Item icon="flash" label="Trabajar con VOLT" highlight onPress={() => go('register')} />
+            <Item icon="flash" label="Trabajar con GOVOLT" highlight onPress={() => go('register')} />
           )}
 
           {/* Estado solicitud pendiente */}
@@ -135,7 +135,7 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
 
           <View style={styles.divider} />
 
-          <Item icon="help-circle-outline" label="Cómo funciona VOLT" onPress={() => go('howItWorks')} />
+          <Item icon="help-circle-outline" label="Cómo funciona GOVOLT" onPress={() => go('howItWorks')} />
           <Item icon="shield-outline" label="Política de privacidad" onPress={() => go('privacy')} />
           <Item icon="chatbubble-ellipses-outline" label="Soporte"
             onPress={() => Linking.openURL('mailto:soporte@volt.app')} />
@@ -149,7 +149,7 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
             <Text style={styles.signOutText}>Cerrar sesión</Text>
           </TouchableOpacity>
 
-          <Text style={styles.version}>VOLT v1.0</Text>
+          <Text style={styles.version}>GOVOLT v1.0</Text>
 
         </SafeAreaView>
       </Animated.View>

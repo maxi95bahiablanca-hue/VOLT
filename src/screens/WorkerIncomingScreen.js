@@ -513,7 +513,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         await jobService.setStructuredDiagnosis(job.id, diagData).catch(() => {});
       }
       await notificationService.sendToUser(clientUserId, {
-        title: '⚡ ESTÁ POR LLEGAR UN VOLT',
+        title: '⚡ ESTÁ POR LLEGAR UN GOVOLT',
         body:  `POR FAVOR PEDILE EL CÓDIGO ANTES DE ABRIR LA PUERTA. Llega en ${arrivalEst}.`,
         data:  { jobId: job.id, screen: 'tracking' },
       }).catch(() => {});

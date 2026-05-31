@@ -77,7 +77,7 @@ const locationService = {
         distanceInterval: DISTANCE_THRESHOLD_M,
         timeInterval: TIME_INTERVAL_MS,
         foregroundService: {
-          notificationTitle: 'VOLT — Estás disponible',
+          notificationTitle: 'GOVOLT — Estás disponible',
           notificationBody: 'Tu ubicación se actualiza en tiempo real.',
           notificationColor: '#FFD600',
         },

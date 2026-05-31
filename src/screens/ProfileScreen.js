@@ -320,7 +320,7 @@ const ProfileScreen = ({ session, professional, onClose }) => {
 
         {/* Info de la plataforma */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sobre VOLT</Text>
+          <Text style={styles.sectionTitle}>Sobre GOVOLT</Text>
           <View style={styles.infoRow}>
             <Ionicons name="shield-checkmark-outline" size={16} color="#FFD600" />
             <Text style={styles.infoText}>Todos los pagos están protegidos por la plataforma.</Text>
@@ -360,7 +360,7 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           <Text style={styles.signOutText}>Cerrar sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>VOLT v1.0</Text>
+        <Text style={styles.version}>GOVOLT v1.0</Text>
 
       </ScrollView>
     </SafeAreaView>

@@ -241,7 +241,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
         <View style={styles.headerInfo}>
           <Text style={styles.headerName} numberOfLines={1}>{profName}</Text>
           <Text style={styles.headerRole} numberOfLines={1}>
-            {profRole} · <Text style={{ color: '#4285F4' }}>VOLT coordina</Text>
+            {profRole} · <Text style={{ color: '#4285F4' }}>GOVOLT coordina</Text>
           </Text>
           <View style={styles.headerStatusRow}>
             <View style={[styles.statusPill, { borderColor: statusColor + '44' }]}>
@@ -278,7 +278,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <View style={styles.voltEmptyBadge}>
-                  <Text style={styles.voltEmptyBadgeText}>⚡ VOLT</Text>
+                  <Text style={styles.voltEmptyBadgeText}>⚡ GOVOLT</Text>
                 </View>
                 <Text style={styles.emptyText}>{volt.chatEmpty}</Text>
               </View>

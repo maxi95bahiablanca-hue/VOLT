@@ -96,7 +96,7 @@ const LoginScreen = () => {
               <View style={styles.logoBadge}>
                 <Ionicons name="flash" size={32} color="#0A0A0A" />
               </View>
-              <Text style={styles.logoText}>VOLT</Text>
+              <Text style={styles.logoText}>GOVOLT</Text>
               <Text style={styles.logoTagline}>Profesionales a domicilio,{'\n'}cuando los necesitás</Text>
             </View>
 
@@ -156,16 +156,16 @@ const LoginScreen = () => {
               Al continuar aceptás los Términos de servicio{'\n'}y la{' '}
               <Text
                 style={styles.termsLink}
-                onPress={() => WebBrowser.openBrowserAsync('https://maxi95bahiablanca-hue.github.io/VOLT/privacy.html')}
+                onPress={() => WebBrowser.openBrowserAsync('https://maxi95bahiablanca-hue.github.io/GOVOLT/privacy.html')}
               >
                 Política de privacidad
               </Text>
-              {' '}de VOLT
+              {' '}de GOVOLT
             </Text>
 
           </ScrollView>
         </KeyboardAvoidingView>
-        <Text style={styles.version}>VOLT v1.0</Text>
+        <Text style={styles.version}>GOVOLT v1.0</Text>
       </SafeAreaView>
     );
   }
@@ -187,7 +187,7 @@ const LoginScreen = () => {
             <View style={styles.logoBadgeSmall}>
               <Ionicons name="flash" size={18} color="#0A0A0A" />
             </View>
-            <Text style={styles.logoTextSmall}>VOLT</Text>
+            <Text style={styles.logoTextSmall}>GOVOLT</Text>
           </View>
 
           <Text style={styles.emailFormTitle}>

@@ -25,7 +25,7 @@ const contactWhatsApp = (worker, profession) => {
   const dist  = formatDistance(worker.distance_meters);
   const price = formatPrice(worker.min_price);
   const msg   = encodeURIComponent(
-    `Hola ${worker.first_name}! Te encontré en VOLT buscando un/a *${profession.name}*.\n\n` +
+    `Hola ${worker.first_name}! Te encontré en GOVOLT buscando un/a *${profession.name}*.\n\n` +
     `¿Estás disponible? Estás a ${dist} de mí.\n` +
     `Vi que tu precio mínimo es $${price}.`
   );
