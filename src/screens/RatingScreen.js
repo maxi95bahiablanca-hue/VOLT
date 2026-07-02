@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import jobService from '../services/jobService';
 import favoriteService from '../services/favoriteService';
 import volt from '../utils/voltVoice';
+import { chargesInApp } from '../config/monetization';
 
 const RATING_LABELS = ['', 'Muy malo', 'Malo', 'Regular', 'Bueno', '¡Excelente!'];
 
@@ -98,7 +99,7 @@ const RatingScreen = ({ job, session, onDone }) => {
           )}
 
           <View style={styles.voltFarewell}>
-            <Text style={styles.voltFarewellBadge}>⚡ GOVOLT</Text>
+            <Text style={styles.voltFarewellBadge}>⚡ BOLT</Text>
             <Text style={styles.voltFarewellText}>
               {prof
                 ? volt.farewell(profFirstName)
@@ -163,8 +164,8 @@ const RatingScreen = ({ job, session, onDone }) => {
                 </View>
               </View>
             )}
-            {fmtDuration(totalMinutes) && totalCost > 0 && <View style={styles.statChipDiv} />}
-            {totalCost > 0 && (
+            {chargesInApp() && fmtDuration(totalMinutes) && totalCost > 0 && <View style={styles.statChipDiv} />}
+            {chargesInApp() && totalCost > 0 && (
               <View style={styles.statChip}>
                 <Ionicons name="card-outline" size={18} color="#666" />
                 <View>

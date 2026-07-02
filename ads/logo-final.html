@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GOVOLT — Logo final para perfil</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#555;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px}
+  .hint{color:#eee;font-size:14px;text-align:center;max-width:520px;line-height:1.5}
+  .hint b{color:#FFD600}
+
+  /* 600x600 — buena resolución para foto de perfil */
+  .pp{width:600px;height:600px;background:#0A0A0A;position:relative;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px}
+  .glow{position:absolute;width:620px;height:620px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,214,0,.16),transparent 64%)}
+  .bolt{font-size:180px;line-height:1;position:relative;filter:drop-shadow(0 0 32px rgba(255,214,0,.55))}
+  .word{font-size:64px;font-weight:900;letter-spacing:2px;color:#fff;margin-top:6px;position:relative}
+  .word span{color:#FFD600}
+  @media(max-width:680px){.pp{width:90vw;height:90vw}.bolt{font-size:26vw}.word{font-size:9vw}}
+</style>
+</head>
+<body>
+  <div class="hint">⬇️ Capturá <b>solo el cuadrado negro</b> con la herramienta Recortes:<br>tecla <b>Windows + Shift + S</b> → seleccioná el cuadrado → se copia → pegalo y guardalo, o usalo directo.</div>
+
+  <div class="pp">
+    <div class="glow"></div>
+    <div class="bolt">⚡</div>
+    <div class="word">GO<span>VOLT</span></div>
+  </div>
+</body>
+</html>

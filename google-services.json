@@ -7,6 +7,63 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:195161413692:android:f79163b20295c742fb4b39",
+        "android_client_info": {
+          "package_name": "ar.com.bolt.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwDgpvAxoBnk-XoKT9-7oVh2zNI2kkdyA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:195161413692:android:d84858937b2b1e2afb4b39",
+        "android_client_info": {
+          "package_name": "ar.com.bolt.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwDgpvAxoBnk-XoKT9-7oVh2zNI2kkdyA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:195161413692:android:48f81795576fb3f3fb4b39",
+        "android_client_info": {
+          "package_name": "com.bolt.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwDgpvAxoBnk-XoKT9-7oVh2zNI2kkdyA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:195161413692:android:3eb9bd440b4d9779fb4b39",
         "android_client_info": {
           "package_name": "com.pedroxillovich.volt"

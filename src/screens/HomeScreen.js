@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   SafeAreaView, Animated, Easing, Dimensions, ScrollView, FlatList,
-  ActivityIndicator, Platform, Image, Linking, Alert, PanResponder,
+  ActivityIndicator, Platform, Image, Linking, Alert, PanResponder, Modal,
 } from 'react-native';
 import VoltMap from '../components/VoltMap';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,18 +12,20 @@ import * as Location from 'expo-location';
 import favoriteService from '../services/favoriteService';
 import ReputationCard from '../components/ReputationCard';
 import DemoToggle from '../components/DemoToggle';
-import { isDemoMode, toggleDemo } from '../demo/demoMode';
-import { DEMO_PROFESSIONAL, DEMO_QUOTE_JOBS } from '../demo/demoData';
+import { isDemoMode, toggleDemo, setDemoRole } from '../demo/demoMode';
+import { DEMO_PROFESSIONAL, DEMO_QUOTE_JOBS, DEMO_JOB } from '../demo/demoData';
 import professionService from '../services/professionService';
 import professionalService from '../services/professionalService';
 import RegisterProfessionalScreen from './RegisterProfessionalScreen';
 import ProfileScreen from './ProfileScreen';
 import WorkerDashboardScreen from './WorkerDashboardScreen';
+import { chargesInApp } from '../config/monetization';
 import AdminScreen from './AdminScreen';
 import HowItWorksScreen from './HowItWorksScreen';
 import HistoryScreen from './HistoryScreen';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
 import DrawerMenu from '../components/DrawerMenu';
+import DraggableBubble from '../components/DraggableBubble';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const BUTTON_SIZE = 64;
@@ -33,12 +35,107 @@ const PANEL_FULL   = 330;
 const PANEL_PEEK   = 155;
 const PANEL_HIDDEN = PANEL_FULL - PANEL_PEEK;
 
+// Centro de Bahía Blanca (fallback hasta tener ubicación del usuario)
+const BAHIA_CENTER = { latitude: -38.7183, longitude: -62.2663 };
+
+// Lista de respaldo de oficios: si la base no responde, igual mostramos chips
+const FALLBACK_PROFS = [
+  'Electricista','Plomero','Gasista','Pintor','Albañil','Cerrajero',
+  'Técnico en electrodomésticos','Limpieza del hogar','Mudanzas','Fumigador',
+  'Chapista','Mecánico a domicilio','Aire acondicionado','Alarmas / Cámaras','Durlock',
+].map((name, i) => ({ id: i + 1, name }));
+
+// Oficios para los pines ambientales del mapa (percepción de actividad)
+const AMBIENT_PROFS = [
+  { emoji: '🔧', name: 'Electricista' },
+  { emoji: '🚰', name: 'Plomero' },
+  { emoji: '🔥', name: 'Gasista' },
+  { emoji: '❄️', name: 'Aire acondicionado' },
+  { emoji: '🎨', name: 'Pintor' },
+  { emoji: '🔒', name: 'Cerrajero' },
+  { emoji: '📹', name: 'Alarmas / Cámaras' },
+  { emoji: '🧱', name: 'Albañil' },
+  { emoji: '🔨', name: 'Durlock' },
+];
+
+// Genera pines representativos alrededor de un centro, repartidos en anillos.
+// Son decorativos (no abren ficha): comunican cobertura/actividad sin inventar identidades.
+const buildAmbientWorkers = (center) => {
+  const base = center || BAHIA_CENTER;
+  const N = 11;
+  return Array.from({ length: N }).map((_, i) => {
+    const angle  = (i / N) * Math.PI * 2 + i * 0.6;
+    const radius = 0.0025 + (i % 3) * 0.002;           // ~0.25–0.65 km (pegado al usuario)
+    const state  = i % 6 === 0 ? 'busy' : (i % 6 === 3 ? 'oncoming' : 'available');
+    const prof   = AMBIENT_PROFS[i % AMBIENT_PROFS.length];
+    return {
+      id: `ambient-${i}`,
+      ambient: true,
+      emoji: prof.emoji,
+      profession_name: prof.name,
+      state,
+      lat: base.latitude  + Math.cos(angle) * radius,
+      lng: base.longitude + Math.sin(angle) * radius * 1.3,
+    };
+  });
+};
+
+// Ubica los pines ambientales sobre CALLES reales cercanas (vía OpenStreetMap),
+// para que NUNCA caigan en el agua/mar. Si no hay internet o falla, devuelve null
+// y se usa buildAmbientWorkers como fallback.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
+const buildAmbientOnStreets = async (center) => {
+  if (!center?.latitude) return null;
+  const { latitude: lat, longitude: lng } = center;
+  const query =
+    `[out:json][timeout:8];` +
+    `way(around:1500,${lat},${lng})[highway~"^(residential|living_street|tertiary|secondary|unclassified|primary)$"];` +
+    `out geom 80;`;
+  for (const url of OVERPASS_ENDPOINTS) {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 9000);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(query),
+        signal: ctrl.signal,
+      });
+      clearTimeout(to);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const pts = [];
+      for (const el of json.elements || []) {
+        if (el.geometry) for (const g of el.geometry) pts.push({ lat: g.lat, lng: g.lon });
+      }
+      if (pts.length < 6) continue;
+      const N = 11;
+      const step = Math.max(1, Math.floor(pts.length / N));
+      const chosen = [];
+      for (let i = 0; i < pts.length && chosen.length < N; i += step) chosen.push(pts[i]);
+      return chosen.map((p, i) => {
+        const prof  = AMBIENT_PROFS[i % AMBIENT_PROFS.length];
+        const state = i % 6 === 0 ? 'busy' : (i % 6 === 3 ? 'oncoming' : 'available');
+        return {
+          id: `ambient-${i}`, ambient: true, emoji: prof.emoji,
+          profession_name: prof.name, state, lat: p.lat, lng: p.lng,
+        };
+      });
+    } catch { /* probar el siguiente endpoint */ }
+  }
+  return null;
+};
+
 const CLIENT_TIPS = [
   { icon: 'shield-checkmark-outline', color: '#4CAF50', text: 'Siempre pedí el código de verificación antes de abrir la puerta' },
-  { icon: 'star-outline',             color: '#FFD600', text: 'Calificá al profesional para ayudar a la comunidad GOVOLT' },
-  { icon: 'card-outline',             color: '#4285F4', text: 'El pago es 100% digital. Nunca pagues en efectivo' },
+  { icon: 'star-outline',             color: '#FFD600', text: 'Calificá al profesional para ayudar a la comunidad BOLT' },
+  { icon: 'cash-outline',             color: '#4285F4', text: 'El pago lo coordinás directo con el profesional, como prefieran' },
   { icon: 'people-outline',           color: '#FF9800', text: 'Todos los trabajadores tienen antecedentes verificados' },
-  { icon: 'time-outline',             color: '#888',    text: 'El costo de visita se cobra aunque no se realice el trabajo' },
+  { icon: 'pricetag-outline',         color: '#888',    text: 'Acordá el precio con el profesional antes de que empiece el trabajo' },
 ];
 
 const WORKER_TIPS = [
@@ -240,7 +337,9 @@ const EmergencyModal = ({ worker, onConfirm, onClose, loading }) => {
               </View>
 
               <Text style={emStyles.priceNote}>
-                Visita desde ${(worker.min_price || 30000).toLocaleString('es-AR')} · Precio mínimo para urgencias
+                {chargesInApp()
+                  ? `Visita desde $${(worker.min_price || 30000).toLocaleString('es-AR')} · Precio mínimo para urgencias`
+                  : 'Profesional disponible más cercano · El precio lo acordás directo con él'}
               </Text>
             </>
           ) : null}
@@ -422,12 +521,12 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose, isFavorite }) => {
             <Text style={styles.cardStatVal}>{worker.avg_arrival_minutes} min</Text>
             <Text style={styles.cardStatLbl}>respuesta</Text>
           </View>
-        ) : (
+        ) : chargesInApp() ? (
           <View style={styles.cardStat}>
             <Text style={styles.cardStatVal}>${(worker.min_price || 30000).toLocaleString('es-AR')}</Text>
             <Text style={styles.cardStatLbl}>visita</Text>
           </View>
-        )}
+        ) : null}
       </View>
 
       {/* Badges */}
@@ -447,7 +546,7 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose, isFavorite }) => {
       <TouchableOpacity style={styles.requestBtn} onPress={() => onContact(worker)} activeOpacity={0.85}>
         <Ionicons name="flash" size={20} color="#0A0A0A" />
         <Text style={styles.requestBtnText}>
-          Solicitar — ${(worker.min_price || 30000).toLocaleString('es-AR')} visita
+          {chargesInApp() ? `Solicitar — $${(worker.min_price || 30000).toLocaleString('es-AR')} visita` : 'Solicitar'}
         </Text>
       </TouchableOpacity>
     </Animated.View>
@@ -484,7 +583,70 @@ const RadarButton = ({ available, toggling, onPress, pulse1, pulse2, pulse3 }) =
 );
 
 // ─── SCREEN PRINCIPAL ─────────────────────────────────
-const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomingJob }) => {
+// Palabras del PROBLEMA → rubro (id de profession). Permite que el cliente escriba
+// lo que le pasa ("se cortó la luz", "pierde agua") y la app detecte a quién buscar.
+// Un mismo síntoma puede sugerir más de un rubro (ej. "humedad" → plomero y albañil).
+const PROBLEM_KEYWORDS = {
+  1:  ['luz', 'electric', 'enchufe', 'corto', 'cortocircuito', 'tablero', 'termica', 'térmica', 'disyuntor', 'foco', 'lampara', 'lámpara', 'cable', 'toma', 'chispa', 'instalacion electrica', 'sin luz', 'se corto la luz'],
+  2:  ['agua', 'caño', 'cano', 'perdida', 'pérdida', 'pierde', 'canilla', 'grifo', 'inodoro', 'baño', 'baño', 'cloaca', 'destap', 'filtracion', 'filtración', 'gotera', 'tanque', 'bomba de agua', 'cañeria', 'cañería', 'desagote', 'pinchadura'],
+  3:  ['gas', 'estufa', 'calefon', 'calefón', 'termotanque', 'cocina a gas', 'garrafa', 'olor a gas', 'caldera', 'calefaccion', 'calefacción'],
+  4:  ['pintar', 'pintura', 'pintor', 'latex', 'látex', 'esmalte', 'blanquear', 'empapelar', 'repintar'],
+  5:  ['revoque', 'ladrillo', 'cemento', 'contrapiso', 'construccion', 'construcción', 'mamposteria', 'mampostería', 'grieta', 'pared rota', 'techo', 'mojinete', 'albañil', 'albanil', 'humedad'],
+  7:  ['cerradura', 'llave', 'traba', 'candado', 'puerta trabada', 'me quede afuera', 'quedé afuera', 'bombin', 'bombín', 'cerrajer', 'no abre la puerta'],
+  8:  ['heladera', 'lavarropas', 'microondas', 'secarropas', 'electrodomestico', 'electrodoméstico', 'no enfria', 'no enfría', 'freezer', 'horno', 'lavavajilla', 'cocina electrica'],
+  10: ['limpieza', 'limpiar', 'mucama', 'ordenar', 'casa sucia', 'limpieza profunda', 'sucio'],
+  11: ['mudanza', 'mudar', 'flete', 'transportar', 'trasladar', 'cargar muebles', 'camion', 'camión', 'acarreo'],
+  12: ['fumig', 'plaga', 'cucaracha', 'insecto', 'hormiga', 'rata', 'raton', 'ratón', 'mosquito', 'control de plagas', 'bicho'],
+  13: ['chapa', 'abolladura', 'auto golpeado', 'granizo', 'carroceria', 'carrocería', 'pintura de auto', 'choque'],
+  14: ['auto', 'no arranca', 'motor', 'bateria', 'batería', 'mecanico', 'mecánico', 'coche', 'vehiculo', 'vehículo', 'no enciende', 'auxilio mecanico'],
+  16: ['aire', 'aire acondicionado', 'split', 'climatizacion', 'climatización', 'carga de gas', 'frio', 'frío', 'instalacion de aire', 'instalación de aire', 'limpieza de aire', 'aire no anda', 'aire no enfria', 'ventilacion', 'ventilación'],
+  17: ['alarma', 'camara', 'cámara', 'camaras', 'cámaras', 'seguridad', 'cctv', 'monitoreo', 'sensor', 'vigilancia', 'dvr', 'instalacion de camaras', 'instalación de cámaras', 'porton automatico', 'portón automático', 'cerco electrico'],
+  18: ['durlock', 'placa de yeso', 'placas de yeso', 'tabique', 'cielorraso', 'cielo raso', 'yeso', 'pladur', 'steel framing', 'construccion en seco', 'construcción en seco', 'pared de durlock', 'division', 'división'],
+};
+
+// Burbuja flotante arrastrable (estilo Messenger) para volver al trabajo en curso.
+// Se arrastra a cualquier lado; un toque (sin arrastrar) abre el seguimiento.
+function ActiveJobBubble({ onPress }) {
+  const { width: W, height: H } = Dimensions.get('window');
+  const pos = useRef(new Animated.ValueXY({ x: W - 78, y: H - 260 })).current;
+  const moved = useRef(false);
+  const responder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5,
+    onPanResponderGrant: () => { moved.current = false; pos.extractOffset(); },
+    onPanResponderMove: (e, g) => {
+      if (Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5) moved.current = true;
+      pos.setValue({ x: g.dx, y: g.dy });
+    },
+    onPanResponderRelease: () => {
+      pos.flattenOffset();
+      if (!moved.current) onPress?.();
+    },
+  })).current;
+
+  return (
+    <Animated.View style={[bubbleStyles.bubble, { transform: pos.getTranslateTransform() }]} {...responder.panHandlers}>
+      <Ionicons name="navigate" size={24} color="#0A0A0A" />
+      <View style={bubbleStyles.pulse} />
+    </Animated.View>
+  );
+}
+
+const bubbleStyles = StyleSheet.create({
+  bubble: {
+    position: 'absolute', top: 0, left: 0, zIndex: 500,
+    width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 12, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    borderWidth: 2, borderColor: '#0A0A0A',
+  },
+  pulse: {
+    position: 'absolute', top: 3, right: 3, width: 13, height: 13, borderRadius: 7,
+    backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#FFD600',
+  },
+});
+
+const HomeScreen = ({ session, professional, onRequestJob, onOpenAssistant, onActiveJob, onIncomingJob, activeJob, onResumeJob }) => {
   const userId = session?.user?.id;
 
   // Estado del profesional (si el user está registrado como trabajador)
@@ -494,6 +656,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   // Mapa
   const [userLocation, setUserLocation]   = useState(null);
   const [workers, setWorkers]             = useState([]);
+  const [ambientWorkers, setAmbientWorkers] = useState(() => buildAmbientWorkers(null));
   const [selectedWorker, setSelectedWorker] = useState(null);
 
   // Búsqueda
@@ -540,8 +703,8 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   const slideAnim = useRef(new Animated.Value(CARD_H)).current;
 
   // Panel deslizante
-  const panelY    = useRef(new Animated.Value(PANEL_HIDDEN)).current;
-  const panelBase = useRef(PANEL_HIDDEN);
+  const panelY    = useRef(new Animated.Value(0)).current; // arranca EXPANDIDO (visible)
+  const panelBase = useRef(0);
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx),
@@ -564,8 +727,22 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
 
   // ─── Carga inicial ───────────────────────────────────
   useEffect(() => {
-    professionService.getProfessions().then(setProfessions).catch(() => {});
+    professionService.getProfessions()
+      .then(list => setProfessions(list && list.length ? list : FALLBACK_PROFS))
+      .catch(() => setProfessions(FALLBACK_PROFS));
     initLocation();
+    // Releer la disponibilidad real desde la base: el objeto `professional` se
+    // carga una sola vez al login y queda viejo, así que al volver al home no
+    // debe quedar "no disponible" si en la base sigue activo.
+    if (professional?.id && userId) {
+      supabase
+        .from('professionals')
+        .select('available')
+        .eq('user_id', userId)
+        .maybeSingle()
+        .then(({ data }) => { if (data) setAvailable(!!data.available); })
+        .catch(() => {});
+    }
     // Verificar si el cliente (no trabajador) tiene pagos completados
     if (!professional && userId) {
       supabase
@@ -597,7 +774,15 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     try {
       const granted = await locationService.requestPermission();
       if (!granted) return;
-      const pos = await locationService.getCurrentLocation();
+
+      // Pedir la posición con UN reintento: en Android "frío" el primer fix
+      // puede fallar/expirar aunque el GPS esté encendido.
+      let pos = await locationService.getCurrentLocation().catch(() => null);
+      if (!pos?.coords) {
+        await new Promise(r => setTimeout(r, 1500)); // pequeño respiro y reintento
+        pos = await locationService.getCurrentLocation().catch(() => null);
+      }
+      if (!pos?.coords) return; // sin spamear alerts: lo resolvemos al buscar (ensureLocation)
       const { latitude, longitude } = pos.coords;
 
       // Reverse geocode para obtener la dirección legible
@@ -618,8 +803,47 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
         address,
       };
       setUserLocation(loc);
+      setAmbientWorkers(buildAmbientWorkers({ latitude, longitude })); // fallback inmediato
+      buildAmbientOnStreets({ latitude, longitude })                   // y, si hay red, sobre calles reales
+        .then(streets => { if (streets?.length) setAmbientWorkers(streets); })
+        .catch(() => {});
       if (selectedProfession) fetchWorkers(selectedProfession.id, latitude, longitude);
     } catch { /* silent */ }
+  };
+
+  // ─── Asegurar ubicación bajo demanda ─────────────────
+  // Si ya tenemos userLocation la devolvemos; si no, pedimos permiso e
+  // intentamos obtener la posición ahí mismo. Devuelve null SOLO si el permiso
+  // fue denegado o no se pudo obtener la posición de ninguna forma.
+  const ensureLocation = async () => {
+    if (userLocation?.latitude) return userLocation;
+
+    const granted = await locationService.requestPermission();
+    if (!granted) return null; // permiso DENEGADO
+
+    const pos = await locationService.getCurrentLocation().catch(() => null);
+    if (!pos?.coords) return null; // permiso OK pero no se pudo fijar la posición
+    const { latitude, longitude } = pos.coords;
+
+    // Reverse geocode (best-effort, no bloquea si falla)
+    let address = null;
+    try {
+      const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (place) {
+        const parts = [place.street, place.streetNumber, place.city || place.subregion].filter(Boolean);
+        address = parts.join(', ') || null;
+      }
+    } catch { /* sin dirección */ }
+
+    const loc = {
+      latitude,
+      longitude,
+      latitudeDelta:  0.04,
+      longitudeDelta: 0.04,
+      address,
+    };
+    setUserLocation(loc);
+    return loc;
   };
 
   // ─── Buscar trabajadores en el mapa ──────────────────
@@ -665,13 +889,19 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     return () => supabase.removeChannel(channel);
   }, [selectedProfession, userLocation]);
 
-  // ─── Búsqueda de profesiones ─────────────────────────
+  // ─── Búsqueda por PROBLEMA → detecta el rubro ─────────
+  // Matchea por nombre del oficio o por las palabras del problema descrito.
   useEffect(() => {
-    if (query.length < 3) { setResults([]); return; }
+    const q = query.toLowerCase().trim();
+    if (q.length < 3) { setResults([]); return; }
     setResults(
       professions
-        .filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
-        .slice(0, 4)
+        .filter(p => {
+          if (p.name.toLowerCase().includes(q)) return true;
+          const kws = PROBLEM_KEYWORDS[p.id] || [];
+          return kws.some(kw => q.includes(kw) || (q.length >= 4 && kw.includes(q)));
+        })
+        .slice(0, 5)
     );
   }, [query, professions]);
 
@@ -714,6 +944,35 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     onRequestJob?.(worker, selectedProfession, userLocation);
   };
 
+  // Toca un pin ambiental (decorativo): muestra actividad de la zona
+  const handleAmbientPress = () => {
+    Alert.alert(
+      'Profesionales en tu zona',
+      'Hay profesionales activos cerca tuyo. Elegí un oficio y pedí tu presupuesto desde el panel de abajo.',
+    );
+  };
+
+  // Inicia el demo del lado CLIENTE (sin datos reales)
+  const startDemo = () => {
+    setDemoRole('client');
+    const prof = DEMO_PROFESSIONAL;
+    const fakeProfession = { id: 1, name: 'Electricidad' };
+    onRequestJob?.(prof, fakeProfession, userLocation || { latitude: -38.7196, longitude: -62.2724, address: 'Demo — Bahía Blanca' });
+  };
+
+  // Inicia el demo del lado TRABAJADOR (le entra un pedido de ejemplo)
+  const startWorkerDemo = () => {
+    setDemoRole('worker');
+    onIncomingJob?.({ ...DEMO_JOB, status: 'pending' });
+  };
+
+  // El mapa es SOLO visual/decorativo: muestra el "pulso" de la ciudad (pines
+  // ambientales) para dar sensación de actividad, pero NUNCA expone trabajadores
+  // reales. La selección del trabajador NO se hace por el mapa: al pedir el
+  // presupuesto se ofrecen 3 profesionales en el panel (JobRequestScreen), y la
+  // ubicación real recién se ve en el seguimiento del trabajo (tipo Uber).
+  const mapWorkers = ambientWorkers;
+
   // ─── Radar del trabajador ─────────────────────────────
   useEffect(() => {
     if (!professional?.id || !userId) return;
@@ -755,7 +1014,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   const pedirConsentimientoUbicacion = () => new Promise((resolve) => {
     Alert.alert(
       '📍 Ubicación mientras trabajás',
-      'GOVOLT usa tu ubicación —incluso en segundo plano y con la app minimizada— ' +
+      'BOLT usa tu ubicación —incluso en segundo plano y con la app minimizada— ' +
       'únicamente mientras tenés tu disponibilidad activada, para que los clientes ' +
       'vean tu recorrido en tiempo real durante un trabajo en curso.\n\n' +
       'No se rastrea tu ubicación cuando estás fuera de servicio. Podés desactivarla ' +
@@ -805,8 +1064,16 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   };
 
   const handleEmergencyPress = async () => {
-    if (!userLocation?.latitude) {
-      Alert.alert('Ubicación requerida', 'Activá el GPS para buscar el profesional más cercano.');
+    // Intentamos asegurar la ubicación en el momento (con permiso + fix robusto)
+    const loc = await ensureLocation();
+    if (!loc) {
+      // Distinguimos el motivo real para no mentirle al usuario
+      const permGranted = await locationService.requestPermission();
+      if (!permGranted) {
+        Alert.alert('Ubicación requerida', 'Activá el permiso de ubicación para BOLT en los ajustes del teléfono.');
+      } else {
+        Alert.alert('No pudimos obtener tu ubicación', 'Asegurate de tener el GPS encendido y probá de nuevo.');
+      }
       return;
     }
     setEmergencyWorker(null);
@@ -814,7 +1081,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     setEmergencyLoading(true);
     try {
       const nearest = await professionalService.getNearestAvailable(
-        userLocation.latitude, userLocation.longitude
+        loc.latitude, loc.longitude
       );
       setEmergencyWorker(nearest || null);
       if (!nearest) {
@@ -834,6 +1101,15 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     setShowEmergency(false);
     const profession = { id: worker.profession_id, name: worker.profession_name };
     onRequestJob?.(worker, profession, userLocation);
+  };
+
+  // Abre el asistente asegurando la ubicación primero (mismo patrón que la
+  // búsqueda de emergencia): así no llega null al asistente cuando el fix de
+  // GPS todavía no se obtuvo. Si no se puede, abre igual (sin ubicación) para
+  // no bloquear al usuario; el asistente permite ingresar la dirección a mano.
+  const openAssistantWithLocation = async (mode) => {
+    const loc = await ensureLocation();
+    onOpenAssistant?.(loc || userLocation, mode);
   };
 
   // ─── Drawer navigation ───────────────────────────────
@@ -857,10 +1133,10 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
     return <ProfileScreen session={session} professional={professional} onClose={() => setShowProfile(false)} />;
   }
   if (showHistory) {
-    return <HistoryScreen session={session} professional={professional} onClose={() => setShowHistory(false)} />;
+    return <HistoryScreen session={session} professional={professional} onClose={() => setShowHistory(false)} onOpenJob={(job) => { setShowHistory(false); onActiveJob?.(job); }} />;
   }
   if (showWorkerPanel && professional) {
-    return <WorkerDashboardScreen professional={professional} session={session} onClose={() => setShowWorkerPanel(false)} />;
+    return <WorkerDashboardScreen professional={professional} session={session} onClose={() => setShowWorkerPanel(false)} onAvailabilityChange={setAvailable} />;
   }
   if (showAdmin) {
     return <AdminScreen session={session} onClose={() => setShowAdmin(false)} />;
@@ -873,6 +1149,8 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
   }
 
   // ─── RENDER ──────────────────────────────────────────
+  const hasActiveJob = activeJob && ['pending','accepted','arrived','in_progress','awaiting_payment'].includes(activeJob.status);
+
   return (
     <View style={styles.container}>
 
@@ -889,71 +1167,96 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
       {/* MAPA */}
       <VoltMap
         userLocation={userLocation}
-        workers={workers}
-        onWorkerPress={selectWorker}
+        workers={mapWorkers}
+        onWorkerPress={handleAmbientPress}
+        onAmbientPress={handleAmbientPress}
         style={StyleSheet.absoluteFill}
       />
 
+      {/* Burbuja arrastrable de trabajo en curso (volver al seguimiento) */}
+      {hasActiveJob && <DraggableBubble icon="navigate" onPress={onResumeJob} dotColor="#4CAF50" />}
+
       {/* BARRA SUPERIOR */}
       <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
-        <View style={styles.topBar}>
+        {/* Fila 1 — marca (menú + logo) */}
+        <View style={styles.brandRow}>
           {/* Hamburguesa */}
           <TouchableOpacity style={styles.addBtn} onPress={() => setShowDrawer(true)}>
             <Ionicons name="menu" size={24} color="#FFD600" />
           </TouchableOpacity>
 
-          {/* Buscador */}
-          <View style={styles.searchWrap}>
-            <Ionicons name="search" size={16} color="#888" style={{ marginLeft: 12 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="¿Qué profesional buscás?"
-              placeholderTextColor="#555"
-              value={query}
-              onChangeText={setQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {query.length > 0 && (
-              <TouchableOpacity onPress={clearProfession} style={{ paddingHorizontal: 12 }}>
-                <Ionicons name="close-circle" size={18} color="#555" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Logo — long-press 3s activa Demo Mode */}
+          {/* Logo — mantené apretado 1.5s para el modo demo */}
           <TouchableOpacity
-            onLongPress={() => { setDemoOn(v => !v); toggleDemo(); }}
-            delayLongPress={3000}
+            onLongPress={() => {
+              if (!isDemoMode()) toggleDemo();
+              setDemoOn(true);
+              Alert.alert(
+                '⚡ Modo demo',
+                'Mirá la app de punta a punta, sin datos reales. ¿Desde qué lado querés verla?',
+                [
+                  { text: 'Salir', style: 'cancel', onPress: () => { if (isDemoMode()) toggleDemo(); setDemoOn(false); } },
+                  { text: '🔧 Trabajador', onPress: startWorkerDemo },
+                  { text: '👤 Cliente', onPress: startDemo },
+                ],
+              );
+            }}
+            delayLongPress={1500}
             activeOpacity={1}
           >
-            <Text style={[styles.logoText, demoOn && { color: '#FFD600', opacity: 0.7 }]}>GOVOLT</Text>
+            <Text style={[styles.logoText, demoOn && { color: '#FFD600', opacity: 0.7 }]}>BOLT</Text>
           </TouchableOpacity>
+
+          {/* Espaciador para centrar el logo (mismo ancho que la hamburguesa) */}
+          <View style={{ width: 46 }} />
+        </View>
+
+        {/* Fila 2 — BUSCADOR protagonista: es la PUERTA al asistente conversacional */}
+        <View style={styles.searchBlock}>
+          <TouchableOpacity style={styles.searchWrap} activeOpacity={0.85} onPress={() => openAssistantWithLocation('text')}>
+            <Ionicons name="search" size={20} color="#FFD600" style={{ marginLeft: 14 }} />
+            <Text style={styles.searchPlaceholder}>¿Qué necesitás resolver?</Text>
+            <View style={styles.searchTools}>
+              <TouchableOpacity style={styles.searchTool} onPress={() => openAssistantWithLocation('audio')}>
+                <Ionicons name="mic-outline" size={19} color="#FFD600" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.searchTool} onPress={() => openAssistantWithLocation('camera')}>
+                <Ionicons name="camera-outline" size={19} color="#FFD600" />
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.searchHint}>Escribí · mandá un audio · o una foto</Text>
         </View>
 
         {/* Resultados del buscador */}
         {results.length > 0 && (
           <View style={styles.searchResults}>
             {results.map(p => (
-              <TouchableOpacity key={p.id} style={styles.searchItem} onPress={() => selectProfession(p)}>
-                <Ionicons name="flash-outline" size={16} color="#FFD600" />
-                <Text style={styles.searchItemText}>{p.name}</Text>
+              <TouchableOpacity key={p.id} style={styles.searchItem} onPress={() => { setQuery(''); onRequestJob?.(null, p, userLocation); }}>
+                <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFD600" />
+                <Text style={styles.searchItemText}>Contar mi problema y pedir {p.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
 
-        {/* Chip de profesión seleccionada */}
-        {selectedProfession && workers.length === 0 && (
-          <View style={styles.emptyChip}>
-            <Ionicons name="people-outline" size={16} color="#888" />
-            <Text style={styles.emptyChipText}>No hay {selectedProfession.name.toLowerCase()}s disponibles cerca</Text>
-          </View>
-        )}
-        {selectedProfession && workers.length > 0 && (
+        {/* Chip de actividad de la ciudad — pantalla inicial (sin oficio elegido) */}
+        {!selectedProfession && ambientWorkers.length > 0 && (
           <View style={styles.countChip}>
             <View style={styles.countDot} />
-            <Text style={styles.countChipText}>{workers.length} disponible{workers.length > 1 ? 's' : ''} cerca</Text>
+            <Text style={styles.countChipText}>
+              ⚡ {ambientWorkers.length} profesionales activos cerca tuyo
+            </Text>
+          </View>
+        )}
+
+        {/* Chip de profesión seleccionada — invita a describir el problema
+            (NO expone el conteo real de trabajadores: el mapa es solo visual) */}
+        {selectedProfession && (
+          <View style={styles.countChip}>
+            <View style={styles.countDot} />
+            <Text style={styles.countChipText}>
+              Contá tu problema y te ofrecemos {selectedProfession.name.toLowerCase()}s de la zona
+            </Text>
           </View>
         )}
       </SafeAreaView>
@@ -967,13 +1270,9 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
           {/* Handle de arrastre */}
           <View style={styles.panelHandle} />
 
-          {/* Título + 911 — siempre visible al abrir el panel */}
+          {/* Título del panel */}
           <View style={styles.panelTitleRow}>
             <Text style={styles.panelTitle}>¿Qué necesitás?</Text>
-            <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
-              <Ionicons name="call" size={18} color="#ff4444" />
-              <Text style={styles.emergencyBtnText}>911</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Chips de profesiones — siempre visibles */}
@@ -991,48 +1290,32 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
                   onPress={() => active ? clearProfession() : selectProfession(p)}
                   activeOpacity={0.75}
                 >
-                  <Ionicons name="flash" size={14} color={active ? '#0A0A0A' : '#FFD600'} />
+                  <Ionicons name="flash" size={15} color="#0A0A0A" />
                   <Text style={[styles.profChipText, active && styles.profChipTextActive]}>{p.name}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* Botón solicitud directa — visible cuando hay profesionales disponibles */}
-          {selectedProfession && workers.length > 0 && (
+          {/* Botón solicitud directa — SIEMPRE que haya oficio elegido. Lleva a describir
+              el problema; los profesionales (hasta 3) se ofrecen dentro de JobRequestScreen,
+              NO se eligen acá ni por el mapa. */}
+          {selectedProfession && (
             <TouchableOpacity
               style={styles.directRequestBtn}
               onPress={() => onRequestJob?.(null, selectedProfession, userLocation)}
               activeOpacity={0.85}
             >
-              <Ionicons name="flash" size={18} color="#0A0A0A" />
+              <Ionicons name="chatbubble-ellipses" size={18} color="#0A0A0A" />
               <Text style={styles.directRequestBtnText}>
-                Solicitar {selectedProfession.name}
+                Contar mi problema y pedir {selectedProfession.name}
               </Text>
-              <View style={styles.directRequestCount}>
-                <View style={styles.directRequestDot} />
-                <Text style={styles.directRequestCountText}>
-                  {workers.length} disponible{workers.length > 1 ? 's' : ''}
-                </Text>
-              </View>
+              <Ionicons name="arrow-forward" size={18} color="#0A0A0A" />
             </TouchableOpacity>
           )}
 
-          {/* Banner método de pago — solo para clientes sin pago verificado */}
-          {!professional && !paymentVerified && (
-            <TouchableOpacity
-              style={styles.paymentBanner}
-              onPress={() => setShowProfile(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontSize: 18 }}>💳</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.paymentBannerTitle}>Configurá tu método de pago</Text>
-                <Text style={styles.paymentBannerSub}>Mercado Pago · Tocá para ver tu perfil</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#FFD600" />
-            </TouchableOpacity>
-          )}
+          {/* (El método de pago del cliente se configura en Mi Perfil; antes había un
+              banner acá que tapaba los chips en el panel de altura fija. Removido.) */}
 
           {/* Demo Mode — visible solo cuando está activo (se activa desde DemoToggle oculto por long-press) */}
           {!professional && demoOn && (
@@ -1053,23 +1336,8 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
           )}
 
 
-          {/* Botón Emergencia — solo para clientes */}
-          {!professional && (
-            <TouchableOpacity
-              style={styles.emergencyBtn}
-              onPress={handleEmergencyPress}
-              activeOpacity={0.85}
-            >
-              <View style={styles.emergencyBtnLeft}>
-                <Text style={styles.emergencyBtnEmoji}>🚨</Text>
-                <View>
-                  <Text style={styles.emergencyBtnTitle}>Emergencia</Text>
-                  <Text style={styles.emergencyBtnSub}>Profesional disponible más cercano · Ahora</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#ff4444" />
-            </TouchableOpacity>
-          )}
+          {/* (Botón de Emergencia removido del inicio. La emergencia/pánico va durante
+              el trabajo, cuando el profesional está en el domicilio — JobTrackingScreen.) */}
 
           {/* Mis profesionales — red personal de confianza */}
           {!professional && favorites.length > 0 && (
@@ -1159,29 +1427,59 @@ const HomeScreen = ({ session, professional, onRequestJob, onActiveJob, onIncomi
 // ─── ESTILOS ──────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
+  activeJobBanner: {
+    marginHorizontal: 14, marginTop: 6, marginBottom: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16,
+    elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+  },
+  activeJobPulse: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#0A0A0A' },
+  activeJobTitle: { fontSize: 14, fontWeight: '900', color: '#0A0A0A' },
+  activeJobSub:   { fontSize: 12, fontWeight: '700', color: '#0A0A0A', opacity: 0.7 },
   map: { ...StyleSheet.absoluteFillObject },
 
   // Barra superior
   topOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
   },
-  topBar: {
-    flexDirection: 'row', alignItems: 'center',
+  brandRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: Platform.OS === 'android' ? 36 : 8,
-    paddingBottom: 8, gap: 10,
+    paddingBottom: 4,
+  },
+  searchBlock: {
+    paddingHorizontal: 16, paddingTop: 6,
   },
   logoText: {
     fontWeight: '900', fontSize: 20, color: '#FFD600', letterSpacing: 4,
   },
   searchWrap: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(15,15,15,0.95)',
-    borderRadius: 14, borderWidth: 1, borderColor: '#222',
-    height: 46,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(18,18,18,0.96)',
+    borderRadius: 18, borderWidth: 1.5, borderColor: 'rgba(255,214,0,0.45)',
+    height: 58,
+    shadowColor: '#FFD600', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.18, shadowRadius: 10, elevation: 6,
   },
   searchInput: {
-    flex: 1, color: '#F5F5F5', fontSize: 14,
-    paddingHorizontal: 8,
+    flex: 1, color: '#F5F5F5', fontSize: 15, fontWeight: '600',
+    paddingHorizontal: 10,
+  },
+  searchPlaceholder: {
+    flex: 1, color: '#777', fontSize: 15, fontWeight: '600',
+    paddingHorizontal: 10,
+  },
+  searchTools: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 8,
+  },
+  searchTool: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: 'rgba(255,214,0,0.10)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  searchHint: {
+    fontSize: 11.5, color: '#666', fontWeight: '600',
+    marginTop: 9, marginLeft: 6,
   },
   addBtn: {
     width: 46, height: 46, borderRadius: 14,
@@ -1316,23 +1614,23 @@ const styles = StyleSheet.create({
     fontSize: 13, fontWeight: '700', color: '#555',
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  emergencyBtn: {
+  call911Btn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: 10, borderWidth: 1.5, borderColor: '#ff444460',
     backgroundColor: 'rgba(255,68,68,0.09)',
   },
-  emergencyBtnText: { color: '#ff4444', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
+  call911Text: { color: '#ff4444', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
 
   chipsContent: { gap: 8, paddingRight: 8 },
   profChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: '#111', borderRadius: 22,
-    borderWidth: 1, borderColor: '#222',
-    paddingVertical: 11, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFD600', borderRadius: 14,
+    borderWidth: 2, borderColor: '#FFD600',
+    paddingVertical: 14, paddingHorizontal: 20,
   },
-  profChipActive: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
-  profChipText: { fontSize: 15, color: '#aaa', fontWeight: '600' },
+  profChipActive: { backgroundColor: '#FFD600', borderColor: '#0A0A0A' },
+  profChipText: { fontSize: 16, color: '#0A0A0A', fontWeight: '800', includeFontPadding: false, textAlignVertical: 'center' },
   profChipTextActive: { color: '#0A0A0A' },
 
   // Radar
@@ -1456,13 +1754,13 @@ const styles = StyleSheet.create({
   emergencyBtn: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,68,68,0.07)',
-    borderWidth: 1.5, borderColor: 'rgba(255,68,68,0.25)',
-    borderRadius: 16, padding: 16, gap: 12,
+    borderWidth: 1, borderColor: 'rgba(255,68,68,0.22)',
+    borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, gap: 10,
   },
-  emergencyBtnLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  emergencyBtnEmoji: { fontSize: 28 },
-  emergencyBtnTitle: { fontSize: 16, fontWeight: '900', color: '#ff4444', marginBottom: 2 },
-  emergencyBtnSub:   { fontSize: 12, color: '#884444' },
+  emergencyBtnLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  emergencyBtnEmoji: { fontSize: 20 },
+  emergencyBtnTitle: { fontSize: 13.5, fontWeight: '800', color: '#ff4444', marginBottom: 1 },
+  emergencyBtnSub:   { fontSize: 11, color: '#884444' },
 
   // ── Mis profesionales ────────────────────────────────────────────────────────
   misSectionWrap: { gap: 10 },

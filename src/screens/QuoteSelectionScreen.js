@@ -7,12 +7,14 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
+import paymentService from '../services/paymentService';
+import { chargesInApp, isFreeMode } from '../config/monetization';
 import ReputationCard from '../components/ReputationCard';
 import volt from '../utils/voltVoice';
 import { isDemoMode } from '../demo/demoMode';
 import demoJobService from '../demo/demoJobService';
 
-const TIMEOUT_SEC = 45;
+const TIMEOUT_SEC = 60;
 
 // ─── Tarjeta de propuesta de un profesional ────────────────────────────────
 const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCompare, compareDisabled }) => {
@@ -67,10 +69,12 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
             {completed > 0 && <Text style={styles.ratingJobs}>· {completed} trabajos</Text>}
           </View>
         </View>
-        <View style={styles.priceWrap}>
-          <Text style={styles.priceLabel}>Visita</Text>
-          <Text style={styles.priceVal}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
-        </View>
+        {!isFreeMode() && (
+          <View style={styles.priceWrap}>
+            <Text style={styles.priceLabel}>Visita</Text>
+            <Text style={styles.priceVal}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
+          </View>
+        )}
       </View>
 
       {/* Llegada estimada */}
@@ -182,12 +186,14 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
                 <Text style={styles.modalJobText}>Llega en {job.arrival_estimate}</Text>
               </View>
             )}
-            <View style={styles.modalJobRow}>
-              <Ionicons name="card-outline" size={16} color="#FFD600" />
-              <Text style={styles.modalJobText}>
-                Visita: ${(job.visit_amount || 30000).toLocaleString('es-AR')}
-              </Text>
-            </View>
+            {!isFreeMode() && (
+              <View style={styles.modalJobRow}>
+                <Ionicons name="card-outline" size={16} color="#FFD600" />
+                <Text style={styles.modalJobText}>
+                  Visita: ${(job.visit_amount || 30000).toLocaleString('es-AR')}
+                </Text>
+              </View>
+            )}
             {job.work_duration_est && (
               <View style={styles.modalJobRow}>
                 <Ionicons name="time-outline" size={16} color="#888" />
@@ -233,7 +239,7 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
 const CompareModal = ({ jobs, onClose, onSelect, selecting }) => {
   const METRICS = [
     { key: 'arrival',   label: 'Llega en',      get: j => j.arrival_estimate || '—' },
-    { key: 'price',     label: 'Visita',         get: j => `$${(j.visit_amount || 30000).toLocaleString('es-AR')}` },
+    ...(!isFreeMode() ? [{ key: 'price', label: 'Visita', get: j => `$${(j.visit_amount || 30000).toLocaleString('es-AR')}` }] : []),
     { key: 'rating',    label: 'Calificación',   get: j => {
       const r = parseFloat(j.professionals?.effective_rating ?? j.professionals?.avg_rating) || 0;
       return r ? r.toFixed(1) + ' ★' : '—';
@@ -317,7 +323,7 @@ const CompareModal = ({ jobs, onClose, onSelect, selecting }) => {
   );
 };
 
-// ─── GOVOLT: genera recomendación basada en datos reales ────────────────────
+// ─── BOLT: genera recomendación basada en datos reales ────────────────────
 const getVoltRecommendation = (respondedJobs) => {
   if (!respondedJobs.length) return null;
   if (respondedJobs.length === 1) {
@@ -348,11 +354,11 @@ const getVoltRecommendation = (respondedJobs) => {
   return { jobId: top.id, message: volt.recommendGeneral(name) };
 };
 
-// ─── Tarjeta GOVOLT ─────────────────────────────────────────────────────────
+// ─── Tarjeta BOLT ─────────────────────────────────────────────────────────
 const VoltCard = ({ message }) => (
   <View style={voltCardStyles.wrap}>
     <View style={voltCardStyles.badge}>
-      <Text style={voltCardStyles.badgeText}>⚡ GOVOLT</Text>
+      <Text style={voltCardStyles.badgeText}>⚡ BOLT</Text>
     </View>
     <Text style={voltCardStyles.message}>{message}</Text>
   </View>
@@ -388,7 +394,7 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
   const rows = [
     { icon: 'construct-outline',  label: 'Servicio',           val: job.professions?.name || '—',                       color: '#FFD600' },
     { icon: 'navigate-outline',   label: 'Llegada estimada',   val: job.arrival_estimate || '—',                        color: '#4285F4' },
-    { icon: 'card-outline',       label: 'Visita',             val: `$${(job.visit_amount || 30000).toLocaleString('es-AR')}`, color: '#FFD600' },
+    ...(!isFreeMode() ? [{ icon: 'card-outline', label: 'Visita', val: `$${(job.visit_amount || 30000).toLocaleString('es-AR')}`, color: '#FFD600' }] : []),
     { icon: 'cart-outline',       label: 'Materiales',         val: hasMats ? 'No incluidos' : 'No necesarios',         color: hasMats ? '#FF9800' : '#4CAF50' },
     { icon: 'time-outline',       label: 'Duración estimada',  val: duration || 'A confirmar al llegar',                color: '#888' },
   ];
@@ -449,6 +455,18 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
               </Text>
             </View>
           )}
+
+          {/* Aviso de pago: escrow (modo comisión) o pago directo (modo gratis) */}
+          <View style={{ flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: '#0d1a10', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#33d17a40' }}>
+            <Ionicons name={chargesInApp() ? 'lock-closed' : 'information-circle-outline'} size={16} color="#33d17a" />
+            <Text style={{ flex: 1, color: '#9fcaa9', fontSize: 12.5, lineHeight: 18 }}>
+              {chargesInApp() ? (
+                <>Al confirmar abonás la visita de <Text style={{ fontWeight: '800', color: '#fff' }}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>. El dinero queda <Text style={{ fontWeight: '800', color: '#33d17a' }}>retenido por BOLT</Text> y se libera al profesional recién cuando finalizás el trabajo.</>
+              ) : (
+                <>El precio lo acordás <Text style={{ fontWeight: '800', color: '#fff' }}>directamente con el profesional</Text>. El pago es entre ustedes (efectivo, transferencia, lo que prefieran). BOLT te conecta, sin intermediar el cobro.</>
+              )}
+            </Text>
+          </View>
 
           {/* Botón confirmar */}
           <TouchableOpacity
@@ -574,13 +592,30 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, onSelected, onE
     subsRef.current = svc.subscribeQuoteJobs(jobIds, (updated) => {
       setJobs(prev => prev.map(j => j.id === updated.id ? { ...j, ...updated } : j));
     });
+
+    // Polling de respaldo: el Realtime puede no entregar los UPDATE (RLS con
+    // subconsulta, red intermitente). Sin esto, el cliente nunca vería que un
+    // profesional aceptó y el flujo queda colgado. Refrescamos cada 4 s.
+    const pollQuotes = setInterval(async () => {
+      if (isDemoMode()) return;
+      try {
+        const fresh = await jobService.getQuoteGroup(quoteGroupId);
+        if (fresh?.length) {
+          setJobs(prev => prev.map(j => {
+            const f = fresh.find(x => x.id === j.id);
+            return f ? { ...j, ...f } : j;
+          }));
+        }
+      } catch { /* silent */ }
+    }, 4000);
+
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
         if (t <= 1) { clearInterval(timerRef.current); setExpired(true); return 0; }
         return t - 1;
       });
     }, 1000);
-    return () => { clearInterval(timerRef.current); subsRef.current?.unsubscribe?.(); };
+    return () => { clearInterval(timerRef.current); clearInterval(pollQuotes); subsRef.current?.unsubscribe?.(); };
   }, []);
 
   // ── Detección de abandono ─────────────────────────────────────────────────
@@ -642,6 +677,29 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, onSelected, onE
     try {
       const svc = isDemoMode() ? demoJobService : jobService;
       const confirmed = await svc.selectFromQuoteGroup(job.id, quoteGroupId);
+
+      // Cobrar la VISITA del profesional elegido (solo si la app cobra por dentro,
+      // modo 'commission'). En modo gratis NO se cobra: el cliente coordina el pago
+      // directo con el profesional, así que confirmamos sin pasar por el cobro.
+      if (!isDemoMode() && chargesInApp()) {
+        try {
+          const result = await paymentService.pay({ jobId: job.id, visitOnly: true });
+          if (result !== 'success') {
+            Alert.alert(
+              'Falta abonar la visita',
+              'Para confirmar al profesional tenés que abonar la visita. El dinero queda retenido por BOLT y recién se libera cuando finaliza el trabajo.'
+            );
+            setSelecting(false);
+            return;
+          }
+          await jobService.markVisitPaid(job.id);
+        } catch {
+          Alert.alert('Error con el pago', 'No se pudo procesar el pago de la visita. Intentá de nuevo.');
+          setSelecting(false);
+          return;
+        }
+      }
+
       const declined  = jobs.filter(j => j.id !== job.id && j.status === 'accepted');
       await Promise.all(declined.map(j =>
         notificationService.sendToUser(j.professionals?.user_id, {
@@ -757,7 +815,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, onSelected, onE
           <Text style={styles.sectionBadgeText}>PROPUESTAS</Text>
         </View>
 
-        {/* Recomendación de GOVOLT */}
+        {/* Recomendación de BOLT */}
         {respondedJobs.length > 0 && (() => {
           const rec = getVoltRecommendation(respondedJobs);
           return rec ? <VoltCard message={rec.message} /> : null;

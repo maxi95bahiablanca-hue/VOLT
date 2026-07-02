@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GOVOLT — Panel de prestadores</title>
+<title>BOLT — Panel de prestadores</title>
 <meta name="robots" content="noindex">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
@@ -56,7 +56,16 @@
   .lead-meta{font-size:.82rem;color:var(--muted);margin-top:6px;line-height:1.7}
   .lead-meta b{color:var(--text);font-weight:600}
   .lead-actions{display:flex;flex-direction:column;gap:7px;min-width:150px}
-  .wa{background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.3);color:#25D366;border-radius:10px;padding:9px;text-align:center;font-weight:700;font-size:.82rem}
+  .wa{background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.3);color:#25D366;border-radius:10px;padding:9px;text-align:center;font-weight:700;font-size:.82rem;cursor:pointer}
+  .accept{background:var(--green);color:#062;border:none;border-radius:10px;padding:10px;text-align:center;font-weight:800;font-size:.84rem;cursor:pointer}
+  .accept.is-on{background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.4);cursor:default}
+  .docs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .doc{font-size:.72rem;font-weight:700;color:var(--blue);background:rgba(77,171,247,.1);border:1px solid rgba(77,171,247,.3);border-radius:8px;padding:4px 9px}
+  .doc.none{color:var(--muted2);background:transparent;border-color:var(--bord)}
+  .ante{display:inline-block;font-size:.72rem;font-weight:700;border-radius:8px;padding:2px 8px;margin-top:6px}
+  .ante.ok{color:var(--green);background:rgba(0,214,143,.12)}
+  .ante.mid{color:var(--yellow);background:rgba(255,214,0,.12)}
+  .ante.no{color:var(--red);background:rgba(255,68,102,.12)}
   .estado-sel{font-size:.82rem}
   .badge{display:inline-block;font-size:.66rem;font-weight:800;border-radius:7px;padding:2px 8px;text-transform:uppercase;letter-spacing:.5px}
   .b-nuevo{background:rgba(77,171,247,.15);color:var(--blue)}
@@ -69,7 +78,7 @@
 <body>
 
 <nav><div class="nav-in">
-  <div class="logo">GO<span>VOLT</span> · Prestadores</div>
+  <div class="logo">BO<span>LT</span> · Prestadores</div>
   <div class="logout" id="logoutBtn" style="display:none" onclick="logout()">Salir</div>
 </div></nav>
 
@@ -104,6 +113,7 @@
 
   <div class="section-ttl">📋 Registros</div>
   <div class="filters">
+    <select id="fCiudad" onchange="render()"><option value="">Todas las ciudades</option></select>
     <select id="fProf" onchange="render()"><option value="">Todas las profesiones</option></select>
     <select id="fEstado" onchange="render()">
       <option value="">Todos los estados</option>
@@ -158,6 +168,23 @@
 
   async function logout(){ await sb.auth.signOut(); location.reload(); }
 
+  // El bucket prestador-docs es PRIVADO: los docs se abren con una signed URL
+  // generada con la sesión del admin. Soporta registros viejos que guardaron
+  // la URL pública completa (se les extrae el path).
+  async function openDoc(stored){
+    try {
+      let path = stored;
+      const marker = '/prestador-docs/';
+      if (stored.includes(marker)) path = decodeURIComponent(stored.split(marker).pop());
+      const { data, error } = await sb.storage.from('prestador-docs').createSignedUrl(path, 600);
+      if (error || !data?.signedUrl) throw error || new Error('sin URL');
+      window.open(data.signedUrl, '_blank');
+    } catch (e){
+      alert('No se pudo abrir el documento. ¿Estás logueado como admin?');
+      console.warn('openDoc', e);
+    }
+  }
+
   function enterApp(){
     document.getElementById('loginBox').style.display = 'none';
     document.getElementById('app').style.display = 'block';
@@ -173,12 +200,31 @@
     const profs = [...new Set(LEADS.map(l => l.profesion))].sort();
     const sel = document.getElementById('fProf');
     sel.innerHTML = '<option value="">Todas las profesiones</option>' + profs.map(p => `<option>${esc(p)}</option>`).join('');
+    // llenar filtro de ciudades
+    const cities = [...new Set(LEADS.map(l => l.ciudad).filter(Boolean))].sort();
+    const selC = document.getElementById('fCiudad');
+    selC.innerHTML = '<option value="">Todas las ciudades</option>' + cities.map(c => `<option>${esc(c)}</option>`).join('');
     pintarStats();
     render();
   }
 
   function esc(t){ const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
-  function waLink(tel){ const n=(tel||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10)); return 'https://wa.me/'+full+'?text='+encodeURIComponent('Hola! Te contactamos de GOVOLT por tu registro como profesional. ¿Cómo estás?'); }
+
+  // Mensaje de lanzamiento completo, listo para enviar (1-click)
+  function waMensaje(l){
+    const nombre = (l.nombre||'').trim();
+    const saludo = nombre ? `Hola ${nombre}!` : 'Hola!';
+    return `${saludo} Soy Maximiliano, del equipo de BOLT, y te contacto por tu registro como profesional. ¿Cómo estás?
+
+Te cuento que ya estás aceptado y sos de los primeros del cupo. 🎉
+
+La aplicación está prevista para lanzarse en 30/45 días aproximadamente, y te vamos a avisar por mail y WhatsApp.
+
+En principio todo va a ser gratuito, y vamos a lanzar una campaña de publicidad masiva una vez registrados todos los trabajadores.
+
+Cualquier consulta o duda, quedo a tu disposición. ¡Muchas gracias!`;
+  }
+  function waLink(l){ const n=(l.telefono||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10)); return 'https://wa.me/'+full+'?text='+encodeURIComponent(waMensaje(l)); }
 
   function pintarStats(){
     const total = LEADS.length;
@@ -204,9 +250,11 @@
   }
 
   function render(){
+    const fc = document.getElementById('fCiudad').value;
     const fp = document.getElementById('fProf').value;
     const fe = document.getElementById('fEstado').value;
     let list = LEADS;
+    if (fc) list = list.filter(l => l.ciudad === fc);
     if (fp) list = list.filter(l => l.profesion === fp);
     if (fe) list = list.filter(l => (l.estado||'nuevo') === fe);
     document.getElementById('countPill').textContent = list.length + ' registro' + (list.length!==1?'s':'');
@@ -216,35 +264,89 @@
     document.getElementById('leads').innerHTML = list.map(l => {
       const est = l.estado || 'nuevo';
       const fecha = new Date(l.created_at).toLocaleDateString('es-AR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      const ante = l.antecedentes || '';
+      const anteCls = /vigente/i.test(ante)?'ok':/tr[aá]mite/i.test(ante)?'mid':ante?'no':'';
+      const doc = (url,label)=> url
+        ? `<a class="doc" href="#" onclick="openDoc('${esc(url)}');return false">${label} ↗</a>`
+        : `<span class="doc none">${label} —</span>`;
+      const aceptado = est==='aceptado';
       return `<div class="lead">
         <div class="lead-main">
           <span class="lead-name">${esc(l.nombre)} ${esc(l.apellido||'')}</span>
           <span class="badge b-${est}" style="margin-left:8px">${est}</span>
-          <div><span class="lead-prof">${esc(l.profesion)}</span></div>
+          <div><span class="lead-prof">${esc(l.profesion)}</span>${l.matricula?` <span class="lead-prof" style="color:var(--blue);background:rgba(77,171,247,.1);border-color:rgba(77,171,247,.25)">📋 ${esc(l.matricula)}</span>`:''}</div>
           <div class="lead-meta">
-            ${l.zona?`📍 <b>${esc(l.zona)}</b> · `:''}📱 <b>${esc(l.telefono)}</b>
+            ${l.ciudad?`🏙️ <b>${esc(l.ciudad)}</b> · `:''}${l.zona?`📍 ${esc(l.zona)} · `:''}📱 <b>${esc(l.telefono)}</b>
+            ${l.dni?`<br>🪪 DNI: <b>${esc(l.dni)}</b>`:''}${l.fecha_nac?` · 🎂 ${esc(l.fecha_nac)}`:''}
+            ${l.email?`<br>✉️ ${esc(l.email)}`:''}
+            ${l.domicilio?`<br>🏠 ${esc(l.domicilio)}`:''}
             ${l.precio_visita?`<br>💳 Visita: <b>$${Number(l.precio_visita).toLocaleString('es-AR')}</b>`:''}
             ${l.experiencia?` · 🔧 ${esc(l.experiencia)}`:''}
             <br><span style="color:var(--muted2)">${esc(l.fuente||'landing')} · ${fecha}</span>
           </div>
+          ${ante?`<span class="ante ${anteCls}">🛡️ ${esc(ante)}</span>`:''}
+          <div class="docs">
+            ${doc(l.dni_frente_url,'DNI frente')}
+            ${doc(l.dni_dorso_url,'DNI dorso')}
+            ${doc(l.antecedentes_url,'Antecedentes')}
+            ${doc(l.monotributo_url,'Monotributo')}
+            ${doc(l.selfie_url,'Selfie')}
+          </div>
         </div>
         <div class="lead-actions">
-          <a class="wa" href="${waLink(l.telefono)}" target="_blank">💬 WhatsApp</a>
-          <select class="estado-sel" onchange="cambiarEstado('${l.id}', this.value)">
+          <a class="wa" href="${waLink(l)}" target="_blank">💬 WhatsApp</a>
+          ${aceptado
+            ? `<div class="accept is-on">✓ Aceptado</div>`
+            : `<button class="accept" onclick="aceptar('${l.id}')">✅ Aceptar y avisar</button>`}
+          <select class="estado-sel" onchange="setEstado('${l.id}', this.value)">
             <option value="nuevo" ${est==='nuevo'?'selected':''}>🔵 Nuevo</option>
             <option value="contactado" ${est==='contactado'?'selected':''}>🟡 Contactado</option>
             <option value="aceptado" ${est==='aceptado'?'selected':''}>🟢 Aceptado</option>
             <option value="rechazado" ${est==='rechazado'?'selected':''}>🔴 Rechazado</option>
           </select>
+          <button class="estado-sel" style="background:rgba(255,68,68,.12);border:1px solid rgba(255,68,68,.35);color:#ff6b6b;cursor:pointer" onclick="eliminar('${l.id}', '${esc(l.nombre)}')">🗑️ Eliminar</button>
         </div>
       </div>`;
     }).join('');
+  }
+
+  // Router del <select>: aceptar dispara mail + WhatsApp; el resto solo cambia estado
+  function setEstado(id, estado){
+    if (estado === 'aceptado') aceptar(id);
+    else cambiarEstado(id, estado);
+  }
+
+  // ACEPTAR = estado aceptado + mail automático + WhatsApp listo para enviar
+  function aceptar(id){
+    const l = LEADS.find(x=>x.id===id); if (!l) return;
+    // 1. WhatsApp 1-click — se abre YA, dentro del gesto del click (evita bloqueo de pop-up).
+    //    Solo si dejó teléfono; queda escrito el mensaje completo, vos tocás "Enviar".
+    if ((l.telefono||'').replace(/\D/g,'').length >= 8) window.open(waLink(l), '_blank');
+    // 2. Estado + mail automático (en paralelo)
+    cambiarEstado(id, 'aceptado');
+    enviarMailAceptado(l);
+  }
+
+  async function enviarMailAceptado(l){
+    if (!l.email){ return; } // sin email no hay nada que mandar (el WhatsApp ya se abrió)
+    try {
+      const { error } = await sb.functions.invoke('notify-lead-accepted', { body: { leadId: l.id } });
+      if (error) console.warn('Mail de aceptación no enviado:', error.message);
+    } catch (e) { console.warn('Mail de aceptación no enviado:', e); }
   }
 
   async function cambiarEstado(id, estado){
     const { error } = await sb.from('prestador_leads').update({ estado }).eq('id', id);
     if (error){ alert('Error: ' + error.message); return; }
     const l = LEADS.find(x=>x.id===id); if (l) l.estado = estado;
+    pintarStats(); render();
+  }
+
+  async function eliminar(id, nombre){
+    if (!confirm('¿Eliminar definitivamente el registro de ' + (nombre || 'este prestador') + '?\n\nEsta acción no se puede deshacer.')) return;
+    const { error } = await sb.rpc('admin_borrar_lead', { p_id: id });
+    if (error){ alert('No se pudo eliminar: ' + error.message); return; }
+    LEADS = LEADS.filter(l => l.id !== id);
     pintarStats(); render();
   }
 

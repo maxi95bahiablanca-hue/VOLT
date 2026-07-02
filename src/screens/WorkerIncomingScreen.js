@@ -10,19 +10,21 @@ import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import chatService from '../services/chatService';
 import volt from '../utils/voltVoice';
+import { isDemoMode } from '../demo/demoMode';
+import { isFreeMode } from '../config/monetization';
 
 const REJECTION_REASONS = [
   { key: 'too_far',      icon: 'navigate-outline',    label: 'Queda muy lejos',         note: 'La distancia supera mi zona de trabajo.' },
   { key: 'busy',         icon: 'time-outline',         label: 'Estoy ocupado ahora',      note: 'No puedo ir en este momento.' },
   { key: 'out_of_scope', icon: 'build-outline',        label: 'No es mi especialidad',    note: 'El trabajo está fuera de mi área.' },
-  { key: 'pricing',      icon: 'cash-outline',         label: 'El precio no me conviene', note: 'El monto de visita no cubre el trabajo.' },
+  { key: 'pricing',      icon: 'cash-outline',         label: 'No me conviene',           note: 'No me conviene tomar este trabajo.' },
   { key: 'personal',     icon: 'alert-circle-outline', label: 'Motivo personal',          note: 'Tengo un inconveniente personal.' },
 ];
 
 const CONFIDENCE_LEVELS = ['Alta', 'Media', 'Baja'];
 const MATERIAL_CHIPS = ['Cable', 'Llave térmica', 'Disyuntor', 'Cañería', 'Sellador', 'Tornillos', 'Pintura', 'Cemento', 'Membrana', 'Otro'];
 
-const TIMEOUT_SEC     = 45;
+const TIMEOUT_SEC     = 60;
 const ARRIVAL_OPTIONS  = ['~15 min', '~30 min', '~45 min', '~1 hora', '+1 hora'];
 const DURATION_OPTIONS = ['~30 min', '~1 hora', '~2 horas', '~3 horas', '+3 horas'];
 const SESSION_OPTIONS  = ['2', '3', '4', '5', '6', '7+'];
@@ -78,9 +80,11 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
         <Text style={alertStyles.address} numberOfLines={2}>
           {job.address || 'Ver dirección en la solicitud'}
         </Text>
-        <Text style={alertStyles.visitAmt}>
-          Visita: ${(job.visit_amount || 30000).toLocaleString('es-AR')}
-        </Text>
+        {!isFreeMode() && (
+          <Text style={alertStyles.visitAmt}>
+            Visita: ${(job.visit_amount || 30000).toLocaleString('es-AR')}
+          </Text>
+        )}
 
         {/* Aceptar rápido — sin completar formulario */}
         <TouchableOpacity
@@ -196,14 +200,18 @@ const DetailsPhase = ({
               <Text style={styles.rowVal}>{job.professions?.name || 'Servicio técnico'}</Text>
             </View>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <View style={styles.rowIcon}><Ionicons name="cash-outline" size={20} color="#FFD600" /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowLabel}>Cobro por visita</Text>
-              <Text style={styles.rowVal}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
-            </View>
-          </View>
+          {!isFreeMode() && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.row}>
+                <View style={styles.rowIcon}><Ionicons name="cash-outline" size={20} color="#FFD600" /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowLabel}>Cobro por visita</Text>
+                  <Text style={styles.rowVal}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
+                </View>
+              </View>
+            </>
+          )}
           <View style={styles.divider} />
           <View style={styles.row}>
             <View style={styles.rowIcon}><Ionicons name="location-outline" size={20} color="#FFD600" /></View>
@@ -438,6 +446,9 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   };
 
   useEffect(() => {
+    // En demo: sin alarma, sin cuenta regresiva ni auto-rechazo (el trabajador decide tranquilo)
+    if (isDemoMode()) return;
+
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
 
     // Alarma solo en fase 'alert'
@@ -503,8 +514,16 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   }) => {
     if (loading) return;
     clearInterval(timerRef.current);
+    // En demo: aceptamos sin tocar el backend y pasamos directo al seguimiento
+    if (isDemoMode()) {
+      onAccepted({ ...job, status: 'accepted', arrival_estimate: arrivalEst || '~12 min',
+        is_multiday: !!isMultiday, estimated_sessions: estimatedSessions,
+        pre_diagnosis: diagnosis || job.pre_diagnosis });
+      return;
+    }
     setLoading(true);
     try {
+      const isQuote = !!job.quote_group_id; // es parte de un grupo de presupuestos
       await jobService.accept(job.id, diagnosis, arrivalEst, materialsNeeded, workDuration);
       if (isMultiday) {
         await jobService.setMultidayConfig(job.id, estimatedSessions, hrsPerSession);
@@ -512,23 +531,30 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
       if (diagData && (diagData.summary || diagData.cause || (diagData.materials?.length > 0))) {
         await jobService.setStructuredDiagnosis(job.id, diagData).catch(() => {});
       }
-      await notificationService.sendToUser(clientUserId, {
-        title: '⚡ ESTÁ POR LLEGAR UN GOVOLT',
-        body:  `POR FAVOR PEDILE EL CÓDIGO ANTES DE ABRIR LA PUERTA. Llega en ${arrivalEst}.`,
-        data:  { jobId: job.id, screen: 'tracking' },
-      }).catch(() => {});
       const firstName = professional?.first_name || 'El profesional';
-      // Mensajes automáticos del sistema en el chat
-      chatService.sendSystemMessage(job.id, volt.chatAccepted).catch(() => {});
-      chatService.sendSystemMessage(job.id, volt.chatInTransit).catch(() => {});
-      await jobService.addEvent(job.id, 'accepted',      `${firstName} aceptó tu solicitud.`).catch(() => {});
-      await jobService.addEvent(job.id, 'reviewing',     `${firstName} está revisando los detalles del trabajo.`).catch(() => {});
-      if (job.problem_photo_url) {
-        await jobService.addEvent(job.id, 'photo_reviewed', `${firstName} revisó las imágenes enviadas.`).catch(() => {});
+      if (isQuote) {
+        // PRESUPUESTO: el cliente todavía no eligió. Solo registramos la propuesta.
+        // La notificación de "voy en camino" y los eventos de viaje se disparan
+        // recién cuando el cliente lo elige (en JobTrackingScreen).
+        await jobService.addEvent(job.id, 'quote_sent', `Revisó tu pedido 👀`).catch(() => {});
+      } else {
+        // TRABAJO DIRECTO: arranca el viaje ya.
+        await notificationService.sendToUser(clientUserId, {
+          title: '⚡ ESTÁ POR LLEGAR UN BOLT',
+          body:  `POR FAVOR PEDILE EL CÓDIGO ANTES DE ABRIR LA PUERTA. Llega en ${arrivalEst}.`,
+          data:  { jobId: job.id, screen: 'tracking' },
+        }).catch(() => {});
+        chatService.sendSystemMessage(job.id, volt.chatAccepted).catch(() => {});
+        chatService.sendSystemMessage(job.id, volt.chatInTransit).catch(() => {});
+        await jobService.addEvent(job.id, 'accepted',      `Aceptó tu pedido ✅`).catch(() => {});
+        await jobService.addEvent(job.id, 'reviewing',     `Revisando los detalles del trabajo.`).catch(() => {});
+        if (job.problem_photo_url) {
+          await jobService.addEvent(job.id, 'photo_reviewed', `Revisó las fotos que enviaste 📷`).catch(() => {});
+        }
+        await jobService.addEvent(job.id, 'estimated',    `Llega en aprox. ${arrivalEst}.`).catch(() => {});
+        await jobService.addEvent(job.id, 'trip_started', `En camino a tu domicilio 🚗`).catch(() => {});
       }
-      await jobService.addEvent(job.id, 'estimated',    `${firstName} estima llegar en ${arrivalEst}.`).catch(() => {});
-      await jobService.addEvent(job.id, 'trip_started', `${firstName} inició el recorrido hacia tu ubicación.`).catch(() => {});
-      onAccepted(job);
+      onAccepted({ ...job, status: 'accepted' });
     } catch {
       Alert.alert('Error', 'No se pudo aceptar el trabajo. Intentá de nuevo.');
       setLoading(false);

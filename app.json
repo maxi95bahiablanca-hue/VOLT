@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "GOVOLT",
+    "name": "BOLT",
     "slug": "volt",
-    "scheme": "govolt",
+    "scheme": "bolt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,7 +21,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.govolt.app",
+      "bundleIdentifier": "com.bolt.app",
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
@@ -31,7 +31,8 @@
       }
     },
     "android": {
-      "package": "com.govolt.app",
+      "package": "ar.com.bolt.com",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
@@ -45,7 +46,9 @@
         "android.permission.FOREGROUND_SERVICE_LOCATION",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.WAKE_LOCK"
       ],
       "intentFilters": [
         {
@@ -53,7 +56,7 @@
           "autoVerify": true,
           "data": [
             {
-              "scheme": "govolt"
+              "scheme": "bolt"
             }
           ],
           "category": [
@@ -72,28 +75,29 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#FFD600",
-          "sounds": [],
+          "sounds": ["./assets/alarm.wav"],
           "mode": "production"
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "GOVOLT necesita acceso a tus fotos para subir documentos y fotos de trabajos.",
-          "cameraPermission": "GOVOLT necesita la cámara para fotografiar documentos y trabajos realizados."
+          "photosPermission": "BOLT necesita acceso a tus fotos para subir documentos y fotos de trabajos.",
+          "cameraPermission": "BOLT necesita la cámara para fotografiar documentos y trabajos realizados."
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "GOVOLT usa tu ubicación en segundo plano para que los clientes puedan ver tu posición en tiempo real mientras vas a un trabajo.",
-          "locationWhenInUsePermission": "GOVOLT usa tu ubicación para encontrar profesionales cercanos y mostrarte en el mapa.",
+          "locationAlwaysAndWhenInUsePermission": "BOLT usa tu ubicación en segundo plano para que los clientes puedan ver tu posición en tiempo real mientras vas a un trabajo.",
+          "locationWhenInUsePermission": "BOLT usa tu ubicación para encontrar profesionales cercanos y mostrarte en el mapa.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

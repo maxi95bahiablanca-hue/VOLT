@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GOVOLT — Logo para perfil</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#444;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;padding:30px;
+    display:flex;flex-wrap:wrap;gap:34px;justify-content:center;align-items:flex-start}
+  .item{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .label{color:#FFD600;font-size:13px;font-weight:800}
+  .circle-guide{color:#999;font-size:11px}
+
+  /* perfil 1080x1080 → 320 en pantalla */
+  .pp{width:320px;height:320px;background:#0A0A0A;position:relative;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .glow{position:absolute;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,214,0,.16),transparent 65%)}
+
+  /* opción A: bolt + nombre */
+  .bolt{font-size:96px;line-height:1;position:relative;filter:drop-shadow(0 0 18px rgba(255,214,0,.5))}
+  .wordA{font-size:34px;font-weight:900;letter-spacing:1px;color:#fff;margin-top:6px;position:relative}
+  .wordA span{color:#FFD600}
+
+  /* opción B: solo wordmark grande */
+  .wordB{font-size:52px;font-weight:900;letter-spacing:1px;color:#fff;position:relative;text-align:center;line-height:1.05}
+  .wordB span{color:#FFD600}
+  .wordB .city{font-size:15px;font-weight:700;color:#888;letter-spacing:3px;margin-top:8px}
+
+  /* opción C: monograma */
+  .mono{font-size:120px;font-weight:900;color:#FFD600;position:relative;line-height:1;
+    filter:drop-shadow(0 0 16px rgba(255,214,0,.4))}
+</style>
+</head>
+<body>
+
+<div class="item">
+  <div class="label">A — Rayo + nombre (recomendada)</div>
+  <div class="pp"><div class="glow"></div>
+    <div class="bolt">⚡</div>
+    <div class="wordA">GO<span>VOLT</span></div>
+  </div>
+  <div class="circle-guide">Se ve bien en círculo ✓</div>
+</div>
+
+<div class="item">
+  <div class="label">B — Wordmark + ciudad</div>
+  <div class="pp"><div class="glow"></div>
+    <div class="wordB">GO<span>VOLT</span><div class="city">BAHÍA BLANCA</div></div>
+  </div>
+  <div class="circle-guide">Más texto, se lee chico</div>
+</div>
+
+<div class="item">
+  <div class="label">C — Monograma (ícono simple)</div>
+  <div class="pp"><div class="glow"></div>
+    <div class="mono">G⚡</div>
+  </div>
+  <div class="circle-guide">Súper limpio para ícono</div>
+</div>
+
+</body>
+</html>

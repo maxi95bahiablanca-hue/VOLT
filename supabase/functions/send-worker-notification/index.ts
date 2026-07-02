@@ -16,12 +16,26 @@ serve(async (req) => {
 
     const RESEND_KEY    = Deno.env.get('RESEND_API_KEY');
     const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!;
+    const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
     const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const FROM_EMAIL    = Deno.env.get('FROM_EMAIL') ?? 'VOLT <noreply@voltapp.ar>';
+    const FROM_EMAIL    = Deno.env.get('FROM_EMAIL') ?? 'BOLT <soporte@bolt.com.ar>';
 
     const isApproved = action === 'approved';
 
     const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // ── Solo un admin autenticado puede disparar esto (manda mails desde el
+    //    dominio de BOLT y push a cualquier usuario: sin este check era un
+    //    relay abierto para cualquiera con la anon key) ──────────────────────
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const anonClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user: caller } } = await anonClient.auth.getUser();
+    if (!caller?.email) return json({ error: 'No autorizado' }, 401);
+    const { data: adminRow } = await adminClient
+      .from('admins').select('email').eq('email', caller.email).maybeSingle();
+    if (!adminRow) return json({ error: 'No autorizado' }, 401);
 
     // ── 0. Obtener email del trabajador desde auth.users ───────────────────
     let resolvedEmail = workerEmail;
@@ -45,7 +59,7 @@ serve(async (req) => {
           to:        tokenRow.token,
           title:     isApproved ? '✅ ¡Solicitud aprobada!' : '❌ Solicitud rechazada',
           body:      isApproved
-            ? 'Ya podés activarte en el mapa y empezar a recibir trabajos en VOLT.'
+            ? 'Ya podés activarte en el mapa y empezar a recibir trabajos en BOLT.'
             : `Tu solicitud fue rechazada. Motivo: ${rejectionNote || 'Documentación incompleta'}. Podés volver a enviarla.`,
           sound:     'default',
           channelId: 'govolt-jobs',
@@ -61,26 +75,26 @@ serve(async (req) => {
         <div style="font-family:Arial,sans-serif;background:#0A0A0A;color:#F5F5F5;padding:40px;border-radius:12px;max-width:480px;margin:auto">
           <div style="text-align:center;margin-bottom:32px">
             <span style="font-size:48px">⚡</span>
-            <h1 style="color:#FFD600;font-size:28px;margin:8px 0">VOLT</h1>
+            <h1 style="color:#FFD600;font-size:28px;margin:8px 0">BOLT</h1>
           </div>
           <h2 style="color:#4CAF50;font-size:22px;margin-bottom:16px">✅ ¡Solicitud aprobada!</h2>
           <p style="color:#ccc;line-height:1.6">Hola <strong>${workerName}</strong>,</p>
           <p style="color:#ccc;line-height:1.6">
-            Tu solicitud para trabajar en VOLT fue <strong style="color:#4CAF50">aprobada</strong>.
+            Tu solicitud para trabajar en BOLT fue <strong style="color:#4CAF50">aprobada</strong>.
             Ya podés abrir la app, activarte en el mapa y empezar a recibir trabajos.
           </p>
           <div style="background:#1A1A00;border:1px solid #FFD60040;border-radius:10px;padding:20px;margin:24px 0">
             <p style="color:#FFD600;font-weight:bold;margin:0 0 8px">Próximos pasos:</p>
-            <p style="color:#ccc;margin:4px 0">1. Abrí la app VOLT</p>
+            <p style="color:#ccc;margin:4px 0">1. Abrí la app BOLT</p>
             <p style="color:#ccc;margin:4px 0">2. Activá tu disponibilidad en el mapa</p>
             <p style="color:#ccc;margin:4px 0">3. Esperá trabajos cerca tuyo</p>
           </div>
-          <p style="color:#555;font-size:12px;margin-top:32px">VOLT — Profesionales a domicilio · Bahía Blanca</p>
+          <p style="color:#555;font-size:12px;margin-top:32px">BOLT — Profesionales a domicilio · Bahía Blanca</p>
         </div>` : `
         <div style="font-family:Arial,sans-serif;background:#0A0A0A;color:#F5F5F5;padding:40px;border-radius:12px;max-width:480px;margin:auto">
           <div style="text-align:center;margin-bottom:32px">
             <span style="font-size:48px">⚡</span>
-            <h1 style="color:#FFD600;font-size:28px;margin:8px 0">VOLT</h1>
+            <h1 style="color:#FFD600;font-size:28px;margin:8px 0">BOLT</h1>
           </div>
           <h2 style="color:#ff4444;font-size:22px;margin-bottom:16px">❌ Solicitud rechazada</h2>
           <p style="color:#ccc;line-height:1.6">Hola <strong>${workerName}</strong>,</p>
@@ -93,7 +107,7 @@ serve(async (req) => {
           <p style="color:#ccc;line-height:1.6">
             Podés corregir tu documentación y volver a enviar la solicitud desde la app.
           </p>
-          <p style="color:#555;font-size:12px;margin-top:32px">VOLT — Profesionales a domicilio · Bahía Blanca</p>
+          <p style="color:#555;font-size:12px;margin-top:32px">BOLT — Profesionales a domicilio · Bahía Blanca</p>
         </div>`;
 
       await fetch('https://api.resend.com/emails', {
@@ -106,8 +120,8 @@ serve(async (req) => {
           from:    FROM_EMAIL,
           to:      [resolvedEmail],
           subject: isApproved
-            ? '✅ Tu solicitud en VOLT fue aprobada'
-            : '❌ Tu solicitud en VOLT fue rechazada',
+            ? '✅ Tu solicitud en BOLT fue aprobada'
+            : '❌ Tu solicitud en BOLT fue rechazada',
           html: emailHtml,
         }),
       });

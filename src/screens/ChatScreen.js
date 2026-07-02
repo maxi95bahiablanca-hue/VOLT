@@ -2,18 +2,24 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   FlatList, KeyboardAvoidingView, Platform, SafeAreaView,
-  ActivityIndicator, Image,
+  ActivityIndicator, Image, Alert, Dimensions,
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import chatService from '../services/chatService';
+import demoChatService from '../demo/demoChatService';
+import { isDemoMode } from '../demo/demoMode';
 import volt from '../utils/voltVoice';
+import notificationService from '../services/notificationService';
+import { isFreeMode } from '../config/monetization';
 
 const STATUS_LABELS = {
   pending:          'Buscando profesional...',
   accepted:         'En camino',
   arrived:          'Llegó al lugar',
   in_progress:      'Trabajando',
-  awaiting_payment: 'Esperando pago',
+  awaiting_payment: isFreeMode() ? 'Por finalizar' : 'Esperando pago',
   completed:        'Completado',
 };
 
@@ -51,21 +57,24 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
   const [sending, setSending]   = useState(false);
   const listRef    = useRef(null);
   const channelRef = useRef(null);
+  const insets     = useSafeAreaInsets();
+  const chat = isDemoMode() ? demoChatService : chatService;
 
   useEffect(() => {
     let mounted = true;
-    chatService.getMessages(job.id).then(msgs => {
+    chat.getMessages(job.id).then(msgs => {
       if (mounted) { setMessages(msgs); setLoading(false); }
     }).catch(() => { if (mounted) setLoading(false); });
 
-    channelRef.current = chatService.subscribeToMessages(job.id, (newMsg) => {
+    channelRef.current = chat.subscribeToMessages(job.id, (newMsg) => {
       setMessages(prev => [...prev, newMsg]);
     });
-    chatService.markAsRead(job.id, userId).catch(() => {});
+    chat.markAsRead(job.id, userId).catch(() => {});
 
     return () => {
       mounted = false;
-      channelRef.current?.unsubscribe?.();
+      if (chat.unsubscribe) chat.unsubscribe(channelRef.current);
+      else channelRef.current?.unsubscribe?.();
     };
   }, [job.id]);
 
@@ -81,9 +90,22 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
     setSending(true);
     setText('');
     try {
-      await chatService.sendMessage(job.id, userId, txt);
-    } catch {
+      await chat.sendMessage(job.id, userId, txt);
+      // Notificar a la otra parte (con sonido) — para que se entere aunque tenga la app cerrada
+      if (!isDemoMode()) {
+        const otherId = isWorker ? job.client_id : job.professionals?.user_id;
+        const fromName = isWorker ? (job.professionals?.first_name || 'El profesional') : 'El cliente';
+        if (otherId) {
+          notificationService.sendToUser(otherId, {
+            title: `💬 ${fromName}`,
+            body: txt.length > 90 ? txt.slice(0, 90) + '…' : txt,
+            data: { jobId: job.id, screen: 'tracking' },
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
       setText(txt);
+      Alert.alert('No se pudo enviar', e?.message || 'Revisá tu conexión e intentá de nuevo.');
     } finally {
       setSending(false);
     }
@@ -241,7 +263,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
         <View style={styles.headerInfo}>
           <Text style={styles.headerName} numberOfLines={1}>{profName}</Text>
           <Text style={styles.headerRole} numberOfLines={1}>
-            {profRole} · <Text style={{ color: '#4285F4' }}>GOVOLT coordina</Text>
+            {profRole} · <Text style={{ color: '#4285F4' }}>BOLT coordina</Text>
           </Text>
           <View style={styles.headerStatusRow}>
             <View style={[styles.statusPill, { borderColor: statusColor + '44' }]}>
@@ -270,6 +292,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
         >
           <FlatList
             ref={listRef}
+            style={{ flex: 1 }}
             data={messages}
             keyExtractor={m => m.id}
             renderItem={renderMsg}
@@ -278,7 +301,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <View style={styles.voltEmptyBadge}>
-                  <Text style={styles.voltEmptyBadgeText}>⚡ GOVOLT</Text>
+                  <Text style={styles.voltEmptyBadgeText}>⚡ BOLT</Text>
                 </View>
                 <Text style={styles.emptyText}>{volt.chatEmpty}</Text>
               </View>
@@ -288,6 +311,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
           {/* Acciones rápidas */}
           <FlatList
             data={quickReplies}
+            style={{ flexGrow: 0, flexShrink: 0 }}
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={q => q}
@@ -300,7 +324,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
           />
 
           {/* Input */}
-          <View style={styles.inputRow}>
+          <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
             <TextInput
               style={styles.input}
               placeholder="Escribí un mensaje..."
@@ -329,7 +353,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#121212' },
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
@@ -420,7 +444,7 @@ const styles = StyleSheet.create({
 
   bubble:      { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
   bubbleMine:  { backgroundColor: '#FFD600', borderBottomRightRadius: 4 },
-  bubbleOther: { backgroundColor: '#1a1a1a', borderBottomLeftRadius: 4 },
+  bubbleOther: { backgroundColor: '#2a2a2a', borderBottomLeftRadius: 4 },
 
   bubbleText:      { fontSize: 14, lineHeight: 20 },
   bubbleTextMine:  { color: '#0A0A0A' },
@@ -431,24 +455,24 @@ const styles = StyleSheet.create({
   bubbleTimeMine: { color: '#0A0A0A88' },
 
   // ── Acciones rápidas ─────────────────────────────────────────────────────────
-  quickList: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  quickList: { paddingHorizontal: 12, paddingVertical: 7, gap: 7 },
   quickChip: {
-    backgroundColor: '#111', borderRadius: 20,
-    borderWidth: 1, borderColor: '#2a2a2a',
-    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: '#1c1c1c', borderRadius: 13,
+    borderWidth: 1, borderColor: '#333',
+    paddingHorizontal: 11, paddingVertical: 5,
   },
-  quickChipText: { fontSize: 13, color: '#888' },
+  quickChipText: { fontSize: 12, color: '#bbb', fontWeight: '600' },
 
   // ── Input ────────────────────────────────────────────────────────────────────
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: '#1a1a1a',
-    backgroundColor: '#0A0A0A',
+    paddingHorizontal: 12, paddingTop: 10, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: '#2a2a2a',
+    backgroundColor: '#161616',
   },
   input: {
-    flex: 1, backgroundColor: '#111',
-    borderRadius: 22, borderWidth: 1, borderColor: '#1E1E1E',
+    flex: 1, backgroundColor: '#1f1f1f',
+    borderRadius: 22, borderWidth: 1, borderColor: '#333',
     color: '#F5F5F5', fontSize: 14,
     paddingHorizontal: 16, paddingVertical: 10,
     maxHeight: 100,

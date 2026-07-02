@@ -5,18 +5,19 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
+import { chargesInApp, isFreeMode } from '../config/monetization';
 
 const STATUS_INFO = {
   pending:          { label: 'Pendiente',       color: '#888',    icon: 'time-outline' },
   accepted:         { label: 'En camino',        color: '#4285F4', icon: 'navigate-outline' },
   arrived:          { label: 'En domicilio',     color: '#FFD600', icon: 'home-outline' },
   in_progress:      { label: 'En progreso',      color: '#FF9800', icon: 'construct-outline' },
-  awaiting_payment: { label: 'Pago pendiente',   color: '#4CAF50', icon: 'card-outline' },
+  awaiting_payment: { label: isFreeMode() ? 'Por finalizar' : 'Pago pendiente', color: '#4CAF50', icon: isFreeMode() ? 'checkmark-done-outline' : 'card-outline' },
   completed:        { label: 'Completado',        color: '#4CAF50', icon: 'checkmark-circle-outline' },
   cancelled:        { label: 'Cancelado',         color: '#ff4444', icon: 'close-circle-outline' },
 };
 
-const HistoryScreen = ({ session, professional, onClose }) => {
+const HistoryScreen = ({ session, professional, onClose, onOpenJob }) => {
   const [jobs, setJobs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
@@ -57,7 +58,7 @@ const HistoryScreen = ({ session, professional, onClose }) => {
   const totalEarned = completedJobs.reduce((acc, j) => {
     const work  = j.work_amount    || 0;
     const mats  = j.materials_cost || 0;
-    const comm  = j.commission_pct || 20;
+    const comm  = chargesInApp() ? (j.commission_pct || 20) : 0;
     return acc + Math.round(work * (1 - comm / 100)) + mats;
   }, 0);
 
@@ -82,13 +83,17 @@ const HistoryScreen = ({ session, professional, onClose }) => {
               <Text style={styles.summaryVal}>{completedJobs.length}</Text>
               <Text style={styles.summaryLbl}>Completados</Text>
             </View>
-            <View style={styles.summaryDiv} />
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryVal, { color: isWorker ? '#4CAF50' : '#FFD600', fontSize: 16 }]}>
-                ${(isWorker ? totalEarned : totalSpent).toLocaleString('es-AR')}
-              </Text>
-              <Text style={styles.summaryLbl}>{isWorker ? 'Ganado' : 'Gastado'}</Text>
-            </View>
+            {chargesInApp() && (
+              <>
+                <View style={styles.summaryDiv} />
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryVal, { color: isWorker ? '#4CAF50' : '#FFD600', fontSize: 16 }]}>
+                    ${(isWorker ? totalEarned : totalSpent).toLocaleString('es-AR')}
+                  </Text>
+                  <Text style={styles.summaryLbl}>{isWorker ? 'Ganado' : 'Gastado'}</Text>
+                </View>
+              </>
+            )}
           </View>
         )}
 
@@ -106,11 +111,13 @@ const HistoryScreen = ({ session, professional, onClose }) => {
           const s = STATUS_INFO[j.status] || STATUS_INFO.cancelled;
           const totalAmt = (j.visit_amount || 0) + (j.work_amount || 0);
           const earned   = isWorker && j.status === 'completed'
-            ? Math.round((j.work_amount || 0) * (1 - (j.commission_pct || 20) / 100))
+            ? Math.round((j.work_amount || 0) * (1 - (chargesInApp() ? (j.commission_pct || 20) : 0) / 100))
             : null;
 
+          const isActiveJob = ['pending','accepted','arrived','in_progress','awaiting_payment'].includes(j.status);
+          const CardWrap = isActiveJob ? TouchableOpacity : View;
           return (
-            <View key={j.id} style={styles.jobCard}>
+            <CardWrap key={j.id} style={[styles.jobCard, isActiveJob && { borderColor: s.color + '55' }]} {...(isActiveJob ? { onPress: () => onOpenJob?.(j), activeOpacity: 0.85 } : {})}>
               <View style={styles.jobCardTop}>
                 <View style={[styles.jobIconWrap, { backgroundColor: s.color + '15' }]}>
                   <Ionicons name={s.icon} size={18} color={s.color} />
@@ -140,14 +147,20 @@ const HistoryScreen = ({ session, professional, onClose }) => {
                 <Text style={styles.jobDate}>
                   {new Date(j.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </Text>
-                {earned != null && (
+                {earned != null && chargesInApp() && (
                   <Text style={styles.earnedAmt}>+${earned.toLocaleString('es-AR')}</Text>
                 )}
-                {!isWorker && totalAmt > 0 && j.status === 'completed' && (
+                {!isWorker && chargesInApp() && totalAmt > 0 && j.status === 'completed' && (
                   <Text style={styles.paidAmt}>-${totalAmt.toLocaleString('es-AR')}</Text>
                 )}
+                {isActiveJob && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 'auto' }}>
+                    <Text style={{ color: s.color, fontSize: 12, fontWeight: '800' }}>Ver seguimiento</Text>
+                    <Ionicons name="chevron-forward" size={13} color={s.color} />
+                  </View>
+                )}
               </View>
-            </View>
+            </CardWrap>
           );
         })}
       </ScrollView>

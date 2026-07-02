@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GOVOLT — Variantes de anuncios</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#2a2a2a;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;padding:30px 20px;
+    display:flex;flex-wrap:wrap;gap:30px;justify-content:center;align-items:flex-start}
+  .item{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .label{color:#FFD600;font-size:14px;font-weight:800}
+  .cap{color:#bbb;font-size:12px;max-width:540px;text-align:center;line-height:1.45;background:#1a1a1a;padding:10px 14px;border-radius:10px}
+  .cap em{color:#ddd}
+
+  /* base post 1080x1080 → 540 */
+  .post{width:540px;height:540px;background:#0A0A0A;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:44px 40px}
+  .story{width:360px;height:640px;background:#0A0A0A;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:46px 34px}
+  .glow{position:absolute;top:-130px;right:-130px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,0,.18),transparent 70%);pointer-events:none}
+  .top{display:flex;align-items:center;justify-content:space-between;position:relative}
+  .logo{font-size:26px;font-weight:900;letter-spacing:1px;color:#fff}.logo span{color:#FFD600}
+  .pill{background:#FFD600;color:#0A0A0A;font-size:11px;font-weight:900;letter-spacing:.5px;padding:6px 12px;border-radius:20px}
+  .mid{position:relative;margin-top:auto;margin-bottom:auto}
+  .h1{font-size:38px;font-weight:900;color:#fff;line-height:1.08;letter-spacing:-1px}
+  .h1 .y{color:#FFD600}
+  .explain{font-size:17px;color:#cfcfcf;margin-top:16px;line-height:1.5;max-width:430px}
+  .explain b{color:#fff}
+  .scar{display:inline-block;margin-top:18px;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.35);border-radius:11px;padding:9px 15px;font-size:15px;font-weight:800;color:#fff}
+  .scar b{color:#FFD600}
+  .bottom{position:relative}
+  .cta{display:flex;align-items:center;justify-content:center;gap:9px;background:#FFD600;color:#0A0A0A;font-size:19px;font-weight:900;padding:15px;border-radius:13px;text-align:center}
+  .below{text-align:center;color:#888;font-size:13px;margin-top:10px;font-weight:600}
+  .below b{color:#FFD600}
+</style>
+</head>
+<body>
+
+<!-- VARIANTE 1: BASE -->
+<div class="item">
+  <div class="label">① BASE — "Qué es la app"</div>
+  <div class="post">
+    <div class="glow"></div>
+    <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ YA EN BAHÍA BLANCA</div></div>
+    <div class="mid">
+      <div class="h1">Llegó la app que<br>te trae <span class="y">clientes 🔧</span></div>
+      <div class="explain">Como un <b>Uber, pero para tu oficio.</b> Trabajá cuando quieras y cobrá seguro por la app.</div>
+      <div class="scar">🔥 Buscamos los primeros <b>200 profesionales</b></div>
+    </div>
+    <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b> · Todas las profesiones</div></div>
+  </div>
+  <div class="cap"><em>Caption:</em> "⚡ GOVOLT llegó a Bahía Blanca: la app que te conecta con clientes de tu zona que necesitan tu oficio. Como un Uber, pero para tu trabajo. Trabajá cuando quieras y cobrá seguro. 🔥 Buscamos los PRIMEROS 200 profesionales. 👉 Registrate gratis en el link de la bio."</div>
+</div>
+
+<!-- VARIANTE 2: POR OFICIO -->
+<div class="item">
+  <div class="label">② POR OFICIO — (cambiá la palabra por cada oficio)</div>
+  <div class="post">
+    <div class="glow"></div>
+    <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ BAHÍA BLANCA</div></div>
+    <div class="mid">
+      <div class="h1">¿Sos <span class="y">electricista?</span><br>Te buscan clientes.</div>
+      <div class="explain">GOVOLT te conecta con gente de tu zona que necesita un electricista. <b>Vos elegís cuándo. Cobrás seguro.</b></div>
+      <div class="scar">🔥 Entrás entre los primeros <b>200</b></div>
+    </div>
+    <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b></div></div>
+  </div>
+  <div class="cap"><em>Hacé una por oficio cambiando "electricista" por: plomero, gasista, cerrajero, albañil, pintor, etc. Estas convierten MÁS porque le hablan directo a cada uno.</em></div>
+</div>
+
+<!-- VARIANTE 3: COBRO SEGURO -->
+<div class="item">
+  <div class="label">③ COBRO SEGURO — (dolor: clientes que no pagan)</div>
+  <div class="post">
+    <div class="glow"></div>
+    <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ YA EN BAHÍA BLANCA</div></div>
+    <div class="mid">
+      <div class="h1">Trabajá tranquilo.<br><span class="y">Cobrá seguro.</span></div>
+      <div class="explain">Con GOVOLT el cliente paga <b>por la app</b>. Vos hacés el trabajo y cobrás, sin perseguir la plata. Y te llegan pedidos cerca tuyo.</div>
+      <div class="scar">🔥 Sumate a los primeros <b>200</b></div>
+    </div>
+    <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b> · Todas las profesiones</div></div>
+  </div>
+  <div class="cap"><em>Caption:</em> "¿Cansado de correr atrás de la plata? 💸 Con GOVOLT el cliente paga por la app. Más trabajos cerca tuyo, cobro seguro. Electricistas, plomeros, gasistas y todas las profesiones. 🔥 Primeros 200. Link en la bio."</div>
+</div>
+
+<!-- VARIANTE 4: STORIES 9:16 -->
+<div class="item">
+  <div class="label">④ STORIES (vertical 9:16) — + sticker de link</div>
+  <div class="story">
+    <div class="glow"></div>
+    <div class="top"><div class="logo">GO<span>VOLT</span></div></div>
+    <div class="mid">
+      <div class="pill" style="margin-bottom:18px">⚡ YA EN BAHÍA BLANCA</div>
+      <div class="h1" style="font-size:32px">La app que te trae <span class="y">clientes</span></div>
+      <div class="explain" style="font-size:16px">Como un <b>Uber, pero para tu oficio.</b> Trabajá cuando quieras, cobrá seguro.</div>
+      <div class="scar" style="font-size:14px">🔥 Primeros <b>200 profesionales</b></div>
+    </div>
+    <div class="bottom"><div class="cta" style="font-size:17px">📲 REGISTRATE GRATIS</div><div class="below">👆 Tocá el link de arriba</div></div>
+  </div>
+  <div class="cap"><em>En Stories agregás el <b>sticker de Link</b> apuntando a govolt.com.ar/prestadores. Ahí sí es clickeable directo.</em></div>
+</div>
+
+</body>
+</html>

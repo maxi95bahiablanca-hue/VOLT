@@ -8,14 +8,19 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../supabase';
 import { showSuccess, showError } from '../utils/toast';
+import volt from '../utils/voltVoice';
+import { commissionForBilled, nextCommissionStep, levelLabel } from '../utils/commission';
 import MacheteScreen from './MacheteScreen';
+import PaymentDataModal from '../components/PaymentDataModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { chargesInApp, isFreeMode } from '../config/monetization';
 
 const STATUS_LABEL = {
   pending:          { label: 'Pendiente',    color: '#888' },
   accepted:         { label: 'En camino',    color: '#4285F4' },
   arrived:          { label: 'En domicilio', color: '#FFD600' },
   in_progress:      { label: 'Trabajando',   color: '#FF9800' },
-  awaiting_payment: { label: 'Cobrando',     color: '#4CAF50' },
+  awaiting_payment: { label: isFreeMode() ? 'Finalizando' : 'Cobrando', color: '#4CAF50' },
   completed:        { label: 'Completado',   color: '#4CAF50' },
   cancelled:        { label: 'Cancelado',    color: '#ff4444' },
 };
@@ -25,7 +30,7 @@ const formatHour = (isoStr) => {
   return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 };
 
-const WorkerDashboardScreen = ({ professional, session, onClose }) => {
+const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityChange }) => {
   const [jobs, setJobs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
@@ -38,23 +43,71 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
   const [localAvatar, setLocalAvatar]       = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const commission = professional.completed_jobs >= 100 && professional.avg_rating >= 4.8 ? 10
-    : professional.completed_jobs >= 50  && professional.avg_rating >= 4.5 ? 14
-    : professional.completed_jobs >= 10  && professional.avg_rating >= 4.0 ? 17 : 20;
+  // Datos de pago (CUIT/CBU) — onboarding transitorio para trabajadores pioneros.
+  // Si está aprobado y le faltan, mostramos el formulario en la primera conexión.
+  // Si elige "seguir en otro momento", guardamos una marca y no lo molestamos más
+  // (queda el acceso en Mi Perfil).
+  const [payDone, setPayDone] = useState(!!(professional.cuit && professional.cbu));
+  const [showPay, setShowPay] = useState(false);
 
-  const level = professional.completed_jobs >= 100 && professional.avg_rating >= 4.8 ? 'Elite'
-    : professional.completed_jobs >= 50  && professional.avg_rating >= 4.5 ? 'Pro'
-    : professional.completed_jobs >= 10  && professional.avg_rating >= 4.0 ? 'Verificado' : 'Nuevo';
+  useEffect(() => {
+    // En modo gratis no pedimos datos de cobro (el cliente le paga directo al pro).
+    if (!chargesInApp()) return;
+    if (payDone || professional.verification_status !== 'approved') return;
+    AsyncStorage.getItem(`pay_later_${professional.id}`).then(flag => {
+      if (!flag) setShowPay(true);
+    });
+  }, []);
 
+  const dismissPayLater = () => {
+    AsyncStorage.setItem(`pay_later_${professional.id}`, '1').catch(() => {});
+    setShowPay(false);
+  };
+
+  // Facturación (mano de obra) de los últimos 30 días → comisión vigente (ventana móvil)
+  const _now = Date.now();
+  const billed30 = (jobs || [])
+    .filter(j => j.status === 'completed' && j.completed_at && (_now - new Date(j.completed_at).getTime()) <= 30 * 864e5)
+    .reduce((acc, j) => acc + (j.work_amount || 0), 0);
+
+  const commission = commissionForBilled(billed30, professional.avg_rating);
+  const level      = levelLabel(commission);
   const levelColor = level === 'Elite' ? '#FFD600' : level === 'Pro' ? '#4285F4'
-    : level === 'Verificado' ? '#4CAF50' : '#888';
+    : level === 'Activo' ? '#4CAF50' : '#888';
+  const step       = nextCommissionStep(billed30);
+
+  // ── VOLT socio: mensaje según el momento del trabajador ──────────────────
+  const doneJobs    = professional.completed_jobs || 0;
+  const isNewWorker = doneJobs === 0 && billed30 === 0;
+  const coachMsg  = !chargesInApp()
+    ? (isNewWorker ? volt.coachWelcomeFree(professional.first_name) : volt.coachActiveFree)
+    : isNewWorker
+    ? volt.coachWelcome(professional.first_name)
+    : !step
+    ? volt.coachElite
+    : volt.coachVolumeProgress(step.falta, step.pct);
 
   useEffect(() => {
     fetchJobs();
-    // Auto-restaurar disponibilidad si ya pasó la hora programada
-    if (availableAt && new Date(availableAt) <= new Date()) {
-      handleSetAvailable();
-    }
+    // Leer la disponibilidad REAL desde la base. El prop `professional` viene
+    // cacheado del login y puede estar viejo → sin esto, al volver al panel se
+    // reinicia siempre a "disponible" aunque lo hayas pausado.
+    supabase.from('professionals')
+      .select('available, available_at')
+      .eq('id', professional.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        // Auto-restaurar si ya pasó la hora programada de pausa
+        if (!data.available && data.available_at && new Date(data.available_at) <= new Date()) {
+          handleSetAvailable();
+          return;
+        }
+        setAvailable(!!data.available);
+        setAvailableAt(data.available_at);
+        onAvailabilityChange?.(!!data.available);
+      })
+      .catch(() => {});
   }, []);
 
   const handleSetAvailable = async () => {
@@ -63,7 +116,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
       const { error } = await supabase.from('professionals')
         .update({ available: true, available_at: null })
         .eq('id', professional.id);
-      if (!error) { setAvailable(true); setAvailableAt(null); }
+      if (!error) { setAvailable(true); setAvailableAt(null); onAvailabilityChange?.(true); }
     } catch {}
     setSavingAvail(false);
   };
@@ -76,7 +129,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
       const { error } = await supabase.from('professionals')
         .update({ available: false, available_at: availAt })
         .eq('id', professional.id);
-      if (!error) { setAvailable(false); setAvailableAt(availAt); }
+      if (!error) { setAvailable(false); setAvailableAt(availAt); onAvailabilityChange?.(false); }
     } catch {}
     setSavingAvail(false);
   };
@@ -142,14 +195,16 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
   // Calcular ingresos
   const completedJobs  = jobs.filter(j => j.status === 'completed');
   const earningBase    = j => j.work_amount || j.visit_amount || 0;
-  const totalEarned    = completedJobs.reduce((acc, j) => acc + Math.round(earningBase(j) * (1 - (j.commission_pct || 20) / 100)), 0);
+  // En modo gratis el profesional se queda con el 100% (no hay comisión).
+  const commFactor     = j => 1 - (chargesInApp() ? (j.commission_pct || 20) : 0) / 100;
+  const totalEarned    = completedJobs.reduce((acc, j) => acc + Math.round(earningBase(j) * commFactor(j)), 0);
   const totalVisits    = completedJobs.length;
   const thisMonthJobs  = completedJobs.filter(j => {
     const d = new Date(j.completed_at);
     const now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const thisMonthEarned = thisMonthJobs.reduce((acc, j) => acc + Math.round(earningBase(j) * (1 - (j.commission_pct || 20) / 100)), 0);
+  const thisMonthEarned = thisMonthJobs.reduce((acc, j) => acc + Math.round(earningBase(j) * commFactor(j)), 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -165,6 +220,32 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefresh(true); fetchJobs(); }} tintColor="#FFD600" />}
       >
+        {/* Datos de pago: si está aprobado y le faltan, un acceso discreto para abrir
+            el formulario cuando quiera (el de primera conexión se abre solo, abajo). */}
+        {chargesInApp() && !payDone && professional.verification_status === 'approved' && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setShowPay(true)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFD600', margin: 16, marginBottom: 0, padding: 14, borderRadius: 14 }}
+          >
+            <Ionicons name="card-outline" size={24} color="#0A0A0A" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 14 }}>Completá tus datos para cobrar</Text>
+              <Text style={{ color: '#0A0A0A', fontSize: 12, opacity: 0.8, marginTop: 2 }}>Cargá tu CUIT y CBU. Tocá para hacerlo ahora.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#0A0A0A" />
+          </TouchableOpacity>
+        )}
+
+        <PaymentDataModal
+          visible={showPay}
+          professional={professional}
+          onboarding
+          onClose={() => setShowPay(false)}
+          onLater={dismissPayLater}
+          onSaved={() => { setPayDone(true); setShowPay(false); }}
+        />
+
         {/* Perfil del trabajador */}
         <View style={styles.profileCard}>
           <View style={styles.profileAvatarWrap}>
@@ -193,9 +274,45 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
             </View>
           </View>
           <View style={styles.commBox}>
-            <Text style={[styles.commPct, { color: '#4CAF50' }]}>{commission}%</Text>
-            <Text style={styles.commLabel}>comisión</Text>
+            {chargesInApp() ? (
+              <>
+                <Text style={[styles.commPct, { color: '#4CAF50' }]}>{commission}%</Text>
+                <Text style={styles.commLabel}>comisión</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.commPct, { color: '#4CAF50' }]}>100%</Text>
+                <Text style={styles.commLabel}>para vos</Text>
+              </>
+            )}
           </View>
+        </View>
+
+        {/* VOLT socio — bienvenida / progreso */}
+        <View style={styles.voltCard}>
+          <View style={styles.voltAvatar}>
+            <Text style={styles.voltBolt}>⚡</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.voltName}>BOLT</Text>
+            <Text style={styles.voltMsg}>{coachMsg}</Text>
+            {isNewWorker && (
+              <>
+                {chargesInApp() && <Text style={styles.voltMsgSub}>{volt.coachCommission}</Text>}
+                <Text style={styles.voltMsgSub}>{volt.coachFirstStep}</Text>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* Guía: próximo paso (acompaña al trabajador) */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,214,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)', borderRadius: 14, padding: 14, marginBottom: 12 }}>
+          <Ionicons name={available ? 'checkmark-circle' : 'arrow-forward-circle'} size={20} color="#FFD600" />
+          <Text style={{ flex: 1, color: '#e8e8e8', fontSize: 13, lineHeight: 18 }}>
+            {available
+              ? 'Listo, estás activo. Te avisamos apenas entre un trabajo cerca tuyo — mantené la app abierta.'
+              : 'Próximo paso: tocá “Disponible” acá abajo para empezar a recibir trabajos.'}
+          </Text>
         </View>
 
         {/* Toggle disponibilidad */}
@@ -275,18 +392,14 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
           </View>
         </View>
 
-        {/* Próximo nivel */}
-        {level !== 'Elite' && (
+        {/* Próximo nivel — por facturación (solo en modo comisión) */}
+        {chargesInApp() && step && (
           <View style={styles.nextLevelCard}>
             <Ionicons name="trending-up" size={18} color="#FFD600" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.nextLevelTitle}>Próximo nivel → −{level === 'Nuevo' ? 3 : level === 'Verificado' ? 3 : 4}% comisión</Text>
+              <Text style={styles.nextLevelTitle}>Próximo nivel → {step.pct}% de comisión</Text>
               <Text style={styles.nextLevelSub}>
-                {level === 'Nuevo'
-                  ? `Necesitás ${10 - (professional.completed_jobs || 0)} trabajos más con ★ 4.0+`
-                  : level === 'Verificado'
-                  ? `Necesitás ${50 - (professional.completed_jobs || 0)} trabajos más con ★ 4.5+`
-                  : `Necesitás ${100 - (professional.completed_jobs || 0)} trabajos más con ★ 4.8+`}
+                Te faltan ${step.falta.toLocaleString('es-AR')} de facturación en los últimos 30 días
               </Text>
             </View>
           </View>
@@ -297,9 +410,11 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
           <TouchableOpacity style={[styles.tab, tab === 'jobs' && styles.tabActive]} onPress={() => setTab('jobs')}>
             <Text style={[styles.tabText, tab === 'jobs' && styles.tabTextActive]}>Historial</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.tab, tab === 'earnings' && styles.tabActive]} onPress={() => setTab('earnings')}>
-            <Text style={[styles.tabText, tab === 'earnings' && styles.tabTextActive]}>Ingresos</Text>
-          </TouchableOpacity>
+          {chargesInApp() && (
+            <TouchableOpacity style={[styles.tab, tab === 'earnings' && styles.tabActive]} onPress={() => setTab('earnings')}>
+              <Text style={[styles.tabText, tab === 'earnings' && styles.tabTextActive]}>Ingresos</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={[styles.tab, tab === 'guide' && styles.tabActive]} onPress={() => setTab('guide')}>
             <Text style={[styles.tabText, tab === 'guide' && styles.tabTextActive]}>⚡ Guía</Text>
           </TouchableOpacity>
@@ -345,30 +460,38 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
           /* ─── Ingresos ─── */
           <View style={styles.listWrap}>
             <View style={styles.earningsSummary}>
-              <Text style={styles.earningsTotalLabel}>Total acumulado</Text>
-              <Text style={styles.earningsTotalVal}>${Math.round(totalEarned).toLocaleString('es-AR')}</Text>
+              {chargesInApp() ? (
+                <>
+                  <Text style={styles.earningsTotalLabel}>Total acumulado</Text>
+                  <Text style={styles.earningsTotalVal}>${Math.round(totalEarned).toLocaleString('es-AR')}</Text>
+                </>
+              ) : (
+                <Text style={styles.earningsTotalLabel}>Tu actividad</Text>
+              )}
               <Text style={styles.earningsSub}>{totalVisits} trabajos completados</Text>
             </View>
 
-            <View style={styles.earningsBreakdown}>
-              <Text style={styles.breakdownTitle}>Cómo funciona tu comisión</Text>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Nivel actual</Text>
-                <Text style={[styles.breakdownVal, { color: levelColor }]}>{level}</Text>
+            {chargesInApp() && (
+              <View style={styles.earningsBreakdown}>
+                <Text style={styles.breakdownTitle}>Cómo funciona tu comisión</Text>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Nivel actual</Text>
+                  <Text style={[styles.breakdownVal, { color: levelColor }]}>{level}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>BOLT retiene</Text>
+                  <Text style={styles.breakdownVal}>{commission}% del trabajo</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Vos recibís</Text>
+                  <Text style={[styles.breakdownVal, { color: '#4CAF50' }]}>{100 - commission}% del trabajo</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Visita (${(professional.min_price || 30000).toLocaleString('es-AR')})</Text>
+                  <Text style={styles.breakdownVal}>La retiene BOLT</Text>
+                </View>
               </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>GOVOLT retiene</Text>
-                <Text style={styles.breakdownVal}>{commission}% del trabajo</Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Vos recibís</Text>
-                <Text style={[styles.breakdownVal, { color: '#4CAF50' }]}>{100 - commission}% del trabajo</Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Visita (${(professional.min_price || 30000).toLocaleString('es-AR')})</Text>
-                <Text style={styles.breakdownVal}>La retiene GOVOLT</Text>
-              </View>
-            </View>
+            )}
 
             {completedJobs.slice(0, 20).map(j => {
               const earned = Math.round(earningBase(j) * (1 - (j.commission_pct || 20) / 100));
@@ -380,7 +503,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose }) => {
                       {new Date(j.completed_at || j.created_at).toLocaleDateString('es-AR', { day:'numeric', month:'short' })}
                     </Text>
                   </View>
-                  <Text style={styles.earningAmount}>+${earned.toLocaleString('es-AR')}</Text>
+                  {chargesInApp() && <Text style={styles.earningAmount}>+${earned.toLocaleString('es-AR')}</Text>}
                 </View>
               );
             })}
@@ -437,6 +560,23 @@ const styles = StyleSheet.create({
   commBox: { alignItems: 'center' },
   commPct: { fontSize: 22, fontWeight: '900' },
   commLabel: { fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // VOLT socio
+  voltCard: {
+    flexDirection: 'row', gap: 12,
+    marginHorizontal: 16, marginBottom: 12, padding: 14,
+    backgroundColor: '#0D0D00', borderRadius: 16,
+    borderWidth: 1, borderColor: '#FFD60030',
+  },
+  voltAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#FFD60018', borderWidth: 1, borderColor: '#FFD60050',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  voltBolt: { fontSize: 18 },
+  voltName: { fontSize: 12, fontWeight: '900', color: '#FFD600', letterSpacing: 1, marginBottom: 3 },
+  voltMsg:  { fontSize: 13, color: '#cfcfcf', lineHeight: 19 },
+  voltMsgSub: { fontSize: 12, color: '#888', lineHeight: 18, marginTop: 6 },
 
   availCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

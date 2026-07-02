@@ -1,8 +1,19 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-const VoltMap = ({ userLocation, workers, onWorkerPress, style }) => {
+/**
+ * Mapa BOLT (Leaflet dentro de WebView).
+ *
+ * Props:
+ *  - userLocation: { latitude, longitude } → centra el mapa + dibuja el pin del cliente con halo de alcance.
+ *  - workers: [{ id, lat, lng, emoji?, state?, ambient?, effective_rating?, avg_rating?, profession_name? }]
+ *      · state: 'available' | 'oncoming' | 'busy'  (default 'available')
+ *      · ambient: true  → pin decorativo (no abre ficha; emite onAmbientPress)
+ *  - onWorkerPress(worker): toca un profesional real
+ *  - onAmbientPress(): toca un pin ambiental (sugerimos elegir un oficio)
+ */
+const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style }) => {
   const webRef = useRef(null);
   const mapReadyRef = useRef(false);
   const pendingLocationRef = useRef(null);
@@ -12,7 +23,7 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, style }) => {
     webRef.current?.postMessage(JSON.stringify(msg));
   };
 
-  // Cuando Leaflet termina de inicializarse, enviamos los mensajes que llegaron antes
+  // Cuando Leaflet termina de inicializarse, enviamos lo que llegó antes
   const handleLoad = () => {
     mapReadyRef.current = true;
     if (pendingLocationRef.current) {
@@ -23,15 +34,15 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, style }) => {
     }
   };
 
-  // Actualizar workers en el mapa cuando cambian
-  useEffect(() => {
+  // Actualizar workers cuando cambian
+  React.useEffect(() => {
     pendingWorkersRef.current = workers ?? [];
     if (!mapReadyRef.current) return;
     sendToMap({ type: 'SET_WORKERS', workers: workers ?? [] });
   }, [workers]);
 
   // Centrar en ubicación del usuario
-  useEffect(() => {
+  React.useEffect(() => {
     pendingLocationRef.current = userLocation;
     if (!mapReadyRef.current || !userLocation) return;
     sendToMap({ type: 'SET_LOCATION', ...userLocation });
@@ -40,9 +51,8 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, style }) => {
   const handleMessage = (e) => {
     try {
       const msg = JSON.parse(e.nativeEvent.data);
-      if (msg.type === 'WORKER_PRESS' && onWorkerPress) {
-        onWorkerPress(msg.worker);
-      }
+      if (msg.type === 'WORKER_PRESS' && onWorkerPress) onWorkerPress(msg.worker);
+      if (msg.type === 'AMBIENT_PRESS' && onAmbientPress) onAmbientPress();
     } catch { /* silent */ }
   };
 
@@ -57,16 +67,48 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, style }) => {
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:#0a0a0a; }
   #map { width:100vw; height:100vh; }
-  .worker-icon {
-    display:flex; align-items:center; justify-content:center;
-    width:36px; height:36px; border-radius:18px;
-    background:#1a1a1a; border:2.5px solid #FFD600;
-    box-shadow:0 0 12px rgba(255,214,0,0.5);
-    font-size:16px; cursor:pointer;
-    transition: transform 0.15s;
-  }
-  .worker-icon:hover { transform: scale(1.15); }
-  .worker-icon.selected { background:#FFD600; }
+
+  /* ─── Pin de profesional ─────────────────────────────── */
+  .pin { position:relative; width:42px; height:42px;
+         display:flex; align-items:center; justify-content:center;
+         animation: pop .38s cubic-bezier(.2,1.25,.4,1) backwards; }
+  .pin .dot { position:relative; z-index:2;
+              width:34px; height:34px; border-radius:50%;
+              background:#15150f; border:2.5px solid #FFD600;
+              display:flex; align-items:center; justify-content:center;
+              font-size:16px; box-shadow:0 2px 8px rgba(0,0,0,.55);
+              transition: transform .15s; }
+  .pin:active .dot { transform: scale(1.15); }
+  .pin .halo { position:absolute; z-index:1; left:50%; top:50%;
+               width:34px; height:34px; margin:-17px 0 0 -17px;
+               border-radius:50%; border:2px solid #33d17a; opacity:0; }
+  .pin .rating { position:absolute; z-index:3; top:-5px; right:-7px;
+                 background:#FFD600; color:#0a0a0a; font:800 9px/1 sans-serif;
+                 border-radius:8px; padding:2px 4px; white-space:nowrap;
+                 box-shadow:0 1px 3px rgba(0,0,0,.6); }
+
+  /* Todos los pines iguales: relleno oscuro, borde amarillo, halo de actividad */
+  .pin .dot { border-color:#FFD600; box-shadow:0 0 13px rgba(255,214,0,.45); animation: float 3.4s ease-in-out infinite; }
+  .pin .halo { animation: halo 2.4s ease-out infinite; border-color:#FFD600; }
+  .pin.selected .dot { background:#FFD600; transform:scale(1.12); }
+  .pin.selected .dot .ic { filter:brightness(0); }
+
+  @keyframes halo { 0%{ transform:scale(1); opacity:.5; } 100%{ transform:scale(2.7); opacity:0; } }
+  @keyframes pop  { 0%{ transform:scale(0); } 100%{ transform:scale(1); } }
+  @keyframes float { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-4px); } }
+
+  /* ─── Pin del cliente + alcance ──────────────────────── */
+  .user { position:relative; width:18px; height:18px; }
+  .user .udot { position:relative; z-index:3;
+                width:16px; height:16px; border-radius:50%;
+                background:#4285F4; border:3px solid #fff;
+                box-shadow:0 0 8px rgba(66,133,244,.85); }
+  .user .uring { position:absolute; z-index:1; left:50%; top:50%;
+                 width:16px; height:16px; margin:-8px 0 0 -8px;
+                 border-radius:50%; border:2px solid #4285F4;
+                 animation: reach 3s ease-out infinite; }
+  .user .uring.b { animation-delay: 1.5s; }
+  @keyframes reach { 0%{ transform:scale(1); opacity:.55; } 100%{ transform:scale(7.5); opacity:0; } }
 </style>
 </head>
 <body>
@@ -76,59 +118,87 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, style }) => {
     .setView([-38.7183, -62.2663], 13);
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    maxZoom:19,
-    attribution:'&copy; OpenStreetMap &copy; CARTO'
+    maxZoom:19, attribution:'&copy; OpenStreetMap &copy; CARTO'
   }).addTo(map);
 
   let userMarker = null;
-  let workerMarkers = {};
+  let workerMarkers = {};   // id -> { marker, sig }
 
-  // Ícono de usuario
   const userIcon = L.divIcon({
-    html: '<div style="width:16px;height:16px;border-radius:50%;background:#4285F4;border:3px solid white;box-shadow:0 0 8px rgba(66,133,244,0.8)"></div>',
-    iconSize:[16,16], iconAnchor:[8,8], className:''
+    html: '<div class="user"><span class="uring"></span><span class="uring b"></span><span class="udot"></span></div>',
+    iconSize:[18,18], iconAnchor:[9,9], className:''
   });
 
-  function makeWorkerIcon(worker, selected) {
+  function esc(s){ return String(s == null ? '' : s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+  function ratingOf(w){
+    const r = w.effective_rating != null ? w.effective_rating : w.avg_rating;
+    const n = parseFloat(r);
+    return (n && n > 0) ? n.toFixed(1) : null;
+  }
+  function stateOf(w){
+    if (w.state) return w.state;
+    if (w.available === false) return 'busy';
+    return 'available';
+  }
+  // Firma para saber si hay que recrear el ícono (todos los pines son iguales)
+  function sigOf(w, selected){
+    return [ratingOf(w)||'', selected?1:0, w.ambient?1:0].join('|');
+  }
+
+  function makeIcon(w, selected){
+    const rating = (!w.ambient) ? ratingOf(w) : null;
+    const ratingHtml = rating ? '<span class="rating">★'+esc(rating)+'</span>' : '';
+    // Cada onda arranca desfasada (delay y duración propios) para que no parezcan a compás
+    const delay = (Math.random() * 2.4).toFixed(2);
+    const dur   = (2 + Math.random() * 1.8).toFixed(2);
+    const haloStyle = 'animation-delay:' + delay + 's;animation-duration:' + dur + 's';
+    // Pin uniforme: una llave inglesa en el medio (solo indica "profesional", no el oficio)
     return L.divIcon({
-      html: '<div class="worker-icon' + (selected?' selected':'') + '">⚡</div>',
-      iconSize:[36,36], iconAnchor:[18,18], className:''
+      html: '<div class="pin'+(selected?' selected':'')+'">'
+          +   '<span class="halo" style="'+haloStyle+'"></span>'
+          +   '<span class="dot"><span class="ic">🔧</span></span>'
+          +   ratingHtml
+          + '</div>',
+      iconSize:[42,42], iconAnchor:[21,21], className:''
     });
   }
 
-  function setWorkers(workers) {
-    // Limpiar markers viejos que ya no están
-    const newIds = new Set(workers.map(w => w.id));
+  function setWorkers(workers){
+    const newIds = new Set(workers.map(w => String(w.id)));
     Object.keys(workerMarkers).forEach(id => {
-      if (!newIds.has(id)) { map.removeLayer(workerMarkers[id]); delete workerMarkers[id]; }
+      if (!newIds.has(id)) { map.removeLayer(workerMarkers[id].marker); delete workerMarkers[id]; }
     });
 
     workers.forEach(w => {
-      if (!w.lat || !w.lng) return;
-      if (workerMarkers[w.id]) {
-        workerMarkers[w.id].setLatLng([w.lat, w.lng]);
+      if (w.lat == null || w.lng == null) return;
+      const id = String(w.id);
+      const sig = sigOf(w, false);
+      const existing = workerMarkers[id];
+      if (existing) {
+        existing.marker.setLatLng([w.lat, w.lng]);
+        if (existing.sig !== sig) { existing.marker.setIcon(makeIcon(w, false)); existing.sig = sig; }
       } else {
-        const marker = L.marker([w.lat, w.lng], { icon: makeWorkerIcon(w, false) })
+        const marker = L.marker([w.lat, w.lng], { icon: makeIcon(w, false) })
           .addTo(map)
           .on('click', () => {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type:'WORKER_PRESS', worker: w }));
+            const type = w.ambient ? 'AMBIENT_PRESS' : 'WORKER_PRESS';
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type, worker: w }));
           });
-        workerMarkers[w.id] = marker;
+        workerMarkers[id] = { marker, sig };
       }
     });
   }
 
-  function setLocation(lat, lng) {
+  function setLocation(lat, lng){
     if (userMarker) { userMarker.setLatLng([lat, lng]); }
-    else { userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map); }
+    else { userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(map); }
     map.setView([lat, lng], 14, { animate:true });
   }
 
-  // Mensajes desde React Native
   document.addEventListener('message', handle);
   window.addEventListener('message', handle);
-
-  function handle(e) {
+  function handle(e){
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'SET_WORKERS') setWorkers(msg.workers || []);

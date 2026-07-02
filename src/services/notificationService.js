@@ -5,7 +5,7 @@ import { supabase } from '../supabase';
 // expo-notifications esté en los plugins de app.json.
 //
 // Para activar:
-//   1. Crear proyecto en Firebase Console → agregar app Android (com.govolt.app)
+//   1. Crear proyecto en Firebase Console → agregar app Android (com.bolt.app)
 //   2. En Firebase: Configuración → SHA-1 → D6:BB:14:28:09:DB:D1:C4:B1:F4:9F:AA:0E:06:4D:6B:9E:9C:F5:06
 //   3. Descargar google-services.json → reemplazar el de la raíz del proyecto
 //   4. En app.json plugins agregar:
@@ -45,12 +45,17 @@ const notificationService = {
         }),
       });
 
-      await Notif.setNotificationChannelAsync('govolt-jobs', {
-        name:       'Trabajos GOVOLT',
+      // Canal NUEVO (nombre nuevo) para que Android lo cree fresco con sonido + prioridad
+      // MAX. Los canales no se actualizan una vez creados; por eso renombramos.
+      await Notif.setNotificationChannelAsync('bolt-urgent-v3', {
+        name:       'Trabajos BOLT (urgente)',
         importance: Notif.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
+        vibrationPattern: [0, 400, 200, 400, 200, 400, 200, 500],  // vibración insistente
         lightColor: '#FFD600',
-        sound:      'default',
+        sound:      'alarm',          // suena el alarm.wav (fuerte, tipo despertador)
+        enableVibrate: true,
+        enableLights:  true,
+        lockscreenVisibility: Notif.AndroidNotificationVisibility.PUBLIC,
       });
 
       const { status: existingStatus } = await Notif.getPermissionsAsync();
@@ -76,7 +81,7 @@ const notificationService = {
 
   sendToUser: async (userId, { title, body, data = {} }) => {
     if (__DEV__) {
-      console.log(`[GOVOLT NOTIF → ${userId}] ${title}: ${body}`);
+      console.log(`[BOLT NOTIF → ${userId}] ${title}: ${body}`);
       return;
     }
     if (!userId) return;

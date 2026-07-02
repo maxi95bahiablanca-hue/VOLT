@@ -3,3 +3,11 @@
 dist/
 .env
 
+# Secretos y credenciales — NUNCA subir (repo público)
+*.keystore
+*.jks
+*.p12
+CUENTAS_GOVOLT.md
+.netlify/
+android/app/google-services.json
+

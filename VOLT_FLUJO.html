@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOVOLT — Flujo de VOLT (animado)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--yellow:#FFD600;--bg:#0A0A0A}
+  body{
+    background:radial-gradient(circle at 50% 0%, #161616, #060606 70%);
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#eee;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:18px;padding:24px 12px;
+  }
+  h1{font-size:20px;font-weight:900;letter-spacing:2px}
+  h1 span{color:var(--yellow)}
+  .subtitle{color:#777;font-size:13px;margin-top:-10px}
+
+  /* Toggle Cliente / Trabajador */
+  .toggle{display:flex;background:#111;border:1px solid #222;border-radius:30px;padding:4px;gap:4px}
+  .toggle button{
+    border:0;background:transparent;color:#888;font-weight:800;font-size:13px;
+    padding:8px 20px;border-radius:24px;cursor:pointer;transition:.25s;
+  }
+  .toggle button.on{background:var(--yellow);color:#0A0A0A}
+
+  /* Teléfono */
+  .phone{
+    width:344px;height:686px;background:var(--bg);border-radius:40px;
+    border:8px solid #1c1c1c;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px #000;
+    overflow:hidden;position:relative;display:flex;flex-direction:column;
+  }
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:130px;height:24px;background:#1c1c1c;border-radius:0 0 16px 16px;z-index:30}
+
+  /* Header del teléfono */
+  .pHeader{padding:30px 18px 12px;display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid #141414;position:relative;z-index:20}
+  .logo{font-size:17px;font-weight:900;letter-spacing:2px}
+  .logo span{color:var(--yellow)}
+  .stageTag{font-size:11px;font-weight:800;color:var(--yellow);
+    background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.25);
+    padding:4px 10px;border-radius:20px}
+
+  /* Progreso (puntitos) */
+  .dots{display:flex;gap:5px;padding:10px 18px 4px;flex-wrap:wrap}
+  .dot{height:4px;flex:1;min-width:6px;background:#222;border-radius:3px;transition:.4s}
+  .dot.done{background:#3a3a18}
+  .dot.cur{background:var(--yellow);box-shadow:0 0 8px rgba(255,214,0,.6)}
+
+  /* Escena (visual de la pantalla) */
+  .scene{height:228px;margin:8px 14px 0;border-radius:18px;background:#0e0e0e;
+    border:1px solid #1a1a1a;position:relative;overflow:hidden;
+    display:flex;align-items:center;justify-content:center}
+  .scene .title{position:absolute;top:12px;left:14px;font-size:12px;color:#555;font-weight:700}
+
+  /* Chat de VOLT */
+  .voltArea{flex:1;padding:14px;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+  .msg{display:flex;gap:9px;align-items:flex-end;opacity:0;transform:translateY(12px);
+    animation:rise .42s cubic-bezier(.2,1,.3,1) forwards}
+  @keyframes rise{to{opacity:1;transform:translateY(0)}}
+  .vAvatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;
+    background:rgba(255,214,0,.12);border:1px solid rgba(255,214,0,.4);
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+    animation:pulseGlow 2s ease-in-out infinite}
+  @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 rgba(255,214,0,0)}50%{box-shadow:0 0 14px rgba(255,214,0,.5)}}
+  .bubble{background:#15150c;border:1px solid #2a2a14;border-radius:4px 16px 16px 16px;
+    padding:11px 13px;font-size:13px;line-height:1.5;color:#e6e6d8;max-width:235px}
+  .bubble .who{font-size:10px;font-weight:900;color:var(--yellow);letter-spacing:1px;
+    display:block;margin-bottom:3px}
+  .typing{display:flex;gap:4px;padding:14px 14px}
+  .typing i{width:7px;height:7px;border-radius:50%;background:#555;animation:blink 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+  /* Controles */
+  .controls{display:flex;align-items:center;gap:14px}
+  .ctrl{width:48px;height:48px;border-radius:50%;border:1px solid #222;background:#111;
+    color:#ddd;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s}
+  .ctrl:hover{border-color:var(--yellow);color:var(--yellow)}
+  .ctrl.play{width:58px;height:58px;background:var(--yellow);color:#0A0A0A;border:0;font-size:22px}
+  .hint{color:#555;font-size:12px}
+
+  /* ====== Escenas específicas ====== */
+  /* Mapa */
+  .map{position:absolute;inset:0;background:
+    linear-gradient(#0b0b0b,#0b0b0b),
+    repeating-linear-gradient(0deg,#141414 0 1px,transparent 1px 34px),
+    repeating-linear-gradient(90deg,#141414 0 1px,transparent 1px 34px);
+    background-blend-mode:normal}
+  .pin{position:absolute;width:26px;height:26px;border-radius:50%;background:#15150f;
+    border:2px solid #33d17a;display:flex;align-items:center;justify-content:center;font-size:12px;
+    transform:translate(-50%,-50%)}
+  .pin::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid #33d17a;
+    animation:ping 2s ease-out infinite}
+  @keyframes ping{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.6);opacity:0}}
+  .userdot{position:absolute;width:16px;height:16px;border-radius:50%;background:#4285F4;
+    border:3px solid #fff;transform:translate(-50%,-50%);box-shadow:0 0 10px rgba(66,133,244,.8)}
+  .userdot::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid #4285F4;
+    animation:ping 3s ease-out infinite}
+
+  /* Cards de selección */
+  .wcard{width:200px;background:#121212;border:1px solid #1f1f1f;border-radius:12px;padding:10px;
+    display:flex;gap:9px;align-items:center;margin:4px 0;transition:.4s}
+  .wcard.best{border-color:var(--yellow);box-shadow:0 0 18px rgba(255,214,0,.18);transform:scale(1.04)}
+  .wav{width:34px;height:34px;border-radius:50%;background:#1a1a00;border:1.5px solid var(--yellow);
+    display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--yellow)}
+  .wname{font-size:12px;font-weight:800}.wstar{font-size:11px;color:var(--yellow)}
+
+  /* Código */
+  .codeBox{display:flex;gap:8px}
+  .codeBox b{width:42px;height:54px;background:#15150c;border:1px solid var(--yellow);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--yellow);font-weight:900;
+    animation:popd .4s backwards}
+  .codeBox b:nth-child(2){animation-delay:.1s}.codeBox b:nth-child(3){animation-delay:.2s}.codeBox b:nth-child(4){animation-delay:.3s}
+  @keyframes popd{from{transform:scale(0);opacity:0}}
+
+  /* Genéricos */
+  .big{font-size:74px;animation:float 3s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  .spin{font-size:64px;animation:spin 3s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .pills{display:flex;gap:8px;margin-top:14px}
+  .pill{font-size:11px;font-weight:800;padding:7px 12px;border-radius:20px}
+  .pill.y{background:var(--yellow);color:#0A0A0A}
+  .pill.g{background:#161616;border:1px solid #333;color:#aaa}
+  .stars span{font-size:34px;color:#333;animation:fill .5s forwards}
+  .stars span.on{color:var(--yellow)}
+  .stars span:nth-child(2){animation-delay:.15s}.stars span:nth-child(3){animation-delay:.3s}
+  .stars span:nth-child(4){animation-delay:.45s}.stars span:nth-child(5){animation-delay:.6s}
+  .commBar{width:200px}
+  .commBar .lab{display:flex;justify-content:space-between;font-size:11px;color:#777;margin-bottom:6px}
+  .commTrack{height:12px;background:#161616;border-radius:8px;overflow:hidden;border:1px solid #222}
+  .commFill{height:100%;width:50%;background:linear-gradient(90deg,#33d17a,var(--yellow));
+    animation:shrink 2.4s ease-in-out infinite alternate}
+  @keyframes shrink{from{width:90%}to{width:30%}}
+  .cal{display:flex;gap:6px}
+  .cal b{width:40px;height:48px;border-radius:8px;border:1px solid #222;background:#121212;
+    display:flex;align-items:center;justify-content:center;font-size:18px;color:#555}
+  .cal b.done{border-color:#33d17a;color:#33d17a;background:#0c140c}
+  .cal b.cur{border-color:var(--yellow);color:var(--yellow);background:#15150c;animation:pulseGlow 1.6s infinite}
+  .moneybig{font-size:40px;font-weight:900;color:#33d17a}
+  .route{position:absolute;inset:0}
+  .routeDot{position:absolute;width:22px;height:22px;border-radius:50%;background:#15150f;border:2px solid var(--yellow);
+    display:flex;align-items:center;justify-content:center;font-size:11px;
+    offset-path:path("M 30 190 C 90 120, 150 200, 220 90");animation:drive 4s ease-in-out infinite}
+  @keyframes drive{to{offset-distance:100%}}
+  .incoming{width:210px;background:#15150c;border:1px solid var(--yellow);border-radius:14px;padding:14px;
+    animation:pulseGlow 1.3s infinite}
+  .incoming .t{font-size:13px;font-weight:900;color:var(--yellow)}
+  .incoming .s{font-size:11px;color:#999;margin-top:3px}
+</style>
+</head>
+<body>
+  <h1>GO<span>VOLT</span> · El coordinador invisible</h1>
+  <div class="subtitle">Flujo de VOLT, pantalla por pantalla — con sus mensajes reales</div>
+
+  <div class="toggle">
+    <button id="tCliente" class="on" onclick="setSide('client')">👤 Cliente</button>
+    <button id="tWorker" onclick="setSide('worker')">🔧 Trabajador</button>
+  </div>
+
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="pHeader">
+      <div class="logo">GO<span>VOLT</span></div>
+      <div class="stageTag" id="stageTag">—</div>
+    </div>
+    <div class="dots" id="dots"></div>
+    <div class="scene" id="scene"></div>
+    <div class="voltArea" id="voltArea"></div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl" onclick="prev()">◀</button>
+    <button class="ctrl play" id="playBtn" onclick="togglePlay()">⏸</button>
+    <button class="ctrl" onclick="next()">▶</button>
+  </div>
+  <div class="hint" id="hint">Reproduciéndose… tocá ▶ ◀ para navegar</div>
+
+<script>
+// ─── Datos del flujo (mensajes reales de voltVoice.js) ─────────────────────
+const FLOWS = {
+  client: [
+    { tag:'Buscás', scene:'map', volt:[
+      'Encontramos profesionales disponibles.',
+      'Analizando distancia y disponibilidad en tu zona.',
+      '3 profesionales recibieron tu solicitud. Esperando propuestas, te avisaremos enseguida.'] },
+    { tag:'Elegís', scene:'select', volt:[
+      'Martín destaca por sus calificaciones. Podría ser tu mejor opción.'] },
+    { tag:'Coordinando', scene:'verify', volt:[
+      'Estamos verificando disponibilidad en tu zona.',
+      'Tu profesional confirmó el horario.'] },
+    { tag:'En camino', scene:'route', volt:[
+      'Tu profesional se encuentra en camino.',
+      'El profesional está muy cerca.'] },
+    { tag:'Llegó', scene:'code', volt:[
+      'Martín llegó al lugar. Verificá el código antes de abrir. Es tu garantía de que es un profesional GOVOLT.'] },
+    { tag:'Materiales', scene:'materials', volt:[
+      'Martín avisa que el trabajo necesita materiales: disyuntor 16A (~$12.000). Los materiales se pagan aparte, directo al profesional. ¿Preferís que los compre él o los conseguís vos?'] },
+    { tag:'Trabajando', scene:'working', volt:[
+      'Trabajo iniciado. Estaremos atentos por si necesitás algo.'] },
+    { tag:'Varios días', scene:'multiday', volt:[
+      'Este trabajo se realizará en 3 días. Te avisaremos cada vez que se cierre una jornada.',
+      'Jornada cerrada. Martín vuelve mañana para continuar. Tu trabajo está monitoreado por GOVOLT.'] },
+    { tag:'A pagar', scene:'pay', volt:[
+      'El trabajo fue completado. Podés proceder con el pago. El pago es seguro y procesado por GOVOLT, nunca pagues en efectivo.'] },
+    { tag:'Despedida', scene:'rating', volt:[
+      'Esperamos que el servicio haya salido bien. Martín queda guardado en Mis profesionales para futuros trabajos.'] },
+  ],
+  worker: [
+    { tag:'Bienvenida', scene:'welcome', volt:[
+      '¡Bienvenido a GOVOLT, Carlos! 👋 Soy VOLT y te voy a acompañar en cada trabajo. Acá no competís por precio: cuanto mejor trabajás, menos comisión pagás.'] },
+    { tag:'Tu comisión', scene:'commission', volt:[
+      'Arrancás con 20% de comisión. Con cada trabajo bien hecho baja: 10 trabajos + 4.0★ → 17% · 50 + 4.5★ → 14% · 100 + 4.8★ → 10%. Vos manejás cuánto ganás.'] },
+    { tag:'Nuevo pedido', scene:'incoming', volt:[
+      'Conducí con precaución. Avisamos al cliente que ya vas en camino.'] },
+    { tag:'En domicilio', scene:'code', volt:[
+      'Mostrá tu código antes de que el cliente abra. Es obligatorio.'] },
+    { tag:'Materiales', scene:'materials', volt:[
+      'Avisale al cliente si necesitás materiales y cuánto estimás. Se pagan aparte, directo a vos — no van dentro del pago de la app.'] },
+    { tag:'Tu nivel', scene:'progress', volt:[
+      'Vas muy bien. Te faltan 2 trabajos con 4.0★+ para bajar tu comisión a 17%. Cada trabajo cuenta. 💪'] },
+    { tag:'Cobraste', scene:'postjob', volt:[
+      '¡Buen trabajo! Cobraste $18.400 (comisión 17%). Cada trabajo bien hecho te acerca al siguiente nivel.'] },
+  ]
+};
+
+// ─── Escenas (visual por pantalla) ─────────────────────────────────────────
+function sceneHTML(type){
+  switch(type){
+    case 'map': return `<div class="map"></div>
+      <div class="pin" style="left:26%;top:30%">🔧</div>
+      <div class="pin" style="left:70%;top:38%">🚰</div>
+      <div class="pin" style="left:54%;top:68%">🔥</div>
+      <div class="userdot" style="left:50%;top:50%"></div>
+      <div class="title">Buscando cerca tuyo…</div>`;
+    case 'select': return `
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="wcard"><div class="wav">J</div><div><div class="wname">Juan P.</div><div class="wstar">★ 4.6 · 80 trabajos</div></div></div>
+        <div class="wcard best"><div class="wav">M</div><div><div class="wname">Martín G. ⚡</div><div class="wstar">★ 4.9 · 247 trabajos</div></div></div>
+        <div class="wcard"><div class="wav">L</div><div><div class="wname">Lucas R.</div><div class="wstar">★ 4.5 · 32 trabajos</div></div></div>
+      </div><div class="title">VOLT recomienda</div>`;
+    case 'verify': return `<div class="spin">🔄</div><div class="title">Verificando disponibilidad</div>`;
+    case 'route': return `<div class="route">
+        <svg width="100%" height="100%" style="position:absolute;inset:0"><path d="M 30 190 C 90 120, 150 200, 220 90" stroke="#2a2a14" stroke-width="3" fill="none" stroke-dasharray="6 6"/></svg>
+        <div class="userdot" style="left:84%;top:18%"></div>
+        <div class="routeDot">⚡</div></div><div class="title">En camino</div>`;
+    case 'code': return `<div class="codeBox"><b>4</b><b>8</b><b>7</b><b>2</b></div><div class="title">🔑 Código de verificación</div>`;
+    case 'materials': return `<div class="big">🧰</div>
+        <div class="pills"><span class="pill y">Que los compre él</span><span class="pill g">Los consigo yo</span></div>
+        <div class="title">Materiales (se pagan aparte)</div>`;
+    case 'working': return `<div class="spin">🔧</div><div class="title">Trabajo en curso</div>`;
+    case 'multiday': return `<div class="cal"><b class="done">✓</b><b class="cur">🌙</b><b>3</b></div><div class="title">Sesión 1 de 3 · vuelve mañana</div>`;
+    case 'pay': return `<div class="big">💳</div><div class="title">Pago seguro por GOVOLT</div>`;
+    case 'rating': return `<div class="stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div><div class="title">Calificá a tu profesional</div>`;
+    case 'welcome': return `<div class="big">⚡</div><div class="title">Bienvenido, socio</div>`;
+    case 'commission': return `<div class="commBar"><div class="lab"><span>Comisión</span><span>20% → 10%</span></div><div class="commTrack"><div class="commFill"></div></div></div><div class="title">Mejorás → pagás menos</div>`;
+    case 'incoming': return `<div class="incoming"><div class="t">⚡ Nuevo pedido</div><div class="s">Electricidad · a 1.2 km · ahora</div></div><div class="title">Pedido entrante</div>`;
+    case 'progress': return `<div class="commBar"><div class="lab"><span>Nivel: Nuevo → Verificado</span><span>8/10</span></div><div class="commTrack"><div class="commFill" style="animation:none;width:80%"></div></div></div><div class="title">Te faltan 2 trabajos</div>`;
+    case 'postjob': return `<div class="moneybig">+$18.400</div><div class="title">Cobraste (comisión 17%)</div>`;
+    default: return '';
+  }
+}
+
+// ─── Motor de reproducción ─────────────────────────────────────────────────
+let side='client', idx=0, playing=true, timers=[];
+const $=id=>document.getElementById(id);
+const clearTimers=()=>{timers.forEach(clearTimeout);timers=[];};
+
+function renderDots(){
+  const f=FLOWS[side];
+  $('dots').innerHTML=f.map((_,i)=>`<div class="dot ${i<idx?'done':''} ${i===idx?'cur':''}"></div>`).join('');
+}
+
+function renderStage(){
+  clearTimers();
+  const st=FLOWS[side][idx];
+  $('stageTag').textContent=st.tag;
+  renderDots();
+  $('scene').innerHTML=sceneHTML(st.scene);
+  $('voltArea').innerHTML='';
+  // Mostrar los mensajes de VOLT uno por uno con "typing"
+  let delay=300;
+  st.volt.forEach((m)=>{
+    timers.push(setTimeout(()=>showTyping(),delay));
+    delay+=750;
+    timers.push(setTimeout(()=>showMsg(m),delay));
+    delay+=1900;
+  });
+  // Avanzar a la próxima etapa si está reproduciéndose
+  if(playing){
+    timers.push(setTimeout(()=>next(),delay+1400));
+  }
+}
+
+function showTyping(){
+  const a=$('voltArea');
+  const t=document.createElement('div');
+  t.className='msg';t.id='typingMsg';
+  t.innerHTML=`<div class="vAvatar">⚡</div><div class="bubble"><div class="typing"><i></i><i></i><i></i></div></div>`;
+  a.appendChild(t);a.scrollTop=a.scrollHeight;
+}
+function showMsg(text){
+  const t=$('typingMsg'); if(t) t.remove();
+  const a=$('voltArea');
+  const m=document.createElement('div');
+  m.className='msg';
+  m.innerHTML=`<div class="vAvatar">⚡</div><div class="bubble"><span class="who">VOLT</span>${text}</div>`;
+  a.appendChild(m);a.scrollTop=a.scrollHeight;
+}
+
+function next(){idx=(idx+1)%FLOWS[side].length;renderStage();}
+function prev(){idx=(idx-1+FLOWS[side].length)%FLOWS[side].length;renderStage();}
+function setSide(s){
+  side=s;idx=0;
+  $('tCliente').classList.toggle('on',s==='client');
+  $('tWorker').classList.toggle('on',s==='worker');
+  renderStage();
+}
+function togglePlay(){
+  playing=!playing;
+  $('playBtn').textContent=playing?'⏸':'▶';
+  $('hint').textContent=playing?'Reproduciéndose… tocá ▶ ◀ para navegar':'En pausa · usá ▶ ◀ para moverte';
+  renderStage();
+}
+
+renderStage();
+</script>
+</body>
+</html>

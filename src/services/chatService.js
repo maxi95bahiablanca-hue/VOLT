@@ -48,15 +48,23 @@ const chatService = {
     return count ?? 0;
   },
 
-  subscribeToMessages: (jobId, onNew) =>
-    supabase.channel(`chat-${jobId}`)
+  // Nombre de canal ÚNICO por suscripción: si se reusa el mismo topic después de
+  // subscribe() Realtime crashea con "cannot add postgres_changes after subscribe()".
+  subscribeToMessages: (jobId, onNew) => {
+    const channel = supabase.channel(`chat-${jobId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
         filter: `job_id=eq.${jobId}`,
       }, p => onNew(p.new))
-      .subscribe(),
+      .subscribe();
+    return channel;
+  },
+  // Limpieza correcta: removeChannel (no solo unsubscribe) para sacarlo del registro.
+  unsubscribe: (channel) => {
+    if (channel) { try { supabase.removeChannel(channel); } catch {} }
+  },
 };
 
 export default chatService;

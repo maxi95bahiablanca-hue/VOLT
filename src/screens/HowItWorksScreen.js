@@ -4,6 +4,7 @@ import {
   SafeAreaView, ScrollView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { chargesInApp } from '../config/monetization';
 
 const STEPS = [
   {
@@ -27,14 +28,18 @@ const STEPS = [
   {
     icon: 'card',
     color: '#4CAF50',
-    title: 'Pagás seguro con tarjeta',
-    desc: 'El pago se procesa dentro de la app con tarjeta de débito o crédito. El profesional recibe su pago solo cuando confirmás que el trabajo fue completado.',
+    title: chargesInApp() ? 'Pagás seguro con tarjeta' : 'Coordinás el pago directo',
+    desc: chargesInApp()
+      ? 'El pago se procesa dentro de la app con tarjeta de débito o crédito. El profesional recibe su pago solo cuando confirmás que el trabajo fue completado.'
+      : 'Cuando el trabajo está listo, le pagás directo al profesional como prefieran (efectivo, transferencia, etc.). Por ahora BOLT es gratis: no cobra comisión.',
   },
   {
     icon: 'star',
     color: '#FFD600',
     title: 'Calificás el servicio',
-    desc: 'Tu opinión mejora la plataforma. Los mejores profesionales tienen menor comisión, lo que también te beneficia a vos.',
+    desc: chargesInApp()
+      ? 'Tu opinión mejora la plataforma. Los mejores profesionales tienen menor comisión, lo que también te beneficia a vos.'
+      : 'Tu opinión mejora la plataforma y ayuda a que los mejores profesionales se destaquen y reciban más trabajos.',
   },
 ];
 
@@ -51,7 +56,7 @@ const HowItWorksScreen = ({ onClose }) => (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.badge}>
         <Ionicons name="flash" size={14} color="#0A0A0A" />
-        <Text style={styles.badgeText}>GOVOLT — SIMPLE Y SEGURO</Text>
+        <Text style={styles.badgeText}>BOLT — SIMPLE Y SEGURO</Text>
       </View>
 
       <Text style={styles.intro}>
@@ -77,9 +82,11 @@ const HowItWorksScreen = ({ onClose }) => (
       <View style={styles.securityBox}>
         <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
         <View style={{ flex: 1 }}>
-          <Text style={styles.securityTitle}>Tu dinero siempre protegido</Text>
+          <Text style={styles.securityTitle}>{chargesInApp() ? 'Tu dinero siempre protegido' : 'Tu seguridad es lo primero'}</Text>
           <Text style={styles.securityDesc}>
-            GOVOLT retiene el pago hasta que confirmás que el trabajo está hecho. Ningún profesional recibe dinero antes.
+            {chargesInApp()
+              ? 'BOLT retiene el pago hasta que confirmás que el trabajo está hecho. Ningún profesional recibe dinero antes.'
+              : 'Todos los profesionales están verificados y tienen un código de identidad de 4 dígitos. Seguí su llegada en tiempo real hasta tu domicilio.'}
           </Text>
         </View>
       </View>

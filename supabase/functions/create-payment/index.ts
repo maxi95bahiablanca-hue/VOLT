@@ -17,7 +17,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { jobId } = body;
+    const { jobId, visitOnly = false } = body;
 
     if (!jobId || typeof jobId !== 'string') return json({ error: 'jobId requerido' }, 400);
 
@@ -40,7 +40,7 @@ serve(async (req) => {
     const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: job, error: jobErr } = await adminClient
       .from('jobs')
-      .select('id, work_amount, visit_amount, materials_cost, status, client_id')
+      .select('id, work_amount, visit_amount, materials_cost, status, client_id, visit_paid')
       .eq('id', jobId)
       .single();
 
@@ -49,16 +49,29 @@ serve(async (req) => {
     // ── 3. Verificar que el usuario autenticado es el cliente del trabajo ───
     if (job.client_id !== user.id) return json({ error: 'No autorizado' }, 403);
 
-    // ── 4. El trabajo debe estar en awaiting_payment ─────────────────────────
-    if (job.status !== 'awaiting_payment') {
-      return json({ error: 'El trabajo no está listo para pagar' }, 400);
+    // ── 4. Validar el estado según el tipo de cobro ─────────────────────────
+    // visitOnly  = cobro de la VISITA por anticipado (recién se eligió al
+    //              profesional). El dinero queda retenido por la plataforma.
+    // !visitOnly = cobro FINAL (mano de obra + materiales), al terminar.
+    if (visitOnly) {
+      if (job.visit_paid) return json({ error: 'La visita ya fue pagada' }, 400);
+      if (!['accepted', 'arrived', 'in_progress'].includes(job.status)) {
+        return json({ error: 'El trabajo no está en un estado válido para cobrar la visita' }, 400);
+      }
+    } else {
+      if (job.status !== 'awaiting_payment') {
+        return json({ error: 'El trabajo no está listo para pagar' }, 400);
+      }
     }
 
     // ── 5. Calcular monto DESDE LA DB — NUNCA confiar en el cliente ─────────
-    // materials_cost no lleva comisión VOLT: el trabajador adelantó el dinero
-    const visitAmount = job.visit_amount   ?? 30000;
-    const matsAmount  = job.materials_cost ?? 0;
-    const workAmount  = job.work_amount    ?? 0;
+    // materials_cost no lleva comisión BOLT: el trabajador adelantó el dinero.
+    // Si la visita ya está pagada, el cobro final NO la vuelve a incluir.
+    const visitAmount = visitOnly
+      ? (job.visit_amount ?? 30000)
+      : (job.visit_paid ? 0 : (job.visit_amount ?? 30000));
+    const matsAmount  = visitOnly ? 0 : (job.materials_cost ?? 0);
+    const workAmount  = visitOnly ? 0 : (job.work_amount    ?? 0);
     const totalAmount = visitAmount + matsAmount + workAmount;
     if (totalAmount <= 0) return json({ error: 'Monto inválido' }, 400);
 
@@ -66,35 +79,37 @@ serve(async (req) => {
     // Ítems separados para que el extracto del cliente sea claro
     const preference = {
       items: [
-        {
-          title:       'VOLT — Visita / diagnóstico',
+        ...(visitAmount > 0 ? [{
+          title:       'BOLT — Visita / diagnóstico',
           quantity:    1,
           unit_price:  visitAmount,
           currency_id: 'ARS',
-        },
+        }] : []),
         ...(matsAmount > 0 ? [{
-          title:       'VOLT — Materiales (sin comisión)',
+          title:       'BOLT — Materiales (sin comisión)',
           quantity:    1,
           unit_price:  matsAmount,
           currency_id: 'ARS',
         }] : []),
         ...(workAmount > 0 ? [{
-          title:       'VOLT — Mano de obra',
+          title:       'BOLT — Mano de obra',
           quantity:    1,
           unit_price:  workAmount,
           currency_id: 'ARS',
         }] : []),
       ],
-      payer: { email: user.email ?? 'cliente@volt.app' },
+      payer: { email: user.email ?? 'cliente@bolt.com.ar' },
+      // back_urls con deep link a la app (scheme `bolt`). NO usamos auto_return
+      // porque Mercado Pago exige https para auto_return; sin él, MP acepta el
+      // deep link y el resultado se confirma además por el webhook (mp-webhook).
       back_urls: {
-        success: `volt://payment-success?jobId=${jobId}`,
-        failure: `volt://payment-failure?jobId=${jobId}`,
-        pending: `volt://payment-pending?jobId=${jobId}`,
+        success: `bolt://payment-success?jobId=${jobId}`,
+        failure: `bolt://payment-failure?jobId=${jobId}`,
+        pending: `bolt://payment-pending?jobId=${jobId}`,
       },
-      auto_return: 'approved',
       notification_url: `${SUPABASE_URL}/functions/v1/mp-webhook`,
-      external_reference: jobId,
-      statement_descriptor: 'VOLT',
+      external_reference: `${jobId}${visitOnly ? ':visit' : ':final'}`,
+      statement_descriptor: 'BOLT',
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     };
@@ -104,7 +119,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
         'Content-Type': 'application/json',
-        'X-Idempotency-Key': jobId,
+        'X-Idempotency-Key': `${jobId}-${visitOnly ? 'visit' : 'final'}`,
       },
       body: JSON.stringify(preference),
     });

@@ -8,8 +8,12 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../supabase';
 import { showSuccess, showError } from '../utils/toast';
+import cardService from '../services/cardService';
+import MPCardForm from '../components/MPCardForm';
 import WorkerDashboardScreen from './WorkerDashboardScreen';
+import PaymentDataModal from '../components/PaymentDataModal';
 import AdminScreen from './AdminScreen';
+import { chargesInApp } from '../config/monetization';
 
 const ADMIN_EMAILS = ['maxi95.bahiablanca@gmail.com'];
 
@@ -29,9 +33,44 @@ const ProfileScreen = ({ session, professional, onClose }) => {
   const [paymentVerified, setPaymentVerified]     = useState(false);
   const [loadingPayment, setLoadingPayment]       = useState(false);
   const [localPaymentMethod, setLocalPaymentMethod] = useState(professional?.payment_method || 'cbu');
+  const [showPayData, setShowPayData] = useState(false);
+  const [payData, setPayData] = useState({ cuit: professional?.cuit || '', cbu: professional?.cbu || '' });
+  // Tarjetas guardadas (solo clientes)
+  const [cards, setCards]           = useState([]);
+  const [loadingCards, setLoadingCards] = useState(false);
+  const [showAddCard, setShowAddCard]   = useState(false);
 
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email);
   const user    = session?.user;
+
+  const loadCards = async () => {
+    setLoadingCards(true);
+    try { setCards(await cardService.list()); } catch { /* silent */ }
+    finally { setLoadingCards(false); }
+  };
+  useEffect(() => { if (!professional) loadCards(); }, []);
+
+  const handleCardToken = async ({ token }) => {
+    setShowAddCard(false);
+    if (!token) return;
+    try {
+      await cardService.save(token);
+      showSuccess('Tarjeta guardada.');
+      loadCards();
+    } catch (e) {
+      showError(e.message || 'No se pudo guardar la tarjeta.');
+    }
+  };
+
+  const handleDeleteCard = (card) => {
+    Alert.alert('Borrar tarjeta', `¿Borrar la tarjeta terminada en ${card.last_four}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Borrar', style: 'destructive', onPress: async () => {
+        try { await cardService.remove(card.id); setCards(cs => cs.filter(c => c.id !== card.id)); }
+        catch { showError('No se pudo borrar.'); }
+      } },
+    ]);
+  };
 
   // Verificar si el cliente tiene al menos un pago aprobado
   useEffect(() => {
@@ -251,26 +290,38 @@ const ProfileScreen = ({ session, professional, onClose }) => {
                 <Ionicons name="call-outline" size={18} color="#555" />
                 <Text style={styles.rowText}>{professional.phone || 'Sin teléfono'}</Text>
               </View>
-              <View style={styles.rowDivider} />
-              {professional.cbu && (
+              {chargesInApp() && (
                 <>
-                  <View style={styles.row}>
-                    <Ionicons name="card-outline" size={18} color="#555" />
-                    <Text style={styles.rowText}>CBU: •••• {professional.cbu.slice(-4)}</Text>
-                  </View>
                   <View style={styles.rowDivider} />
+                  <TouchableOpacity style={styles.row} onPress={() => setShowPayData(true)} activeOpacity={0.7}>
+                    <Ionicons name="card-outline" size={18} color={payData.cbu ? '#555' : '#FFD600'} />
+                    {payData.cbu ? (
+                      <Text style={[styles.rowText, { flex: 1 }]}>CBU: •••• {payData.cbu.slice(-4)}</Text>
+                    ) : (
+                      <Text style={[styles.rowText, { flex: 1, color: '#FFD600' }]}>Completá tus datos para cobrar</Text>
+                    )}
+                    <Text style={{ fontSize: 11, color: '#FFD600' }}>{payData.cbu ? 'Editar' : 'Completar'}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.rowDivider} />
+                  <TouchableOpacity style={styles.row} onPress={handleEditPaymentMethod} activeOpacity={0.7}>
+                    <Text style={{ fontSize: 16 }}>
+                      {localPaymentMethod === 'mercadopago' ? '💳' : '🏦'}
+                    </Text>
+                    <Text style={[styles.rowText, { flex: 1 }]}>
+                      Cobra por {localPaymentMethod === 'mercadopago' ? 'Mercado Pago' : 'CBU / CVU'}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#FFD600' }}>Cambiar</Text>
+                  </TouchableOpacity>
+                  <View style={styles.rowDivider} />
+
+                  <PaymentDataModal
+                    visible={showPayData}
+                    professional={professional}
+                    onClose={() => setShowPayData(false)}
+                    onSaved={(f) => { setPayData(f); setShowPayData(false); }}
+                  />
                 </>
               )}
-              <TouchableOpacity style={styles.row} onPress={handleEditPaymentMethod} activeOpacity={0.7}>
-                <Text style={{ fontSize: 16 }}>
-                  {localPaymentMethod === 'mercadopago' ? '💳' : '🏦'}
-                </Text>
-                <Text style={[styles.rowText, { flex: 1 }]}>
-                  Cobra por {localPaymentMethod === 'mercadopago' ? 'Mercado Pago' : 'CBU / CVU'}
-                </Text>
-                <Text style={{ fontSize: 11, color: '#FFD600' }}>Cambiar</Text>
-              </TouchableOpacity>
-              <View style={styles.rowDivider} />
             </>
           )}
 
@@ -280,8 +331,8 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           </View>
         </View>
 
-        {/* Método de pago — solo para clientes */}
-        {!professional && (
+        {/* Método de pago — solo para clientes (y solo si la app cobra) */}
+        {!professional && chargesInApp() && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Método de pago</Text>
             <View style={styles.paymentCard}>
@@ -318,9 +369,36 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           </View>
         )}
 
+        {/* Mis tarjetas guardadas — solo clientes (y solo si la app cobra) */}
+        {!professional && chargesInApp() && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Mis tarjetas</Text>
+            {loadingCards ? (
+              <ActivityIndicator color="#FFD600" style={{ marginVertical: 10 }} />
+            ) : cards.length === 0 ? (
+              <Text style={styles.cardEmpty}>Guardá una tarjeta para pagar en 1 toque.</Text>
+            ) : cards.map(c => (
+              <View key={c.id} style={styles.savedCard}>
+                <Ionicons name="card" size={20} color="#FFD600" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.savedCardBrand}>{c.brand} •••• {c.last_four}</Text>
+                  {c.exp ? <Text style={styles.savedCardExp}>Vence {c.exp}</Text> : null}
+                </View>
+                <TouchableOpacity onPress={() => handleDeleteCard(c)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="trash-outline" size={18} color="#ff5577" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity style={styles.addCardBtn} onPress={() => setShowAddCard(true)} activeOpacity={0.85}>
+              <Ionicons name="add" size={18} color="#0A0A0A" />
+              <Text style={styles.addCardBtnText}>Agregar tarjeta</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Info de la plataforma */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sobre GOVOLT</Text>
+          <Text style={styles.sectionTitle}>Sobre BOLT</Text>
           <View style={styles.infoRow}>
             <Ionicons name="shield-checkmark-outline" size={16} color="#FFD600" />
             <Text style={styles.infoText}>Todos los pagos están protegidos por la plataforma.</Text>
@@ -360,9 +438,16 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           <Text style={styles.signOutText}>Cerrar sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>GOVOLT v1.0</Text>
+        <Text style={styles.version}>BOLT v1.0</Text>
 
       </ScrollView>
+
+      <MPCardForm
+        visible={showAddCard}
+        mode="new"
+        onClose={() => setShowAddCard(false)}
+        onToken={handleCardToken}
+      />
     </SafeAreaView>
   );
 };
@@ -381,6 +466,21 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
 
   scroll: { padding: 20, paddingBottom: 48 },
+
+  // Tarjetas guardadas
+  cardEmpty: { color: '#666', fontSize: 13, marginBottom: 10 },
+  savedCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1f1f1f',
+    padding: 14, marginBottom: 8,
+  },
+  savedCardBrand: { fontSize: 14, fontWeight: '700', color: '#F5F5F5', textTransform: 'capitalize' },
+  savedCardExp:   { fontSize: 12, color: '#666', marginTop: 2 },
+  addCardBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#FFD600', borderRadius: 12, paddingVertical: 13, marginTop: 4,
+  },
+  addCardBtnText: { color: '#0A0A0A', fontSize: 14, fontWeight: '900' },
 
   avatarSection: { alignItems: 'center', paddingVertical: 24 },
   avatarWrapper: { alignItems: 'center', marginBottom: 14 },

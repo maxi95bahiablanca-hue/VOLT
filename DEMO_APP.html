@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOVOLT — Demo interactivo de la app</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--y:#FFD600;--bg:#0A0A0A;--green:#4CAF50;--blue:#4285F4}
+  body{background:radial-gradient(circle at 50% 0%,#161616,#060606 70%);
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#eee;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:22px 12px}
+  h1{font-size:19px;font-weight:900;letter-spacing:2px}h1 span{color:var(--y)}
+  .sub{color:#777;font-size:12px;margin-top:-8px}
+  .toggle{display:flex;background:#111;border:1px solid #222;border-radius:30px;padding:4px;gap:4px}
+  .toggle button{border:0;background:transparent;color:#888;font-weight:800;font-size:13px;padding:8px 20px;border-radius:24px;cursor:pointer;transition:.25s}
+  .toggle button.on{background:var(--y);color:#0A0A0A}
+
+  .phone{width:344px;height:700px;background:var(--bg);border-radius:38px;border:8px solid #1c1c1c;
+    box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:22px;background:#1c1c1c;border-radius:0 0 14px 14px;z-index:50}
+  .screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;animation:fade .35s}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}}
+
+  .bar{display:flex;align-items:center;justify-content:space-between;padding:30px 16px 10px}
+  .logo{font-size:16px;font-weight:900;letter-spacing:2px}.logo span{color:var(--y)}
+  .menu{color:var(--y);font-size:20px}
+  .search{display:flex;align-items:center;gap:8px;background:#0f0f0f;border:1px solid #222;border-radius:12px;padding:11px 12px;margin:0 16px;font-size:13px;color:#666}
+
+  .map{flex:1;position:relative;margin:12px 14px;border-radius:16px;overflow:hidden;border:1px solid #1a1a1a;
+    background:linear-gradient(#0b0b0b,#0b0b0b),repeating-linear-gradient(0deg,#141414 0 1px,transparent 1px 32px),repeating-linear-gradient(90deg,#141414 0 1px,transparent 1px 32px)}
+  .pin{position:absolute;width:26px;height:26px;border-radius:50%;background:#15150f;border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:12px;transform:translate(-50%,-50%)}
+  .pin::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--green);animation:ping 2s ease-out infinite}
+  @keyframes ping{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.6);opacity:0}}
+  .udot{position:absolute;width:15px;height:15px;border-radius:50%;background:var(--blue);border:3px solid #fff;transform:translate(-50%,-50%);box-shadow:0 0 10px rgba(66,133,244,.8)}
+  .chipBar{position:absolute;bottom:8px;left:8px;right:8px;display:flex;gap:6px;overflow:auto;padding:2px}
+  .chip{white-space:nowrap;font-size:12px;font-weight:700;padding:8px 13px;border-radius:20px;background:#111d;border:1px solid #222;color:#bbb;cursor:pointer}
+  .chip.on{background:var(--y);color:#0A0A0A;border-color:var(--y)}
+
+  .panel{background:#0c0c0c;border-top:1px solid #1a1a1a;padding:14px 16px 18px;display:flex;flex-direction:column;gap:10px}
+  .pTitle{font-size:11px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:.5px}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--y);color:#0A0A0A;font-weight:900;font-size:15px;border:0;border-radius:13px;padding:14px;cursor:pointer;width:100%}
+  .btn:active{transform:scale(.98)}
+  .btn.sec{background:#111;color:var(--y);border:1.5px solid #2a2a14}
+  .btn.green{background:var(--green);color:#fff}
+  .btn.blue{background:var(--blue);color:#fff}
+  .btn.ghost{background:transparent;color:#666;border:1px solid #222;font-weight:700;font-size:13px;padding:10px}
+
+  .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center}
+  .big{font-size:64px;animation:float 3s ease-in-out infinite}@keyframes float{50%{transform:translateY(-9px)}}
+  .spin{font-size:54px;animation:spin 2.5s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+
+  .volt{display:flex;gap:9px;background:#0d0d00;border:1px solid #2a2a14;border-radius:14px;padding:12px;margin:0 0 4px}
+  .vAv{width:30px;height:30px;border-radius:50%;background:rgba(255,214,0,.12);border:1px solid rgba(255,214,0,.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;animation:glow 2s infinite}
+  @keyframes glow{50%{box-shadow:0 0 13px rgba(255,214,0,.5)}}
+  .vName{font-size:10px;font-weight:900;color:var(--y);letter-spacing:1px}
+  .vTxt{font-size:12.5px;color:#ddd;line-height:1.5;margin-top:2px}
+
+  .wcard{display:flex;gap:11px;align-items:center;background:#111;border:1px solid #1f1f1f;border-radius:14px;padding:12px;cursor:pointer}
+  .wcard.best{border-color:var(--y);box-shadow:0 0 16px rgba(255,214,0,.14)}
+  .wav{width:42px;height:42px;border-radius:50%;background:#1a1a00;border:2px solid var(--y);display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--y);font-size:17px}
+  .wn{font-size:14px;font-weight:800}.wmeta{font-size:11px;color:#888;margin-top:2px}.wprice{margin-left:auto;text-align:right}
+  .wprice b{color:var(--y);font-size:13px}.wprice span{font-size:10px;color:#555;display:block}
+
+  .step{display:flex;gap:11px;align-items:flex-start;padding:0 4px}
+  .stepDot{width:24px;display:flex;flex-direction:column;align-items:center}
+  .stepCircle{width:22px;height:22px;border-radius:50%;border:2px solid #2a2a2a;display:flex;align-items:center;justify-content:center;font-size:11px;color:#444;background:#0a0a0a}
+  .step.done .stepCircle{background:var(--green);border-color:var(--green);color:#fff}
+  .step.cur .stepCircle{background:var(--y);border-color:var(--y);color:#0A0A0A;animation:glow 1.5s infinite}
+  .stepLine{width:2px;flex:1;background:#1e1e1e;min-height:18px}
+  .step.done .stepLine{background:var(--green)}
+  .stepLabel{font-size:13px;font-weight:700;padding-top:1px}
+  .step.cur .stepLabel{color:var(--y)}.step:not(.cur):not(.done) .stepLabel{color:#555}
+
+  .code{display:flex;gap:8px;justify-content:center;margin:6px 0}
+  .code b{width:44px;height:54px;background:#15150c;border:1px solid var(--y);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--y);font-weight:900}
+
+  .row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:7px 0}
+  .row .lbl{color:#888}.row .val{font-weight:800}
+  .divline{height:1px;background:#1a1a1a;margin:6px 0}
+  .total{font-size:17px;font-weight:900}.total .val{color:var(--y)}
+  .note{font-size:11px;color:#666}
+
+  .stars{display:flex;gap:8px;justify-content:center;font-size:38px;color:#333;cursor:pointer}
+  .stars b.on{color:var(--y)}
+
+  /* Worker dashboard */
+  .prof{display:flex;align-items:center;gap:12px;background:#111;border:1px solid #1f1f1f;border-radius:16px;padding:14px;margin:0 16px}
+  .pAv{width:50px;height:50px;border-radius:50%;background:#1a1a1a;border:2px solid var(--y);display:flex;align-items:center;justify-content:center;color:var(--y);font-size:22px}
+  .lvl{display:inline-block;font-size:10px;font-weight:800;color:#888;border:1px solid #333;border-radius:12px;padding:2px 8px;margin-top:4px}
+  .comm{margin-left:auto;text-align:center}.comm b{font-size:20px;color:var(--green);font-weight:900}.comm span{font-size:9px;color:#555;display:block;text-transform:uppercase}
+  .stats{display:flex;background:#111;border:1px solid #1f1f1f;border-radius:16px;margin:0 16px;padding:16px}
+  .stat{flex:1;text-align:center}.stat b{font-size:19px;font-weight:900;display:block}.stat span{font-size:10px;color:#555;text-transform:uppercase}
+  .statDiv{width:1px;background:#1e1e1e}
+  .avail{display:flex;align-items:center;gap:10px;background:#0a1a0a;border:1.5px solid rgba(76,175,80,.25);border-radius:14px;margin:0 16px;padding:13px;font-size:13px;font-weight:800;color:var(--green)}
+  .avDot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+  .scroll{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:14px}
+  .scroll::-webkit-scrollbar{display:none}
+  .incoming{background:#15150c;border:1px solid var(--y);border-radius:16px;padding:16px;margin:0 16px;animation:glow 1.3s infinite}
+  .hintbar{color:#555;font-size:12px}
+</style>
+</head>
+<body>
+  <h1>GO<span>VOLT</span> · Demo interactivo</h1>
+  <div class="sub">Tocá los botones para recorrer la app · Cliente y Trabajador</div>
+  <div class="toggle">
+    <button id="tC" class="on" onclick="setSide('client')">👤 Cliente</button>
+    <button id="tW" onclick="setSide('worker')">🔧 Trabajador</button>
+  </div>
+
+  <div class="phone"><div class="notch"></div><div class="screen" id="screen"></div></div>
+  <div class="hintbar" id="hint">Pantalla real de la app (mockup)</div>
+
+<script>
+let side='client', S={}, stepIdx=0, stars=0;
+const $=id=>document.getElementById(id);
+function setSide(s){side=s;$('tC').classList.toggle('on',s==='client');$('tW').classList.toggle('on',s==='worker');
+  if(s==='client') go('home'); else go('dash');}
+
+function go(scr){S.scr=scr;render();}
+
+const SCREENS={
+  // ---------- CLIENTE ----------
+  home:()=>`
+    <div class="bar"><span class="menu">☰</span><div class="search">🔍 ¿Qué profesional buscás?</div><span class="logo">GO<span>VOLT</span></span></div>
+    <div class="map">
+      <div class="pin" style="left:28%;top:26%">🔧</div><div class="pin" style="left:68%;top:34%">🚰</div>
+      <div class="pin" style="left:48%;top:64%">🔥</div><div class="pin" style="left:78%;top:70%">🎨</div>
+      <div class="udot" style="left:50%;top:48%"></div>
+      <div style="position:absolute;top:8px;left:8px;font-size:11px;color:#777;background:#0009;padding:4px 9px;border-radius:14px">⚡ 11 profesionales activos cerca tuyo</div>
+      <div class="chipBar">
+        ${['Electricista','Plomero','Gasista'].map(p=>`<div class="chip ${S.prof===p?'on':''}" onclick="pick('${p}')">⚡ ${p}</div>`).join('')}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="pTitle">¿Qué necesitás?</div>
+      ${S.prof?`<button class="btn" onclick="go('searching')">⚡ Solicitar ${S.prof}<span style="background:#0003;border-radius:7px;padding:2px 7px;font-size:11px;margin-left:6px">3 disp.</span></button>`
+        :`<div class="note">Elegí un oficio en el mapa para pedir tu presupuesto 👆</div>`}
+      <button class="btn sec" onclick="alert('🚨 Buscaría el profesional disponible más cercano')">🚨 Emergencia · el más cercano</button>
+    </div>`,
+
+  searching:()=>{ setTimeout(()=>{if(S.scr==='searching')go('quotes')},3400); return `
+    <div class="center">
+      <div class="spin">🔄</div>
+      <div class="volt" style="text-align:left"><div class="vAv">⚡</div><div><div class="vName">VOLT</div>
+        <div class="vTxt" id="ss">Encontramos profesionales disponibles.</div></div></div>
+      <div class="note">Enviando tu solicitud a los 3 más cercanos…</div>
+    </div>
+    <script>
+      const steps=['Encontramos profesionales disponibles.','Analizando distancia y disponibilidad en tu zona.','3 profesionales recibieron tu solicitud.','Esperando propuestas. Te avisaremos enseguida.'];
+      let i=0;const t=setInterval(()=>{i++;const e=document.getElementById('ss');if(!e){clearInterval(t);return}e.textContent=steps[i]||steps[3];if(i>=3)clearInterval(t)},800);
+    <\/script>`;},
+
+  quotes:()=>`
+    <div class="bar"><span class="logo">Propuestas</span><span class="note">${S.prof||'Electricista'}</span></div>
+    <div class="volt" style="margin:8px 16px"><div class="vAv">⚡</div><div><div class="vName">VOLT</div>
+      <div class="vTxt">Martín destaca por sus calificaciones. Podría ser tu mejor opción.</div></div></div>
+    <div class="scroll" style="padding:0 16px">
+      <div class="wcard best" onclick="go('tracking')"><div class="wav">M</div><div><div class="wn">Martín G. ⚡</div><div class="wmeta">★ 4.9 · 247 trabajos · a 1.2 km</div></div><div class="wprice"><b>$30.000</b><span>visita</span></div></div>
+      <div class="wcard" onclick="go('tracking')"><div class="wav">J</div><div><div class="wn">Juan P.</div><div class="wmeta">★ 4.6 · 80 trabajos · a 2.1 km</div></div><div class="wprice"><b>$28.000</b><span>visita</span></div></div>
+      <div class="wcard" onclick="go('tracking')"><div class="wav">L</div><div><div class="wn">Lucas R.</div><div class="wmeta">★ 4.5 · 32 trabajos · a 3.0 km</div></div><div class="wprice"><b>$32.000</b><span>visita</span></div></div>
+      <div class="note" style="text-align:center;margin-top:6px">Tocá un profesional para elegirlo</div>
+    </div>`,
+
+  tracking:()=>{
+    const steps=['Aceptado','En camino','Llegó','Trabajando','A pagar'];
+    return `
+    <div class="bar"><span class="logo">Tu trabajo</span><span class="note">Martín G.</span></div>
+    <div class="scroll" style="padding:0 16px">
+      <div class="volt"><div class="vAv">⚡</div><div><div class="vName">VOLT</div><div class="vTxt">${voltForStep()}</div></div></div>
+      ${stepIdx===2?`<div style="background:#0e0e0e;border:1px solid #1a1a1a;border-radius:14px;padding:14px;text-align:center">
+        <div class="note" style="margin-bottom:8px">🔑 Pedile el código y verificá</div><div class="code"><b>4</b><b>8</b><b>7</b><b>2</b></div></div>`:''}
+      <div style="background:#0e0e0e;border:1px solid #1a1a1a;border-radius:14px;padding:14px">
+        ${steps.map((s,i)=>`<div class="step ${i<stepIdx?'done':''} ${i===stepIdx?'cur':''}">
+          <div class="stepDot"><div class="stepCircle">${i<stepIdx?'✓':i+1}</div>${i<steps.length-1?'<div class="stepLine"></div>':''}</div>
+          <div class="stepLabel">${s}</div></div>`).join('')}
+      </div>
+      ${stepIdx>=4?`<button class="btn" onclick="go('pay')">💳 Pagar el trabajo</button>`
+        :`<button class="btn sec" onclick="adv()">▶ Simular siguiente paso</button>`}
+      <button class="btn ghost" onclick="alert('💬 Chat con Martín — coordinado por VOLT')">💬 Abrir chat</button>
+    </div>`;
+  },
+
+  pay:()=>`
+    <div class="bar"><span class="logo">Pago</span><span class="note">seguro · GOVOLT</span></div>
+    <div class="scroll" style="padding:0 16px">
+      <div style="background:#0e0e0e;border:1px solid #1a1a1a;border-radius:16px;padding:16px">
+        <div class="row"><span class="lbl">Visita / diagnóstico</span><span class="val" style="color:var(--green)">✓ ya pagada</span></div>
+        <div class="row"><span class="lbl">Materiales (~$12.000)</span><span class="note">aparte, al pro</span></div>
+        <div class="row"><span class="lbl">Mano de obra</span><span class="val">$22.000</span></div>
+        <div class="divline"></div>
+        <div class="row total"><span>TOTAL A PAGAR</span><span class="val">$22.000</span></div>
+      </div>
+      <div class="note" style="text-align:center">💳 Tarjeta, débito o billetera digital · Los materiales se pagan aparte</div>
+      <button class="btn" onclick="go('rating')">Pagar $22.000</button>
+    </div>`,
+
+  rating:()=>`
+    <div class="center">
+      <div class="big">⭐</div>
+      <div style="font-size:17px;font-weight:900">¿Cómo estuvo Martín?</div>
+      <div class="stars">${[1,2,3,4,5].map(n=>`<b class="${n<=stars?'on':''}" onclick="setStars(${n})">★</b>`).join('')}</div>
+      <div class="volt" style="text-align:left"><div class="vAv">⚡</div><div><div class="vName">VOLT</div>
+        <div class="vTxt">Esperamos que el servicio haya salido bien. Martín queda guardado en Mis profesionales para futuros trabajos.</div></div></div>
+      <button class="btn" onclick="stars>0?(alert('¡Gracias! 🌟 Demo completa.'),go('home')):alert('Tocá las estrellas para calificar')">Enviar calificación</button>
+    </div>`,
+
+  // ---------- TRABAJADOR ----------
+  dash:()=>`
+    <div class="bar"><span class="menu">←</span><span class="logo">Mi panel</span><span></span></div>
+    <div class="scroll">
+      <div class="prof"><div class="pAv">C</div><div><div style="font-weight:800">Carlos Rodríguez</div><div class="lvl">Verificado</div></div><div class="comm"><b>17%</b><span>comisión</span></div></div>
+      <div class="volt" style="margin:0 16px"><div class="vAv">⚡</div><div><div class="vName">VOLT</div>
+        <div class="vTxt">Vas muy bien. Te faltan 2 trabajos con 4.0★+ para bajar tu comisión a 17%. Cada trabajo cuenta. 💪</div></div></div>
+      <div class="avail"><span class="avDot"></span>Disponible para trabajos<span style="margin-left:auto;color:#555;font-weight:600;font-size:11px">tocá para pausar</span></div>
+      <div class="stats">
+        <div class="stat"><b>48</b><span>Trabajos</span></div><div class="statDiv"></div>
+        <div class="stat"><b style="color:var(--y)">4.7</b><span>Estrellas</span></div><div class="statDiv"></div>
+        <div class="stat"><b style="color:var(--green);font-size:15px">$182k</b><span>Este mes</span></div>
+      </div>
+      <div style="margin:0 16px;background:#0d0d00;border:1px solid #2a2a00;border-radius:14px;padding:14px;display:flex;gap:10px">
+        <span>📈</span><div><div style="font-size:13px;font-weight:700;color:var(--y)">Próximo nivel → −3% comisión</div><div class="note">Necesitás 2 trabajos más con ★ 4.5+</div></div></div>
+      <div style="padding:0 16px"><button class="btn" onclick="go('incoming')">⚡ Simular pedido entrante</button></div>
+    </div>`,
+
+  incoming:()=>`
+    <div class="center">
+      <div class="incoming" style="width:100%">
+        <div style="font-size:14px;font-weight:900;color:var(--y)">⚡ Nuevo pedido</div>
+        <div class="note" style="margin:6px 0 12px">Electricidad · a 1.2 km · Av. Colón 80<br>"El disyuntor del baño se dispara seguido."</div>
+        <div class="row"><span class="lbl">Visita</span><span class="val">$30.000</span></div>
+      </div>
+      <div class="volt" style="text-align:left"><div class="vAv">⚡</div><div><div class="vName">VOLT</div>
+        <div class="vTxt">Respondé rápido — los clientes eligen al primero que contesta.</div></div></div>
+      <div style="display:flex;gap:10px;width:100%">
+        <button class="btn ghost" style="flex:1" onclick="go('dash')">Rechazar</button>
+        <button class="btn" style="flex:2" onclick="stepIdx=0;go('wtrack')">Aceptar trabajo</button>
+      </div>
+    </div>`,
+
+  wtrack:()=>{
+    const actions=[
+      {l:'Llegué al domicilio',f:'adv()',c:''},
+      {l:'Iniciar trabajo',f:'adv()',c:''},
+      {l:'Trabajo listo · cobrar',f:"go('wcharge')",c:'green'},
+    ];
+    const a=actions[Math.min(stepIdx,2)];
+    return `
+    <div class="bar"><span class="logo">Trabajo activo</span><span class="note">Cliente · Av. Colón 80</span></div>
+    <div class="scroll" style="padding:0 16px">
+      <div class="volt"><div class="vAv">⚡</div><div><div class="vName">VOLT</div><div class="vTxt">${wVoltForStep()}</div></div></div>
+      ${stepIdx===0?`<div style="background:#0e0e0e;border:1px solid #1a1a1a;border-radius:14px;padding:14px;text-align:center"><div class="note">Tu código para mostrar al cliente</div><div class="code"><b>4</b><b>8</b><b>7</b><b>2</b></div></div>`:''}
+      ${stepIdx===1?`<button class="btn sec" onclick="alert('🧰 Avisarías al cliente el estimado de materiales (se pagan aparte)')">🧰 Necesito comprar materiales</button>`:''}
+      <button class="btn ${a.c}" onclick="${a.f}">${a.l}</button>
+      <button class="btn ghost" onclick="alert('💬 Chat con el cliente')">💬 Chat</button>
+    </div>`;
+  },
+
+  wcharge:()=>`
+    <div class="bar"><span class="logo">Cobrar</span></div>
+    <div class="scroll" style="padding:0 16px">
+      <div class="note">Ingresá la mano de obra (los materiales se pagan aparte).</div>
+      <div style="display:flex;align-items:center;gap:8px;background:#0f0f0f;border:1px solid #222;border-radius:12px;padding:14px"><b style="color:#fff;font-size:20px">$</b><span style="color:#fff;font-size:20px;font-weight:700">22.000</span></div>
+      <div style="background:#0e0e0e;border:1px solid #1a1a1a;border-radius:12px;padding:12px">
+        <div class="row"><span class="lbl">Mano de obra</span><span class="val">$22.000</span></div>
+        <div class="row"><span class="lbl">Visita</span><span class="val" style="color:var(--green)">ya cobrada ✓</span></div>
+        <div class="row"><span class="lbl">Materiales</span><span class="note">~$12.000 aparte</span></div>
+      </div>
+      <button class="btn green" onclick="go('wdone')">Enviar cobro al cliente</button>
+    </div>`,
+
+  wdone:()=>`
+    <div class="center">
+      <div class="big">✅</div>
+      <div style="font-size:18px;font-weight:900">¡Pago recibido!</div>
+      <div class="volt" style="text-align:left"><div class="vAv">⚡</div><div><div class="vName">VOLT</div>
+        <div class="vTxt">¡Buen trabajo! Cobraste $18.400 (comisión 17%). Cada trabajo bien hecho te acerca al siguiente nivel.</div></div></div>
+      <button class="btn" onclick="go('dash')">Volver al panel</button>
+    </div>`,
+};
+
+function voltForStep(){return ['Tu profesional confirmó el horario.','Tu profesional se encuentra en camino. Está muy cerca.','Martín llegó al lugar. Verificá el código antes de abrir.','Trabajo iniciado. Estaremos atentos por si necesitás algo.','El trabajo fue completado. Podés proceder con el pago.'][stepIdx]||'';}
+function wVoltForStep(){return ['Conducí con precaución. Avisamos al cliente que ya vas en camino.','Mostrá tu código antes de que el cliente abra. Es obligatorio.','Describí el trabajo al cliente antes de empezar para evitar malentendidos.'][stepIdx]||'';}
+
+function pick(p){S.prof=(S.prof===p?null:p);render();}
+function adv(){stepIdx++;render();}
+function setStars(n){stars=n;render();}
+function render(){$('screen').innerHTML=(SCREENS[S.scr]||SCREENS.home)();}
+
+setSide('client');
+</script>
+</body>
+</html>

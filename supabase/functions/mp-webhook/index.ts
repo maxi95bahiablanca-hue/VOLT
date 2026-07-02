@@ -47,8 +47,14 @@ serve(async (req) => {
     if (!mpRes.ok) return new Response('error fetching payment', { status: 400 });
 
     const payment = await mpRes.json();
-    const { status, external_reference: jobId } = payment;
+    const { status, external_reference: extRef } = payment;
+    if (!extRef) return new Response('ok');
+
+    // external_reference viene como "<jobId>" o "<jobId>:visit" / "<jobId>:final"
+    // (create-payment agrega el sufijo; pay-with-card manda el jobId pelado = final)
+    const [jobId, kind = 'final'] = String(extRef).split(':');
     if (!jobId) return new Response('ok');
+    const isVisit = kind === 'visit';
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -59,12 +65,48 @@ serve(async (req) => {
       // ── 2. Leer el trabajo actual para verificar estado e importes ──────────
       const { data: job } = await supabase
         .from('jobs')
-        .select('status, work_amount, visit_amount, materials_cost, commission_pct')
+        .select('status, work_amount, visit_amount, materials_cost, commission_pct, visit_paid')
         .eq('id', jobId)
         .single();
 
       if (!job) return new Response('job not found');
 
+      const visitAmt = job.visit_amount ?? 30000;
+
+      if (isVisit) {
+        // ── PAGO DE VISITA (anticipado, retenido por BOLT) ─────────────────────
+        // Idempotencia: si ya estaba marcada, no hacemos nada.
+        if (job.visit_paid) return new Response('ok');
+
+        const { error: updateErr } = await supabase
+          .from('jobs')
+          .update({ visit_paid: true })
+          .eq('id', jobId)
+          .eq('visit_paid', false); // solo si nadie más lo procesó primero
+
+        if (updateErr) {
+          console.error('Error marcando visit_paid:', updateErr.message);
+          return new Response('update error', { status: 500 });
+        }
+
+        // La visita la retiene BOLT completa (no hay parte del trabajador acá)
+        await supabase.from('payments').upsert({
+          job_id:         jobId,
+          type:           'visit',
+          status:         'approved',
+          gross_amount:   visitAmt,
+          commission_pct: 100,
+          commission_amt: visitAmt,
+          worker_amt:     0,
+          mp_payment_id:  String(paymentId),
+          mp_status:      status,
+          paid_at:        new Date().toISOString(),
+        }, { onConflict: 'mp_payment_id', ignoreDuplicates: true });
+
+        return new Response('ok');
+      }
+
+      // ── PAGO FINAL (mano de obra + materiales + visita si no se pagó antes) ──
       // ── 3. Idempotencia — si ya fue procesado, ignorar ──────────────────────
       if (job.status === 'completed') return new Response('ok');
       if (job.status !== 'awaiting_payment') return new Response('ok');
@@ -83,17 +125,18 @@ serve(async (req) => {
 
       // ── 5. Registrar pago (upsert idempotente por mp_payment_id) ────────────
       const workAmt  = job.work_amount    ?? 0;
-      const visitAmt = job.visit_amount   ?? 30000;
       const matsAmt  = job.materials_cost ?? 0;
       const commPct  = job.commission_pct ?? 20;
+      // Si la visita ya se cobró por separado, este cobro NO la incluye
+      const visitInCharge = job.visit_paid ? 0 : visitAmt;
 
       // Contabilidad:
-      // - Cliente paga: visitAmt + matsAmt + workAmt
-      // - VOLT retiene: visitAmt + commAmt (% solo de la mano de obra)
+      // - Cliente paga en ESTE cobro: visitInCharge + matsAmt + workAmt
+      // - BOLT retiene: visitInCharge + commAmt (% solo de la mano de obra)
       // - Trabajador recibe: workAmt - commAmt + matsAmt (recupera el costo de materiales)
       const commAmt   = Math.round(workAmt * commPct / 100);
-      const grossAmt  = visitAmt + matsAmt + workAmt;
-      const voltTotal = visitAmt + commAmt;
+      const grossAmt  = visitInCharge + matsAmt + workAmt;
+      const voltTotal = visitInCharge + commAmt;
       const workerAmt = workAmt - commAmt + matsAmt;
 
       await supabase.from('payments').upsert({
@@ -109,14 +152,8 @@ serve(async (req) => {
         paid_at:        new Date().toISOString(),
       }, { onConflict: 'mp_payment_id', ignoreDuplicates: true });
 
-    } else if (status === 'rejected' || status === 'cancelled') {
-      // Dejar el job en awaiting_payment para que el cliente reintente
-      await supabase
-        .from('jobs')
-        .update({ status: 'awaiting_payment' })
-        .eq('id', jobId)
-        .eq('status', 'awaiting_payment');
     }
+    // rejected/cancelled: el job queda como está (awaiting_payment) y el cliente reintenta
 
     return new Response('ok');
   } catch (err) {

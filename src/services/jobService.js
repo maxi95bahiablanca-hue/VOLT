@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import volt from '../utils/voltVoice';
+import { commissionForBilled } from '../utils/commission';
 
 function uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -8,11 +9,12 @@ function uuidv4() {
   });
 }
 
-function commissionFor(worker) {
-  if (worker?.completed_jobs >= 100 && worker?.avg_rating >= 4.8) return 10;
-  if (worker?.completed_jobs >= 50  && worker?.avg_rating >= 4.5) return 14;
-  if (worker?.completed_jobs >= 10  && worker?.avg_rating >= 4.0) return 17;
-  return 20;
+// Facturación (mano de obra) de un trabajador en los últimos 30 días (RPC con service-side).
+async function billed30Of(professionalId) {
+  try {
+    const { data } = await supabase.rpc('worker_billed_30d', { p_professional_id: professionalId });
+    return Number(data) || 0;
+  } catch { return 0; }
 }
 
 const jobService = {
@@ -69,11 +71,15 @@ const jobService = {
   },
 
   getPendingForWorker: async (professionalId) => {
+    // Solo pedidos recientes: una solicitud tiene ~45 s de ventana, así que un
+    // "pending" de hace horas ya expiró y no debe reaparecer como entrante.
+    const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('jobs')
       .select('*, professions(name)')
       .eq('professional_id', professionalId)
       .eq('status', 'pending')
+      .gte('created_at', since)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data ?? [];
@@ -85,6 +91,10 @@ const jobService = {
       .select('*, professions(name)')
       .eq('professional_id', professionalId)
       .in('status', ['accepted','arrived','in_progress','awaiting_payment'])
+      // Excluir presupuestos aún no elegidos por el cliente (tienen quote_group_id):
+      // mientras esperan selección NO son un trabajo "activo", así el profesional
+      // puede minimizar y seguir usando la app sin que el polling lo re-atrape.
+      .is('quote_group_id', null)
       .order('created_at', { ascending: false })
       .maybeSingle();
     if (error) throw error;
@@ -129,6 +139,22 @@ const jobService = {
   returnedWithMaterials: async (jobId) =>
     update(jobId, { is_buying_materials: false, materials_eta: null }),
 
+  // ─── Materiales: estimación → aprobación → comprobante → tope ──────────────
+  proposeMaterials: async (jobId, estimate, detail) =>
+    update(jobId, {
+      materials_needed:          true,
+      materials_status:          'proposed',
+      materials_estimate:        parseInt(estimate, 10) || 0,
+      materials_estimate_detail: detail || null,
+    }),
+
+  // mode: 'pro' (lo compra el profesional) | 'client' (lo consigue el cliente). Materiales se pagan APARTE, no por la app.
+  approveMaterials: async (jobId, mode) =>
+    update(jobId, { materials_status: mode === 'client' ? 'client_provides' : 'approved' }),
+
+  // ─── Confirmación del cliente del plan multi-día ──────────────────────────
+  confirmMultiday: async (jobId) => update(jobId, { multiday_confirmed: true }),
+
   // ─── Sesiones multi-día ──────────────────────────────────────────────────
   setMultidayConfig: async (jobId, sessions, hrsPerSession) =>
     update(jobId, {
@@ -170,13 +196,29 @@ const jobService = {
     });
   },
 
-  markVisitPaid: async (jobId) => update(jobId, { visit_paid: true }),
+  // visit_paid lo marca ÚNICAMENTE el webhook de MP (service_role): un trigger
+  // en la base rechaza el cambio desde la app (antes cualquier cliente podía
+  // marcarse la visita como pagada sin pagar).
+
+  // Precio del trabajo (mano de obra): el profesional lo propone al llegar y el
+  // cliente lo acepta/rechaza ANTES de empezar. Al aceptar, el trabajo arranca
+  // (queda registrado el monto acordado → cubre reclamos posteriores).
+  proposeWorkPrice: async (jobId, amount) =>
+    update(jobId, { work_amount: amount, work_price_status: 'proposed' }),
+
+  respondWorkPrice: async (jobId, accepted) =>
+    update(jobId, accepted
+      ? { work_price_status: 'accepted', status: 'in_progress', work_started_at: new Date().toISOString() }
+      : { work_price_status: 'rejected' }),
 
   convertToMultiday: async (jobId, sessions, hrsPerSession) =>
     update(jobId, {
       is_multiday:           true,
       estimated_sessions:    parseInt(sessions, 10),
       estimated_hrs_session: hrsPerSession,
+      // Arranca la sesión del día ya en curso, así aparece el botón "Terminar por
+      // hoy · vuelvo mañana" (sin esto el trabajador queda sin ningún botón).
+      current_session_start: new Date().toISOString(),
     }),
 
   setStructuredDiagnosis: async (jobId, diagnosis) =>
@@ -212,6 +254,14 @@ const jobService = {
       materials_cost: materialsCost,
     }),
 
+  // Modo gratis: registra los montos SIN cambiar el estado (el trabajo se
+  // completa directo, sin pasar por awaiting_payment).
+  recordWorkAmount: async (jobId, laborAmount, materialsCost = 0) =>
+    update(jobId, {
+      work_amount:    laborAmount,
+      materials_cost: materialsCost,
+    }),
+
   submitReview: async ({ jobId, clientId, professionalId, rating, comment }) => {
     const { error } = await supabase.from('reviews').insert({
       job_id: jobId, client_id: clientId,
@@ -222,18 +272,21 @@ const jobService = {
 
   createQuoteGroup: async ({ clientId, workers, professionId, clientLat, clientLng, address, notes, problemPhotoUrl }) => {
     const quoteGroupId = uuidv4();
-    const rows = workers.map(w => ({
-      client_id:         clientId,
-      professional_id:   w.id,
-      profession_id:     professionId,
-      client_lat:        clientLat,
-      client_lng:        clientLng,
-      address,
-      notes,
-      visit_amount:      w.min_price || 30000,
-      commission_pct:    commissionFor(w),
-      quote_group_id:    quoteGroupId,
-      ...(problemPhotoUrl ? { problem_photo_url: problemPhotoUrl } : {}),
+    const rows = await Promise.all(workers.map(async w => {
+      const billed30 = await billed30Of(w.id);
+      return {
+        client_id:         clientId,
+        professional_id:   w.id,
+        profession_id:     professionId,
+        client_lat:        clientLat,
+        client_lng:        clientLng,
+        address,
+        notes,
+        visit_amount:      w.min_price || 30000,
+        commission_pct:    commissionForBilled(billed30, w.avg_rating),
+        quote_group_id:    quoteGroupId,
+        ...(problemPhotoUrl ? { problem_photo_url: problemPhotoUrl } : {}),
+      };
     }));
     const { data, error } = await supabase
       .from('jobs')

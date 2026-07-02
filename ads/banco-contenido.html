@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GOVOLT — Banco de contenido</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#2a2a2a;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;padding:30px 18px;color:#eee}
+  h2{color:#FFD600;font-size:20px;margin:30px 0 14px;border-bottom:1px solid #444;padding-bottom:8px}
+  .grid{display:flex;flex-wrap:wrap;gap:26px;justify-content:flex-start}
+  .item{display:flex;flex-direction:column;gap:8px;width:480px}
+  .lbl{color:#FFD600;font-size:13px;font-weight:800}
+  .cap{color:#bbb;font-size:11.5px;line-height:1.5;background:#1a1a1a;padding:9px 12px;border-radius:9px}
+  .cap em{color:#ddd}
+
+  .post{width:480px;height:480px;background:#0A0A0A;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:38px 36px}
+  .story{width:280px;height:498px;background:#0A0A0A;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:38px 28px}
+  .glow{position:absolute;top:-120px;right:-120px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,0,.17),transparent 68%);pointer-events:none}
+  .top{display:flex;align-items:center;justify-content:space-between;position:relative}
+  .logo{font-size:23px;font-weight:900;letter-spacing:1px;color:#fff}.logo span{color:#FFD600}
+  .pill{background:#FFD600;color:#0A0A0A;font-size:10.5px;font-weight:900;letter-spacing:.4px;padding:5px 11px;border-radius:20px}
+  .mid{position:relative;margin-top:auto;margin-bottom:auto}
+  .h1{font-size:34px;font-weight:900;color:#fff;line-height:1.08;letter-spacing:-.8px}
+  .h1 .y{color:#FFD600}
+  .exp{font-size:15.5px;color:#cfcfcf;margin-top:14px;line-height:1.5;max-width:390px}
+  .exp b{color:#fff}
+  .scar{display:inline-block;margin-top:16px;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.35);border-radius:10px;padding:8px 13px;font-size:14px;font-weight:800;color:#fff}
+  .scar b{color:#FFD600}
+  .bottom{position:relative}
+  .cta{display:flex;align-items:center;justify-content:center;gap:8px;background:#FFD600;color:#0A0A0A;font-size:17px;font-weight:900;padding:13px;border-radius:12px;text-align:center}
+  .below{text-align:center;color:#888;font-size:12px;margin-top:9px;font-weight:600}
+  .below b{color:#FFD600}
+  /* pasos para el "cómo funciona" */
+  .steps{position:relative;margin-top:14px;display:flex;flex-direction:column;gap:9px}
+  .stp{display:flex;gap:10px;align-items:center;font-size:14.5px;color:#eee;font-weight:600}
+  .stp .n{width:26px;height:26px;border-radius:8px;background:#FFD600;color:#0A0A0A;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<h2>📲 PUBLICACIONES (feed 1080×1080) — capturá el cuadrado negro</h2>
+<div class="grid">
+
+  <!-- 1 BASE -->
+  <div class="item">
+    <div class="lbl">① BASE — "Qué es + llegó a Bahía"</div>
+    <div class="post"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ YA EN BAHÍA BLANCA</div></div>
+      <div class="mid">
+        <div class="h1">Llegó la app que<br>te trae <span class="y">clientes 🔧</span></div>
+        <div class="exp">Como un <b>Uber, pero para tu oficio.</b> Trabajá cuando quieras y cobrá seguro por la app.</div>
+        <div class="scar">🔥 Buscamos los primeros <b>200 profesionales</b></div>
+      </div>
+      <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b> · Todas las profesiones</div></div>
+    </div>
+    <div class="cap"><em>Caption:</em> "⚡ GOVOLT llegó a Bahía Blanca: la app que te conecta con clientes de tu zona que necesitan tu oficio. Como un Uber, pero para tu trabajo. Trabajá cuando quieras y cobrá seguro. 🔥 Buscamos los PRIMEROS 200 profesionales. 👉 Registrate gratis: govolt-app.netlify.app/prestadores"</div>
+  </div>
+
+  <!-- 2 CÓMO FUNCIONA -->
+  <div class="item">
+    <div class="lbl">② CÓMO FUNCIONA — explicativa</div>
+    <div class="post"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ ¿CÓMO FUNCIONA?</div></div>
+      <div class="mid">
+        <div class="h1">Más simple<br><span class="y">imposible 👇</span></div>
+        <div class="steps">
+          <div class="stp"><span class="n">1</span> Te registrás gratis</div>
+          <div class="stp"><span class="n">2</span> Te verificamos y te activamos</div>
+          <div class="stp"><span class="n">3</span> Recibís pedidos cerca tuyo</div>
+          <div class="stp"><span class="n">4</span> Trabajás y cobrás seguro 💳</div>
+        </div>
+      </div>
+      <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b></div></div>
+    </div>
+    <div class="cap"><em>Caption:</em> "Así de fácil es trabajar con GOVOLT 👇 Te registrás, te verificamos, y empezás a recibir pedidos de clientes de tu zona. Cobrás seguro por la app. 🔥 Sé de los primeros 200 en Bahía Blanca. 👉 Link en la bio"</div>
+  </div>
+
+  <!-- 3 ELECTRICISTA -->
+  <div class="item">
+    <div class="lbl">③ POR OFICIO — Electricista</div>
+    <div class="post"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ BAHÍA BLANCA</div></div>
+      <div class="mid">
+        <div class="h1">¿Sos <span class="y">electricista?</span><br>Te buscan clientes.</div>
+        <div class="exp">GOVOLT te conecta con gente de tu zona que necesita un electricista. <b>Vos elegís cuándo. Cobrás seguro.</b></div>
+        <div class="scar">🔥 Entrás entre los primeros <b>200</b></div>
+      </div>
+      <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b></div></div>
+    </div>
+    <div class="cap"><em>Caption:</em> "⚡ ¿Sos ELECTRICISTA en Bahía Blanca? GOVOLT te trae clientes de tu zona que te necesitan. Trabajá cuando quieras, cobrá seguro por la app. 🔥 Primeros 200. 👉 Link en la bio"</div>
+  </div>
+
+  <!-- 4 PLOMERO -->
+  <div class="item">
+    <div class="lbl">④ POR OFICIO — Plomero</div>
+    <div class="post"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ BAHÍA BLANCA</div></div>
+      <div class="mid">
+        <div class="h1">¿Sos <span class="y">plomero?</span><br>Te buscan clientes.</div>
+        <div class="exp">GOVOLT te conecta con gente de tu zona que necesita un plomero. <b>Vos elegís cuándo. Cobrás seguro.</b></div>
+        <div class="scar">🔥 Entrás entre los primeros <b>200</b></div>
+      </div>
+      <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b></div></div>
+    </div>
+    <div class="cap"><em>Caption:</em> "🚰 ¿Sos PLOMERO en Bahía Blanca? GOVOLT te trae clientes de tu zona. Trabajá cuando quieras, cobrá seguro. 🔥 Primeros 200. 👉 Link en la bio"</div>
+  </div>
+
+  <!-- 5 GASISTA -->
+  <div class="item">
+    <div class="lbl">⑤ POR OFICIO — Gasista</div>
+    <div class="post"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ BAHÍA BLANCA</div></div>
+      <div class="mid">
+        <div class="h1">¿Sos <span class="y">gasista?</span><br>Te buscan clientes.</div>
+        <div class="exp">GOVOLT te conecta con gente de tu zona que necesita un gasista matriculado. <b>Vos elegís cuándo. Cobrás seguro.</b></div>
+        <div class="scar">🔥 Entrás entre los primeros <b>200</b></div>
+      </div>
+      <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b></div></div>
+    </div>
+    <div class="cap"><em>Caption:</em> "🔥 ¿Sos GASISTA en Bahía Blanca? GOVOLT te trae clientes de tu zona. Trabajá cuando quieras, cobrá seguro por la app. Primeros 200. 👉 Link en la bio"</div>
+  </div>
+
+  <!-- 6 COBRO SEGURO -->
+  <div class="item">
+    <div class="lbl">⑥ COBRO SEGURO</div>
+    <div class="post"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">⚡ YA EN BAHÍA BLANCA</div></div>
+      <div class="mid">
+        <div class="h1">Trabajá tranquilo.<br><span class="y">Cobrá seguro.</span></div>
+        <div class="exp">Con GOVOLT el cliente paga <b>por la app</b>. Hacés el trabajo y cobrás, sin perseguir la plata. Y te llegan pedidos cerca tuyo.</div>
+        <div class="scar">🔥 Sumate a los primeros <b>200</b></div>
+      </div>
+      <div class="bottom"><div class="cta">📲 REGISTRATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b> · Todas las profesiones</div></div>
+    </div>
+    <div class="cap"><em>Caption:</em> "¿Cansado de correr atrás de la plata? 💸 Con GOVOLT el cliente paga por la app. Más trabajos cerca tuyo, cobro seguro. 🔥 Primeros 200. Electricistas, plomeros, gasistas y todas las profesiones. 👉 Link en la bio"</div>
+  </div>
+
+  <!-- 7 PRIMEROS 200 -->
+  <div class="item">
+    <div class="lbl">⑦ URGENCIA — Primeros 200</div>
+    <div class="post"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div><div class="pill">🔥 CUPOS LIMITADOS</div></div>
+      <div class="mid">
+        <div class="h1">Buscamos los<br>primeros <span class="y">200</span><br>profesionales</div>
+        <div class="exp">Los que entran ahora arrancan con <b>ventaja</b>: más visibilidad y los mejores trabajos de la zona. No te quedes afuera.</div>
+      </div>
+      <div class="bottom"><div class="cta">📲 SUMATE GRATIS</div><div class="below">☝️ Link en la <b>BIO</b> · Bahía Blanca</div></div>
+    </div>
+    <div class="cap"><em>Caption:</em> "🔥 GOVOLT está sumando a los PRIMEROS 200 profesionales de Bahía Blanca. Los que entran ahora arrancan con ventaja. Electricistas, plomeros, gasistas y todos los oficios. No te quedes afuera 👉 Link en la bio"</div>
+  </div>
+
+</div>
+
+<h2>📱 HISTORIAS (vertical 1080×1920) — para Stories</h2>
+<div class="grid">
+
+  <div class="item" style="width:280px">
+    <div class="lbl">S1 — Llegó a Bahía</div>
+    <div class="story"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div></div>
+      <div class="mid">
+        <div class="pill" style="margin-bottom:16px">⚡ YA EN BAHÍA BLANCA</div>
+        <div class="h1" style="font-size:30px">La app que te trae <span class="y">clientes</span></div>
+        <div class="exp" style="font-size:15px">Como un <b>Uber, pero para tu oficio.</b></div>
+        <div class="scar" style="font-size:13px">🔥 Primeros <b>200</b></div>
+      </div>
+      <div class="bottom"><div class="cta" style="font-size:16px">📲 REGISTRATE</div><div class="below">👆 Tocá el link de arriba</div></div>
+    </div>
+    <div class="cap"><em>Agregá el sticker de LINK apuntando a govolt-app.netlify.app/prestadores</em></div>
+  </div>
+
+  <div class="item" style="width:280px">
+    <div class="lbl">S2 — ¿Sos profesional?</div>
+    <div class="story"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div></div>
+      <div class="mid">
+        <div class="h1" style="font-size:30px">¿Sos <span class="y">profesional?</span></div>
+        <div class="exp" style="font-size:15px">Recibí pedidos cerca tuyo, trabajá cuando quieras y <b>cobrá seguro.</b></div>
+        <div class="scar" style="font-size:13px">🔥 Sumate a los <b>primeros 200</b></div>
+      </div>
+      <div class="bottom"><div class="cta" style="font-size:16px">📲 SUMATE GRATIS</div><div class="below">👆 Link arriba</div></div>
+    </div>
+    <div class="cap"><em>Sticker de LINK + sticker de encuesta "¿Tenés un oficio?" para sumar interacción</em></div>
+  </div>
+
+  <div class="item" style="width:280px">
+    <div class="lbl">S3 — Urgencia 200</div>
+    <div class="story"><div class="glow"></div>
+      <div class="top"><div class="logo">GO<span>VOLT</span></div></div>
+      <div class="mid">
+        <div class="pill" style="margin-bottom:16px;background:#ff4466;color:#fff">🔥 CUPOS LIMITADOS</div>
+        <div class="h1" style="font-size:34px">Primeros<br><span class="y">200</span></div>
+        <div class="exp" style="font-size:15px">profesionales de Bahía Blanca. <b>No te quedes afuera.</b></div>
+      </div>
+      <div class="bottom"><div class="cta" style="font-size:16px">📲 ANOTATE YA</div><div class="below">👆 Link arriba</div></div>
+    </div>
+    <div class="cap"><em>Ideal con cuenta regresiva (sticker de cuenta atrás de IG)</em></div>
+  </div>
+
+</div>
+
+</body>
+</html>

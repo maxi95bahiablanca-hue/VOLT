@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GOVOLT — Post muestra</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#333;display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+  .hint{color:#ccc;font-size:14px;text-align:center;max-width:560px;line-height:1.5}
+
+  /* POST 1080x1080 (mostrado a 540) */
+  .post{
+    width:540px;height:540px;background:#0A0A0A;position:relative;overflow:hidden;
+    display:flex;flex-direction:column;padding:44px 40px;
+  }
+  .glow{position:absolute;top:-130px;right:-130px;width:420px;height:420px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,214,0,.18),transparent 70%);pointer-events:none}
+
+  .top{display:flex;align-items:center;justify-content:space-between;position:relative}
+  .logo{font-size:27px;font-weight:900;letter-spacing:1px;color:#fff}.logo span{color:#FFD600}
+  .pill{background:#FFD600;color:#0A0A0A;font-size:12px;font-weight:900;letter-spacing:.5px;padding:6px 13px;border-radius:20px}
+
+  /* bloque central con aire */
+  .mid{position:relative;margin-top:auto;margin-bottom:auto}
+  .h1{font-size:40px;font-weight:900;color:#fff;line-height:1.08;letter-spacing:-1px}
+  .h1 .y{color:#FFD600}
+  .explain{font-size:18px;color:#cfcfcf;margin-top:18px;line-height:1.5;max-width:440px}
+  .explain b{color:#fff}
+  .scar{display:inline-block;margin-top:20px;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.35);
+    border-radius:11px;padding:10px 16px;font-size:16px;font-weight:800;color:#fff}
+  .scar b{color:#FFD600}
+
+  /* CTA bien claro abajo, apuntando al link */
+  .bottom{position:relative}
+  .cta{display:flex;align-items:center;justify-content:center;gap:10px;background:#FFD600;color:#0A0A0A;
+    font-size:21px;font-weight:900;padding:17px;border-radius:14px;text-align:center}
+  .below{text-align:center;color:#888;font-size:14px;margin-top:11px;font-weight:600}
+  .below b{color:#FFD600}
+</style>
+</head>
+<body>
+  <div class="hint">⬇️ Vista del post para Instagram/Facebook (1080×1080).</div>
+
+  <div class="post">
+    <div class="glow"></div>
+
+    <div class="top">
+      <div class="logo">GO<span>VOLT</span></div>
+      <div class="pill">⚡ YA EN BAHÍA BLANCA</div>
+    </div>
+
+    <div class="mid">
+      <div class="h1">Llegó la app que<br>te trae <span class="y">clientes 🔧</span></div>
+      <div class="explain">Como un <b>Uber, pero para tu oficio.</b> Trabajá cuando quieras y cobrá seguro por la app.</div>
+      <div class="scar">🔥 Buscamos los primeros <b>200 profesionales</b></div>
+    </div>
+
+    <div class="bottom">
+      <div class="cta">📲 REGISTRATE GRATIS</div>
+      <div class="below">☝️ Link en la <b>BIO</b> del perfil · Todas las profesiones</div>
+    </div>
+  </div>
+
+  <div class="hint" style="margin-top:8px"><b>Caption (va abajo del post):</b><br>
+  <em>"⚡ GOVOLT llegó a Bahía Blanca: la app que te conecta con clientes de tu zona que necesitan tu oficio. Como un Uber, pero para tu trabajo. Trabajá cuando quieras y cobrá seguro.<br><br>🔥 Estamos sumando a los PRIMEROS 200 profesionales de la ciudad. Electricistas, plomeros, gasistas y todas las profesiones.<br><br>👉 Registrate gratis en el link de la bio. ¡No te quedes afuera!"</em></div>
+</body>
+</html>

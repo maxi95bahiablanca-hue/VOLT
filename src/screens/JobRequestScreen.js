@@ -12,6 +12,7 @@ import * as FileSystem from 'expo-file-system';
 import { supabase } from '../supabase';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
+import { chargesInApp } from '../config/monetization';
 import professionalService from '../services/professionalService';
 
 // ─── Overlay de búsqueda animado ─────────────────────────────────────────────
@@ -114,8 +115,8 @@ const SearchingOverlay = ({ foundCount }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteGroupCreated, onBack }) => {
-  const [notes, setNotes]     = useState('');
+const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialNotes, onQuoteGroupCreated, onBack }) => {
+  const [notes, setNotes]     = useState(initialNotes || '');
   const [loading, setLoading] = useState(false);
   const [notesTouched, setNotesTouched] = useState(false);
   const [foundCount, setFoundCount]     = useState(0);
@@ -246,7 +247,9 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
           if (!w?.user_id) return Promise.resolve();
           return notificationService.sendToUser(w.user_id, {
             title: '⚡ Nueva solicitud de trabajo',
-            body:  `${profession?.name || 'Servicio'} — $${(w.min_price || 30000).toLocaleString('es-AR')} visita. Tenés 45 seg para responder.`,
+            body:  chargesInApp()
+              ? `${profession?.name || 'Servicio'} — $${(w.min_price || 30000).toLocaleString('es-AR')} visita. Tenés 60 seg para responder.`
+              : `${profession?.name || 'Servicio'} cerca tuyo. Tenés 60 seg para responder.`,
             data:  { jobId: job.id, screen: 'worker_incoming' },
           });
         })
@@ -408,35 +411,39 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, onQuoteG
           </Text>
         </View>
 
-        {/* Cobro de visita */}
-        <View style={styles.visitSection}>
-          <View style={styles.visitRow}>
-            <View>
-              <Text style={styles.visitLabel}>Visita y diagnóstico</Text>
-              <Text style={styles.visitSub}>Se cobra solo si va al domicilio</Text>
+        {/* Cobro de visita — solo en modo comisión */}
+        {chargesInApp() && (
+          <View style={styles.visitSection}>
+            <View style={styles.visitRow}>
+              <View>
+                <Text style={styles.visitLabel}>Visita y diagnóstico</Text>
+                <Text style={styles.visitSub}>Se cobra solo si va al domicilio</Text>
+              </View>
+              <Text style={styles.visitVal}>${visitPrice.toLocaleString('es-AR')}</Text>
             </View>
-            <Text style={styles.visitVal}>${visitPrice.toLocaleString('es-AR')}</Text>
+            <View style={styles.divider} />
+            <View style={styles.visitDeductRow}>
+              <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+              <Text style={styles.visitDeductText}>
+                Si se realiza el trabajo, la visita <Text style={{ color: '#4CAF50', fontWeight: '800' }}>se descuenta del total</Text>. Solo pagás el trabajo.
+              </Text>
+            </View>
+            <View style={styles.visitDeductRow}>
+              <Ionicons name="document-text-outline" size={16} color="#888" />
+              <Text style={styles.visitDeductText}>
+                El profesional te enviará un presupuesto con los materiales necesarios cuando llegue.
+              </Text>
+            </View>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.visitDeductRow}>
-            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-            <Text style={styles.visitDeductText}>
-              Si se realiza el trabajo, la visita <Text style={{ color: '#4CAF50', fontWeight: '800' }}>se descuenta del total</Text>. Solo pagás el trabajo.
-            </Text>
-          </View>
-          <View style={styles.visitDeductRow}>
-            <Ionicons name="document-text-outline" size={16} color="#888" />
-            <Text style={styles.visitDeductText}>
-              El profesional te enviará un presupuesto con los materiales necesarios cuando llegue.
-            </Text>
-          </View>
-        </View>
+        )}
 
-        {/* Info seguridad */}
+        {/* Info seguridad / pago */}
         <View style={styles.infoBox}>
           <Ionicons name="shield-checkmark" size={20} color="#FFD600" />
           <Text style={styles.infoText}>
-            Tu pago está protegido. El profesional no recibe el dinero hasta que confirmes que el trabajo está hecho.
+            {chargesInApp()
+              ? 'Tu pago está protegido. El profesional no recibe el dinero hasta que confirmes que el trabajo está hecho.'
+              : 'Profesionales verificados, con antecedentes. El precio lo acordás directo con el profesional y el pago es entre ustedes — BOLT te conecta.'}
           </Text>
         </View>
 

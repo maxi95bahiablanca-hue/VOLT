@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GOVOLT — Constancia de proyecto</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:#e9e9e9;padding:30px;color:#1a1a1a}
+  .hint{max-width:720px;margin:0 auto 18px;color:#555;font-size:13px;text-align:center;line-height:1.5}
+  .doc{max-width:720px;margin:0 auto;background:#fff;border-radius:8px;padding:54px 56px;box-shadow:0 4px 24px rgba(0,0,0,.12)}
+  .head{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #FFD600;padding-bottom:20px;margin-bottom:30px}
+  .logo{font-size:30px;font-weight:900;letter-spacing:1px;color:#0A0A0A}.logo span{color:#d6a800}
+  .head .date{font-size:13px;color:#888;text-align:right}
+  h1{font-size:21px;font-weight:800;margin-bottom:6px}
+  .sub{color:#777;font-size:14px;margin-bottom:26px}
+  p{font-size:14.5px;line-height:1.7;margin-bottom:14px;color:#333}
+  p b{color:#000}
+  .box{background:#fafafa;border:1px solid #e2e2e2;border-radius:8px;padding:18px 20px;margin:22px 0;font-size:14px;line-height:1.9}
+  .box .row{display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:6px 0}
+  .box .row:last-child{border-bottom:none}
+  .box .k{color:#777}.box .v{font-weight:700}
+  .fill{display:inline-block;min-width:220px;border-bottom:1.5px solid #999;padding:0 6px}
+  .sign{margin-top:46px;display:flex;justify-content:space-between;gap:40px}
+  .sign .line{flex:1;text-align:center;border-top:1.5px solid #333;padding-top:8px;font-size:13px;color:#666}
+  .foot{margin-top:34px;padding-top:18px;border-top:1px solid #eee;font-size:11.5px;color:#999;text-align:center}
+</style>
+</head>
+<body>
+  <div class="hint">📄 Imprimí esto como PDF (Ctrl+P → "Guardar como PDF") y subilo a NIC.ar. Completá a mano o digitalmente tu nombre y DNI/CUIT donde dice ____.</div>
+
+  <div class="doc">
+    <div class="head">
+      <div class="logo">GO<span>VOLT</span></div>
+      <div class="date">Bahía Blanca, Argentina<br><span id="hoy"></span></div>
+    </div>
+
+    <h1>Constancia de titularidad de proyecto</h1>
+    <div class="sub">Documentación que acredita la relación con el nombre de dominio <b>govolt.com.ar</b></div>
+
+    <p>Por la presente, quien suscribe declara ser titular y responsable del proyecto <b>GOVOLT</b>, una plataforma y aplicación móvil en desarrollo destinada a conectar a profesionales de oficios (electricistas, plomeros, gasistas y otros) con clientes de su zona, ofreciendo geolocalización, seguimiento en tiempo real y pagos seguros.</p>
+
+    <p>El proyecto se encuentra <b>activo y en desarrollo</b>, con una versión web pública accesible en la siguiente dirección, que puede verificarse:</p>
+
+    <div class="box">
+      <div class="row"><span class="k">Sitio web del proyecto</span><span class="v">govolt-app.netlify.app</span></div>
+      <div class="row"><span class="k">Registro de profesionales</span><span class="v">govolt-app.netlify.app/prestadores</span></div>
+      <div class="row"><span class="k">Nombre del proyecto / marca</span><span class="v">GOVOLT</span></div>
+      <div class="row"><span class="k">Rubro</span><span class="v">Aplicación de servicios / oficios</span></div>
+      <div class="row"><span class="k">Ámbito</span><span class="v">Bahía Blanca, Buenos Aires, Argentina</span></div>
+    </div>
+
+    <p>Se solicita el registro del dominio <b>govolt.com.ar</b> con el fin de utilizarlo como sitio oficial de esta plataforma. El nombre de dominio guarda relación directa e inequívoca con la denominación del proyecto aquí descripto.</p>
+
+    <div class="box">
+      <div class="row"><span class="k">Nombre y apellido</span><span class="v"><span class="fill">&nbsp;</span></span></div>
+      <div class="row"><span class="k">DNI / CUIT</span><span class="v"><span class="fill">&nbsp;</span></span></div>
+      <div class="row"><span class="k">Email de contacto</span><span class="v"><span class="fill">&nbsp;</span></span></div>
+    </div>
+
+    <div class="sign">
+      <div class="line">Firma</div>
+      <div class="line">Aclaración</div>
+    </div>
+
+    <div class="foot">Documento generado para el registro del dominio govolt.com.ar · GOVOLT — Bahía Blanca, Argentina</div>
+  </div>
+
+  <script>
+    document.getElementById('hoy').textContent = new Date().toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'});
+  </script>
+</body>
+</html>

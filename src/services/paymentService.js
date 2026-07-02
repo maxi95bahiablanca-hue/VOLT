@@ -1,8 +1,14 @@
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
+import { chargesInApp } from '../config/monetization';
 
 const FUNCTION_URL = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1`;
 const TIMEOUT_MS   = 15000;
+
+// Los cobros reales por la app solo ocurren en modo 'commission' (ver
+// src/config/monetization.js). En modo 'free' o 'subscription' NO se cobra por
+// la app: pay() devuelve 'success' sin tocar Mercado Pago.
+const PAYMENTS_ENABLED = chargesInApp();
 
 const fetchWithTimeout = async (url, options) => {
   const controller = new AbortController();
@@ -18,6 +24,18 @@ const fetchWithTimeout = async (url, options) => {
 };
 
 const paymentService = {
+  // Saber si los cobros reales están activos (para mostrar avisos en la UI).
+  paymentsEnabled: () => PAYMENTS_ENABLED,
+
+  // Flujo de pago centralizado. Si los cobros están desactivados (testing),
+  // devuelve 'success' sin tocar Mercado Pago (no cobra). En producción crea la
+  // preferencia y abre el checkout real.
+  pay: async ({ jobId, visitOnly = false }) => {
+    if (!PAYMENTS_ENABLED) return 'success';
+    const { checkoutUrl } = await paymentService.createPreference({ jobId, visitOnly });
+    return paymentService.openCheckout(checkoutUrl);
+  },
+
   createPreference: async ({ jobId, visitOnly = false }) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
@@ -45,7 +63,7 @@ const paymentService = {
   },
 
   openCheckout: async (url) => {
-    const result = await WebBrowser.openAuthSessionAsync(url, 'govolt://');
+    const result = await WebBrowser.openAuthSessionAsync(url, 'bolt://');
     if (result.type === 'success') {
       const returnUrl = result.url ?? '';
       if (returnUrl.includes('payment-success')) return 'success';

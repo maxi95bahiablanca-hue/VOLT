@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
+  View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Linking,
   ScrollView, ActivityIndicator, Image, Alert, Platform, RefreshControl,
   Modal, TextInput, KeyboardAvoidingView, Image as RNImage,
 } from 'react-native';
@@ -124,17 +124,22 @@ const AdminScreen = ({ session, onClose }) => {
   };
 
   const handleVerify = async (professional, action) => {
-    const note = action === 'rejected'
-      ? await promptRejectionReason()
-      : null;
+    let note = null;
+    if (action === 'rejected') {
+      note = await promptRejectionReason();
+      if (note === null) return; // se canceló el rechazo: no rechazar, no notificar, sin cartel
+    }
 
     try {
-      await supabase.from('professionals').update({
-        verification_status: action,
-        verification_note:   note,
-        reviewed_at:         new Date().toISOString(),
-        reviewed_by:         session.user.id,
-      }).eq('id', professional.id);
+      const { error: vErr } = await supabase.rpc('admin_set_verification', {
+        p_id:     professional.id,
+        p_status: action,
+        p_note:   note,
+      });
+      if (vErr) {
+        showError('No se pudo actualizar: ' + (vErr.message || 'error de permisos'));
+        return;
+      }
 
       // Push + Email al trabajador via Edge Function
       const { data: { session: s } } = await supabase.auth.getSession();
@@ -218,7 +223,7 @@ const AdminScreen = ({ session, onClose }) => {
           <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Panel GOVOLT</Text>
+          <Text style={styles.headerTitle}>Panel BOLT</Text>
           <Text style={styles.headerSub}>Administración</Text>
         </View>
         <View style={styles.adminBadge}>
@@ -277,7 +282,7 @@ const AdminScreen = ({ session, onClose }) => {
                   </View>
                   <View style={[styles.kpiCard, { borderColor: '#FFD60030' }]}>
                     <Text style={[styles.kpiVal, { color: '#FFD600' }]}>${Math.round(summary.totalRevenue ?? 0).toLocaleString('es-AR')}</Text>
-                    <Text style={styles.kpiLabel}>Ingresos GOVOLT</Text>
+                    <Text style={styles.kpiLabel}>Ingresos BOLT</Text>
                   </View>
                 </View>
                 {(summary.pendingCount ?? 0) > 0 && (
@@ -328,25 +333,37 @@ const AdminScreen = ({ session, onClose }) => {
                 </View>
 
                 {/* Documentos */}
-                <View style={styles.docsRow}>
+                <View style={[styles.docsRow, { flexWrap: 'wrap' }]}>
                   {[
                     { label: 'Selfie',  uri: p.selfie_url },
                     { label: 'DNI F',   uri: p.dni_front_url },
                     { label: 'DNI D',   uri: p.dni_back_url },
-                  ].map(doc => (
+                    { label: 'Antec.',  uri: p.antecedentes_url },
+                  ].map(doc => {
+                    const esPdf = !!doc.uri && doc.uri.toLowerCase().includes('.pdf');
+                    return (
                     <TouchableOpacity
                       key={doc.label}
                       style={[styles.docThumb, !doc.uri && styles.docThumbMissing]}
-                      onPress={() => doc.uri && setImageViewer({ uri: doc.uri, label: doc.label })}
+                      onPress={() => {
+                        if (!doc.uri) return;
+                        if (esPdf) Linking.openURL(doc.uri);
+                        else setImageViewer({ uri: doc.uri, label: doc.label });
+                      }}
                     >
                       {doc.uri ? (
-                        <Image source={{ uri: doc.uri }} style={{ width:'100%', height:'100%', borderRadius:8 }} />
+                        esPdf ? (
+                          <Ionicons name="document-text" size={22} color="#FFD600" />
+                        ) : (
+                          <Image source={{ uri: doc.uri }} style={{ width:'100%', height:'100%', borderRadius:8 }} />
+                        )
                       ) : (
                         <Ionicons name="image-outline" size={20} color="#333" />
                       )}
                       <Text style={styles.docLabel}>{doc.label}</Text>
                     </TouchableOpacity>
-                  ))}
+                    );
+                  })}
                   <View style={styles.docInfoCol}>
                     {(() => {
                       const payout = Array.isArray(p.professional_payout) ? p.professional_payout[0] : p.professional_payout;
@@ -459,7 +476,7 @@ const AdminScreen = ({ session, onClose }) => {
           ) : (
             <>
               <View style={styles.revenueCard}>
-                <Text style={styles.revenueTotalLabel}>Ingresos totales GOVOLT</Text>
+                <Text style={styles.revenueTotalLabel}>Ingresos totales BOLT</Text>
                 <Text style={styles.revenueTotalVal}>${Math.round(revenue.total).toLocaleString('es-AR')}</Text>
                 <Text style={styles.revenueMonthLabel}>Este mes: ${Math.round(revenue.thisMonth).toLocaleString('es-AR')}</Text>
               </View>

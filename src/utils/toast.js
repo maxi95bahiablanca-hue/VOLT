@@ -46,5 +46,5 @@ export const showSuccess = (text2, text1 = '¡Listo!') =>
 export const showError = (text2, text1 = 'Error') =>
   Toast.show({ type: 'voltError', text1, text2, position: 'bottom', visibilityTime: 4000 });
 
-export const showInfo = (text2, text1 = 'GOVOLT') =>
+export const showInfo = (text2, text1 = 'BOLT') =>
   Toast.show({ type: 'voltInfo', text1, text2, position: 'bottom', visibilityTime: 3000 });

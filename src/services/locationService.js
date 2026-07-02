@@ -34,8 +34,32 @@ const locationService = {
     return true;
   },
 
+  // Obtener la ubicación actual de forma ROBUSTA.
+  // En Android "frío" (sin fix de GPS reciente) getCurrentPositionAsync puede
+  // tardar muchísimo o nunca resolver, lo que deja al llamador sin ubicación
+  // aunque el GPS esté activo. Por eso usamos timeout + fallbacks.
   getCurrentLocation: async () => {
-    return Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    // 1) Intento principal con timeout de ~8s
+    try {
+      const pos = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 8000)
+        ),
+      ]);
+      if (pos?.coords) return pos;
+    } catch { /* seguimos con los fallbacks */ }
+
+    // 2) Última posición conocida (devuelve al instante si existe)
+    try {
+      const last = await Location.getLastKnownPositionAsync();
+      if (last?.coords) return last;
+    } catch { /* seguimos */ }
+
+    // 3) Último intento con precisión baja (más rápido de fijar)
+    //    Si esto también falla, dejamos que el error se propague para que el
+    //    llamador decida qué hacer (no devolvemos undefined en silencio).
+    return Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
   },
 
   // Tracking en foreground (mientras la app está abierta)
@@ -77,7 +101,7 @@ const locationService = {
         distanceInterval: DISTANCE_THRESHOLD_M,
         timeInterval: TIME_INTERVAL_MS,
         foregroundService: {
-          notificationTitle: 'GOVOLT — Estás disponible',
+          notificationTitle: 'BOLT — Estás disponible',
           notificationBody: 'Tu ubicación se actualiza en tiempo real.',
           notificationColor: '#FFD600',
         },

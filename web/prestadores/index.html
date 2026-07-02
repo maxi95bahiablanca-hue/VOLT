@@ -3,15 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GOVOLT — Sumate como profesional</title>
-<meta name="description" content="Sumate a GOVOLT: recibí trabajos cerca tuyo, cobrá seguro por la app y hacé crecer tu cartera de clientes. Registrate gratis.">
-<meta property="og:title" content="GOVOLT — Trabajá con nosotros">
-<meta property="og:description" content="Recibí trabajos cerca tuyo y cobrá seguro. Registrate gratis y sé de los primeros.">
+<title>BOLT — Sumate como profesional</title>
+<meta name="description" content="Sumate a BOLT: recibí trabajos cerca tuyo, cobrá directo del cliente y hacé crecer tu cartera de clientes. Registrate gratis.">
+<meta property="og:title" content="BOLT — Trabajá con nosotros">
+<meta property="og:description" content="Recibí trabajos cerca tuyo y cobrá directo del cliente. Registrate gratis y sé de los primeros.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  :root{--bg:#0A0A0A;--surf:#111;--surf2:#161616;--bord:#1f1f1f;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#00d68f}
+  :root{--bg:#0A0A0A;--surf:#141414;--surf2:#1a1a1a;--bord:#262626;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#FFD600;--blue:#FFD600;--red:#FFD600}
   html{scroll-behavior:smooth}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+  body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
   .wrap{max-width:960px;margin:0 auto;padding:0 20px}
   a{text-decoration:none;color:inherit}
 
@@ -20,8 +23,13 @@
   .logo{font-size:1.45rem;font-weight:900;letter-spacing:1px}.logo span{color:var(--yellow)}
   .nav-cta{background:var(--yellow);color:#0A0A0A;font-weight:800;font-size:.85rem;padding:9px 18px;border-radius:12px}
 
-  .hero{text-align:center;padding:64px 0 40px}
-  .hero .tag{display:inline-block;background:rgba(0,214,143,.1);border:1px solid rgba(0,214,143,.3);color:var(--green);font-weight:700;font-size:.76rem;padding:6px 15px;border-radius:20px;margin-bottom:22px}
+  .hero{text-align:center;padding:50px 0 40px}
+  .hero .tag{display:inline-block;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);color:var(--yellow);font-weight:800;font-size:.76rem;padding:7px 16px;border-radius:20px;margin-bottom:24px}
+  .logo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;width:fit-content;margin:0 auto 24px}
+  .logo-glow{position:absolute;inset:-60% -80%;background:radial-gradient(circle,rgba(255,180,0,.34),rgba(255,120,0,.09),transparent 62%);filter:blur(34px);z-index:0;pointer-events:none}
+  .bolt-svg{position:relative;width:60px;height:auto;z-index:1;filter:drop-shadow(0 0 14px rgba(255,160,0,.55))}
+  .logo-big{position:relative;z-index:1;font-weight:900;font-size:1.7rem;letter-spacing:2px;margin-top:6px;line-height:1}
+  .logo-big .bo{color:#fff}.logo-big .lt{color:var(--yellow)}
   .hero h1{font-size:2.7rem;font-weight:900;line-height:1.1;letter-spacing:-1px;margin-bottom:16px}
   .hero h1 span{color:var(--yellow)}
   .hero p{font-size:1.12rem;color:var(--muted);max-width:540px;margin:0 auto 30px}
@@ -46,50 +54,112 @@
   .step p{color:var(--muted);font-size:.92rem}
 
   /* FORM */
-  .form-box{background:var(--surf);border:1px solid rgba(255,214,0,.25);border-radius:22px;padding:30px 24px;max-width:560px;margin:0 auto}
-  .form-box h2{font-size:1.6rem;font-weight:900;text-align:center;margin-bottom:6px}
-  .form-box .sub{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.92rem}
+  .form-box{background:var(--surf);border:1px solid rgba(255,214,0,.25);border-radius:22px;padding:30px 24px;max-width:580px;margin:0 auto;position:relative;overflow:hidden}
+  .form-box h2{font-size:1.55rem;font-weight:900;text-align:center;margin-bottom:6px}
+  .form-box .sub{text-align:center;color:var(--muted);margin-bottom:20px;font-size:.92rem}
   label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;margin-top:14px}
   input,select{width:100%;background:var(--surf2);border:1px solid var(--bord);color:var(--text);border-radius:12px;padding:13px 14px;font-family:inherit;font-size:.95rem;outline:none;transition:.15s}
   input:focus,select:focus{border-color:rgba(255,214,0,.5)}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media(max-width:480px){.row{grid-template-columns:1fr}}
-  .btn-submit{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:900;font-size:1.05rem;cursor:pointer;margin-top:22px;transition:.2s}
+  .hint{font-size:.76rem;color:var(--muted2);margin-top:5px}
+
+  /* Progreso de pasos */
+  .prog{display:flex;align-items:center;gap:6px;margin-bottom:22px}
+  .prog .pdot{flex:1;height:6px;border-radius:4px;background:var(--surf2);transition:.4s}
+  .prog .pdot.on{background:var(--yellow)}
+  .prog .plbl{font-size:.74rem;color:var(--muted2);font-weight:700;white-space:nowrap;margin-left:4px}
+
+  .fstep{animation:slideIn .35s ease}
+  @keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+  .btn-submit{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:900;font-size:1.02rem;cursor:pointer;margin-top:22px;transition:.2s}
   .btn-submit:hover{box-shadow:0 0 30px rgba(255,214,0,.4)}
   .btn-submit:disabled{opacity:.6;cursor:default}
-  .msg{margin-top:14px;text-align:center;font-size:.9rem;font-weight:600}
-  .ok-box{display:none;text-align:center;padding:20px 0}
-  .ok-box .em{font-size:3rem;margin-bottom:10px}
-  .ok-box h3{font-size:1.4rem;font-weight:900;color:var(--green);margin-bottom:8px}
-  .ok-box p{color:var(--muted);font-size:.95rem}
+  .btn-back{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:14px;padding:16px 18px;font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;margin-top:22px}
+  .btn-rowf{display:flex;gap:10px}
+  .btn-rowf .btn-submit{margin-top:22px}
+  .msg{margin-top:14px;text-align:center;font-size:.9rem;font-weight:600;min-height:18px}
+
+  /* Subida de archivos */
+  .upload{display:block;background:var(--surf2);border:1.5px dashed #333;border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:.2s;margin-top:6px}
+  .upload:hover{border-color:rgba(255,214,0,.5)}
+  .upload .uemoji{font-size:1.6rem}
+  .upload .utext{font-size:.84rem;color:var(--muted);margin-top:4px}
+  .upload.has{border-color:var(--green);border-style:solid}
+  .upload.has .utext{color:var(--green);font-weight:700}
+  .upload input{display:none}
+
+  /* OK / celebración */
+  .ok-box{display:none;text-align:center;padding:8px 0}
+  .ok-box .em{font-size:3.4rem;margin-bottom:6px;animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(0)}}
+  .ok-box h3{font-size:1.55rem;font-weight:900;color:var(--yellow);margin-bottom:8px}
+  .ok-box .okp{color:var(--muted);font-size:.95rem;margin-bottom:8px}
+  .tl{text-align:left;margin:22px auto 0;max-width:420px}
+  .tl-item{display:flex;gap:13px;align-items:flex-start;position:relative;padding-bottom:20px}
+  .tl-item:not(:last-child)::before{content:"";position:absolute;left:15px;top:30px;bottom:0;width:2px;background:var(--bord)}
+  .tl-ic{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.95rem;background:var(--surf2);border:1px solid var(--bord);z-index:1}
+  .tl-item.done .tl-ic{background:var(--green);border-color:var(--green)}
+  .tl-item.wait .tl-ic{background:rgba(255,214,0,.15);border-color:var(--yellow);animation:pulse 1.6s infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(255,214,0,.08)}}
+  .tl-tx b{font-weight:800;font-size:.96rem;display:block}
+  .tl-tx span{font-size:.82rem;color:var(--muted)}
+  .tl-item.wait .tl-tx span{color:var(--yellow);font-weight:700}
+
+  /* Confetti */
+  .confetti{position:fixed;top:-12px;width:10px;height:14px;z-index:999;pointer-events:none;will-change:transform;border-radius:2px}
 
   footer{border-top:1px solid var(--bord);padding:30px 0;color:var(--muted2);font-size:.82rem;text-align:center}
   footer a{color:var(--muted);font-weight:600;margin:0 10px}
+
+  /* Chips de oficios (hasta 3) — estilo app: apagado → se colorea amarillo */
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .chip{background:var(--surf2);border:2px solid var(--bord);color:var(--text);border-radius:14px;padding:11px 17px;font-size:.92rem;font-weight:800;cursor:pointer;transition:.15s;user-select:none}
+  .chip:hover{border-color:#3a3a3a}
+  .chip.on{background:var(--yellow);border-color:var(--yellow);color:#0A0A0A}
+  .chip.dis{opacity:.35;pointer-events:none}
+  .prof-count{font-size:.82rem;color:var(--muted);margin-top:12px;font-weight:700}
+  .matri-box{margin-top:16px;background:var(--surf);border:1.5px solid var(--bord);border-radius:14px;padding:14px;transition:.15s}
+  .matri-box.checked{background:rgba(255,214,0,.08);border-color:rgba(255,214,0,.4)}
+  .matri-check{display:flex;align-items:flex-start;gap:11px;cursor:pointer;font-size:.9rem;font-weight:700;margin:0}
+  .matri-check input{width:20px;height:20px;accent-color:var(--yellow);margin-top:1px;flex-shrink:0;cursor:pointer}
 </style>
 </head>
 <body>
 
 <nav><div class="wrap nav-in">
-  <div class="logo">GO<span>VOLT</span></div>
+  <div class="logo">BO<span>LT</span></div>
   <a href="#registro" class="nav-cta">Sumate gratis</a>
 </div></nav>
 
 <header class="hero"><div class="wrap">
-  <div class="tag">⚡ Estamos sumando a los primeros profesionales</div>
-  <h1>Más trabajo.<br><span>Cobro seguro.</span></h1>
-  <p>GOVOLT te conecta con clientes de tu zona que necesitan tu oficio. Recibí pedidos, cobrá por la app y hacé crecer tu reputación. Sé de los primeros en tu ciudad.</p>
+  <div class="tag">🚀 Sé de los primeros profesionales de tu ciudad</div>
+  <div class="logo-wrap">
+    <div class="logo-glow"></div>
+    <svg class="bolt-svg" viewBox="0 0 100 132" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="rayo" x1="0" y1="0" x2="0.4" y2="1">
+        <stop offset="0" stop-color="#FFD600"/><stop offset="0.5" stop-color="#FF8A00"/><stop offset="1" stop-color="#FF4D4D"/>
+      </linearGradient></defs>
+      <path d="M60 4 L22 72 L46 72 L40 128 L80 50 L54 50 Z" fill="url(#rayo)"/>
+    </svg>
+    <div class="logo-big"><span class="bo">BO</span><span class="lt">LT</span></div>
+  </div>
+  <h1>Sabés quién <span>toca tu puerta</span></h1>
+  <p>BOLT te conecta con clientes de tu zona que necesitan tu oficio. Recibí pedidos, cobrá directo y hacé crecer tu reputación.</p>
+  <p style="margin-top:-6px"><b>Estamos sumando a los primeros profesionales de cada zona.</b> Apenas completamos el cupo de tu ciudad, te avisamos por <b>mail y WhatsApp</b> para activar la app y que empieces a recibir trabajos. 📲</p>
   <a href="#registro" class="btn">Quiero sumarme →</a>
-  <div class="sub">Registro gratis · Sin compromiso · 2 minutos</div>
+  <div class="sub">Registro gratis · Te avisamos por mail y WhatsApp · Sin compromiso</div>
 </div></header>
 
 <section><div class="wrap">
-  <div class="s-title">¿Por qué trabajar con GOVOLT?</div>
+  <div class="s-title">¿Por qué trabajar con BOLT?</div>
   <div class="grid">
     <div class="card"><div class="ico">📲</div><h3>Trabajos cerca tuyo</h3><p>Te llegan pedidos de clientes de tu zona. Vos decidís cuáles tomás y cuándo estás disponible.</p></div>
-    <div class="card"><div class="ico">💳</div><h3>Cobrás seguro</h3><p>El pago es por la app, a través de Mercado Pago. Nada de andar persiguiendo la plata.</p></div>
-    <div class="card"><div class="ico">📈</div><h3>Menos comisión, más reputación</h3><p>Cuanto mejor tu calificación, menor la comisión que pagás. Premiamos al que trabaja bien.</p></div>
+    <div class="card"><div class="ico">💵</div><h3>Cobrás directo</h3><p>El cliente te paga <b>directo a vos</b>, como arreglen (efectivo, transferencia). Sin intermediarios y sin esperar a que te depositen.</p></div>
+    <div class="card"><div class="ico">🎁</div><h3>Sumate GRATIS</h3><p>Al inicio es <b>todo gratis</b>: sin comisión, sin cuotas, sin costo de alta. Los primeros profesionales de cada zona entran sin pagar nada.</p></div>
     <div class="card"><div class="ico">⭐</div><h3>Tu perfil profesional</h3><p>Calificaciones, trabajos completados y clientes que te eligen. Construí tu marca personal.</p></div>
-    <div class="card"><div class="ico">🛡️</div><h3>Verificado = confianza</h3><p>Los clientes confían más en profesionales verificados. Eso se traduce en más trabajos.</p></div>
+    <div class="card"><div class="ico">🛡️</div><h3>Verificado = confianza</h3><p>Verificamos DNI y antecedentes. Los clientes confían más en profesionales verificados.</p></div>
     <div class="card"><div class="ico">🚀</div><h3>Sé de los primeros</h3><p>Los que entran ahora arrancan con ventaja: más visibilidad y los mejores trabajos de la zona.</p></div>
   </div>
 </div></section>
@@ -97,52 +167,192 @@
 <section><div class="wrap">
   <div class="s-title">Cómo funciona</div>
   <div class="steps">
-    <div class="step"><div class="step-n">1</div><div><h4>Te registrás</h4><p>Completás el formulario de acá abajo. Te lleva 2 minutos.</p></div></div>
-    <div class="step"><div class="step-n">2</div><div><h4>Te verificamos</h4><p>Revisamos tus datos y te contactamos por WhatsApp para activarte.</p></div></div>
+    <div class="step"><div class="step-n">1</div><div><h4>Te registrás y verificás</h4><p>Completás tus datos, subís tu DNI y antecedentes. Una sola vez.</p></div></div>
+    <div class="step"><div class="step-n">2</div><div><h4>Te aprobamos (24–48 hs)</h4><p>Revisamos tu documentación y te contactamos por WhatsApp para activarte.</p></div></div>
     <div class="step"><div class="step-n">3</div><div><h4>Recibís trabajos</h4><p>Activás tu disponibilidad en el mapa y empezás a recibir pedidos cerca tuyo.</p></div></div>
-    <div class="step"><div class="step-n">4</div><div><h4>Cobrás y crecés</h4><p>Hacés el trabajo, cobrás por la app y sumás calificaciones que te traen más clientes.</p></div></div>
+    <div class="step"><div class="step-n">4</div><div><h4>Cobrás y crecés</h4><p>Hacés el trabajo, cobrás <b>directo del cliente</b> y sumás calificaciones que te traen más clientes.</p></div></div>
+  </div>
+</div></section>
+
+<!-- CÓMO FUNCIONA EL PAGO -->
+<section><div class="wrap">
+  <div class="s-title">💼 Cómo funciona el pago</div>
+  <div class="grid">
+    <div class="card"><div class="ico">💵</div><h3>Cobrás directo</h3><p>El cliente te paga <b>directo a vos</b>, como prefieran (efectivo, transferencia). BOLT <b>no se mete</b> en el medio de tu plata.</p></div>
+    <div class="card"><div class="ico">🏷️</div><h3>Vos ponés tu precio</h3><p>Vos acordás con el cliente cuánto cobrás por la visita y por el trabajo. Tu tiempo y tu trabajo, <b>tu precio</b>.</p></div>
+    <div class="card"><div class="ico">🤝</div><h3>Queda todo registrado</h3><p>El pedido, el chat y la calificación quedan en la app: respaldo y transparencia para ambos, sin que la plataforma maneje tu plata.</p></div>
+  </div>
+  <div style="text-align:center;color:var(--muted);margin-top:18px;max-width:700px;margin-left:auto;margin-right:auto;line-height:1.6">BOLT te <b>conecta</b> con clientes de tu zona. El pago lo arreglás <b>directo con cada cliente</b>. 💪</div>
+</div></section>
+
+<!-- COMISIÓN + CUPO -->
+<section><div class="wrap">
+  <div class="s-title">🎁 Gratis para los primeros</div>
+  <div style="max-width:760px;margin:0 auto;text-align:center;color:var(--muted);line-height:1.7">
+    <p style="font-size:1.05rem;color:var(--text)">Estamos arrancando, y queremos que <b style="color:var(--yellow)">los primeros profesionales de cada zona entren sin pagar nada</b>: sin comisión, sin cuotas, sin costo de alta.</p>
+    <p>Cobrás <b>directo del cliente</b> el 100% de tu trabajo. Sumate ahora y aprovechá el arranque gratis. 🚀</p>
+  </div>
+
+  <div style="margin:30px auto 0;background:var(--surf);border:1px solid var(--bord);border-radius:18px;padding:24px;display:flex;gap:16px;align-items:flex-start;max-width:760px">
+    <div style="font-size:2rem;flex-shrink:0">🔔</div>
+    <div>
+      <h3 style="margin:0 0 6px">Estamos completando cupos por ciudad</h3>
+      <p style="margin:0;color:var(--muted);line-height:1.6">Activamos cada zona cuando juntamos a los primeros profesionales de cada oficio. <b style="color:var(--text)">Apenas se completa el cupo de tu ciudad, te avisamos por mail y WhatsApp</b> para que actives la app y empieces a recibir trabajos. Registrate ahora y asegurá tu lugar entre los primeros.</p>
+    </div>
   </div>
 </div></section>
 
 <section id="registro"><div class="wrap">
   <div class="form-box">
     <div id="formContent">
-      <h2>Sumate a GOVOLT</h2>
-      <div class="sub">Dejanos tus datos y te contactamos para activarte en tu zona.</div>
-
-      <div class="row">
-        <div><label>Nombre *</label><input id="nombre" type="text" placeholder="Juan"></div>
-        <div><label>Apellido</label><input id="apellido" type="text" placeholder="Pérez"></div>
+      <div class="prog">
+        <div class="pdot on" id="pd1"></div><div class="pdot" id="pd2"></div><div class="pdot" id="pd3"></div>
+        <span class="plbl" id="plbl">Paso 1 de 3</span>
       </div>
 
-      <label>WhatsApp *</label>
-      <input id="telefono" type="tel" inputmode="numeric" placeholder="291 4XXXXXX">
-
-      <label>Tu oficio / profesión *</label>
-      <select id="profesion"><option value="">Cargando...</option></select>
-
-      <label>Tu zona o barrio</label>
-      <input id="zona" type="text" placeholder="Ej: Centro, Villa Mitre, Palihue...">
-
-      <div class="row">
-        <div><label>Precio de visita ($)</label><input id="precio" type="number" inputmode="numeric" placeholder="30000"></div>
-        <div><label>Años de experiencia</label><input id="experiencia" type="text" placeholder="Ej: 8 años"></div>
+      <!-- PASO 1 -->
+      <div class="fstep" id="step1">
+        <h2>Tus datos</h2>
+        <div class="sub">Empecemos por lo básico. Te lleva 1 minuto.</div>
+        <div class="row">
+          <div><label>Nombre *</label><input id="nombre" type="text" placeholder="Juan"></div>
+          <div><label>Apellido *</label><input id="apellido" type="text" placeholder="Pérez"></div>
+        </div>
+        <div class="row">
+          <div><label>DNI *</label><input id="dni" type="text" inputmode="numeric" placeholder="30.123.456"></div>
+          <div><label>Fecha de nacimiento</label><input id="fecha_nac" type="date"></div>
+        </div>
+        <label>WhatsApp *</label>
+        <input id="telefono" type="tel" inputmode="numeric" placeholder="291 4XXXXXX">
+        <label>Email</label>
+        <input id="email" type="email" placeholder="tunombre@email.com">
+        <label>Domicilio</label>
+        <input id="domicilio" type="text" placeholder="Calle, número, ciudad">
+        <button class="btn-submit" onclick="nextStep(2)">Continuar →</button>
       </div>
 
-      <button class="btn-submit" id="btnSubmit" onclick="enviar()">Quiero sumarme a GOVOLT</button>
-      <div class="msg" id="msg"></div>
+      <!-- PASO 2 -->
+      <div class="fstep" id="step2" style="display:none">
+        <h2>Tu oficio</h2>
+        <div class="sub">Contanos a qué te dedicás.</div>
+        <label>Tus oficios * <span style="color:var(--muted2);font-weight:400">— elegí hasta 3</span></label>
+        <div id="profChips" class="chips"><span class="hint">Cargando oficios...</span></div>
+        <div class="prof-count" id="profCount">Ninguno seleccionado · podés elegir hasta 3</div>
+        <div id="matriBox" class="matri-box" style="display:none">
+          <label class="matri-check">
+            <input type="checkbox" id="matriculado">
+            <span><b>Soy matriculado</b> <span style="color:var(--muted);font-weight:400">— tengo matrícula habilitante. Te mostramos con una insignia ✔ Matriculado y podés cobrar diferenciado.</span></span>
+          </label>
+        </div>
+        <label>Ciudad / Zona de servicio *</label>
+        <select id="ciudad">
+          <option value="">Elegí tu zona...</option>
+          <option value="Bahía Blanca">Bahía Blanca (y Punta Alta, Ing. White, Cerri)</option>
+          <option value="Monte Hermoso / Sauce Grande">Monte Hermoso / Sauce Grande</option>
+          <option value="Mar del Plata">Mar del Plata (y Batán)</option>
+          <option value="Córdoba">Córdoba (y Villa Allende, Carlos Paz, Unquillo)</option>
+          <option value="Rosario">Rosario (y Funes, Roldán, V. G. Gálvez, Baigorria)</option>
+          <option value="Mendoza">Mendoza (y Godoy Cruz, Guaymallén, Maipú)</option>
+          <option value="Neuquén">Neuquén (y Plottier, Cipolletti)</option>
+          <option value="Tucumán">San Miguel de Tucumán (y Yerba Buena, Tafí Viejo)</option>
+          <option value="Salta">Salta (y San Lorenzo, Cerrillos)</option>
+          <option value="La Plata">La Plata (y City Bell, Gonnet, Berisso)</option>
+          <option value="CABA">CABA — Ciudad de Buenos Aires</option>
+        </select>
+        <label>Matrícula / registro (si tu oficio lo requiere)</label>
+        <input id="matricula" type="text" placeholder="Ej: gasista matriculado N° ...">
+        <label>Tu zona o barrio</label>
+        <input id="zona" type="text" placeholder="Ej: Centro, Villa Mitre, Palihue...">
+        <label>Años de experiencia</label>
+        <input id="experiencia" type="text" placeholder="Ej: 8 años">
+        <div class="hint">El precio de tu visita y de tu trabajo lo acordás <b>vos directo con cada cliente</b>. BOLT solo te conecta. 👇</div>
+        <div class="btn-rowf">
+          <button class="btn-back" onclick="nextStep(1)">←</button>
+          <button class="btn-submit" onclick="nextStep(3)">Continuar →</button>
+        </div>
+      </div>
+
+      <!-- PASO 3 -->
+      <div class="fstep" id="step3" style="display:none">
+        <h2>Verificación 🛡️</h2>
+        <div class="sub">Esto genera confianza con los clientes. Solo te lo pedimos una vez.</div>
+
+        <label>Antecedentes penales *</label>
+        <select id="antecedentes">
+          <option value="">Elegí una opción...</option>
+          <option value="Tengo certificado vigente">Tengo el certificado de antecedentes vigente</option>
+          <option value="En tramite">Lo tengo en trámite</option>
+          <option value="No tengo">Todavía no lo tengo</option>
+        </select>
+        <div class="hint">Si no lo tenés, te ayudamos a tramitarlo. No frena tu registro.</div>
+
+        <label>¿Sos monotributista? *</label>
+        <select id="monotributo">
+          <option value="">Elegí una opción...</option>
+          <option value="Sí, monotributista activo">Sí, soy monotributista activo</option>
+          <option value="En trámite">Lo estoy tramitando</option>
+          <option value="Todavía no">Todavía no, pero quiero serlo</option>
+        </select>
+        <div class="hint">Para facturar de forma legal tus trabajos necesitás ser monotributista. Si todavía no lo sos, te orientamos para darte de alta (es gratis y rápido).</div>
+
+        <label>Foto del DNI — frente *</label>
+        <label class="upload" id="u_dnif">
+          <div class="uemoji">📷</div><div class="utext">Tocá para subir el frente del DNI</div>
+          <input type="file" accept="image/*" id="dni_frente" onchange="onFile('dni_frente','u_dnif','Frente del DNI ✓')">
+        </label>
+
+        <label>Foto del DNI — dorso *</label>
+        <label class="upload" id="u_dnid">
+          <div class="uemoji">📷</div><div class="utext">Tocá para subir el dorso del DNI</div>
+          <input type="file" accept="image/*" id="dni_dorso" onchange="onFile('dni_dorso','u_dnid','Dorso del DNI ✓')">
+        </label>
+
+        <label>Certificado de antecedentes penales *</label>
+        <label class="upload" id="u_ant">
+          <div class="uemoji">📄</div><div class="utext">Subir certificado (foto o PDF)</div>
+          <input type="file" accept="image/*,application/pdf" id="antecedentes_file" onchange="onFile('antecedentes_file','u_ant','Certificado ✓')">
+        </label>
+        <div class="hint">¿No lo tenés? Sacalo online en 5 minutos 👉 <a href="https://www.argentina.gob.ar/justicia/reincidencia/certificado-de-antecedentes-penales-web" target="_blank" style="color:var(--yellow)">argentina.gob.ar (antecedentes web)</a></div>
+
+        <label>Constancia de monotributo *</label>
+        <label class="upload" id="u_mono">
+          <div class="uemoji">🧾</div><div class="utext">Subir constancia de monotributo (foto o PDF)</div>
+          <input type="file" accept="image/*,application/pdf" id="monotributo_file" onchange="onFile('monotributo_file','u_mono','Constancia ✓')">
+        </label>
+        <div class="hint">La descargás de AFIP 👉 <a href="https://monotributo.afip.gob.ar" target="_blank" style="color:var(--yellow)">monotributo.afip.gob.ar</a></div>
+
+        <label>Selfie sosteniendo tu DNI *</label>
+        <label class="upload" id="u_selfie">
+          <div class="uemoji">🤳</div><div class="utext">Subir selfie con DNI</div>
+          <input type="file" accept="image/*" id="selfie" onchange="onFile('selfie','u_selfie','Selfie ✓')">
+        </label>
+
+        <div class="btn-rowf">
+          <button class="btn-back" onclick="nextStep(2)">←</button>
+          <button class="btn-submit" id="btnSubmit" onclick="enviar()">Enviar mi solicitud ⚡</button>
+        </div>
+        <div class="msg" id="msg"></div>
+      </div>
     </div>
 
+    <!-- ÉXITO -->
     <div class="ok-box" id="okBox">
-      <div class="em">⚡✅</div>
-      <h3>¡Listo! Ya sos parte</h3>
-      <p>Recibimos tu registro. Te vamos a contactar por WhatsApp para verificarte y activarte en tu zona. ¡Gracias por sumarte a GOVOLT!</p>
+      <div class="em">🎉</div>
+      <h3>¡Felicitaciones, ya diste el primer paso!</h3>
+      <div class="okp">¡Recibimos tu solicitud para sumarte a BOLT! 🎉 Quedaste anotado entre los primeros profesionales de tu ciudad. <b>Apenas completemos el cupo de tu zona, te avisamos por mail y WhatsApp</b> para activar la app. Mientras tanto, verificamos tus datos:</div>
+      <div class="tl">
+        <div class="tl-item done"><div class="tl-ic">✅</div><div class="tl-tx"><b>Solicitud recibida</b><span>Ahora mismo</span></div></div>
+        <div class="tl-item wait"><div class="tl-ic">⏳</div><div class="tl-tx"><b>Verificamos tus datos y documentación</b><span>Entre 24 y 48 hs hábiles</span></div></div>
+        <div class="tl-item"><div class="tl-ic">📲</div><div class="tl-tx"><b>Te avisamos por mail y WhatsApp</b><span>Apenas se complete el cupo de tu ciudad</span></div></div>
+        <div class="tl-item"><div class="tl-ic">🚀</div><div class="tl-tx"><b>Empezás a recibir trabajos</b><span>Activás tu disponibilidad y a trabajar</span></div></div>
+      </div>
+      <div class="okp" style="margin-top:18px">Mientras tanto, seguinos en redes <b>@bolt.app</b> ⚡</div>
     </div>
   </div>
 </div></section>
 
 <footer><div class="wrap">
-  © 2026 GOVOLT · Bahía Blanca, Argentina
+  © 2026 BOLT · Bahía Blanca, Argentina
   <div style="margin-top:8px">
     <a href="../privacy.html">Privacidad</a><a href="../terms.html">Términos</a>
   </div>
@@ -153,59 +363,230 @@
   const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const QS = new URLSearchParams(location.search);
+  const FUENTE = QS.get('fuente') || 'landing';
+  // Links pre-filtrados por campaña: ?ciudad=Córdoba&oficio=Electricista
+  const _ciudadURL = QS.get('ciudad') || '';
+  if (_ciudadURL) { const c = document.getElementById('ciudad'); if (c) c.value = _ciudadURL; }
 
-  // Detectar la fuente del tráfico (?fuente=instagram, etc.)
-  const FUENTE = new URLSearchParams(location.search).get('fuente') || 'landing';
-
-  // Cargar profesiones desde la base (se mantiene en sync con la app)
-  const FALLBACK = ['Electricista','Plomero','Gasista','Cerrajero','Albañil','Pintor','Carpintero','Técnico de aire acondicionado','Técnico de electrodomésticos','Herrero','Vidriero','Jardinero','Fletes / Mudanzas','Limpieza','Otro'];
+  // Profesiones desde la base (sync con la app)
+  const FALLBACK = ['Electricista','Plomero','Gasista','Pintor','Albañil','Cerrajero','Jardinero','Limpieza','Encomiendas / Fletes','Aire acondicionado','Heladeras y lavarropas','Alarmas / Cámaras','Durlock'];
+  const MAX_PROFS = 3;
+  let selectedProfs = []; // [{id, name}]
+  function updateProfCount(){
+    const el = document.getElementById('profCount');
+    if (!el) return;
+    const n = selectedProfs.length;
+    el.textContent = n === 0 ? 'Ninguno seleccionado · podés elegir hasta 3'
+      : `${n} de 3 seleccionado${n>1?'s':''}: ${selectedProfs.map(p=>p.name).join(', ')}`;
+  }
   (async () => {
-    const sel = document.getElementById('profesion');
+    const cont = document.getElementById('profChips');
     let nombres = [];
     try {
       const { data } = await sb.from('professions').select('id,name').order('name');
       if (data && data.length) nombres = data.map(p => ({ id: p.id, name: p.name }));
     } catch (e) {}
     if (!nombres.length) nombres = FALLBACK.map(n => ({ id: null, name: n }));
-    sel.innerHTML = '<option value="">Elegí tu oficio...</option>' +
-      nombres.map(p => `<option value="${p.name}" data-id="${p.id ?? ''}">${p.name}</option>`).join('');
+    const _oficioURL = (QS.get('oficio') || '').toLowerCase();
+    cont.innerHTML = '';
+    nombres.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = p.name;
+      chip.onclick = () => toggleProf(p, chip);
+      cont.appendChild(chip);
+      if (_oficioURL && p.name.toLowerCase() === _oficioURL) toggleProf(p, chip);
+    });
   })();
+
+  function toggleProf(p, chip){
+    const i = selectedProfs.findIndex(x => x.name === p.name);
+    if (i >= 0) { selectedProfs.splice(i, 1); chip.classList.remove('on'); }
+    else {
+      if (selectedProfs.length >= MAX_PROFS) return; // tope de 3
+      selectedProfs.push(p); chip.classList.add('on');
+    }
+    const full = selectedProfs.length >= MAX_PROFS;
+    document.querySelectorAll('#profChips .chip').forEach(c => {
+      if (!c.classList.contains('on')) c.classList.toggle('dis', full);
+    });
+    updateProfCount();
+    updateMatri();
+  }
+
+  function updateMatri(){
+    const box = document.getElementById('matriBox');
+    if (!box) return;
+    const show = selectedProfs.some(p => ['electricista','gasista'].includes(p.name.toLowerCase()));
+    box.style.display = show ? 'block' : 'none';
+    if (!show){ const cb = document.getElementById('matriculado'); if (cb){ cb.checked = false; } box.classList.remove('checked'); }
+  }
+  document.addEventListener('change', e => {
+    if (e.target && e.target.id === 'matriculado'){
+      const box = document.getElementById('matriBox');
+      if (box) box.classList.toggle('checked', e.target.checked);
+    }
+  });
 
   function val(id){ return (document.getElementById(id).value || '').trim(); }
 
+  // Navegación de pasos (con validación)
+  function nextStep(n){
+    const msg = document.getElementById('msg');
+    if (n === 2){ // validar paso 1
+      if (!val('nombre') || !val('apellido') || !val('dni') || !val('fecha_nac') || !val('telefono') || !val('email') || !val('domicilio')){
+        flash('Completá todos los datos: nombre, apellido, DNI, fecha de nacimiento, WhatsApp, email y domicilio.'); return;
+      }
+    }
+    if (n === 3){ // validar paso 2
+      if (!selectedProfs.length){ flash('Elegí al menos un oficio (podés elegir hasta 3).'); return; }
+      if (!val('ciudad')){ flash('Elegí tu ciudad / zona de servicio.'); return; }
+      if (!val('zona')){ flash('Indicá tu zona o barrio.'); return; }
+      if (!val('experiencia')){ flash('Indicá tus años de experiencia.'); return; }
+    }
+    if (msg) msg.textContent = '';
+    [1,2,3].forEach(s => document.getElementById('step'+s).style.display = (s===n?'block':'none'));
+    ['pd1','pd2','pd3'].forEach((id,i)=> document.getElementById(id).classList.toggle('on', i < n));
+    document.getElementById('plbl').textContent = 'Paso ' + n + ' de 3';
+    document.querySelector('.form-box').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+  function flash(t){
+    // mostrar error en el paso actual: usamos un alert liviano arriba
+    let m = document.getElementById('stepMsg');
+    if(!m){ m=document.createElement('div'); m.id='stepMsg'; m.className='msg'; m.style.color='var(--red)'; document.querySelector('.prog').after(m); }
+    m.style.color='var(--red)'; m.textContent=t; setTimeout(()=>{ if(m) m.textContent=''; }, 3500);
+  }
+
+  // Mostrar nombre de archivo seleccionado
+  function onFile(inputId, boxId, okText){
+    const f = document.getElementById(inputId).files[0];
+    const box = document.getElementById(boxId);
+    if (f){ box.classList.add('has'); box.querySelector('.utext').textContent = okText + ' (' + (f.name.length>22?f.name.slice(0,20)+'…':f.name) + ')'; }
+  }
+
+  async function uploadFile(inputId, prefix){
+    const f = document.getElementById(inputId).files[0];
+    if (!f) return null;
+    try {
+      const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = Date.now() + '_' + prefix + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
+      const { error } = await sb.storage.from('prestador-docs').upload(path, f, { upsert:false, contentType:f.type });
+      if (error) throw error;
+      // El bucket es PRIVADO (documentos personales): guardamos el path, no una URL.
+      // El panel admin genera una signed URL con su sesión para verlos.
+      return path;
+    } catch (e){ console.warn('upload fail', inputId, e); return null; }
+  }
+
+  // === Autoguardado anti-recarga: el celu recarga al abrir la cámara y borra todo.
+  //     Guardamos los campos de texto para que no se pierdan (los archivos no se pueden persistir). ===
+  const _REGKEY = 'bolt_reg_v1';
+  function _regCampos(){ return document.querySelectorAll('#formContent input, #formContent select, #formContent textarea'); }
+  function _regGuardar(){
+    const d = {};
+    _regCampos().forEach(el => { if (el.type === 'file' || !el.id) return; d[el.id] = (el.type === 'checkbox') ? el.checked : el.value; });
+    try { localStorage.setItem(_REGKEY, JSON.stringify(d)); } catch(e){}
+  }
+  function _regRestaurar(){
+    let d; try { d = JSON.parse(localStorage.getItem(_REGKEY) || '{}'); } catch(e){ return; }
+    _regCampos().forEach(el => {
+      if (el.type === 'file' || !el.id || !(el.id in d)) return;
+      if (el.type === 'checkbox') el.checked = d[el.id]; else el.value = d[el.id];
+      if (el.tagName === 'SELECT') el.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+  }
+  function _regLimpiar(){ try { localStorage.removeItem(_REGKEY); } catch(e){} }
+  function _regInit(){ _regRestaurar(); document.addEventListener('input', _regGuardar, true); document.addEventListener('change', _regGuardar, true); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _regInit); else _regInit();
+
   async function enviar(){
     const msg = document.getElementById('msg');
-    const nombre = val('nombre'), telefono = val('telefono'), profesion = val('profesion');
-    if (!nombre || !telefono || !profesion){
-      msg.style.color = '#ff5577';
-      msg.textContent = 'Completá al menos nombre, WhatsApp y tu oficio.';
-      return;
-    }
-    const sel = document.getElementById('profesion');
-    const pid = sel.options[sel.selectedIndex]?.dataset.id || null;
-    const btn = document.getElementById('btnSubmit');
-    btn.disabled = true; btn.textContent = 'Enviando...';
+    if (!val('antecedentes')){ msg.style.color='var(--red)'; msg.textContent='Elegí tu situación de antecedentes.'; return; }
+    if (!val('monotributo')){ msg.style.color='var(--red)'; msg.textContent='Decinos tu situación de monotributo.'; return; }
+    const _req = [['dni_frente','el frente del DNI'],['dni_dorso','el dorso del DNI'],['antecedentes_file','el certificado de antecedentes'],['monotributo_file','la constancia de monotributo'],['selfie','tu selfie con el DNI']];
+    for (const [_id,_lbl] of _req){ if (!document.getElementById(_id).files[0]){ msg.style.color='var(--red)'; msg.textContent='Subí '+_lbl+'.'; return; } }
+
+    // Anti-duplicado: ¿ya se registró con ese DNI, email o WhatsApp?
+    const _dniN = val('dni').replace(/\D/g,'');
+    const _telN = val('telefono').replace(/\D/g,'');
+    const _emailN = (val('email')||'').trim();
     try {
+      const { data: yaReg } = await sb.rpc('prestador_ya_registrado', { p_dni: _dniN, p_email: _emailN, p_tel: _telN });
+      if (yaReg === true) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = '✓ Ya tenemos tu registro con esos datos. Te avisamos por mail y WhatsApp ni bien se complete el cupo. ¡Gracias!';
+        return;
+      }
+    } catch (_) { /* si el chequeo falla, dejamos continuar para no bloquear el registro */ }
+
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true; btn.textContent = 'Subiendo documentación...';
+    msg.style.color='var(--muted)'; msg.textContent='Esto puede tardar unos segundos…';
+    try {
+      const [dniF, dniD, antF, monoF, self] = await Promise.all([
+        uploadFile('dni_frente','dnifrente'),
+        uploadFile('dni_dorso','dnidorso'),
+        uploadFile('antecedentes_file','antecedentes'),
+        uploadFile('monotributo_file','monotributo'),
+        uploadFile('selfie','selfie'),
+      ]);
       const { error } = await sb.from('prestador_leads').insert({
-        nombre,
-        apellido:     val('apellido') || null,
-        telefono:     telefono.replace(/\D/g,''),
-        profesion,
-        profesion_id: pid ? parseInt(pid,10) : null,
-        zona:         val('zona') || null,
-        precio_visita: val('precio') ? parseInt(val('precio').replace(/\D/g,''),10) : null,
-        experiencia:  val('experiencia') || null,
-        fuente:       FUENTE,
+        nombre: val('nombre'),
+        apellido: val('apellido') || null,
+        dni: val('dni').replace(/\D/g,'') || null,
+        fecha_nac: val('fecha_nac') || null,
+        telefono: val('telefono').replace(/\D/g,''),
+        email: val('email') || null,
+        domicilio: val('domicilio') || null,
+        profesion: selectedProfs.map(p => p.name).join(', '),
+        profesion_id: selectedProfs[0]?.id || null,
+        matricula: val('matricula') || null,
+        matriculado: document.getElementById('matriculado')?.checked || false,
+        ciudad: val('ciudad') || null,
+        zona: val('zona') || null,
+        precio_visita: null,
+        experiencia: val('experiencia') || null,
+        antecedentes: val('antecedentes'),
+        monotributo: val('monotributo'),
+        monotributo_url: monoF,
+        dni_frente_url: dniF,
+        dni_dorso_url: dniD,
+        antecedentes_url: antF,
+        selfie_url: self,
+        fuente: FUENTE,
       });
       if (error) throw error;
+      _regLimpiar();
       document.getElementById('formContent').style.display = 'none';
       document.getElementById('okBox').style.display = 'block';
       document.getElementById('okBox').scrollIntoView({ behavior:'smooth', block:'center' });
+      fiesta();
     } catch (e){
-      btn.disabled = false; btn.textContent = 'Quiero sumarme a GOVOLT';
-      msg.style.color = '#ff5577';
-      msg.textContent = 'Hubo un error. Probá de nuevo en un momento.';
+      btn.disabled = false; btn.textContent = 'Enviar mi solicitud ⚡';
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Hubo un error al enviar. Probá de nuevo en un momento.';
       console.error(e);
+    }
+  }
+
+  // 🎉 Confetti
+  function fiesta(){
+    const colors = ['#FFD600','#FF8A00','#FF4D4D','#ffffff'];
+    for (let i=0;i<90;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random()*100 + 'vw';
+      c.style.background = colors[Math.floor(Math.random()*colors.length)];
+      const dur = 2.2 + Math.random()*2;
+      const x = (Math.random()*2-1)*180;
+      c.style.transition = 'transform ' + dur + 's cubic-bezier(.3,.6,.6,1), opacity ' + dur + 's';
+      document.body.appendChild(c);
+      requestAnimationFrame(()=>{
+        c.style.transform = 'translate(' + x + 'px,' + (window.innerHeight+40) + 'px) rotate(' + (Math.random()*720) + 'deg)';
+        c.style.opacity = '0';
+      });
+      setTimeout(()=>c.remove(), dur*1000+200);
     }
   }
 </script>

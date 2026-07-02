@@ -14,10 +14,15 @@ import { supabase } from '../supabase';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import paymentService from '../services/paymentService';
+import { chargesInApp, isFreeMode } from '../config/monetization';
+import cardService from '../services/cardService';
+import MPCardForm from '../components/MPCardForm';
 import professionalService from '../services/professionalService';
+import locationService from '../services/locationService';
 import chatService from '../services/chatService';
 import favoriteService from '../services/favoriteService';
 import ChatScreen from './ChatScreen';
+import DraggableBubble from '../components/DraggableBubble';
 
 const EVENT_ICONS = {
   received:       { icon: 'search-outline',           color: '#888'    },
@@ -47,7 +52,7 @@ const STATUS_INFO = {
   accepted:         { icon: 'navigate-outline',         color: '#4285F4', label: 'El profesional está en camino' },
   arrived:          { icon: 'home-outline',             color: '#FFD600', label: 'El profesional llegó' },
   in_progress:      { icon: 'construct-outline',        color: '#FF9800', label: 'Trabajo en curso' },
-  awaiting_payment: { icon: 'card-outline',             color: '#4CAF50', label: 'Listo para pagar' },
+  awaiting_payment: { icon: isFreeMode() ? 'checkmark-done-outline' : 'card-outline', color: '#4CAF50', label: isFreeMode() ? 'Por finalizar' : 'Listo para pagar' },
   completed:        { icon: 'checkmark-circle-outline', color: '#4CAF50', label: '¡Trabajo completado!' },
   cancelled:        { icon: 'close-circle-outline',     color: '#ff4444', label: 'Cancelado' },
 };
@@ -56,7 +61,7 @@ const WORKER_TIPS = {
   accepted:         volt.tipWorkerAccepted,
   arrived:          volt.tipWorkerArrived,
   in_progress:      volt.tipWorkerInProgress,
-  awaiting_payment: volt.tipWorkerAwaitingPayment,
+  awaiting_payment: isFreeMode() ? volt.tipWorkerAwaitingPaymentFree : volt.tipWorkerAwaitingPayment,
 };
 
 const CLIENT_TIPS = {
@@ -64,7 +69,7 @@ const CLIENT_TIPS = {
   accepted:         volt.tipAccepted,
   arrived:          volt.tipArrived,
   in_progress:      volt.tipInProgress,
-  awaiting_payment: volt.tipAwaitingPayment,
+  awaiting_payment: isFreeMode() ? volt.tipAwaitingPaymentFree : volt.tipAwaitingPayment,
 };
 
 const getProblemIssues = (isWorker, status) => {
@@ -156,10 +161,10 @@ const haversineMeters = (lat1, lng1, lat2, lng2) => {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 };
 
-const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete, onCancel }) => {
+const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete, onCancel, onBack }) => {
   const [job, setJob]               = useState(initialJob);
   const [workAmount, setWorkAmount]     = useState('');
-  const [materialsAmount, setMaterialsAmount] = useState('');
+  const [pricePropModal, setPricePropModal] = useState(false); // trabajador propone precio
   const [loading, setLoading]       = useState(false);
   const [codeModal, setCodeModal]     = useState(false);
   const [enteredCode, setEnteredCode] = useState('');
@@ -172,6 +177,13 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [multidayModal, setMultidayModal]   = useState(false);
   const [multidaySessions, setMultidaySessions] = useState('');
   const [multidayHrs, setMultidayHrs]       = useState('');
+  // Materiales (estimación → aprobación)
+  const [materialsEstModal, setMaterialsEstModal] = useState(false);
+  const [materialsEst, setMaterialsEst]     = useState('');
+  const [materialsDetail, setMaterialsDetail] = useState('');
+  // Tarjetas guardadas (pago en 1 toque)
+  const [savedCards, setSavedCards] = useState([]);
+  const [payCard, setPayCard]       = useState(null);
   // Chat
   const [showChat, setShowChat]             = useState(false);
   const [unreadCount, setUnreadCount]       = useState(0);
@@ -201,19 +213,37 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const lastActivityRef    = useRef(Date.now());
   const chatChannelRef     = useRef(null);
   const webRef = useRef(null);
+  const wasQuoteRef    = useRef(!!job.quote_group_id); // nació como presupuesto (grupo)
+  const tripStartedRef = useRef(false);                // ya disparó el viaje al ser elegido
 
-  const isWorker = !!professional;
   const userId   = session?.user?.id;
   const clientId = job.client_id;
+  // El rol se determina por ESTE trabajo, NO por tener perfil de profesional.
+  // Un usuario registrado como trabajador también puede PEDIR trabajos (ser
+  // cliente). Soy "trabajador" en este job solo si soy el profesional asignado
+  // y no su cliente. Así, si pido un servicio, veo las pantallas de cliente.
+  const isWorker = !!professional && professional.id === job.professional_id && userId !== clientId;
   const workerFirstName = professional?.first_name ||
     (job.professionals?.first_name || '') ||
     'El profesional';
 
-  // Suscribir a cambios del job
+  // Suscribir a cambios del job (Realtime) + polling de respaldo.
+  // Sin el polling, si el Realtime no entrega el UPDATE, el trabajador que envió
+  // su presupuesto nunca se entera de que el cliente lo eligió (queda "enviado/
+  // cargando"), y el cliente no ve los cambios de estado del trabajo.
   useEffect(() => {
     const svc = isDemoMode() ? demoJobService : jobService;
     const channel = svc.subscribeToJob(job.id, (updated) => setJob(prev => ({ ...prev, ...updated })));
-    return () => { if (channel) channel.unsubscribe?.(); };
+    let poll = null;
+    if (!isDemoMode()) {
+      poll = setInterval(async () => {
+        try {
+          const fresh = await jobService.getById(job.id);
+          if (fresh) setJob(prev => ({ ...prev, ...fresh }));
+        } catch { /* silent */ }
+      }, 4000);
+    }
+    return () => { if (channel) channel.unsubscribe?.(); if (poll) clearInterval(poll); };
   }, [job.id]);
 
   // Cargar eventos históricos del timeline
@@ -291,7 +321,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   // Auto-mostrar pago de visita al cliente cuando el trabajador llega
   useEffect(() => {
-    if (!isWorker && job.status === 'arrived' && !job.visit_paid && !visitPayShownRef.current) {
+    if (chargesInApp() && !isWorker && job.status === 'arrived' && !job.visit_paid && !visitPayShownRef.current) {
       visitPayShownRef.current = true;
       setVisitPayModal(true);
     }
@@ -309,10 +339,32 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     return () => clearInterval(t);
   }, [job.status, job.work_started_at, job.is_multiday]);
 
+  // Presupuesto elegido por el cliente (se borró quote_group_id) → recién ACÁ
+  // arranca el viaje: notificación al cliente + eventos del timeline.
+  useEffect(() => {
+    if (!isWorker || !wasQuoteRef.current || tripStartedRef.current) return;
+    if (job.quote_group_id || job.status !== 'accepted') return;
+    tripStartedRef.current = true;
+    const arrivalEst = job.arrival_estimate || '~30 min';
+    notificationService.sendToUser(clientId, {
+      title: '⚡ ESTÁ POR LLEGAR UN BOLT',
+      body:  `POR FAVOR PEDILE EL CÓDIGO ANTES DE ABRIR LA PUERTA. Llega en ${arrivalEst}.`,
+      data:  { jobId: job.id, screen: 'tracking' },
+    }).catch(() => {});
+    chatService.sendSystemMessage(job.id, volt.chatAccepted).catch(() => {});
+    chatService.sendSystemMessage(job.id, volt.chatInTransit).catch(() => {});
+    jobService.addEvent(job.id, 'accepted',      `Profesional confirmado para el trabajo ✅`).catch(() => {});
+    jobService.addEvent(job.id, 'estimated',     `Llega en aprox. ${arrivalEst}.`).catch(() => {});
+    jobService.addEvent(job.id, 'trip_started',  `En camino a tu domicilio 🚗`).catch(() => {});
+  }, [job.quote_group_id, job.status]);
+
   // Cancelación o finalización detectada vía realtime
   useEffect(() => {
     if (job.status === 'cancelled' && isWorker && !selfCancelledRef.current) {
-      Alert.alert('Trabajo cancelado', 'El cliente canceló el trabajo.', [{ text: 'Entendido', onPress: onCancel }]);
+      const msg = wasQuoteRef.current
+        ? 'El cliente eligió a otro profesional. ¡Seguí atento, van a llegar más pedidos!'
+        : 'El cliente canceló el trabajo.';
+      Alert.alert(wasQuoteRef.current ? 'No fuiste elegido esta vez' : 'Trabajo cancelado', msg, [{ text: 'Entendido', onPress: onCancel }]);
     }
     if (job.status === 'completed' && isWorker && !completedShownRef.current) {
       completedShownRef.current = true;
@@ -352,13 +404,13 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
           const halfwayThreshold = initialDistRef.current / 2;
           if (!halfwayShownRef.current && !nearbyShownRef.current && dist < halfwayThreshold && dist > 500) {
             halfwayShownRef.current = true;
-            jobService.addEvent(job.id, 'halfway', `${job.professionals?.first_name || 'El profesional'} ya recorrió más de la mitad del trayecto.`).catch(() => {});
+            jobService.addEvent(job.id, 'halfway', `Va por más de la mitad del camino.`).catch(() => {});
           }
           if (!nearbyShownRef.current && dist < 500) {
             nearbyShownRef.current = true;
             setNearbyAlert(true);
             jobService.setSubStatus(job.id, 'nearby').catch(() => {});
-            jobService.addEvent(job.id, 'nearby', `${job.professionals?.first_name || 'El profesional'} está muy cerca.`).catch(() => {});
+            jobService.addEvent(job.id, 'nearby', `Está muy cerca, ¡ya llega!`).catch(() => {});
             chatService.sendSystemMessage(job.id, volt.chatNearby).catch(() => {});
             setTimeout(() => setNearbyAlert(false), 8000);
           }
@@ -368,49 +420,113 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     return () => { if (channel) channel.unsubscribe?.(); };
   }, [isWorker, job.professional_id, job.status]);
 
+  // Publicar ubicación del trabajador MIENTRAS dura el trabajo (no solo desde el
+  // radar del Home). Sin esto, el cliente no ve el recorrido en el seguimiento.
+  useEffect(() => {
+    if (!isWorker || isDemoMode()) return;
+    if (!['accepted', 'arrived', 'in_progress'].includes(job.status)) return;
+
+    let sub = null;
+    let cancelled = false;
+    (async () => {
+      const granted = await locationService.requestPermission().catch(() => false);
+      if (!granted || cancelled) return;
+      // Empujar la posición actual de entrada
+      locationService.getCurrentLocation()
+        .then(pos => professionalService.updateLocation(userId, pos.coords.latitude, pos.coords.longitude))
+        .catch(() => {});
+      const s = await locationService.watchLocation(async (lat, lng) => {
+        await professionalService.updateLocation(userId, lat, lng).catch(() => {});
+      }).catch(() => null);
+      if (cancelled) { s?.remove?.(); return; }
+      sub = s;
+    })();
+
+    return () => { cancelled = true; sub?.remove?.(); };
+  }, [isWorker, job.status, userId]);
+
   const handleWorkerAction = async (action) => {
     setLoading(true);
-    if (isDemoMode()) { setTimeout(() => setLoading(false), 600); return; }
+    if (isDemoMode()) {
+      setTimeout(() => {
+        setLoading(false);
+        if (action === 'arrive') {
+          setJob(j => ({ ...j, status: 'arrived', arrived_at: new Date().toISOString() }));
+        } else if (action === 'start') {
+          setJob(j => ({ ...j, status: 'in_progress', work_started_at: new Date().toISOString() }));
+        } else if (action === 'set_amount') {
+          const labor = parseInt((workAmount || '').replace(/\D/g, ''), 10) || 22000;
+          if (!chargesInApp()) {
+            // MODO GRATIS: el trabajo se finaliza directo, el pago lo coordinan ellos.
+            setJob(j => ({ ...j, status: 'completed', work_amount: labor, completed_at: new Date().toISOString() }));
+          } else {
+            setJob(j => ({ ...j, status: 'awaiting_payment', work_amount: labor }));
+            // Simulamos que el cliente paga a los pocos segundos
+            setTimeout(() => setJob(j => ({ ...j, status: 'completed', completed_at: new Date().toISOString() })), 2800);
+          }
+        } else if (action === 'finish') {
+          setJob(j => ({ ...j, status: 'completed', completed_at: new Date().toISOString() }));
+        }
+      }, 500);
+      return;
+    }
     try {
       let notifTitle = '', notifBody = '';
 
       if (action === 'arrive') {
         await jobService.arrive(job.id);
-        jobService.addEvent(job.id, 'arrived', `${workerFirstName} llegó al lugar.`).catch(() => {});
+        jobService.addEvent(job.id, 'arrived', `Llegó a tu domicilio. Pedile el código 🔑`).catch(() => {});
         chatService.sendSystemMessage(job.id, volt.chatArrived(workerFirstName)).catch(() => {});
-        notifTitle = '⚡ ESTÁ POR LLEGAR UN GOVOLT';
+        notifTitle = '⚡ ESTÁ POR LLEGAR UN BOLT';
         notifBody  = 'POR FAVOR RECORDÁ PEDIRLE EL CÓDIGO PARA ASEGURARTE QUE ES UN TRABAJADOR VERIFICADO.';
       } else if (action === 'start') {
         await jobService.start(job.id);
-        jobService.addEvent(job.id, 'work_started', `${workerFirstName} comenzó el trabajo.`).catch(() => {});
+        jobService.addEvent(job.id, 'work_started', `Comenzó el trabajo 🔧`).catch(() => {});
         chatService.sendSystemMessage(job.id, volt.chatStarted).catch(() => {});
         notifTitle = '🔧 Trabajo iniciado';
         notifBody  = 'El profesional comenzó el trabajo.';
       } else if (action === 'set_amount') {
-        const labor = parseInt(workAmount.replace(/\D/g, ''), 10);
+        // Si el precio ya fue acordado al llegar (work_price_status accepted), usamos
+        // ese monto; si no, el que el trabajador escriba en el input.
+        const labor = parseInt((workAmount || String(job.work_amount || '')).replace(/\D/g, ''), 10);
         if (!labor || labor < 1000) {
           Alert.alert('Revisá el monto', 'Ingresá el costo de la mano de obra (sin visita ni materiales).');
           setLoading(false);
           return;
         }
-        const mats      = parseInt(materialsAmount.replace(/\D/g, ''), 10) || 0;
-        const visitPaid = !!job.visit_paid;
-        const visitAmt  = job.visit_amount || 30000;
-        await jobService.setWorkAmount(job.id, labor, mats);
-        jobService.addEvent(job.id, 'work_done', `${workerFirstName} indicó que el trabajo fue completado.`).catch(() => {});
+        const mats      = 0; // materiales se pagan aparte, fuera del cobro de la app
         chatService.sendSystemMessage(job.id, volt.chatDone).catch(() => {});
-        const totalAPagar = (visitPaid ? 0 : visitAmt) + mats + labor;
-        notifTitle = '💳 Trabajo listo — hora de pagar';
-        if (visitPaid) {
-          notifBody = (mats > 0
-            ? `Materiales $${mats.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${totalAPagar.toLocaleString('es-AR')} (visita ya pagada)`
-            : `Mano de obra $${labor.toLocaleString('es-AR')} (visita ya pagada) Abrí la app para pagar.`);
+
+        if (!chargesInApp()) {
+          // MODO GRATIS: el pago es directo cliente↔profesional. Se registra el
+          // monto SIN pasar por awaiting_payment (esa transición a completed la
+          // bloquea el trigger de la base: es exclusiva del webhook de pagos) y
+          // el trabajo se completa directo.
+          await jobService.recordWorkAmount(job.id, labor, mats);
+          await jobService.complete(job.id);
+          jobService.addEvent(job.id, 'work_done', `Trabajo finalizado ✅`).catch(() => {});
+          notifTitle = '✅ Trabajo finalizado';
+          notifBody  = `${workerFirstName} terminó el trabajo. Coordiná el pago directamente con el profesional. ¡No te olvides de calificarlo! ⭐`;
         } else {
-          notifBody = (mats > 0
-            ? `Visita $${visitAmt.toLocaleString('es-AR')} + Materiales $${mats.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${totalAPagar.toLocaleString('es-AR')}`
-            : `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${totalAPagar.toLocaleString('es-AR')}`) +
-            ' Abrí la app para pagar.';
+          // MODO COMISIÓN: se cobra por la app → awaiting_payment
+          await jobService.setWorkAmount(job.id, labor, mats);
+          const visitPaid = !!job.visit_paid;
+          const visitAmt  = job.visit_amount || 30000;
+          jobService.addEvent(job.id, 'work_done', `Trabajo completado ✅`).catch(() => {});
+          const totalAPagar = (visitPaid ? 0 : visitAmt) + mats + labor;
+          notifTitle = '💳 Trabajo listo — hora de pagar';
+          if (visitPaid) {
+            notifBody = `Mano de obra $${labor.toLocaleString('es-AR')} (visita ya pagada). Abrí la app para pagar.`;
+          } else {
+            notifBody = `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${totalAPagar.toLocaleString('es-AR')}. Abrí la app para pagar.`;
+          }
         }
+      } else if (action === 'finish') {
+        // MODO GRATIS: finalizar el trabajo directo, el pago lo coordinan ellos.
+        await jobService.complete(job.id);
+        jobService.addEvent(job.id, 'work_done', `El profesional finalizó el trabajo.`).catch(() => {});
+        notifTitle = '✅ Trabajo finalizado';
+        notifBody  = `${workerFirstName} terminó el trabajo. Coordiná el pago directamente con él. ¡No te olvides de calificarlo! ⭐`;
       }
 
       if (notifTitle) {
@@ -423,12 +539,47 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     }
   };
 
-  const handleClientPay = async () => {
+  // Finalizar el trabajo — disponible para AMBOS (cliente o trabajador), así si uno
+  // no lo cierra, el otro puede. El pago/precio lo coordinan aparte.
+  const handleFinishJob = async () => {
     setLoading(true);
     try {
-      const { checkoutUrl } = await paymentService.createPreference({ jobId: job.id });
-      const result = await paymentService.openCheckout(checkoutUrl);
+      if (!isDemoMode()) {
+        await jobService.complete(job.id);
+        jobService.addEvent(job.id, 'work_done', 'Trabajo finalizado ✅').catch(() => {});
+        const otherUserId = isWorker ? clientId : job.professionals?.user_id;
+        if (otherUserId) {
+          notificationService.sendToUser(otherUserId, {
+            title: '✅ Trabajo finalizado',
+            body: 'El trabajo se marcó como finalizado. ¡No te olvides de calificar! ⭐',
+            data: { jobId: job.id, screen: 'tracking' },
+          }).catch(() => {});
+        }
+      }
+      setJob(j => ({ ...j, status: 'completed', completed_at: new Date().toISOString() }));
+    } catch {
+      Alert.alert('Error', 'No se pudo finalizar el trabajo. Intentá de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClientPay = async () => {
+    // En demo no hay cobro real: simulamos el pago aprobado y cerramos el flujo.
+    if (isDemoMode()) {
+      setLoading(true);
+      setTimeout(() => { setLoading(false); onComplete?.(job); }, 700);
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await paymentService.pay({ jobId: job.id });
       if (result === 'success') {
+        // Marcar el trabajo como pagado/completado en la base. Con pago real el
+        // webhook de MP también lo hace; con el bypass de testing es la única vía.
+        // Sin esto, el trabajador (que mira la base por polling) queda colgado en
+        // "esperando que el cliente pague".
+        await jobService.complete(job.id).catch(() => {});
         try {
           const { data: prof } = await supabase
             .from('professionals')
@@ -483,14 +634,74 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     );
   };
 
-  const handleVisitPay = async () => {
+  // El profesional propone el precio de la mano de obra (al llegar, antes de empezar)
+  const handleProposePrice = async () => {
+    const amount = parseInt((workAmount || '').replace(/\D/g, ''), 10);
+    if (!amount || amount < 1000) {
+      Alert.alert('Revisá el monto', 'Ingresá el precio de la mano de obra (sin contar la visita ni los materiales).');
+      return;
+    }
     setLoading(true);
     try {
-      const { checkoutUrl } = await paymentService.createPreference({ jobId: job.id, visitOnly: true });
-      const result = await paymentService.openCheckout(checkoutUrl);
+      await jobService.proposeWorkPrice(job.id, amount);
+      setJob(j => ({ ...j, work_amount: amount, work_price_status: 'proposed' }));
+      setPricePropModal(false);
+      jobService.addEvent(job.id, 'price_proposed', `${workerFirstName} propuso $${amount.toLocaleString('es-AR')} por la mano de obra.`).catch(() => {});
+      notificationService.sendToUser(job.client_id, {
+        title: '💰 Precio del trabajo',
+        body:  `El profesional propone $${amount.toLocaleString('es-AR')} por la mano de obra. Aceptalo en la app para que empiece.`,
+        data:  { jobId: job.id, screen: 'tracking' },
+      }).catch(() => {});
+    } catch {
+      Alert.alert('Error', 'No se pudo enviar el precio. Intentá de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // El cliente acepta o rechaza el precio propuesto. Al aceptar, arranca el trabajo.
+  const handleRespondPrice = async (accepted) => {
+    setLoading(true);
+    try {
+      await jobService.respondWorkPrice(job.id, accepted);
+      setJob(j => ({
+        ...j,
+        work_price_status: accepted ? 'accepted' : 'rejected',
+        ...(accepted ? { status: 'in_progress', work_started_at: new Date().toISOString() } : {}),
+      }));
+      jobService.addEvent(
+        job.id,
+        accepted ? 'price_accepted' : 'price_rejected',
+        accepted ? `Aceptaste el precio. ${workerFirstName} comenzó el trabajo.` : 'El cliente rechazó el precio propuesto.'
+      ).catch(() => {});
+      notificationService.sendToUser(job.professionals?.user_id, {
+        title: accepted ? '✅ Precio aceptado' : '❌ Precio rechazado',
+        body:  accepted ? 'El cliente aceptó. Comenzá el trabajo.' : 'El cliente rechazó el precio. Proponé otro o conversalo.',
+        data:  { jobId: job.id, screen: 'tracking' },
+      }).catch(() => {});
+    } catch {
+      Alert.alert('Error', 'No se pudo registrar tu respuesta. Intentá de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVisitPay = async () => {
+    // En demo, simulamos el pago de la visita (sin MP real).
+    if (isDemoMode()) {
+      setVisitPayModal(false);
+      setJob(j => ({ ...j, visit_paid: true }));
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await paymentService.pay({ jobId: job.id, visitOnly: true });
       if (result === 'success') {
-        await jobService.markVisitPaid(job.id);
+        // visit_paid lo confirma el webhook de MP server-side (la app no puede
+        // escribirlo). Acá solo actualizamos la UI; el realtime trae el dato real.
+        setJob(j => ({ ...j, visit_paid: true }));
         setVisitPayModal(false);
+        setTimeout(() => jobService.getById(job.id).then(j => j && setJob(j)).catch(() => {}), 5000);
       } else if (result === 'failure') {
         Alert.alert('Pago rechazado', 'No se pudo cobrar la visita. Intentá con otra tarjeta.');
       } else {
@@ -512,13 +723,15 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     setLoading(true);
     try {
       await jobService.convertToMultiday(job.id, sessions, multidayHrs || `${multidayHrs || '?'}h`);
+      setJob(j => ({ ...j, is_multiday: true, estimated_sessions: sessions, current_session_start: new Date().toISOString() }));
+      chatService.sendSystemMessage(job.id, volt.chatMultidayPlan(sessions)).catch(() => {});
       setMultidayModal(false);
       setMultidaySessions('');
       setMultidayHrs('');
       await notificationService.sendToUser(clientId, {
         title: '📅 Trabajo de varios días',
         body: `El profesional confirmó que el trabajo requiere ${sessions} días. Te avisará cada vez que termine una jornada.`,
-        data: { jobId: job.id },
+        data: { jobId: job.id, screen: 'tracking' },
       });
     } catch {
       Alert.alert('Error', 'No se pudo actualizar el trabajo.');
@@ -542,14 +755,92 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
           returnDate.toISOString(),
         );
         const label = daysFromNow === 1 ? 'mañana' : `en ${daysFromNow} días`;
+        chatService.sendSystemMessage(job.id, volt.chatSessionEnded(workerFirstName, label)).catch(() => {});
         await notificationService.sendToUser(clientId, {
           title: '📋 Jornada terminada',
           body: `Sesión ${(job.completed_sessions || 0) + 1} de ${job.estimated_sessions || '?'} completada. El profesional regresa ${label}.`,
-          data: { jobId: job.id },
+          data: { jobId: job.id, screen: 'tracking' },
         });
       } catch { Alert.alert('Error', 'No se pudo guardar la sesión.'); }
       finally { setLoading(false); }
     };
+  };
+
+  // ── #2 Cliente confirma el plan multi-día ──────────────────────────────────
+  const handleConfirmMultiday = async () => {
+    setLoading(true);
+    try {
+      await jobService.confirmMultiday(job.id);
+      chatService.sendSystemMessage(job.id, 'El cliente confirmó el plan de trabajo de varios días. ¡A darle!').catch(() => {});
+      if (proUserId) {
+        notificationService.sendToUser(proUserId, {
+          title: '✅ Plan confirmado',
+          body: 'El cliente confirmó el trabajo de varios días.',
+          data: { jobId: job.id, screen: 'tracking' },
+        }).catch(() => {});
+      }
+    } catch { Alert.alert('Error', 'No se pudo confirmar.'); }
+    finally { setLoading(false); }
+  };
+
+  // ── #3 Materiales: el profesional propone estimación ───────────────────────
+  const handleProposeMaterials = async () => {
+    const est = parseInt(materialsEst.replace(/\D/g, ''), 10);
+    if (!est || est < 100) { Alert.alert('Revisá el monto', 'Ingresá un costo estimado de los materiales.'); return; }
+    setLoading(true);
+    try {
+      const detail = materialsDetail.trim() || 'materiales';
+      await jobService.proposeMaterials(job.id, est, detail);
+      chatService.sendSystemMessage(job.id, volt.chatMaterialsEstimate(workerFirstName, detail, est)).catch(() => {});
+      await notificationService.sendToUser(clientId, {
+        title: '🧰 Materiales para tu trabajo',
+        body: `El profesional necesita materiales (~$${est.toLocaleString('es-AR')}). Aprobá en la app.`,
+        data: { jobId: job.id, screen: 'tracking' },
+      }).catch(() => {});
+      setMaterialsEstModal(false); setMaterialsEst(''); setMaterialsDetail('');
+    } catch { Alert.alert('Error', 'No se pudo enviar la propuesta de materiales.'); }
+    finally { setLoading(false); }
+  };
+
+  // ── #3 Cliente aprueba: 'pro' (lo compra el profesional) | 'client' (lo consigue el cliente) ──
+  const handleApproveMaterials = async (mode) => {
+    setLoading(true);
+    try {
+      await jobService.approveMaterials(job.id, mode);
+      const msg = mode === 'client'
+        ? volt.chatMaterialsClientBuys
+        : volt.chatMaterialsProBuys(workerFirstName);
+      chatService.sendSystemMessage(job.id, msg).catch(() => {});
+      if (proUserId) {
+        notificationService.sendToUser(proUserId, {
+          title: '🧰 Materiales',
+          body: msg,
+          data: { jobId: job.id, screen: 'tracking' },
+        }).catch(() => {});
+      }
+    } catch { Alert.alert('Error', 'No se pudo registrar tu respuesta.'); }
+    finally { setLoading(false); }
+  };
+
+  // Cargar tarjetas guardadas del cliente cuando el trabajo está por pagarse
+  useEffect(() => {
+    if (isWorker || isDemoMode() || job.status !== 'awaiting_payment') return;
+    cardService.list().then(setSavedCards).catch(() => {});
+  }, [job.status]);
+
+  // Cobro con tarjeta guardada (el token se generó con el CVV en el WebView de MP)
+  const handleCardPayToken = async ({ token }) => {
+    const card = payCard;
+    setPayCard(null);
+    if (!token || !card) return;
+    setLoading(true);
+    try {
+      const r = await cardService.payJob(job.id, token, card.payment_method_id);
+      if (r.status === 'approved') Alert.alert('✅ Pago aprobado', 'Listo, el pago se acreditó.');
+      else Alert.alert('Pago no aprobado', 'No se pudo aprobar el pago con esa tarjeta. Probá con otra.');
+    } catch {
+      Alert.alert('Error', 'No se pudo procesar el pago.');
+    } finally { setLoading(false); }
   };
 
   const handleFavoriteToggle = async () => {
@@ -567,6 +858,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
       Alert.alert('Completá el resumen', 'Describí al menos qué fue el problema y cómo lo resolviste.');
       return;
     }
+    if (isDemoMode()) { setSummaryModal(false); return; } // en demo no se guarda en el backend
     try {
       await jobService.setWorkSummary(job.id, {
         observations: summaryObs.trim() || null,
@@ -598,6 +890,13 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const handleReportIssue = (issueText) => {
     setProblemModal(false);
+    // Registrar el reporte y avisar al equipo al instante (mail a soporte@bolt.com.ar).
+    // Best-effort: aunque falle el envío, queda guardado en la tabla problem_reports.
+    if (!isDemoMode()) {
+      supabase.functions.invoke('report-problem', {
+        body: { jobId: job.id, issue: issueText, role: isWorker ? 'worker' : 'client' },
+      }).catch(() => {});
+    }
     Alert.alert(
       'Problema reportado',
       `Registramos tu reporte:\n"${issueText}"\n\nNuestro equipo te contactará pronto. Si estás en peligro, llamá al 911 ahora mismo.`,
@@ -607,6 +906,11 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const statusInfo = STATUS_INFO[job.status] || STATUS_INFO.pending;
   const tip = isWorker ? WORKER_TIPS[job.status] : CLIENT_TIPS[job.status];
+
+  // Cuánto ganó el trabajador. En modo gratis no hay comisión → se queda con el 100%.
+  const jobCommission = chargesInApp() ? (job.commission_pct || 20) : 0;
+  const jobEarned = Math.round((job.work_amount || 0) * (1 - jobCommission / 100)) + (job.materials_cost || 0);
+  const proUserId = job.professionals?.user_id;
 
   const currentStep = (() => {
     switch (job.status) {
@@ -657,7 +961,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>*{margin:0;padding:0}#map{width:100vw;height:100vh;background:#0a0a0a}</style>
+<style>*{margin:0;padding:0}#map{width:100vw;height:100vh;background:#1a1a1a}</style>
 </head>
 <body>
 <div id="map"></div>
@@ -680,6 +984,40 @@ window.addEventListener('message', e => {
 });
 </script>
 </body></html>`;
+
+  // Trabajador que envió presupuesto y el cliente todavía no lo eligió:
+  // queda en espera (sin controles ni "viaje") hasta ser confirmado o descartado.
+  if (isWorker && job.quote_group_id && ['pending', 'accepted'].includes(job.status)) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+        <ActivityIndicator size="large" color="#FFD600" />
+        <Text style={{ color: '#F5F5F5', fontSize: 22, fontWeight: '900', marginTop: 24, textAlign: 'center' }}>
+          Presupuesto enviado
+        </Text>
+        <Text style={{ color: '#888', fontSize: 15, textAlign: 'center', marginTop: 12, lineHeight: 22 }}>
+          El cliente está comparando propuestas. Si te elige, te avisamos al instante y ahí arrancás el viaje.
+          {'\n\n'}Todavía no salgas hacia la dirección.
+        </Text>
+        <TouchableOpacity
+          onPress={onBack}
+          style={{ marginTop: 34, paddingVertical: 16, paddingHorizontal: 40, borderRadius: 14, backgroundColor: '#FFD600' }}
+          activeOpacity={0.85}
+        >
+          <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 15 }}>Seguir usando la app</Text>
+        </TouchableOpacity>
+        <Text style={{ color: '#666', fontSize: 12.5, textAlign: 'center', marginTop: 12, paddingHorizontal: 20 }}>
+          Podés cerrar esta pantalla tranquilo. Te avisamos por notificación cuando el cliente responda.
+        </Text>
+        <TouchableOpacity
+          onPress={handleCancel}
+          style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 28 }}
+          activeOpacity={0.8}
+        >
+          <Text style={{ color: '#ff4444', fontWeight: '700', fontSize: 13 }}>Retirar mi presupuesto</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -709,10 +1047,9 @@ window.addEventListener('message', e => {
               )}
             </TouchableOpacity>
             {isDemoMode() && (
-              <TouchableOpacity style={styles.testPayBtn} disabled={loading} onPress={async () => {
-                setLoading(true);
-                try { await jobService.markVisitPaid(job.id); setVisitPayModal(false); }
-                catch { setLoading(false); }
+              <TouchableOpacity style={styles.testPayBtn} disabled={loading} onPress={() => {
+                setJob(j => ({ ...j, visit_paid: true }));
+                setVisitPayModal(false);
               }}>
                 <Ionicons name="flask-outline" size={14} color="#888" />
                 <Text style={styles.testPayBtnText}>Simular pago de visita (demo)</Text>
@@ -770,13 +1107,76 @@ window.addEventListener('message', e => {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Modal: proponer materiales (#3 — trabajador) */}
+      <Modal visible={materialsEstModal} transparent animationType="slide" onRequestClose={() => setMaterialsEstModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="cart-outline" size={26} color="#FF9800" />
+              <Text style={styles.modalTitle}>Materiales necesarios</Text>
+            </View>
+            <Text style={styles.modalSub}>
+              Indicá qué necesitás y cuánto estimás. El cliente lo aprueba antes de que compres, y después subís el comprobante.
+            </Text>
+            <View style={{ width: '100%', gap: 10, marginVertical: 8 }}>
+              <View style={styles.amountInputWrap}>
+                <Ionicons name="construct-outline" size={18} color="#FF9800" />
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="Qué materiales (ej: disyuntor 16A)"
+                  placeholderTextColor="#444"
+                  value={materialsDetail}
+                  onChangeText={setMaterialsDetail}
+                />
+              </View>
+              <View style={styles.amountInputWrap}>
+                <Text style={styles.currency}>$</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="Costo estimado"
+                  placeholderTextColor="#444"
+                  value={materialsEst}
+                  onChangeText={v => setMaterialsEst(v.replace(/\D/g, ''))}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleProposeMaterials} disabled={loading}>
+              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                <><Ionicons name="send" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Enviar al cliente</Text></>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setMaterialsEstModal(false)}>
+              <Text style={{ color: '#555', fontSize: 14, fontWeight: '700' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Pago con tarjeta guardada — pide CVV y tokeniza en el WebView de MP */}
+      {payCard && (
+        <MPCardForm
+          visible
+          mode="cvv"
+          cardId={payCard.id}
+          brand={`${payCard.brand} •••• ${payCard.last_four}`}
+          onClose={() => setPayCard(null)}
+          onToken={handleCardPayToken}
+        />
+      )}
+
       {/* Modal de disponibilidad post-trabajo (trabajador) */}
       <Modal visible={completedModal} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.completedOverlay}>
           <View style={styles.completedBox}>
             <Ionicons name="checkmark-circle" size={52} color="#4CAF50" />
             <Text style={styles.completedTitle}>¡Pago recibido!</Text>
-            <Text style={styles.completedSub}>Buen trabajo. ¿Cuándo volvés a estar disponible para nuevos pedidos?</Text>
+            {jobEarned > 0 && (
+              <View style={styles.completedVolt}>
+                <Text style={styles.completedVoltText}>⚡ {volt.coachPostJob(jobEarned, jobCommission)}</Text>
+              </View>
+            )}
+            <Text style={styles.completedSub}>¿Cuándo volvés a estar disponible para nuevos pedidos?</Text>
             {[
               { label: 'Ahora mismo',  icon: 'flash',        hours: 0 },
               { label: 'En 1 hora',    icon: 'time-outline', hours: 1 },
@@ -799,6 +1199,40 @@ window.addEventListener('message', e => {
       </Modal>
 
       {/* Modal de verificación de código (cliente) */}
+      {/* Modal: el profesional propone el precio del trabajo */}
+      <Modal visible={pricePropModal} transparent animationType="slide" onRequestClose={() => setPricePropModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="pricetag" size={26} color="#FFD600" />
+              <Text style={styles.modalTitle}>Precio del trabajo</Text>
+            </View>
+            <Text style={styles.modalSub}>
+              Ya viste el trabajo de cerca. Poné el precio de la mano de obra. El cliente lo acepta antes de que empieces. La visita ya está paga aparte; los materiales se acuerdan por separado.
+            </Text>
+            <View style={[styles.amountInputWrap, { marginTop: 16 }]}>
+              <Text style={styles.currency}>$</Text>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="Mano de obra"
+                placeholderTextColor="#444"
+                value={workAmount}
+                onChangeText={v => setWorkAmount(v.replace(/\D/g, ''))}
+                keyboardType="numeric"
+              />
+            </View>
+            <TouchableOpacity style={[styles.actionBtn, { marginTop: 16 }]} onPress={handleProposePrice} disabled={loading}>
+              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                <><Ionicons name="send" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Enviar precio al cliente</Text></>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={{ paddingVertical: 14, alignItems: 'center' }} onPress={() => setPricePropModal(false)} disabled={loading}>
+              <Text style={{ color: '#888', fontSize: 14 }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <Modal visible={codeModal} transparent animationType="slide" onRequestClose={() => { setCodeModal(false); setEnteredCode(''); setCodeResult(null); }}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalBox}>
@@ -836,7 +1270,7 @@ window.addEventListener('message', e => {
               <View style={styles.codeOkBox}>
                 <Ionicons name="checkmark-circle" size={40} color="#4CAF50" />
                 <Text style={styles.codeOkTitle}>¡Código correcto!</Text>
-                <Text style={styles.codeOkSub}>Es tu profesional GOVOLT verificado. Podés abrir la puerta.</Text>
+                <Text style={styles.codeOkSub}>Es tu profesional BOLT verificado. Podés abrir la puerta.</Text>
                 <TouchableOpacity style={styles.codeCloseBtn} onPress={() => { setCodeModal(false); setEnteredCode(''); setCodeResult(null); }}>
                   <Text style={styles.codeCloseBtnText}>Cerrar</Text>
                 </TouchableOpacity>
@@ -847,7 +1281,7 @@ window.addEventListener('message', e => {
               <View style={styles.codeErrorBox}>
                 <Ionicons name="close-circle" size={40} color="#ff4444" />
                 <Text style={styles.codeErrorTitle}>Código incorrecto</Text>
-                <Text style={styles.codeErrorSub}>No abras la puerta. Contactá al soporte de GOVOLT si el problema continúa.</Text>
+                <Text style={styles.codeErrorSub}>No abras la puerta. Contactá al soporte de BOLT si el problema continúa.</Text>
                 <TouchableOpacity style={styles.codeRetryBtn} onPress={() => { setEnteredCode(''); setCodeResult(null); }}>
                   <Text style={styles.codeRetryBtnText}>Reintentar</Text>
                 </TouchableOpacity>
@@ -877,10 +1311,10 @@ window.addEventListener('message', e => {
             ))}
             <TouchableOpacity style={styles.supportBtn} onPress={() => {
               setProblemModal(false);
-              Linking.openURL('https://wa.me/5492914000000?text=Hola%2C%20necesito%20soporte%20con%20un%20trabajo%20VOLT');
+              Linking.openURL('https://wa.me/5492914199938?text=Hola%2C%20necesito%20soporte%20con%20un%20trabajo%20BOLT');
             }}>
               <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-              <Text style={styles.supportBtnText}>Contactar soporte GOVOLT</Text>
+              <Text style={styles.supportBtnText}>Contactar soporte BOLT</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -900,8 +1334,8 @@ window.addEventListener('message', e => {
 
       {/* Modal: Resumen del trabajo (trabajador antes de cobrar) */}
       <Modal visible={summaryModal} transparent animationType="slide" onRequestClose={() => setSummaryModal(false)}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <ScrollView style={[styles.modalBox, { maxHeight: '90%' }]} contentContainerStyle={{ gap: 14, paddingBottom: 20 }}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView style={[styles.modalBox, { maxHeight: '90%' }]} contentContainerStyle={{ gap: 14, paddingBottom: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.modalHeader}>
               <Ionicons name="clipboard" size={26} color="#4CAF50" />
               <Text style={styles.modalTitle}>Resumen del trabajo</Text>
@@ -939,6 +1373,11 @@ window.addEventListener('message', e => {
 
       {/* Header */}
       <View style={styles.header}>
+        {onBack && (
+          <TouchableOpacity onPress={onBack} style={styles.minimizeBtn} accessibilityRole="button" accessibilityLabel="Volver al inicio (el trabajo sigue activo)">
+            <Ionicons name="chevron-down" size={24} color="#F5F5F5" />
+          </TouchableOpacity>
+        )}
         <Animated.View style={[styles.statusDot, { backgroundColor: statusInfo.color, transform: [{ scale: pulseAnim }] }]} />
         <Text style={styles.headerStatus}>{statusInfo.label}</Text>
         {['pending', 'awaiting_payment'].includes(job.status) && (
@@ -961,10 +1400,12 @@ window.addEventListener('message', e => {
             </View>
           )}
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleEmergency} style={styles.emergencyBtn} accessibilityRole="button" accessibilityLabel="Emergencia: llamar al 911">
-          <Ionicons name="call" size={18} color="#ff4444" />
-          <Text style={styles.emergencyBtnText}>911</Text>
-        </TouchableOpacity>
+        {['accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
+          <TouchableOpacity onPress={handleEmergency} style={styles.emergencyBtn} accessibilityRole="button" accessibilityLabel="Emergencia: llamar al 911">
+            <Ionicons name="call" size={18} color="#ff4444" />
+            <Text style={styles.emergencyBtnText}>911</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Alerta de proximidad */}
@@ -1066,22 +1507,28 @@ window.addEventListener('message', e => {
         </View>
       )}
 
-      {/* Mapa */}
+      {/* Mapa — envuelto en un View flex:1 con el WebView en absoluteFill para que
+          SIEMPRE ocupe todo el espacio entre la línea de tiempo y el panel (si no,
+          el WebView a veces no se expande y queda un bloque negro abajo). */}
       {!isWorker && (
-        <WebView
-          ref={webRef}
-          style={styles.map}
-          source={{ html: mapHtml }}
-          javaScriptEnabled
-          scrollEnabled={false}
-          originWhitelist={['*']}
-        />
+        <View style={{ flex: 1, minHeight: 280 }}>
+          <WebView
+            ref={webRef}
+            style={StyleSheet.absoluteFill}
+            source={{ html: mapHtml }}
+            javaScriptEnabled
+            scrollEnabled={false}
+            originWhitelist={['*']}
+          />
+        </View>
       )}
 
-      {/* Panel inferior */}
+      {/* Panel inferior. Para el cliente usamos flexShrink:1 para que el panel se
+          AJUSTE a su contenido (antes reservaba ~52% fijo y dejaba un bloque negro
+          vacío abajo cuando el contenido era corto). El mapa (flex:1) llena el resto. */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={isWorker ? { flex: 1 } : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={isWorker ? { flex: 1 } : { flexShrink: 1 }}
       >
         <ScrollView
           style={isWorker ? [styles.panel, { flex: 1 }] : [styles.panel, styles.panelClient]}
@@ -1101,14 +1548,12 @@ window.addEventListener('message', e => {
                 return (
                   <View key={ev.id || i} style={styles.timelineItem}>
                     <View style={styles.timelineIconCol}>
-                      {i > 0 && <View style={styles.timelineLineTop} />}
-                      <View style={[styles.timelineDotWrap, { borderColor: isLast ? evInfo.color : '#222' }]}>
-                        <Ionicons name={evInfo.icon} size={12} color={isLast ? evInfo.color : '#333'} />
-                      </View>
-                      {!isLast && <View style={styles.timelineLineBot} />}
+                      <View style={[styles.timelineLineTop, i === 0 && { opacity: 0 }]} />
+                      <View style={[styles.timelineDot, isLast && styles.timelineDotActive]} />
+                      <View style={[styles.timelineLineBot, isLast && { opacity: 0 }]} />
                     </View>
                     <View style={styles.timelineTextCol}>
-                      <Text style={[styles.timelineMsg, isLast && styles.timelineMsgActive]}>
+                      <Text style={[styles.timelineMsg, isLast && styles.timelineMsgActive]} numberOfLines={2}>
                         {ev.message}
                       </Text>
                       <Text style={styles.timelineTime}>{time}</Text>
@@ -1198,6 +1643,24 @@ window.addEventListener('message', e => {
             </View>
           )}
 
+          {/* Cliente confirma el plan multi-día (#2) */}
+          {!isWorker && isMultiday && !job.multiday_confirmed && job.estimated_sessions && (
+            <View style={styles.confirmCard}>
+              <Ionicons name="calendar-outline" size={20} color="#4285F4" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.confirmCardTitle}>Plan de trabajo: {job.estimated_sessions} días</Text>
+                <Text style={styles.confirmCardSub}>
+                  {volt.chatMultidayConfirm(workerFirstName, `en ${job.estimated_sessions} días`)}
+                </Text>
+                <TouchableOpacity style={styles.confirmCardBtn} onPress={handleConfirmMultiday} disabled={loading}>
+                  {loading ? <ActivityIndicator size="small" color="#0A0A0A" /> : (
+                    <><Ionicons name="checkmark" size={16} color="#0A0A0A" /><Text style={styles.confirmCardBtnText}>Confirmar</Text></>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {/* Progreso multi-día — visible para ambas partes */}
           {isMultiday && ['accepted','arrived','in_progress'].includes(job.status) && (
             <View style={styles.sessionCard}>
@@ -1264,6 +1727,31 @@ window.addEventListener('message', e => {
             </View>
           )}
 
+          {/* Cliente aprueba materiales (#3) */}
+          {!isWorker && job.materials_status === 'proposed' && (
+            <View style={styles.matCard}>
+              <View style={styles.matCardHeader}>
+                <Ionicons name="cart-outline" size={20} color="#FF9800" />
+                <Text style={styles.matCardTitle}>Materiales para el trabajo</Text>
+              </View>
+              <Text style={styles.matCardDetail}>{job.materials_estimate_detail || 'Materiales'}</Text>
+              <Text style={styles.matCardEst}>
+                Costo estimado: ${(job.materials_estimate || 0).toLocaleString('es-AR')}
+              </Text>
+              <Text style={styles.matCardNote}>
+                Los materiales se abonan aparte, directo al profesional (no van dentro del pago de la app). Es un estimado para que no te tome por sorpresa.
+              </Text>
+              <View style={styles.matCardBtns}>
+                <TouchableOpacity style={[styles.matBtn, styles.matBtnPrimary]} onPress={() => handleApproveMaterials('pro')} disabled={loading}>
+                  <Text style={styles.matBtnPrimaryText}>Que los compre él</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.matBtn, styles.matBtnSecondary]} onPress={() => handleApproveMaterials('client')} disabled={loading}>
+                  <Text style={styles.matBtnSecondaryText}>Los consigo yo</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {/* Botón verificar código — cliente cuando llegó el trabajador y NO está comprando */}
           {!isWorker && job.status === 'arrived' && !job.is_buying_materials && (
             <TouchableOpacity style={styles.verifyCodeBtn} accessibilityRole="button" accessibilityLabel="Verificar el código de identidad del profesional" onPress={() => { setEnteredCode(''); setCodeResult(null); setCodeModal(true); }}>
@@ -1271,6 +1759,25 @@ window.addEventListener('message', e => {
               <Text style={styles.verifyCodeBtnText}>Verificar código del profesional</Text>
               <Ionicons name="chevron-forward" size={16} color="#FFD600" />
             </TouchableOpacity>
+          )}
+
+          {/* Cliente: el profesional propuso un precio para el trabajo → aceptar/rechazar */}
+          {!isWorker && job.status === 'arrived' && job.work_price_status === 'proposed' && (
+            <View style={{ backgroundColor: '#15150f', borderWidth: 1.5, borderColor: '#FFD600', borderRadius: 16, padding: 18, marginTop: 4 }}>
+              <Text style={{ color: '#888', fontSize: 13, textAlign: 'center' }}>El profesional propone por la mano de obra</Text>
+              <Text style={{ color: '#FFD600', fontSize: 32, fontWeight: '900', textAlign: 'center', marginVertical: 4 }}>${(job.work_amount || 0).toLocaleString('es-AR')}</Text>
+              <Text style={{ color: '#777', fontSize: 11.5, textAlign: 'center', lineHeight: 16 }}>La visita ya está paga aparte. Si acuerdan materiales, se pagan por separado. Pagás recién al finalizar el trabajo.</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <TouchableOpacity style={{ flex: 1, backgroundColor: '#2a1212', borderWidth: 1, borderColor: '#ff444450', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }} onPress={() => handleRespondPrice(false)} disabled={loading}>
+                  <Text style={{ color: '#ff6b6b', fontWeight: '700', fontSize: 14 }}>Rechazar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ flex: 2, flexDirection: 'row', gap: 8, backgroundColor: '#FFD600', borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }} onPress={() => handleRespondPrice(true)} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                    <><Ionicons name="checkmark-circle" size={18} color="#0A0A0A" /><Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 14 }}>Aceptar y comenzar</Text></>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
 
           {/* Info del trabajo */}
@@ -1283,13 +1790,15 @@ window.addEventListener('message', e => {
               {!isWorker && job.status !== 'pending' && (
                 <Text style={styles.jobInfoSub}>{job.address || ''}</Text>
               )}
-              {job.work_amount && (
+              {chargesInApp() && job.work_amount && (
                 <Text style={styles.jobAmount}>Total: ${job.work_amount.toLocaleString('es-AR')}</Text>
               )}
             </View>
-            <View style={styles.visitBadge}>
-              <Text style={styles.visitBadgeText}>Visita ${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
-            </View>
+            {chargesInApp() && (
+              <View style={styles.visitBadge}>
+                <Text style={styles.visitBadgeText}>Visita ${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
+              </View>
+            )}
           </View>
 
           {/* ─── Acciones del trabajador ─── */}
@@ -1303,31 +1812,13 @@ window.addEventListener('message', e => {
             </TouchableOpacity>
           )}
 
-          {/* arrived + single-day: iniciar trabajo o salir a comprar materiales */}
+          {/* arrived + single-day: iniciar el trabajo directo (el precio se coordina por chat) */}
           {isWorker && job.status === 'arrived' && !isMultiday && !job.is_buying_materials && (
-            <>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('start')} disabled={loading}>
-                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                  <><Ionicons name="construct" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Iniciar trabajo</Text></>
-                )}
-              </TouchableOpacity>
-              {job.materials_needed && (
-                <TouchableOpacity
-                  style={styles.actionBtnSecondary}
-                  onPress={() => Alert.alert('¿Salir a comprar materiales?', '¿Cuánto tardás?', [
-                    { text: '15 min',  onPress: () => jobService.startBuyingMaterials(job.id, 15) },
-                    { text: '30 min',  onPress: () => jobService.startBuyingMaterials(job.id, 30) },
-                    { text: '45 min',  onPress: () => jobService.startBuyingMaterials(job.id, 45) },
-                    { text: '1 hora',  onPress: () => jobService.startBuyingMaterials(job.id, 60) },
-                    { text: 'Cancelar', style: 'cancel' },
-                  ])}
-                  disabled={loading}
-                >
-                  <Ionicons name="cart-outline" size={18} color="#FF9800" />
-                  <Text style={styles.actionBtnSecondaryText}>Necesito comprar materiales</Text>
-                </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('start')} disabled={loading}>
+              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                <><Ionicons name="play" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Iniciar trabajo</Text></>
               )}
-            </>
+            </TouchableOpacity>
           )}
 
           {/* arrived + comprando materiales */}
@@ -1365,62 +1856,21 @@ window.addEventListener('message', e => {
               <Ionicons name="chevron-forward" size={14} color="#4CAF50" />
             </TouchableOpacity>
           )}
-          {isWorker && job.status === 'in_progress' && !isMultiday && (
-            <View style={styles.amountRow}>
-              {job.materials_needed && (
-                <View style={styles.amountInputWrap}>
-                  <Ionicons name="cart-outline" size={18} color="#FF9800" />
-                  <TextInput
-                    style={styles.amountInput}
-                    placeholder="Costo materiales (sin comisión)"
-                    placeholderTextColor="#444"
-                    value={materialsAmount}
-                    onChangeText={v => setMaterialsAmount(v.replace(/\D/g, ''))}
-                    keyboardType="numeric"
-                  />
-                </View>
+          {job.status === 'in_progress' && !isMultiday && (
+            <TouchableOpacity style={styles.actionBtn} onPress={handleFinishJob} disabled={loading}>
+              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                <><Ionicons name="checkmark-done" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Finalizar trabajo</Text></>
               )}
-              <View style={styles.amountInputWrap}>
-                <Text style={styles.currency}>$</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder="Mano de obra (sin visita)"
-                  placeholderTextColor="#444"
-                  value={workAmount}
-                  onChangeText={v => setWorkAmount(v.replace(/\D/g, ''))}
-                  keyboardType="numeric"
-                />
-              </View>
-              {(workAmount || materialsAmount) ? (
-                <View style={styles.amountPreview}>
-                  {job.materials_needed && materialsAmount ? (
-                    <Text style={styles.amountPreviewLine}>
-                      Materiales: ${parseInt(materialsAmount || '0').toLocaleString('es-AR')} <Text style={styles.amountPreviewNote}>(sin comisión)</Text>
-                    </Text>
-                  ) : null}
-                  <Text style={styles.amountPreviewLine}>
-                    Mano de obra: ${parseInt(workAmount || '0').toLocaleString('es-AR')}
-                  </Text>
-                  {job.visit_paid ? (
-                    <Text style={styles.amountPreviewLine}>
-                      Visita: <Text style={{ color: '#4CAF50' }}>ya cobrada ✓</Text>
-                    </Text>
-                  ) : null}
-                  <Text style={styles.amountPreviewTotal}>
-                    Total cliente: ${(
-                      (job.visit_paid ? 0 : (job.visit_amount || 30000)) +
-                      (parseInt(materialsAmount || '0')) +
-                      (parseInt(workAmount || '0'))
-                    ).toLocaleString('es-AR')}
-                  </Text>
-                </View>
-              ) : null}
-              <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('set_amount')} disabled={loading}>
-                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                  <><Ionicons name="send" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Enviar cobro al cliente</Text></>
-                )}
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Salida para trabajos trabados (estado viejo "esperando pago") — ambos pueden cerrarlo */}
+          {!chargesInApp() && job.status === 'awaiting_payment' && (
+            <TouchableOpacity style={styles.actionBtn} onPress={handleFinishJob} disabled={loading}>
+              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                <><Ionicons name="checkmark-done" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Finalizar trabajo</Text></>
+              )}
+            </TouchableOpacity>
           )}
 
           {/* in_progress + single-day: opción de convertir a multi-día */}
@@ -1451,65 +1901,16 @@ window.addEventListener('message', e => {
                 <Text style={styles.actionBtnSecondaryText}>Terminar por hoy · vuelvo mañana</Text>
               </TouchableOpacity>
 
-              <View style={styles.amountRow}>
-                {job.materials_needed && (
-                  <View style={styles.amountInputWrap}>
-                    <Ionicons name="cart-outline" size={18} color="#FF9800" />
-                    <TextInput
-                      style={styles.amountInput}
-                      placeholder="Materiales (sin comisión)"
-                      placeholderTextColor="#444"
-                      value={materialsAmount}
-                      onChangeText={v => setMaterialsAmount(v.replace(/\D/g, ''))}
-                      keyboardType="numeric"
-                    />
-                  </View>
+              <TouchableOpacity style={styles.actionBtn} onPress={handleFinishJob} disabled={loading}>
+                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                  <><Ionicons name="checkmark-done" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Finalizar trabajo (obra completa)</Text></>
                 )}
-                <View style={styles.amountInputWrap}>
-                  <Text style={styles.currency}>$</Text>
-                  <TextInput
-                    style={styles.amountInput}
-                    placeholder="Mano de obra total"
-                    placeholderTextColor="#444"
-                    value={workAmount}
-                    onChangeText={v => setWorkAmount(v.replace(/\D/g, ''))}
-                    keyboardType="numeric"
-                  />
-                </View>
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={async () => {
-                    const labor = parseInt(workAmount.replace(/\D/g, ''), 10);
-                    if (!labor || labor < 1000) { Alert.alert('Revisá el monto', 'Ingresá el costo de mano de obra.'); return; }
-                    const mats = parseInt(materialsAmount.replace(/\D/g, ''), 10) || 0;
-                    setLoading(true);
-                    try {
-                      await jobService.completeMultidayJob(job.id, labor, mats, job.current_session_start, job.completed_sessions || 0, job.total_minutes_worked || 0);
-                      jobService.addEvent(job.id, 'work_done', `${workerFirstName} indicó que el trabajo fue completado.`).catch(() => {});
-                      const visitAmt = job.visit_amount || 30000;
-                      const total = visitAmt + mats + labor;
-                      await notificationService.sendToUser(clientId, {
-                        title: '💳 Trabajo terminado — hora de pagar',
-                        body: mats > 0
-                          ? `Visita $${visitAmt.toLocaleString('es-AR')} + Materiales $${mats.toLocaleString('es-AR')} + Mano de obra $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`
-                          : `Visita $${visitAmt.toLocaleString('es-AR')} + Trabajo $${labor.toLocaleString('es-AR')} = $${total.toLocaleString('es-AR')}`,
-                        data: { jobId: job.id },
-                      });
-                    } catch { Alert.alert('Error', 'No se pudo completar el trabajo.'); }
-                    finally { setLoading(false); }
-                  }}
-                  disabled={loading}
-                >
-                  {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                    <><Ionicons name="checkmark-done" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Trabajo listo · cobrar</Text></>
-                  )}
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* Trabajador esperando pago */}
-          {isWorker && job.status === 'awaiting_payment' && (
+          {/* Trabajador esperando pago (solo en modo comisión) */}
+          {isWorker && chargesInApp() && job.status === 'awaiting_payment' && (
             <View style={styles.waitingPayCard}>
               <View style={styles.waitingPayRow}>
                 <ActivityIndicator size="small" color="#4CAF50" />
@@ -1522,8 +1923,8 @@ window.addEventListener('message', e => {
             </View>
           )}
 
-          {/* Acción del cliente — confirmar pago final */}
-          {!isWorker && job.status === 'awaiting_payment' && (() => {
+          {/* Acción del cliente — confirmar pago final (solo en modo comisión) */}
+          {!isWorker && chargesInApp() && job.status === 'awaiting_payment' && (() => {
             const visitAmt  = job.visit_amount   || 30000;
             const matsAmt   = job.materials_cost || 0;
             const workAmt   = job.work_amount    || 0;
@@ -1543,13 +1944,13 @@ window.addEventListener('message', e => {
                       <Text style={styles.payRowVal}>${visitAmt.toLocaleString('es-AR')}</Text>
                     )}
                   </View>
-                  {matsAmt > 0 && (
+                  {job.materials_estimate > 0 && job.materials_status !== 'client_provides' && (
                     <View style={styles.payRow}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.payRowLabel}>Materiales</Text>
-                        <Text style={styles.payRowNote}>sin comisión GOVOLT</Text>
+                        <Text style={styles.payRowLabel}>Materiales (~${job.materials_estimate.toLocaleString('es-AR')})</Text>
+                        <Text style={styles.payRowNote}>se abonan aparte, directo al profesional</Text>
                       </View>
-                      <Text style={styles.payRowVal}>${matsAmt.toLocaleString('es-AR')}</Text>
+                      <Text style={styles.payRowNote}>aparte</Text>
                     </View>
                   )}
                   <View style={styles.payRow}>
@@ -1566,9 +1967,17 @@ window.addEventListener('message', e => {
                   <Ionicons name="card-outline" size={14} color="#4285F4" />
                   <Text style={styles.cardOnlyText}>Tarjeta de débito, crédito o billetera digital</Text>
                 </View>
+                {/* Pago en 1 toque con tarjetas guardadas */}
+                {savedCards.map(c => (
+                  <TouchableOpacity key={c.id} style={styles.savedPayBtn} onPress={() => setPayCard(c)} disabled={loading} activeOpacity={0.85}>
+                    <Ionicons name="card" size={18} color="#0A0A0A" />
+                    <Text style={styles.savedPayText}>Pagar con {c.brand} •••• {c.last_four}</Text>
+                    <Ionicons name="flash" size={15} color="#0A0A0A" />
+                  </TouchableOpacity>
+                ))}
                 <TouchableOpacity style={styles.payBtn} onPress={handleClientPay} disabled={loading} accessibilityRole="button" accessibilityLabel="Pagar el trabajo completo">
                   {loading ? <ActivityIndicator color="#fff" /> : (
-                    <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar ${total.toLocaleString('es-AR')}</Text></>
+                    <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>{savedCards.length ? 'Pagar con otra tarjeta' : `Pagar $${total.toLocaleString('es-AR')}`}</Text></>
                   )}
                 </TouchableOpacity>
                 {isDemoMode() && (
@@ -1600,6 +2009,11 @@ window.addEventListener('message', e => {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Burbuja de chat flotante (estilo Messenger) — fácil de abrir en todo el flujo */}
+      {!showChat && ['accepted','arrived','in_progress'].includes(job.status) && (
+        <DraggableBubble icon="chatbubble-ellipses" onPress={() => setShowChat(true)} badgeCount={unreadCount} />
+      )}
     </SafeAreaView>
   );
 };
@@ -1614,6 +2028,19 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
+  minimizeBtn:    { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', marginLeft: -6 },
+  chatBubble: {
+    position: 'absolute', right: 16, bottom: 92, zIndex: 300,
+    width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 10, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+  },
+  chatBubbleBadge: {
+    position: 'absolute', top: -2, right: -2, minWidth: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#ff4444', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 5, borderWidth: 2, borderColor: '#0A0A0A',
+  },
+  chatBubbleBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   statusDot:      { width: 10, height: 10, borderRadius: 5 },
   headerStatus:   { flex: 1, fontSize: 15, fontWeight: '700', color: '#F5F5F5' },
   cancelBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#ff444440' },
@@ -1632,7 +2059,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
     borderTopWidth: 1, borderTopColor: '#1E1E1E',
   },
-  panelClient: { maxHeight: '52%' },
+  panelClient: { flexShrink: 1 },
   panelContent: {
     padding: 16,
     paddingBottom: Platform.OS === 'android' ? 64 : 28,
@@ -1734,6 +2161,11 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 18,
   },
   payBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  savedPayBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#FFD600', borderRadius: 14, paddingVertical: 15, marginBottom: 8,
+  },
+  savedPayText: { color: '#0A0A0A', fontSize: 15, fontWeight: '900' },
 
   // Modal de disponibilidad post-trabajo
   completedOverlay: {
@@ -1749,6 +2181,8 @@ const styles = StyleSheet.create({
   },
   completedTitle: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginTop: 4 },
   completedSub:   { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20, marginBottom: 8 },
+  completedVolt:  { backgroundColor: '#0D0D00', borderRadius: 12, borderWidth: 1, borderColor: '#FFD60030', padding: 12, marginVertical: 4 },
+  completedVoltText: { fontSize: 13, color: '#cfcfcf', textAlign: 'center', lineHeight: 19 },
   completedOpt: {
     width: '100%', flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
@@ -1790,6 +2224,46 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(66,133,244,0.06)',
   },
   actionBtnSecondaryText: { color: '#4285F4', fontSize: 14, fontWeight: '800' },
+
+  // #2 Confirmación multi-día (cliente)
+  confirmCard: {
+    flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+    backgroundColor: '#06101F', borderRadius: 14,
+    borderWidth: 1, borderColor: '#4285F440', padding: 14, marginBottom: 12,
+  },
+  confirmCardTitle: { fontSize: 14, fontWeight: '900', color: '#4285F4', marginBottom: 4 },
+  confirmCardSub:   { fontSize: 13, color: '#aaa', lineHeight: 19, marginBottom: 10 },
+  confirmCardBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    alignSelf: 'flex-start', backgroundColor: '#4285F4',
+    borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10,
+  },
+  confirmCardBtnText: { color: '#fff', fontSize: 14, fontWeight: '900' },
+
+  // #3 Materiales (cliente aprueba)
+  matCard: {
+    backgroundColor: '#1A1200', borderRadius: 14,
+    borderWidth: 1, borderColor: '#FF980040', padding: 14, marginBottom: 12,
+  },
+  matCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  matCardTitle:  { fontSize: 14, fontWeight: '900', color: '#FF9800' },
+  matCardDetail: { fontSize: 14, color: '#F5F5F5', fontWeight: '700', marginBottom: 2 },
+  matCardEst:    { fontSize: 14, color: '#FFD600', fontWeight: '800', marginBottom: 8 },
+  matCardNote:   { fontSize: 12, color: '#888', lineHeight: 17, marginBottom: 12 },
+  matCardBtns:   { flexDirection: 'row', gap: 10 },
+  matBtn:        { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12 },
+  matBtnPrimary: { backgroundColor: '#FF9800' },
+  matBtnPrimaryText: { color: '#0A0A0A', fontSize: 13, fontWeight: '900' },
+  matBtnSecondary: { backgroundColor: '#111', borderWidth: 1, borderColor: '#333' },
+  matBtnSecondaryText: { color: '#aaa', fontSize: 13, fontWeight: '800' },
+
+  // #3 Materiales (trabajador esperando / info)
+  matWaitCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#111', borderRadius: 10,
+    borderWidth: 1, borderColor: '#222', padding: 12,
+  },
+  matWaitText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 18 },
 
   // Comprando materiales
   buyingCard: {
@@ -2050,28 +2524,27 @@ const styles = StyleSheet.create({
     flex: 1, fontSize: 12, color: '#FF9800', lineHeight: 17, fontWeight: '600',
   },
 
-  // Timeline viva
+  // Timeline viva — minimalista
   timeline: {
-    backgroundColor: '#0A0A0A', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 16,
+    paddingHorizontal: 4, paddingVertical: 2,
   },
   timelineTitle: {
-    fontSize: 10, fontWeight: '800', color: '#333',
-    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 14,
+    fontSize: 10, fontWeight: '800', color: '#555',
+    textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 16,
   },
-  timelineItem: { flexDirection: 'row', gap: 10 },
-  timelineIconCol: { width: 26, alignItems: 'center' },
-  timelineLineTop: { width: 1, height: 10, backgroundColor: '#1E1E1E' },
-  timelineLineBot: { flex: 1, width: 1, minHeight: 10, backgroundColor: '#1E1E1E', marginTop: 2 },
-  timelineDotWrap: {
-    width: 26, height: 26, borderRadius: 13, borderWidth: 1.5,
-    backgroundColor: '#111', alignItems: 'center', justifyContent: 'center',
+  timelineItem: { flexDirection: 'row', gap: 14 },
+  timelineIconCol: { width: 12, alignItems: 'center' },
+  timelineLineTop: { width: 1.5, height: 8, backgroundColor: '#262626' },
+  timelineLineBot: { flex: 1, width: 1.5, minHeight: 12, backgroundColor: '#262626' },
+  timelineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#3a3a3a' },
+  timelineDotActive: {
+    width: 11, height: 11, borderRadius: 6, backgroundColor: '#FFD600',
+    shadowColor: '#FFD600', shadowOpacity: 0.7, shadowRadius: 5, shadowOffset: { width: 0, height: 0 }, elevation: 4,
   },
-  timelineTextCol: { flex: 1, paddingBottom: 14 },
-  timelineMsg:       { fontSize: 13, color: '#444', lineHeight: 18 },
-  timelineMsgActive: { color: '#F5F5F5', fontWeight: '700' },
-  timelineTime:      { fontSize: 11, color: '#2a2a2a', marginTop: 3 },
+  timelineTextCol: { flex: 1, paddingBottom: 16, marginTop: -3 },
+  timelineMsg:       { fontSize: 13.5, color: '#777', lineHeight: 19 },
+  timelineMsgActive: { color: '#F5F5F5', fontWeight: '800' },
+  timelineTime:      { fontSize: 11, color: '#444', marginTop: 2 },
 });
 
 export default JobTrackingScreen;
