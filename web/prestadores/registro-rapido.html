@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOLT — Registro de profesional</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0A0A0A;--surf:#141414;--surf2:#1a1a1a;--bord:#262626;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#FFD600;--red:#ff6b6b}
+  body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+  .wrap{max-width:640px;margin:0 auto;padding:0 16px}
+  a{text-decoration:none;color:inherit}
+
+  nav{position:sticky;top:0;z-index:30;background:rgba(10,10,10,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--bord)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  .logo{font-size:1.4rem;font-weight:900;letter-spacing:1px}.logo span{color:var(--yellow)}
+  .nav-tag{background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);color:var(--yellow);font-weight:800;font-size:.72rem;padding:6px 13px;border-radius:20px}
+
+  .head{text-align:center;padding:28px 0 6px}
+  .logo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;width:fit-content;margin:0 auto 14px}
+  .logo-glow{position:absolute;inset:-60% -80%;background:radial-gradient(circle,rgba(255,180,0,.34),rgba(255,120,0,.09),transparent 62%);filter:blur(34px);z-index:0;pointer-events:none}
+  .bolt-svg{position:relative;width:44px;height:auto;z-index:1;filter:drop-shadow(0 0 14px rgba(255,160,0,.55))}
+  .head h1{font-size:1.6rem;font-weight:900;letter-spacing:-.5px}
+  .head h1 span{color:var(--yellow)}
+  .head p{color:var(--muted);font-size:.92rem;max-width:440px;margin:4px auto 0}
+
+  .form-box{background:var(--surf);border:1px solid rgba(255,214,0,.25);border-radius:22px;padding:26px 20px;margin:22px auto 40px;position:relative;overflow:hidden}
+  label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;margin-top:14px}
+  label b{color:var(--yellow)}
+  input,select{width:100%;background:var(--surf2);border:1px solid var(--bord);color:var(--text);border-radius:12px;padding:13px 14px;font-family:inherit;font-size:.95rem;outline:none;transition:.15s}
+  input:focus,select:focus{border-color:rgba(255,214,0,.5)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:480px){.row{grid-template-columns:1fr}}
+  .hint{font-size:.76rem;color:var(--muted2);margin-top:5px}
+
+  .sep{display:flex;align-items:center;gap:12px;margin-top:26px;color:var(--muted2);font-size:.78rem;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+  .sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--bord)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}
+  .chip{background:var(--surf2);border:2px solid var(--bord);color:var(--text);border-radius:14px;padding:9px 15px;font-size:.88rem;font-weight:800;cursor:pointer;transition:.15s;user-select:none}
+  .chip:hover{border-color:#3a3a3a}
+  .chip.on{background:var(--yellow);border-color:var(--yellow);color:#0A0A0A}
+  .chip.dis{opacity:.35;pointer-events:none}
+  .prof-count{font-size:.8rem;color:var(--muted);margin-top:10px;font-weight:700}
+
+  details{margin-top:22px;background:var(--surf2);border:1px solid var(--bord);border-radius:14px;padding:0}
+  summary{cursor:pointer;padding:14px 16px;font-weight:800;font-size:.92rem;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"▾";float:right;color:var(--muted)}
+  details[open] summary::after{content:"▴"}
+  .det-in{padding:0 16px 16px}
+
+  .upload{display:block;background:var(--bg);border:1.5px dashed #333;border-radius:12px;padding:13px;text-align:center;cursor:pointer;transition:.2s;margin-top:6px}
+  .upload:hover{border-color:rgba(255,214,0,.5)}
+  .upload .uemoji{font-size:1.3rem}
+  .upload .utext{font-size:.8rem;color:var(--muted);margin-top:2px}
+  .upload.has{border-color:var(--green);border-style:solid}
+  .upload.has .utext{color:var(--green);font-weight:700}
+  .upload input{display:none}
+
+  .btn-submit{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:900;font-size:1.02rem;cursor:pointer;margin-top:24px;transition:.2s}
+  .btn-submit:hover{box-shadow:0 0 30px rgba(255,214,0,.4)}
+  .btn-submit:disabled{opacity:.6;cursor:default}
+  .msg{margin-top:14px;text-align:center;font-size:.9rem;font-weight:600;min-height:18px}
+
+  /* Éxito */
+  .ok-box{display:none;text-align:center;padding:8px 0}
+  .ok-box .em{font-size:3.4rem;margin-bottom:6px;animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(0)}}
+  .ok-box h3{font-size:1.5rem;font-weight:900;color:var(--yellow);margin-bottom:8px}
+  .ok-box .okp{color:var(--muted);font-size:.95rem;margin-bottom:8px}
+  .mail-card{background:var(--surf2);border:1px solid rgba(255,214,0,.35);border-radius:16px;padding:18px;margin:18px 0;text-align:left}
+  .mail-card .mc-top{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+  .mail-card .mc-ico{font-size:1.7rem}
+  .mail-card b{font-size:.98rem}
+  .mail-card .mc-mail{color:var(--yellow);font-weight:800;word-break:break-all}
+  .falta-list{text-align:left;margin-top:14px}
+  .falta-item{display:flex;gap:10px;align-items:center;background:var(--surf2);border:1px solid var(--bord);border-left:4px solid var(--yellow);border-radius:10px;padding:10px 13px;margin-bottom:8px;font-size:.88rem;font-weight:700}
+  .falta-item .fi-badge{background:var(--yellow);color:#0A0A0A;font-size:.62rem;font-weight:900;letter-spacing:1px;border-radius:20px;padding:2px 9px;flex-shrink:0}
+  .btn-otro{display:inline-block;background:transparent;border:1.5px solid var(--bord);color:var(--text);border-radius:14px;padding:13px 22px;font-family:inherit;font-weight:800;font-size:.92rem;cursor:pointer;margin-top:14px}
+
+  .confetti{position:fixed;top:-12px;width:10px;height:14px;z-index:999;pointer-events:none;will-change:transform;border-radius:2px}
+  footer{border-top:1px solid var(--bord);padding:24px 0;color:var(--muted2);font-size:.8rem;text-align:center}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap nav-in">
+  <div class="logo">BO<span>LT</span></div>
+  <div class="nav-tag">⚡ Registro presencial</div>
+</div></nav>
+
+<header class="head"><div class="wrap">
+  <div class="logo-wrap">
+    <div class="logo-glow"></div>
+    <svg class="bolt-svg" viewBox="0 0 100 132" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="rayo" x1="0" y1="0" x2="0.4" y2="1">
+        <stop offset="0" stop-color="#FFD600"/><stop offset="0.5" stop-color="#FF8A00"/><stop offset="1" stop-color="#FF4D4D"/>
+      </linearGradient></defs>
+      <path d="M60 4 L22 72 L46 72 L40 128 L80 50 L54 50 Z" fill="url(#rayo)"/>
+    </svg>
+  </div>
+  <h1>Sumate a <span>BOLT</span></h1>
+  <p>Te registramos ahora con tus datos básicos. Lo que falte te lo pedimos por mail y lo completás desde tu celular cuando quieras.</p>
+</div></header>
+
+<div class="wrap">
+  <div class="form-box">
+    <div id="formContent">
+
+      <div class="sep">Datos básicos</div>
+      <div class="row">
+        <div><label>Nombre <b>*</b></label><input id="nombre" type="text" placeholder="Juan"></div>
+        <div><label>Apellido <b>*</b></label><input id="apellido" type="text" placeholder="Pérez"></div>
+      </div>
+      <div class="row">
+        <div><label>WhatsApp <b>*</b></label><input id="telefono" type="tel" inputmode="numeric" placeholder="291 4XXXXXX"></div>
+        <div><label>Email <b>*</b></label><input id="email" type="email" placeholder="tunombre@email.com"></div>
+      </div>
+      <label>Domicilio <b>*</b></label>
+      <input id="domicilio" type="text" placeholder="Calle, número, ciudad">
+
+      <div class="sep">Su oficio</div>
+      <label>Oficios <span style="color:var(--muted2);font-weight:400">— hasta 3 (opcional, se puede completar después)</span></label>
+      <div id="profChips" class="chips"><span class="hint">Cargando oficios...</span></div>
+      <div class="prof-count" id="profCount">Ninguno seleccionado</div>
+      <div class="row">
+        <div>
+          <label>Ciudad / zona de servicio</label>
+          <select id="ciudad">
+            <option value="Bahía Blanca" selected>Bahía Blanca (y Punta Alta, Ing. White, Cerri)</option>
+            <option value="Monte Hermoso / Sauce Grande">Monte Hermoso / Sauce Grande</option>
+            <option value="Mar del Plata">Mar del Plata (y Batán)</option>
+            <option value="Córdoba">Córdoba</option>
+            <option value="Rosario">Rosario</option>
+            <option value="Mendoza">Mendoza</option>
+            <option value="Neuquén">Neuquén</option>
+            <option value="Tucumán">San Miguel de Tucumán</option>
+            <option value="Salta">Salta</option>
+            <option value="La Plata">La Plata</option>
+            <option value="CABA">CABA</option>
+          </select>
+        </div>
+        <div><label>Zona o barrio</label><input id="zona" type="text" placeholder="Ej: Centro, Villa Mitre..."></div>
+      </div>
+
+      <div class="sep">Opcional — si lo tiene a mano</div>
+      <div class="row">
+        <div><label>DNI (número)</label><input id="dni" type="text" inputmode="numeric" placeholder="30.123.456"></div>
+        <div><label>Fecha de nacimiento</label><input id="fecha_nac" type="date"></div>
+      </div>
+      <label>Años de experiencia</label>
+      <input id="experiencia" type="text" placeholder="Ej: 8 años">
+
+      <details>
+        <summary>📎 ¿Tiene documentos a mano? Subilos ahora (opcional)</summary>
+        <div class="det-in">
+          <label>Foto del DNI — frente</label>
+          <label class="upload" id="u_dnif"><div class="uemoji">📷</div><div class="utext">Sacar foto del frente del DNI</div>
+            <input type="file" accept="image/*" id="dni_frente" onchange="onFile('dni_frente','u_dnif','Frente del DNI ✓')"></label>
+          <label>Foto del DNI — dorso</label>
+          <label class="upload" id="u_dnid"><div class="uemoji">📷</div><div class="utext">Sacar foto del dorso del DNI</div>
+            <input type="file" accept="image/*" id="dni_dorso" onchange="onFile('dni_dorso','u_dnid','Dorso del DNI ✓')"></label>
+          <label>Selfie sosteniendo el DNI</label>
+          <label class="upload" id="u_selfie"><div class="uemoji">🤳</div><div class="utext">Sacar selfie con DNI</div>
+            <input type="file" accept="image/*" id="selfie" onchange="onFile('selfie','u_selfie','Selfie ✓')"></label>
+          <label>Certificado de antecedentes penales</label>
+          <label class="upload" id="u_ant"><div class="uemoji">📄</div><div class="utext">Subir certificado (foto o PDF)</div>
+            <input type="file" accept="image/*,application/pdf" id="antecedentes_file" onchange="onFile('antecedentes_file','u_ant','Certificado ✓')"></label>
+          <label>Constancia de monotributo</label>
+          <label class="upload" id="u_mono"><div class="uemoji">🧾</div><div class="utext">Subir constancia (foto o PDF)</div>
+            <input type="file" accept="image/*,application/pdf" id="monotributo_file" onchange="onFile('monotributo_file','u_mono','Constancia ✓')"></label>
+        </div>
+      </details>
+
+      <button class="btn-submit" id="btnSubmit" onclick="enviar()">Registrar y enviar mail ⚡</button>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <!-- ÉXITO -->
+    <div class="ok-box" id="okBox">
+      <div class="em">⚡</div>
+      <h3 id="okTitulo">¡Registro confirmado!</h3>
+      <div class="okp">Ya estás anotado entre los primeros profesionales de tu ciudad.</div>
+      <div class="mail-card">
+        <div class="mc-top"><div class="mc-ico">📧</div><b>Te enviamos un mail recién</b></div>
+        <div style="font-size:.88rem;color:var(--muted)">Llegó de <b style="color:var(--text)">soporte@bolt.com.ar</b> a <span class="mc-mail" id="okMail"></span>. Si no lo ves, revisá la carpeta de spam o promociones.</div>
+      </div>
+      <div id="faltaWrap">
+        <div style="text-align:left;font-weight:800;font-size:.9rem;margin-top:6px">Para activar tu perfil te falta completar:</div>
+        <div class="falta-list" id="faltaList"></div>
+        <div class="hint" style="text-align:left">En el mail tenés un botón para completar todo desde tu celular, cuando quieras. Te lleva 5 minutos.</div>
+      </div>
+      <button class="btn-otro" onclick="location.reload()">＋ Registrar otro profesional</button>
+    </div>
+  </div>
+</div>
+
+<footer><div class="wrap">© 2026 BOLT · Bahía Blanca, Argentina</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Checklist (espejo del mail): [id de input/archivo, columna, etiqueta]
+  const CHECK = [
+    ['dni',              'dni',              'Número de DNI'],
+    ['fecha_nac',        'fecha_nac',        'Fecha de nacimiento'],
+    ['__profs',          'profesion',        'Tu oficio'],
+    ['zona',             'zona',             'Tu zona o barrio'],
+    ['dni_frente',       'dni_frente_url',   'Foto del DNI — FRENTE'],
+    ['dni_dorso',        'dni_dorso_url',    'Foto del DNI — DORSO'],
+    ['selfie',           'selfie_url',       'Selfie sosteniendo tu DNI'],
+    ['antecedentes_file','antecedentes_url', 'Certificado de antecedentes penales'],
+    ['monotributo_file', 'monotributo_url',  'Constancia de monotributo'],
+  ];
+
+  const FALLBACK = ['Electricista','Plomero','Gasista','Pintor','Albañil','Cerrajero','Jardinero','Limpieza','Encomiendas / Fletes','Aire acondicionado','Heladeras y lavarropas','Alarmas / Cámaras','Durlock'];
+  const MAX_PROFS = 3;
+  let selectedProfs = [];
+  function updateProfCount(){
+    const el = document.getElementById('profCount');
+    const n = selectedProfs.length;
+    el.textContent = n === 0 ? 'Ninguno seleccionado' : `${n} de 3: ${selectedProfs.map(p=>p.name).join(', ')}`;
+  }
+  (async () => {
+    const cont = document.getElementById('profChips');
+    let nombres = [];
+    try {
+      const { data } = await sb.from('professions').select('id,name').order('name');
+      if (data && data.length) nombres = data.map(p => ({ id: p.id, name: p.name }));
+    } catch (e) {}
+    if (!nombres.length) nombres = FALLBACK.map(n => ({ id: null, name: n }));
+    cont.innerHTML = '';
+    nombres.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'chip'; chip.textContent = p.name;
+      chip.onclick = () => toggleProf(p, chip);
+      cont.appendChild(chip);
+    });
+  })();
+  function toggleProf(p, chip){
+    const i = selectedProfs.findIndex(x => x.name === p.name);
+    if (i >= 0) { selectedProfs.splice(i, 1); chip.classList.remove('on'); }
+    else { if (selectedProfs.length >= MAX_PROFS) return; selectedProfs.push(p); chip.classList.add('on'); }
+    const full = selectedProfs.length >= MAX_PROFS;
+    document.querySelectorAll('#profChips .chip').forEach(c => { if (!c.classList.contains('on')) c.classList.toggle('dis', full); });
+    updateProfCount();
+  }
+
+  function val(id){ return (document.getElementById(id).value || '').trim(); }
+  function onFile(inputId, boxId, okText){
+    const f = document.getElementById(inputId).files[0];
+    const box = document.getElementById(boxId);
+    if (f){ box.classList.add('has'); box.querySelector('.utext').textContent = okText; }
+  }
+
+  async function uploadFile(inputId, prefix){
+    const f = document.getElementById(inputId).files[0];
+    if (!f) return null;
+    try {
+      const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = Date.now() + '_' + prefix + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
+      const { error } = await sb.storage.from('prestador-docs').upload(path, f, { upsert:false, contentType:f.type });
+      if (error) throw error;
+      return path; // bucket privado: se guarda el path
+    } catch (e){ console.warn('upload fail', inputId, e); return null; }
+  }
+
+  async function enviar(){
+    const msg = document.getElementById('msg');
+    msg.style.color = 'var(--red)';
+    if (!val('nombre'))   { msg.textContent = 'Falta el nombre.'; return; }
+    if (!val('apellido')) { msg.textContent = 'Falta el apellido.'; return; }
+    if (!val('telefono')) { msg.textContent = 'Falta el WhatsApp.'; return; }
+    const email = val('email');
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.textContent = 'Poné un email válido (ahí llega el link para completar los datos).'; return; }
+    if (!val('domicilio')) { msg.textContent = 'Falta el domicilio.'; return; }
+
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true; btn.textContent = 'Registrando...';
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Un momento…';
+
+    // Anti-duplicado (si el chequeo falla, no bloquea)
+    try {
+      const { data: yaReg } = await sb.rpc('prestador_ya_registrado', {
+        p_dni: val('dni').replace(/\D/g,''), p_email: email, p_tel: val('telefono').replace(/\D/g,'')
+      });
+      if (yaReg === true) {
+        btn.disabled = false; btn.textContent = 'Registrar y enviar mail ⚡';
+        msg.style.color = 'var(--red)';
+        msg.textContent = '✓ Ya existe un registro con esos datos (WhatsApp, email o DNI).';
+        return;
+      }
+    } catch (_) {}
+
+    try {
+      const [dniF, dniD, self, antF, monoF] = await Promise.all([
+        uploadFile('dni_frente','dnifrente'),
+        uploadFile('dni_dorso','dnidorso'),
+        uploadFile('selfie','selfie'),
+        uploadFile('antecedentes_file','antecedentes'),
+        uploadFile('monotributo_file','monotributo'),
+      ]);
+
+      const token = (crypto.randomUUID ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)));
+
+      const { error } = await sb.from('prestador_leads').insert({
+        nombre: val('nombre'),
+        apellido: val('apellido'),
+        telefono: val('telefono').replace(/\D/g,''),
+        email: email,
+        domicilio: val('domicilio'),
+        dni: val('dni').replace(/\D/g,'') || null,
+        fecha_nac: val('fecha_nac') || null,
+        profesion: selectedProfs.length ? selectedProfs.map(p => p.name).join(', ') : 'A completar',
+        profesion_id: selectedProfs[0]?.id || null,
+        ciudad: val('ciudad') || null,
+        zona: val('zona') || null,
+        experiencia: val('experiencia') || null,
+        dni_frente_url: dniF,
+        dni_dorso_url: dniD,
+        selfie_url: self,
+        antecedentes_url: antF,
+        monotributo_url: monoF,
+        fuente: 'presencial',
+        completar_token: token,
+      });
+      if (error) throw error;
+
+      // Mail automático con lo que falta
+      let mailOk = false;
+      try {
+        const r = await fetch(SUPABASE_URL + '/functions/v1/notify-datos-pendientes', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY },
+          body: JSON.stringify({ token }),
+        });
+        mailOk = r.ok;
+      } catch (_) {}
+
+      // Pantalla de éxito con el checklist de faltantes
+      const faltan = [];
+      CHECK.forEach(([id, _col, label]) => {
+        if (id === '__profs') { if (!selectedProfs.length) faltan.push(label); return; }
+        const el = document.getElementById(id);
+        const lleno = el.type === 'file' ? !!el.files[0] : !!val(id);
+        if (!lleno) faltan.push(label);
+      });
+      document.getElementById('okTitulo').textContent = '¡' + val('nombre') + ', ya estás en BOLT!';
+      document.getElementById('okMail').textContent = email;
+      if (!mailOk) document.querySelector('.mail-card .mc-top b').textContent = 'Te va a llegar un mail de BOLT';
+      const list = document.getElementById('faltaList');
+      if (faltan.length) {
+        list.innerHTML = faltan.map(f => '<div class="falta-item"><span class="fi-badge">TE FALTA</span>' + f + '</div>').join('');
+      } else {
+        document.getElementById('faltaWrap').innerHTML = '<div class="okp" style="margin-top:10px">✅ Registro completo: no falta nada. Verificamos tu documentación en 24–48 hs.</div>';
+      }
+      document.getElementById('formContent').style.display = 'none';
+      document.getElementById('okBox').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      fiesta();
+    } catch (e){
+      btn.disabled = false; btn.textContent = 'Registrar y enviar mail ⚡';
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Hubo un error al registrar. Probá de nuevo.';
+      console.error(e);
+    }
+  }
+
+  function fiesta(){
+    const colors = ['#FFD600','#FF8A00','#FF4D4D','#ffffff'];
+    for (let i=0;i<90;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random()*100 + 'vw';
+      c.style.background = colors[Math.floor(Math.random()*colors.length)];
+      const dur = 2.2 + Math.random()*2;
+      const x = (Math.random()*2-1)*180;
+      c.style.transition = 'transform ' + dur + 's cubic-bezier(.3,.6,.6,1), opacity ' + dur + 's';
+      document.body.appendChild(c);
+      requestAnimationFrame(()=>{
+        c.style.transform = 'translate(' + x + 'px,' + (window.innerHeight+40) + 'px) rotate(' + (Math.random()*720) + 'deg)';
+        c.style.opacity = '0';
+      });
+      setTimeout(()=>c.remove(), dur*1000+200);
+    }
+  }
+</script>
+</body>
+</html>

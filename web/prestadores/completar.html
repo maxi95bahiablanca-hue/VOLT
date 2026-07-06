@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOLT — Completá tu registro</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0A0A0A;--surf:#141414;--surf2:#1a1a1a;--bord:#262626;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#FFD600;--red:#ff6b6b}
+  body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+  .wrap{max-width:600px;margin:0 auto;padding:0 16px}
+  a{color:var(--yellow);text-decoration:none}
+
+  nav{position:sticky;top:0;z-index:30;background:rgba(10,10,10,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--bord)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  .logo{font-size:1.4rem;font-weight:900;letter-spacing:1px}.logo span{color:var(--yellow)}
+  .nav-tag{background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);color:var(--yellow);font-weight:800;font-size:.72rem;padding:6px 13px;border-radius:20px}
+
+  .head{text-align:center;padding:28px 0 6px}
+  .logo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;width:fit-content;margin:0 auto 14px}
+  .logo-glow{position:absolute;inset:-60% -80%;background:radial-gradient(circle,rgba(255,180,0,.34),rgba(255,120,0,.09),transparent 62%);filter:blur(34px);z-index:0;pointer-events:none}
+  .bolt-svg{position:relative;width:44px;height:auto;z-index:1;filter:drop-shadow(0 0 14px rgba(255,160,0,.55))}
+  .head h1{font-size:1.55rem;font-weight:900;letter-spacing:-.5px}
+  .head h1 span{color:var(--yellow)}
+  .head p{color:var(--muted);font-size:.92rem;max-width:440px;margin:4px auto 0}
+
+  .form-box{background:var(--surf);border:1px solid rgba(255,214,0,.25);border-radius:22px;padding:26px 20px;margin:22px auto 40px;position:relative;overflow:hidden}
+  label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;margin-top:16px}
+  input,select{width:100%;background:var(--surf2);border:1px solid var(--bord);color:var(--text);border-radius:12px;padding:13px 14px;font-family:inherit;font-size:.95rem;outline:none;transition:.15s}
+  input:focus,select:focus{border-color:rgba(255,214,0,.5)}
+  .hint{font-size:.76rem;color:var(--muted2);margin-top:5px}
+
+  .falta-badge{display:inline-block;background:var(--yellow);color:#0A0A0A;font-size:.62rem;font-weight:900;letter-spacing:1px;border-radius:20px;padding:2px 9px;margin-right:8px;vertical-align:middle}
+
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}
+  .chip{background:var(--surf2);border:2px solid var(--bord);color:var(--text);border-radius:14px;padding:9px 15px;font-size:.88rem;font-weight:800;cursor:pointer;transition:.15s;user-select:none}
+  .chip.on{background:var(--yellow);border-color:var(--yellow);color:#0A0A0A}
+  .chip.dis{opacity:.35;pointer-events:none}
+  .prof-count{font-size:.8rem;color:var(--muted);margin-top:10px;font-weight:700}
+
+  .upload{display:block;background:var(--surf2);border:1.5px dashed #333;border-radius:12px;padding:15px;text-align:center;cursor:pointer;transition:.2s;margin-top:6px}
+  .upload:hover{border-color:rgba(255,214,0,.5)}
+  .upload .uemoji{font-size:1.5rem}
+  .upload .utext{font-size:.82rem;color:var(--muted);margin-top:3px}
+  .upload.has{border-color:var(--green);border-style:solid}
+  .upload.has .utext{color:var(--green);font-weight:700}
+  .upload input{display:none}
+
+  .btn-submit{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:900;font-size:1.02rem;cursor:pointer;margin-top:26px;transition:.2s}
+  .btn-submit:hover{box-shadow:0 0 30px rgba(255,214,0,.4)}
+  .btn-submit:disabled{opacity:.6;cursor:default}
+  .msg{margin-top:14px;text-align:center;font-size:.9rem;font-weight:600;min-height:18px}
+
+  .ok-box{display:none;text-align:center;padding:8px 0}
+  .ok-box .em{font-size:3.4rem;margin-bottom:6px;animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(0)}}
+  .ok-box h3{font-size:1.5rem;font-weight:900;color:var(--yellow);margin-bottom:8px}
+  .ok-box .okp{color:var(--muted);font-size:.95rem}
+
+  .cargando{text-align:center;color:var(--muted);padding:30px 0}
+  .confetti{position:fixed;top:-12px;width:10px;height:14px;z-index:999;pointer-events:none;will-change:transform;border-radius:2px}
+  footer{border-top:1px solid var(--bord);padding:24px 0;color:var(--muted2);font-size:.8rem;text-align:center}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap nav-in">
+  <div class="logo">BO<span>LT</span></div>
+  <div class="nav-tag">⚡ Completar registro</div>
+</div></nav>
+
+<header class="head"><div class="wrap">
+  <div class="logo-wrap">
+    <div class="logo-glow"></div>
+    <svg class="bolt-svg" viewBox="0 0 100 132" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="rayo" x1="0" y1="0" x2="0.4" y2="1">
+        <stop offset="0" stop-color="#FFD600"/><stop offset="0.5" stop-color="#FF8A00"/><stop offset="1" stop-color="#FF4D4D"/>
+      </linearGradient></defs>
+      <path d="M60 4 L22 72 L46 72 L40 128 L80 50 L54 50 Z" fill="url(#rayo)"/>
+    </svg>
+  </div>
+  <h1 id="titulo">Completá tu <span>registro</span></h1>
+  <p id="subtitulo">Cargá los datos que faltan y quedás listo para la verificación.</p>
+</div></header>
+
+<div class="wrap">
+  <div class="form-box">
+    <div class="cargando" id="cargando">⚡ Cargando tu registro…</div>
+
+    <div id="formContent" style="display:none">
+      <div id="campos"></div>
+      <button class="btn-submit" id="btnSubmit" onclick="guardar()">Guardar mis datos ⚡</button>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="ok-box" id="okBox">
+      <div class="em">🎉</div>
+      <h3>¡Listo! Tu registro está completo</h3>
+      <div class="okp">Nuestro equipo verifica tu documentación en 24 a 48 hs hábiles y te avisamos por mail y WhatsApp para activar tu perfil. ⚡</div>
+    </div>
+
+    <div class="ok-box" id="errBox">
+      <div class="em">🤔</div>
+      <h3 style="color:var(--text)">No encontramos tu registro</h3>
+      <div class="okp">El link no es válido o está incompleto. Abrilo de nuevo desde el mail que te mandamos, o escribinos a <a href="mailto:soporte@bolt.com.ar">soporte@bolt.com.ar</a>.</div>
+    </div>
+  </div>
+</div>
+
+<footer><div class="wrap">© 2026 BOLT · Bahía Blanca, Argentina · soporte@bolt.com.ar</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
+  // key → cómo se renderiza
+  const RENDER = {
+    dni:              { tipo:'text',  ph:'30.123.456', inputmode:'numeric' },
+    fecha_nac:        { tipo:'date' },
+    profesion:        { tipo:'chips' },
+    zona:             { tipo:'text',  ph:'Ej: Centro, Villa Mitre, Palihue...' },
+    dni_frente_url:   { tipo:'file',  emoji:'📷', accept:'image/*', txt:'Sacar foto del frente del DNI' },
+    dni_dorso_url:    { tipo:'file',  emoji:'📷', accept:'image/*', txt:'Sacar foto del dorso del DNI' },
+    selfie_url:       { tipo:'file',  emoji:'🤳', accept:'image/*', txt:'Sacar selfie sosteniendo tu DNI' },
+    antecedentes_url: { tipo:'file',  emoji:'📄', accept:'image/*,application/pdf', txt:'Subir certificado (foto o PDF)' },
+    monotributo_url:  { tipo:'file',  emoji:'🧾', accept:'image/*,application/pdf', txt:'Subir constancia (foto o PDF)' },
+  };
+  const PREFIX = { dni_frente_url:'dnifrente', dni_dorso_url:'dnidorso', selfie_url:'selfie', antecedentes_url:'antecedentes', monotributo_url:'monotributo' };
+
+  let FALTAN = [];
+  let selectedProfs = [];
+  const MAX_PROFS = 3;
+  const FALLBACK = ['Electricista','Plomero','Gasista','Pintor','Albañil','Cerrajero','Jardinero','Limpieza','Encomiendas / Fletes','Aire acondicionado','Heladeras y lavarropas','Alarmas / Cámaras','Durlock'];
+
+  async function fn(body){
+    const r = await fetch(SUPABASE_URL + '/functions/v1/completar-registro', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY },
+      body: JSON.stringify(body),
+    });
+    return { ok: r.ok, data: await r.json().catch(() => ({})) };
+  }
+
+  function esc(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  function render(){
+    const cont = document.getElementById('campos');
+    cont.innerHTML = '';
+    FALTAN.forEach(it => {
+      const r = RENDER[it.key];
+      if (!r) return;
+      const box = document.createElement('div');
+      let hint = it.hint ? `<div class="hint">${esc(it.hint)}${it.link ? ` 👉 <a href="${it.link}" target="_blank">abrir acá</a>` : ''}</div>` : '';
+      if (r.tipo === 'chips') {
+        box.innerHTML = `<label><span class="falta-badge">TE FALTA</span>${esc(it.label)} <span style="color:var(--muted2);font-weight:400">— hasta 3</span></label>
+          <div id="profChips" class="chips"><span class="hint">Cargando oficios...</span></div>
+          <div class="prof-count" id="profCount">Ninguno seleccionado</div>`;
+        cont.appendChild(box);
+        cargarChips();
+      } else if (r.tipo === 'file') {
+        box.innerHTML = `<label><span class="falta-badge">TE FALTA</span>${esc(it.label)}</label>
+          <label class="upload" id="u_${it.key}"><div class="uemoji">${r.emoji}</div><div class="utext">${r.txt}</div>
+          <input type="file" accept="${r.accept}" id="f_${it.key}"></label>${hint}`;
+        cont.appendChild(box);
+        const inp = box.querySelector('input');
+        inp.onchange = () => {
+          if (inp.files[0]) { const u = document.getElementById('u_' + it.key); u.classList.add('has'); u.querySelector('.utext').textContent = '✓ Listo'; }
+        };
+      } else {
+        box.innerHTML = `<label><span class="falta-badge">TE FALTA</span>${esc(it.label)}</label>
+          <input type="${r.tipo}" id="c_${it.key}" placeholder="${r.ph || ''}" ${r.inputmode ? `inputmode="${r.inputmode}"` : ''}>${hint}`;
+        cont.appendChild(box);
+      }
+    });
+  }
+
+  async function cargarChips(){
+    const cont = document.getElementById('profChips');
+    let nombres = [];
+    try {
+      const { data } = await sb.from('professions').select('id,name').order('name');
+      if (data && data.length) nombres = data.map(p => p.name);
+    } catch (e) {}
+    if (!nombres.length) nombres = FALLBACK;
+    cont.innerHTML = '';
+    nombres.forEach(name => {
+      const chip = document.createElement('div');
+      chip.className = 'chip'; chip.textContent = name;
+      chip.onclick = () => {
+        const i = selectedProfs.indexOf(name);
+        if (i >= 0) { selectedProfs.splice(i,1); chip.classList.remove('on'); }
+        else { if (selectedProfs.length >= MAX_PROFS) return; selectedProfs.push(name); chip.classList.add('on'); }
+        const full = selectedProfs.length >= MAX_PROFS;
+        document.querySelectorAll('#profChips .chip').forEach(c => { if (!c.classList.contains('on')) c.classList.toggle('dis', full); });
+        const pc = document.getElementById('profCount');
+        pc.textContent = selectedProfs.length ? `${selectedProfs.length} de 3: ${selectedProfs.join(', ')}` : 'Ninguno seleccionado';
+      };
+      cont.appendChild(chip);
+    });
+  }
+
+  async function uploadKey(key){
+    const inp = document.getElementById('f_' + key);
+    if (!inp || !inp.files[0]) return null;
+    const f = inp.files[0];
+    try {
+      const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = Date.now() + '_' + PREFIX[key] + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
+      const { error } = await sb.storage.from('prestador-docs').upload(path, f, { upsert:false, contentType:f.type });
+      if (error) throw error;
+      return path;
+    } catch (e){ console.warn('upload fail', key, e); return null; }
+  }
+
+  async function guardar(){
+    const msg = document.getElementById('msg');
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Subiendo tus datos…';
+
+    const datos = {};
+    for (const it of FALTAN) {
+      const r = RENDER[it.key];
+      if (!r) continue;
+      if (r.tipo === 'chips') { if (selectedProfs.length) datos.profesion = selectedProfs.join(', '); }
+      else if (r.tipo === 'file') { const p = await uploadKey(it.key); if (p) datos[it.key] = p; }
+      else { const v = (document.getElementById('c_' + it.key)?.value || '').trim(); if (v) datos[it.key] = v; }
+    }
+
+    if (!Object.keys(datos).length) {
+      btn.disabled = false; btn.textContent = 'Guardar mis datos ⚡';
+      msg.style.color = 'var(--red)'; msg.textContent = 'Completá al menos un dato antes de guardar.';
+      return;
+    }
+
+    const { ok, data } = await fn({ action:'save', token: TOKEN, datos });
+    if (!ok || !data.ok) {
+      btn.disabled = false; btn.textContent = 'Guardar mis datos ⚡';
+      msg.style.color = 'var(--red)'; msg.textContent = 'No se pudo guardar. Probá de nuevo en un momento.';
+      return;
+    }
+
+    FALTAN = data.faltan || [];
+    if (!FALTAN.length) {
+      document.getElementById('formContent').style.display = 'none';
+      document.getElementById('okBox').style.display = 'block';
+      document.getElementById('titulo').innerHTML = '¡Gracias, <span>' + esc(data.nombre || '') + '</span>!';
+      document.getElementById('subtitulo').textContent = 'Ya tenemos todo lo que necesitamos.';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      fiesta();
+    } else {
+      selectedProfs = [];
+      render();
+      btn.disabled = false; btn.textContent = 'Guardar mis datos ⚡';
+      msg.style.color = 'var(--green)';
+      msg.textContent = '✓ Guardado. Todavía falta' + (FALTAN.length > 1 ? 'n' : '') + ' ' + FALTAN.length + ' dato' + (FALTAN.length > 1 ? 's' : '') + ' (podés completarlos ahora o volver con este mismo link).';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  (async () => {
+    if (!TOKEN) {
+      document.getElementById('cargando').style.display = 'none';
+      document.getElementById('errBox').style.display = 'block';
+      return;
+    }
+    const { ok, data } = await fn({ action:'get', token: TOKEN });
+    document.getElementById('cargando').style.display = 'none';
+    if (!ok || !data.ok) { document.getElementById('errBox').style.display = 'block'; return; }
+    if (data.nombre) document.getElementById('titulo').innerHTML = esc(data.nombre) + ', completá tu <span>registro</span>';
+    FALTAN = data.faltan || [];
+    if (!FALTAN.length) {
+      document.getElementById('okBox').style.display = 'block';
+      document.getElementById('subtitulo').textContent = 'Tu registro ya está completo.';
+      return;
+    }
+    document.getElementById('subtitulo').textContent = 'Falta' + (FALTAN.length > 1 ? 'n' : '') + ' ' + FALTAN.length + ' dato' + (FALTAN.length > 1 ? 's' : '') + '. Los podés cargar acá mismo desde el celular.';
+    render();
+    document.getElementById('formContent').style.display = 'block';
+  })();
+
+  function fiesta(){
+    const colors = ['#FFD600','#FF8A00','#FF4D4D','#ffffff'];
+    for (let i=0;i<90;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random()*100 + 'vw';
+      c.style.background = colors[Math.floor(Math.random()*colors.length)];
+      const dur = 2.2 + Math.random()*2;
+      const x = (Math.random()*2-1)*180;
+      c.style.transition = 'transform ' + dur + 's cubic-bezier(.3,.6,.6,1), opacity ' + dur + 's';
+      document.body.appendChild(c);
+      requestAnimationFrame(()=>{
+        c.style.transform = 'translate(' + x + 'px,' + (window.innerHeight+40) + 'px) rotate(' + (Math.random()*720) + 'deg)';
+        c.style.opacity = '0';
+      });
+      setTimeout(()=>c.remove(), dur*1000+200);
+    }
+  }
+</script>
+</body>
+</html>
