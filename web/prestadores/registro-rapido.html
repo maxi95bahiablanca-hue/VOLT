@@ -105,7 +105,7 @@
     </svg>
   </div>
   <h1>Sumate a <span>BOLT</span></h1>
-  <p>Te registramos ahora con tus datos básicos. Lo que falte te lo pedimos por mail y lo completás desde tu celular cuando quieras.</p>
+  <p>Te registramos ahora con tus datos básicos. Lo que falte te lo mandamos por mail o WhatsApp y lo completás desde tu celular cuando quieras.</p>
 </div></header>
 
 <div class="wrap">
@@ -119,8 +119,9 @@
       </div>
       <div class="row">
         <div><label>WhatsApp <b>*</b></label><input id="telefono" type="tel" inputmode="numeric" placeholder="291 4XXXXXX"></div>
-        <div><label>Email <b>*</b></label><input id="email" type="email" placeholder="tunombre@email.com"></div>
+        <div><label>Email <span style="color:var(--muted2);font-weight:400">(si tiene)</span></label><input id="email" type="email" placeholder="tunombre@email.com"></div>
       </div>
+      <div class="hint">Si no tiene email, no pasa nada: el link para completar los datos se le manda por WhatsApp al finalizar.</div>
       <label>Domicilio <b>*</b></label>
       <input id="domicilio" type="text" placeholder="Calle, número, ciudad">
 
@@ -186,14 +187,19 @@
       <div class="em">⚡</div>
       <h3 id="okTitulo">¡Registro confirmado!</h3>
       <div class="okp">Ya estás anotado entre los primeros profesionales de tu ciudad.</div>
-      <div class="mail-card">
+      <div class="mail-card" id="mailCard">
         <div class="mc-top"><div class="mc-ico">📧</div><b>Te enviamos un mail recién</b></div>
         <div style="font-size:.88rem;color:var(--muted)">Llegó de <b style="color:var(--text)">soporte@bolt.com.ar</b> a <span class="mc-mail" id="okMail"></span>. Si no lo ves, revisá la carpeta de spam o promociones.</div>
+      </div>
+      <div class="mail-card" id="waCard" style="display:none">
+        <div class="mc-top"><div class="mc-ico">📲</div><b id="waTitulo">Mandale el link por WhatsApp</b></div>
+        <div style="font-size:.88rem;color:var(--muted)" id="waTexto">Le llega el link personal para completar sus datos directo al celular.</div>
+        <a id="waBtn" href="#" target="_blank" style="display:block;text-align:center;background:var(--yellow);color:#0A0A0A;font-weight:900;border-radius:12px;padding:13px;margin-top:12px;font-size:.95rem">📲 Enviar link por WhatsApp</a>
       </div>
       <div id="faltaWrap">
         <div style="text-align:left;font-weight:800;font-size:.9rem;margin-top:6px">Para activar tu perfil te falta completar:</div>
         <div class="falta-list" id="faltaList"></div>
-        <div class="hint" style="text-align:left">En el mail tenés un botón para completar todo desde tu celular, cuando quieras. Te lleva 5 minutos.</div>
+        <div class="hint" style="text-align:left" id="faltaHint">En el mail tenés un botón para completar todo desde tu celular, cuando quieras. Te lleva 5 minutos.</div>
       </div>
       <button class="btn-otro" onclick="location.reload()">＋ Registrar otro profesional</button>
     </div>
@@ -280,7 +286,7 @@
     if (!val('apellido')) { msg.textContent = 'Falta el apellido.'; return; }
     if (!val('telefono')) { msg.textContent = 'Falta el WhatsApp.'; return; }
     const email = val('email');
-    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.textContent = 'Poné un email válido (ahí llega el link para completar los datos).'; return; }
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.textContent = 'Ese email no parece válido. Corregilo o dejalo vacío (el link va por WhatsApp).'; return; }
     if (!val('domicilio')) { msg.textContent = 'Falta el domicilio.'; return; }
 
     const btn = document.getElementById('btnSubmit');
@@ -315,7 +321,7 @@
         nombre: val('nombre'),
         apellido: val('apellido'),
         telefono: val('telefono').replace(/\D/g,''),
-        email: email,
+        email: email || null,
         domicilio: val('domicilio'),
         dni: val('dni').replace(/\D/g,'') || null,
         fecha_nac: val('fecha_nac') || null,
@@ -334,16 +340,18 @@
       });
       if (error) throw error;
 
-      // Mail automático con lo que falta
+      // Mail automático con lo que falta (solo si dejó email)
       let mailOk = false;
-      try {
-        const r = await fetch(SUPABASE_URL + '/functions/v1/notify-datos-pendientes', {
-          method: 'POST',
-          headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY },
-          body: JSON.stringify({ token }),
-        });
-        mailOk = r.ok;
-      } catch (_) {}
+      if (email) {
+        try {
+          const r = await fetch(SUPABASE_URL + '/functions/v1/notify-datos-pendientes', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY },
+            body: JSON.stringify({ token }),
+          });
+          mailOk = r.ok;
+        } catch (_) {}
+      }
 
       // Pantalla de éxito con el checklist de faltantes
       const faltan = [];
@@ -354,8 +362,28 @@
         if (!lleno) faltan.push(label);
       });
       document.getElementById('okTitulo').textContent = '¡' + val('nombre') + ', ya estás en BOLT!';
-      document.getElementById('okMail').textContent = email;
-      if (!mailOk) document.querySelector('.mail-card .mc-top b').textContent = 'Te va a llegar un mail de BOLT';
+      // Link personal para completar (el mismo que va en el mail)
+      const linkCompletar = 'https://maxi95bahiablanca-hue.github.io/VOLT/web/prestadores/completar.html?t=' + encodeURIComponent(token);
+      let telWa = val('telefono').replace(/\D/g,'');
+      if (telWa.startsWith('0')) telWa = telWa.slice(1);
+      if (telWa.startsWith('549')) { /* ya está */ }
+      else if (telWa.startsWith('54')) telWa = '549' + telWa.slice(2);
+      else telWa = '549' + telWa;
+      const waMsg = '¡Hola ' + val('nombre') + '! Soy Maxi, del equipo de BOLT ⚡ Ya quedaste registrado como profesional. Para activar tu perfil completá los datos que faltan desde tu link personal: ' + linkCompletar + ' — Te lleva 5 minutos desde el celular. Cualquier duda escribime por acá. ¡Bienvenido!';
+      document.getElementById('waBtn').href = 'https://wa.me/' + telWa + '?text=' + encodeURIComponent(waMsg);
+      document.getElementById('waCard').style.display = 'block';
+      if (email) {
+        document.getElementById('okMail').textContent = email;
+        if (!mailOk) document.querySelector('#mailCard .mc-top b').textContent = 'Te va a llegar un mail de BOLT';
+        document.getElementById('waTitulo').textContent = '¿No usa el mail? Mandale el link por WhatsApp';
+        document.getElementById('waTexto').textContent = 'El mismo link personal, directo a su celular.';
+      } else {
+        document.getElementById('mailCard').style.display = 'none';
+        document.getElementById('waTitulo').textContent = 'Mandale el link por WhatsApp';
+        document.getElementById('waTexto').textContent = 'No dejó email, así que el link personal para completar sus datos se le manda por WhatsApp.';
+        const fh = document.getElementById('faltaHint');
+        if (fh) fh.textContent = 'El link de WhatsApp queda guardado en su chat: puede completar todo desde el celular cuando quiera. Le lleva 5 minutos.';
+      }
       const list = document.getElementById('faltaList');
       if (faltan.length) {
         list.innerHTML = faltan.map(f => '<div class="falta-item"><span class="fi-badge">TE FALTA</span>' + f + '</div>').join('');

@@ -136,6 +136,65 @@ serve(async (req) => {
             </td>
           </tr>`;
 
+    // Presentación de la app: qué es BOLT y qué gana el trabajador
+    const seccionApp = `
+          <tr>
+            <td style="padding:8px 40px 0 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr><td style="height:1px;line-height:1px;font-size:0;background-color:#1c1c1c;">&nbsp;</td></tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 40px 6px 40px;font-family:'Nunito',Helvetica,Arial,sans-serif;">
+              <h2 style="margin:0 0 6px 0;font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:20px;font-weight:900;color:#FFFFFF;text-align:center;">
+                ¿Qué es <span style="color:#FFD600;">BOLT</span>?
+              </h2>
+              <p style="margin:0 0 18px 0;font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.7;color:#9a9a9a;text-align:center;">
+                La app que te conecta con clientes de tu zona que necesitan tu oficio.
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#151515;border:1px solid #262626;border-radius:14px;">
+                <tr>
+                  <td style="padding:22px 24px;font-family:'Nunito',Helvetica,Arial,sans-serif;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td valign="top" width="38" style="font-size:20px;line-height:1.4;">📲</td>
+                        <td style="font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#d6d6d6;">
+                          <strong style="color:#ffffff;">Te llegan trabajos cerca tuyo.</strong> Los clientes piden por la app y vos decidís cuáles tomar y cuándo estar disponible.
+                        </td>
+                      </tr>
+                      <tr><td colspan="2" style="height:14px;line-height:14px;font-size:0;">&nbsp;</td></tr>
+                      <tr>
+                        <td valign="top" width="38" style="font-size:20px;line-height:1.4;">💵</td>
+                        <td style="font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#d6d6d6;">
+                          <strong style="color:#ffffff;">Cobrás directo del cliente.</strong> Efectivo o transferencia, como arreglen. Tu precio lo ponés vos y BOLT no se mete en tu plata.
+                        </td>
+                      </tr>
+                      <tr><td colspan="2" style="height:14px;line-height:14px;font-size:0;">&nbsp;</td></tr>
+                      <tr>
+                        <td valign="top" width="38" style="font-size:20px;line-height:1.4;">🎁</td>
+                        <td style="font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#d6d6d6;">
+                          <strong style="color:#ffffff;">Gratis para los primeros.</strong> Sin comisión, sin cuotas, sin costo de alta. Los primeros profesionales de cada zona entran sin pagar nada.
+                        </td>
+                      </tr>
+                      <tr><td colspan="2" style="height:14px;line-height:14px;font-size:0;">&nbsp;</td></tr>
+                      <tr>
+                        <td valign="top" width="38" style="font-size:20px;line-height:1.4;">⭐</td>
+                        <td style="font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#d6d6d6;">
+                          <strong style="color:#ffffff;">Tu reputación trae más clientes.</strong> Calificaciones y trabajos completados: los vecinos te eligen porque saben quién sos. <em style="color:#FFD600;font-style:normal;">Sabés quién toca tu puerta.</em>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0 0;font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.7;color:#8a8a8a;text-align:center;">
+                Apenas se complete el cupo de tu ciudad te avisamos por mail y WhatsApp para activar la app. 🚀<br>
+                Más info en <a href="https://bolt.com.ar" target="_blank" style="color:#FFD600;text-decoration:none;font-weight:800;">bolt.com.ar</a>
+              </p>
+            </td>
+          </tr>`;
+
     const cuerpoCompleto = `
           <tr>
             <td style="padding:40px 40px 8px 40px;font-family:'Nunito',Helvetica,Arial,sans-serif;">
@@ -188,6 +247,10 @@ serve(async (req) => {
           </tr>
 
           ${faltan.length ? cuerpoFaltan : cuerpoCompleto}
+
+          ${seccionApp}
+
+          <tr><td style="height:30px;line-height:30px;font-size:0;">&nbsp;</td></tr>
 
           <tr>
             <td style="background-color:#000000;padding:26px 40px;border-top:1px solid #1c1c1c;">
