@@ -226,6 +226,31 @@ Cualquier consulta o duda, quedo a tu disposición. ¡Muchas gracias!`;
   }
   function waLink(l){ const n=(l.telefono||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10)); return 'https://wa.me/'+full+'?text='+encodeURIComponent(waMensaje(l)); }
 
+  // ===== Datos faltantes (mismo checklist que el mail automático) =====
+  const CHECK_FALTA = [
+    ['dni','número de DNI'], ['fecha_nac','fecha de nacimiento'], ['profesion','oficio'], ['zona','zona o barrio'],
+    ['dni_frente_url','foto del DNI (frente)'], ['dni_dorso_url','foto del DNI (dorso)'], ['selfie_url','selfie con DNI'],
+    ['antecedentes_url','certificado de antecedentes'], ['monotributo_url','constancia de monotributo'],
+  ];
+  function faltantesDe(l){
+    return CHECK_FALTA.filter(([k]) => {
+      const v = String(l[k] ?? '').trim();
+      return !v || (k === 'profesion' && v.toLowerCase() === 'a completar');
+    }).map(([,label]) => label);
+  }
+  function waRecordatorio(l){
+    const faltan = faltantesDe(l);
+    const link = 'https://maxi95bahiablanca-hue.github.io/VOLT/web/prestadores/completar.html?t=' + encodeURIComponent(l.completar_token);
+    const nombre = (l.nombre||'').trim();
+    const msj = `¡Hola${nombre ? ' ' + nombre : ''}! Soy Maximiliano, del equipo de BOLT ⚡ Tu registro como profesional está guardado, pero para activar tu perfil todavía falta: ${faltan.join(', ')}.
+
+Lo completás en 5 minutos desde tu celular con tu link personal: ${link}
+
+Cualquier duda escribime por acá. ¡Gracias!`;
+    const n=(l.telefono||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10));
+    return 'https://wa.me/'+full+'?text='+encodeURIComponent(msj);
+  }
+
   function pintarStats(){
     const total = LEADS.length;
     const aceptados = LEADS.filter(l=>l.estado==='aceptado').length;
@@ -270,6 +295,10 @@ Cualquier consulta o duda, quedo a tu disposición. ¡Muchas gracias!`;
         ? `<a class="doc" href="#" onclick="openDoc('${esc(url)}');return false">${label} ↗</a>`
         : `<span class="doc none">${label} —</span>`;
       const aceptado = est==='aceptado';
+      const faltan = faltantesDe(l);
+      const chipFalta = faltan.length
+        ? `<span class="ante mid" title="${esc(faltan.join(', '))}">⏳ Faltan ${faltan.length} dato${faltan.length>1?'s':''}${l.recordatorios_enviados?` · ⏰ ${l.recordatorios_enviados} recordatorio${l.recordatorios_enviados>1?'s':''}`:''}</span>`
+        : `<span class="ante ok">✔ Datos completos</span>`;
       return `<div class="lead">
         <div class="lead-main">
           <span class="lead-name">${esc(l.nombre)} ${esc(l.apellido||'')}</span>
@@ -284,6 +313,7 @@ Cualquier consulta o duda, quedo a tu disposición. ¡Muchas gracias!`;
             ${l.experiencia?` · 🔧 ${esc(l.experiencia)}`:''}
             <br><span style="color:var(--muted2)">${esc(l.fuente||'landing')} · ${fecha}</span>
           </div>
+          ${chipFalta}
           ${ante?`<span class="ante ${anteCls}">🛡️ ${esc(ante)}</span>`:''}
           <div class="docs">
             ${doc(l.dni_frente_url,'DNI frente')}
@@ -295,6 +325,7 @@ Cualquier consulta o duda, quedo a tu disposición. ¡Muchas gracias!`;
         </div>
         <div class="lead-actions">
           <a class="wa" href="${waLink(l)}" target="_blank">💬 WhatsApp</a>
+          ${faltan.length && l.completar_token ? `<a class="wa" style="background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.35);color:var(--yellow)" href="${waRecordatorio(l)}" target="_blank">⏰ Recordar faltantes</a>` : ''}
           ${aceptado
             ? `<div class="accept is-on">✓ Aceptado</div>`
             : `<button class="accept" onclick="aceptar('${l.id}')">✅ Aceptar y avisar</button>`}

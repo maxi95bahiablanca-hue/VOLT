@@ -34,8 +34,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
-    const { token } = await req.json().catch(() => ({}));
+    const { token, variante } = await req.json().catch(() => ({}));
     if (!token || typeof token !== 'string' || token.length < 20) return json({ error: 'token requerido' }, 400);
+    const esRecordatorio = variante === 'recordatorio';
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -82,21 +83,27 @@ serve(async (req) => {
         </td>
       </tr>`).join('');
 
+    const badgeTxt = esRecordatorio ? '&#9200;&nbsp;&nbsp;Te falta poco' : '&#9889;&nbsp;&nbsp;Registro iniciado';
+    const h1Txt    = esRecordatorio ? `${nombre}, tu lugar en BOLT te espera` : `¡Bienvenido a BOLT, ${nombre}!`;
+    const introTxt = esRecordatorio
+      ? `Hace unos días iniciamos tu registro como profesional y quedó <strong style="color:#FFD600;">guardado</strong>. Te falta poco: completá estos datos y quedás listo para empezar a recibir trabajos cerca tuyo:`
+      : `Ya iniciamos tu registro como profesional junto al equipo de BOLT. Para <strong style="color:#FFD600;">activar tu perfil</strong> y empezar a recibir trabajos cerca tuyo, solo falta que completes esto:`;
+
     const cuerpoFaltan = `
           <tr>
             <td style="padding:40px 40px 8px 40px;font-family:'Nunito',Helvetica,Arial,sans-serif;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 24px auto;">
                 <tr>
                   <td style="background-color:#FFD600;border-radius:999px;padding:8px 18px;font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;color:#0A0A0A;text-transform:uppercase;">
-                    &#9889;&nbsp;&nbsp;Registro iniciado
+                    ${badgeTxt}
                   </td>
                 </tr>
               </table>
               <h1 style="margin:0 0 18px 0;font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:28px;line-height:1.25;font-weight:900;color:#FFFFFF;text-align:center;">
-                ¡Bienvenido a BOLT, ${nombre}!
+                ${h1Txt}
               </h1>
               <p style="margin:0 0 8px 0;font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.7;color:#cfcfcf;text-align:center;">
-                Ya iniciamos tu registro como profesional junto al equipo de BOLT. Para <strong style="color:#FFD600;">activar tu perfil</strong> y empezar a recibir trabajos cerca tuyo, solo falta que completes esto:
+                ${introTxt}
               </p>
             </td>
           </tr>
@@ -248,7 +255,7 @@ serve(async (req) => {
 
           ${faltan.length ? cuerpoFaltan : cuerpoCompleto}
 
-          ${seccionApp}
+          ${esRecordatorio ? '' : seccionApp}
 
           <tr><td style="height:30px;line-height:30px;font-size:0;">&nbsp;</td></tr>
 
@@ -272,7 +279,9 @@ serve(async (req) => {
 </html>`;
 
     const subject = faltan.length
-      ? `⚡ ${nombre}, completá tu registro en BOLT — falta${faltan.length > 1 ? 'n' : ''} ${faltan.length} dato${faltan.length > 1 ? 's' : ''}`
+      ? (esRecordatorio
+          ? `⏰ ${nombre}, te falta poco para activar tu perfil en BOLT`
+          : `⚡ ${nombre}, completá tu registro en BOLT — falta${faltan.length > 1 ? 'n' : ''} ${faltan.length} dato${faltan.length > 1 ? 's' : ''}`)
       : 'Tu registro en BOLT está completo ⚡';
 
     const r = await fetch('https://api.resend.com/emails', {

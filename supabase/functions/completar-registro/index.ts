@@ -49,7 +49,7 @@ serve(async (req) => {
     const SERVICE      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const admin = createClient(SUPABASE_URL, SERVICE);
 
-    const SELECT = 'id, nombre, ' + CAMPOS_TEXTO.join(', ') + ', ' + CAMPOS_DOC.join(', ');
+    const SELECT = 'id, nombre, apellido, telefono, email, ' + CAMPOS_TEXTO.join(', ') + ', ' + CAMPOS_DOC.join(', ');
     const { data: lead } = await admin
       .from('prestador_leads')
       .select(SELECT)
@@ -88,10 +88,45 @@ serve(async (req) => {
       }
 
       const nuevo = { ...lead, ...update };
+      const faltanAhora = faltantes(nuevo as Record<string, unknown>);
+
+      // Se completó TODO recién ahora → avisar al equipo para que lo apruebe rápido
+      const estabaIncompleto = faltantes(lead as Record<string, unknown>).length > 0;
+      if (estabaIncompleto && faltanAhora.length === 0) {
+        const RESEND = Deno.env.get('RESEND_API_KEY');
+        const FROM   = Deno.env.get('FROM_EMAIL') ?? 'BOLT <soporte@bolt.com.ar>';
+        if (RESEND) {
+          const l = nuevo as Record<string, string>;
+          const filas = [
+            ['Nombre', `${l.nombre ?? ''} ${l.apellido ?? ''}`],
+            ['Oficio', l.profesion ?? '-'],
+            ['WhatsApp', l.telefono ?? '-'],
+            ['Email', l.email ?? '(no dejó)'],
+            ['Ciudad / zona', `${l.ciudad ?? '-'} · ${l.zona ?? '-'}`],
+            ['DNI', l.dni ?? '-'],
+          ].map(([k, v]) => `<tr><td style="padding:6px 14px 6px 0;color:#888;font-size:13px;white-space:nowrap;">${k}</td><td style="padding:6px 0;color:#111;font-size:14px;font-weight:600;">${String(v).replace(/</g, '&lt;')}</td></tr>`).join('');
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: FROM,
+              to: ['soporte@bolt.com.ar'],
+              subject: `🎉 ${(nuevo as Record<string, string>).nombre ?? 'Un prestador'} completó su registro — listo para aprobar`,
+              html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+                <h2 style="margin:0 0 4px;color:#111;">⚡ Registro completo</h2>
+                <p style="margin:0 0 18px;color:#555;font-size:14px;">Este prestador terminó de cargar todos sus datos y documentos. Entrá al panel para revisarlo y aprobarlo.</p>
+                <table cellpadding="0" cellspacing="0" border="0">${filas}</table>
+                <p style="margin:22px 0 0;"><a href="https://maxi95bahiablanca-hue.github.io/VOLT/web/prestadores/admin.html" style="background:#FFD600;color:#111;font-weight:bold;text-decoration:none;padding:12px 22px;border-radius:10px;display:inline-block;">Abrir panel de prestadores</a></p>
+              </div>`,
+            }),
+          }).catch(() => {});
+        }
+      }
+
       return json({
         ok: true,
         nombre: lead.nombre || '',
-        faltan: faltantes(nuevo as Record<string, unknown>),
+        faltan: faltanAhora,
       });
     }
 
