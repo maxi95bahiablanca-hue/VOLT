@@ -1,0 +1,288 @@
+import React, { useState, useMemo } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
+  ActivityIndicator, ScrollView, Linking,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../supabase';
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ALTA DE PROFESIONAL — SOLO CON GOOGLE
+//  El profesional ya está logueado (Google). Acá NO se le pide un formulario
+//  largo: con su cuenta creamos el "lead" y le mandamos el mail para que
+//  complete el resto (WhatsApp, oficio, DNI, documentos) desde el link, igual
+//  que el flujo web de hoy. La verificación/activación la hace el equipo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const COMPLETAR_BASE = 'https://maxi95bahiablanca-hue.github.io/VOLT/web/prestadores/completar.html';
+
+function genToken() {
+  const rnd = () => Math.random().toString(36).slice(2);
+  return `${Date.now().toString(36)}-${rnd()}${rnd()}${rnd()}`; // > 20 chars
+}
+
+const WorkerSignupScreen = ({ session, userId, onBack }) => {
+  const [status, setStatus] = useState('intro'); // intro | sending | done | error
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [emailFallo, setEmailFallo] = useState(false);
+
+  const email = session?.user?.email || '';
+  const { nombre, apellido } = useMemo(() => {
+    const full = (
+      session?.user?.user_metadata?.full_name ||
+      session?.user?.user_metadata?.name ||
+      ''
+    ).trim();
+    if (!full) return { nombre: '', apellido: '' };
+    const parts = full.split(/\s+/);
+    return { nombre: parts[0], apellido: parts.slice(1).join(' ') };
+  }, [session]);
+
+  const registrar = async () => {
+    if (!email) {
+      setErrorMsg('Tu cuenta no tiene un email asociado. Entrá con Google para registrarte como profesional.');
+      setStatus('error');
+      return;
+    }
+    setStatus('sending');
+    setErrorMsg(null);
+
+    // Anti-duplicado: si ya hay un registro con este email, no creamos otro.
+    try {
+      const { data: yaReg } = await supabase.rpc('prestador_ya_registrado', {
+        p_dni: '', p_email: email, p_tel: '',
+      });
+      if (yaReg === true) {
+        setStatus('done'); // ya estaba: igual mostramos la pantalla de "revisá tu mail"
+        return;
+      }
+    } catch (_) { /* si el chequeo falla, seguimos */ }
+
+    const token = genToken();
+    try {
+      const { error } = await supabase.from('prestador_leads').insert({
+        nombre: nombre || (email.split('@')[0] || 'Profesional'),
+        apellido: apellido || null,
+        email,
+        user_id: userId || session?.user?.id || null,
+        profesion: 'A completar',
+        fuente: 'app',
+        completar_token: token,
+      });
+      if (error) throw error;
+
+      // Mail con el link para completar el resto (misma función que el flujo web).
+      try {
+        const { error: fnErr } = await supabase.functions.invoke('notify-datos-pendientes', {
+          body: { token },
+        });
+        if (fnErr) setEmailFallo(true);
+      } catch (_) {
+        setEmailFallo(true);
+      }
+
+      setStatus('done');
+    } catch (e) {
+      console.warn('registro prestador error', e);
+      setErrorMsg('No pudimos registrar tu solicitud. Probá de nuevo en un momento.');
+      setStatus('error');
+    }
+  };
+
+  // ─── PANTALLA DE ÉXITO ─────────────────────────────────────────────────────
+  if (status === 'done') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <TopBar onBack={onBack} />
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.okIconWrap}>
+            <Ionicons name="mail-open" size={40} color="#0A0A0A" />
+          </View>
+          <Text style={styles.okTitle}>¡Ya estás en BOLT!</Text>
+          <Text style={styles.okSub}>
+            {emailFallo
+              ? 'Registramos tu solicitud como profesional. En un momento te llega un mail para completar tus datos.'
+              : 'Te mandamos un mail para que completes el resto de tus datos.'}
+          </Text>
+
+          {!!email && (
+            <View style={styles.mailCard}>
+              <Ionicons name="mail" size={20} color="#FFD600" />
+              <Text style={styles.mailCardText}>
+                Revisá tu casilla <Text style={styles.mailStrong}>{email}</Text>
+                {'\n'}(mirá también en spam o promociones).
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.faltaBox}>
+            <Text style={styles.faltaTitle}>Para activar tu perfil vas a completar:</Text>
+            {['Tu WhatsApp', 'Tu oficio y zona', 'DNI y una selfie', 'Antecedentes y monotributo'].map((t) => (
+              <View key={t} style={styles.faltaRow}>
+                <View style={styles.faltaBadge}><Text style={styles.faltaBadgeText}>›</Text></View>
+                <Text style={styles.faltaText}>{t}</Text>
+              </View>
+            ))}
+            <Text style={styles.faltaHint}>Lo hacés desde el celular en 5 minutos, sacando las fotos en el momento.</Text>
+          </View>
+
+          <TouchableOpacity style={styles.primaryBtn} onPress={onBack} activeOpacity={0.85}>
+            <Text style={styles.primaryBtnText}>Listo</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── INTRO / CONFIRMAR ─────────────────────────────────────────────────────
+  return (
+    <SafeAreaView style={styles.container}>
+      <TopBar onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.logoBadge}>
+          <Ionicons name="flash" size={30} color="#0A0A0A" />
+        </View>
+        <Text style={styles.title}>Trabajá con <Text style={styles.titleY}>BOLT</Text></Text>
+        <Text style={styles.subtitle}>
+          Sumate como profesional y recibí trabajos de clientes de tu zona. Sin comisión para los primeros de cada ciudad.
+        </Text>
+
+        <View style={styles.benefits}>
+          {[
+            { icon: 'briefcase-outline', text: 'Te llegan trabajos cerca tuyo; elegís cuáles tomar' },
+            { icon: 'cash-outline',      text: 'Cobrás directo del cliente. Tu precio lo ponés vos' },
+            { icon: 'star-outline',      text: 'Tu reputación te trae más clientes' },
+          ].map((b) => (
+            <View key={b.icon} style={styles.benefitRow}>
+              <View style={styles.benefitIcon}><Ionicons name={b.icon} size={16} color="#FFD600" /></View>
+              <Text style={styles.benefitText}>{b.text}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.acctCard}>
+          <View style={styles.googleG}><Text style={styles.googleGText}>G</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.acctLabel}>Te registrás con tu cuenta</Text>
+            <Text style={styles.acctEmail} numberOfLines={1}>{email || 'tu cuenta de Google'}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.explain}>
+          Te registramos ahora con tu cuenta. El resto de los datos (WhatsApp, oficio, DNI y documentos) los completás por un link que te mandamos por mail. Te lleva 5 minutos.
+        </Text>
+
+        {status === 'error' && !!errorMsg && (
+          <View style={styles.errorWrap}>
+            <Ionicons name="alert-circle-outline" size={16} color="#ff4444" />
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.primaryBtn, status === 'sending' && { opacity: 0.7 }]}
+          onPress={registrar}
+          disabled={status === 'sending'}
+          activeOpacity={0.85}
+        >
+          {status === 'sending'
+            ? <ActivityIndicator color="#0A0A0A" />
+            : <Text style={styles.primaryBtnText}>Registrarme como profesional</Text>}
+        </TouchableOpacity>
+
+        <Text style={styles.terms}>
+          Al registrarte aceptás los{' '}
+          <Text style={styles.termsLink} onPress={() => Linking.openURL('https://maxi95bahiablanca-hue.github.io/BOLT/privacy.html')}>
+            Términos y la Política de privacidad
+          </Text>
+          {' '}de BOLT.
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const TopBar = ({ onBack }) => (
+  <View style={styles.topBar}>
+    <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+      <Ionicons name="arrow-back" size={22} color="#888" />
+      <Text style={styles.backText}>Volver</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  topBar: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  backText: { color: '#555', fontSize: 14 },
+  content: { paddingHorizontal: 26, paddingBottom: 40, paddingTop: 12 },
+
+  logoBadge: {
+    width: 60, height: 60, borderRadius: 18, backgroundColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 18,
+  },
+  title: { fontSize: 30, fontWeight: '900', color: '#F5F5F5', marginBottom: 8 },
+  titleY: { color: '#FFD600' },
+  subtitle: { fontSize: 15, color: '#999', lineHeight: 22, marginBottom: 24 },
+
+  benefits: { gap: 12, marginBottom: 24 },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  benefitIcon: {
+    width: 32, height: 32, borderRadius: 9, backgroundColor: '#141400',
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2a2a10',
+  },
+  benefitText: { flex: 1, color: '#bbb', fontSize: 14, lineHeight: 20 },
+
+  acctCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1E1E1E',
+    borderRadius: 14, padding: 14, marginBottom: 16,
+  },
+  googleG: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  googleGText: { fontSize: 15, fontWeight: '900', color: '#4285F4' },
+  acctLabel: { color: '#777', fontSize: 12, marginBottom: 2 },
+  acctEmail: { color: '#F5F5F5', fontSize: 15, fontWeight: '700' },
+
+  explain: { color: '#888', fontSize: 13.5, lineHeight: 21, marginBottom: 12 },
+
+  primaryBtn: { backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 12 },
+  primaryBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+
+  terms: { fontSize: 11.5, color: '#444', textAlign: 'center', lineHeight: 17, marginTop: 16 },
+  termsLink: { color: '#FFD600', textDecorationLine: 'underline' },
+
+  errorWrap: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: 'rgba(255,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(255,68,68,0.25)',
+    borderRadius: 10, padding: 12, marginTop: 4, marginBottom: 4,
+  },
+  errorText: { color: '#ff4444', fontSize: 13, flex: 1, lineHeight: 18 },
+
+  // Éxito
+  okIconWrap: {
+    width: 72, height: 72, borderRadius: 22, backgroundColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 20, marginBottom: 18,
+  },
+  okTitle: { fontSize: 26, fontWeight: '900', color: '#F5F5F5', textAlign: 'center', marginBottom: 10 },
+  okSub: { fontSize: 15, color: '#aaa', textAlign: 'center', lineHeight: 22, marginBottom: 22 },
+  mailCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#151500', borderWidth: 1, borderColor: 'rgba(255,214,0,0.3)',
+    borderRadius: 14, padding: 16, marginBottom: 22,
+  },
+  mailCardText: { flex: 1, color: '#bbb', fontSize: 13.5, lineHeight: 20 },
+  mailStrong: { color: '#FFD600', fontWeight: '800' },
+  faltaBox: {
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1E1E1E',
+    borderRadius: 16, padding: 18, marginBottom: 8,
+  },
+  faltaTitle: { color: '#F5F5F5', fontWeight: '800', fontSize: 14, marginBottom: 12 },
+  faltaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  faltaBadge: { width: 22, height: 22, borderRadius: 6, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center' },
+  faltaBadgeText: { color: '#0A0A0A', fontWeight: '900', fontSize: 14 },
+  faltaText: { color: '#ccc', fontSize: 14, fontWeight: '600' },
+  faltaHint: { color: '#666', fontSize: 12.5, lineHeight: 18, marginTop: 8 },
+});
+
+export default WorkerSignupScreen;

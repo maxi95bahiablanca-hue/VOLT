@@ -17,6 +17,7 @@ import { DEMO_PROFESSIONAL, DEMO_QUOTE_JOBS, DEMO_JOB } from '../demo/demoData';
 import professionService from '../services/professionService';
 import professionalService from '../services/professionalService';
 import RegisterProfessionalScreen from './RegisterProfessionalScreen';
+import WorkerSignupScreen from './WorkerSignupScreen';
 import ProfileScreen from './ProfileScreen';
 import WorkerDashboardScreen from './WorkerDashboardScreen';
 import { chargesInApp } from '../config/monetization';
@@ -1127,7 +1128,7 @@ const HomeScreen = ({ session, professional, onRequestJob, onOpenAssistant, onAc
 
   // ─── Navegación interna ──────────────────────────────
   if (showRegister) {
-    return <RegisterProfessionalScreen userId={userId} session={session} onBack={() => setShowRegister(false)} />;
+    return <WorkerSignupScreen userId={userId} session={session} onBack={() => setShowRegister(false)} />;
   }
   if (showProfile) {
     return <ProfileScreen session={session} professional={professional} onClose={() => setShowProfile(false)} />;

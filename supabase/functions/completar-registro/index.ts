@@ -10,6 +10,7 @@ const json = (d: unknown, s = 200) =>
 
 // Mismo checklist que notify-datos-pendientes.
 const ITEMS: { key: string; label: string; tipo: 'dato' | 'doc'; hint?: string; link?: string }[] = [
+  { key: 'telefono',         label: 'Tu WhatsApp',                         tipo: 'dato', hint: 'Para avisarte cuando se active tu perfil' },
   { key: 'dni',              label: 'Número de DNI',                       tipo: 'dato' },
   { key: 'fecha_nac',        label: 'Fecha de nacimiento',                 tipo: 'dato' },
   { key: 'profesion',        label: 'Tu oficio',                           tipo: 'dato' },
@@ -22,7 +23,7 @@ const ITEMS: { key: string; label: string; tipo: 'dato' | 'doc'; hint?: string; 
 ];
 
 // Campos de texto que el prestador puede completar/corregir con su token.
-const CAMPOS_TEXTO = ['dni', 'fecha_nac', 'profesion', 'zona', 'ciudad', 'experiencia', 'matricula', 'antecedentes', 'monotributo', 'domicilio'];
+const CAMPOS_TEXTO = ['telefono', 'dni', 'fecha_nac', 'profesion', 'zona', 'ciudad', 'experiencia', 'matricula', 'antecedentes', 'monotributo', 'domicilio'];
 // Paths de documentos subidos al bucket prestador-docs.
 const CAMPOS_DOC = ['dni_frente_url', 'dni_dorso_url', 'selfie_url', 'antecedentes_url', 'monotributo_url'];
 
@@ -73,7 +74,7 @@ serve(async (req) => {
       for (const k of CAMPOS_TEXTO) {
         const v = String(datos[k] ?? '').trim();
         if (!v || v.length > 300) continue;
-        update[k] = (k === 'dni') ? v.replace(/\D/g, '') : v;
+        update[k] = (k === 'dni' || k === 'telefono') ? v.replace(/\D/g, '') : v;
       }
       for (const k of CAMPOS_DOC) {
         const v = String(datos[k] ?? '').trim();

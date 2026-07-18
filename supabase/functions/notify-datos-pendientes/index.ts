@@ -12,6 +12,7 @@ const LOGO_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co/storage/v1/object/pub
 
 // Checklist de datos del registro. Mismo criterio que completar-registro.
 const ITEMS: { key: string; label: string; hint?: string }[] = [
+  { key: 'telefono',         label: 'Tu WhatsApp', hint: 'Para avisarte cuando se active tu perfil' },
   { key: 'dni',              label: 'Número de DNI' },
   { key: 'fecha_nac',        label: 'Fecha de nacimiento' },
   { key: 'profesion',        label: 'Tu oficio' },
@@ -46,7 +47,7 @@ serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: lead } = await admin
       .from('prestador_leads')
-      .select('nombre, apellido, email, dni, fecha_nac, profesion, zona, ciudad, dni_frente_url, dni_dorso_url, selfie_url, antecedentes_url, monotributo_url')
+      .select('nombre, apellido, email, telefono, dni, fecha_nac, profesion, zona, ciudad, dni_frente_url, dni_dorso_url, selfie_url, antecedentes_url, monotributo_url')
       .eq('completar_token', token)
       .maybeSingle();
 
@@ -62,7 +63,7 @@ serve(async (req) => {
     const BASE_COMPLETAR = Deno.env.get('COMPLETAR_BASE_URL') ?? 'https://maxi95bahiablanca-hue.github.io/VOLT/web/prestadores/completar.html';
     const urlCompletar = `${BASE_COMPLETAR}?t=${encodeURIComponent(token)}`;
 
-    const basicos = ['Nombre y apellido', 'WhatsApp', 'Email']
+    const basicos = ['Nombre y apellido', 'Email']
       .concat(hechos.map((h) => h.label));
 
     const filasFaltan = faltan.map((it) => `
