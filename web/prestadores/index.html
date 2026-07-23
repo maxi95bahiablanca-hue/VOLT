@@ -64,6 +64,32 @@
   @media(max-width:480px){.row{grid-template-columns:1fr}}
   .hint{font-size:.76rem;color:var(--muted2);margin-top:5px}
 
+
+  /* Alta con Google */
+  .btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;background:#fff;color:#1f1f1f;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:800;font-size:1.02rem;cursor:pointer;margin-top:8px;transition:.2s}
+  .btn-google:hover{box-shadow:0 0 30px rgba(255,255,255,.18);transform:translateY(-1px)}
+  .btn-google:disabled{opacity:.6;cursor:default;transform:none}
+  .btn-google svg{flex-shrink:0}
+  .g-flow{margin-top:26px;border-top:1px solid var(--bord);padding-top:22px}
+  .g-fitem{display:flex;gap:13px;align-items:flex-start;margin-bottom:15px}
+  .g-fn{width:26px;height:26px;border-radius:9px;background:var(--surf2);border:1px solid var(--bord);color:var(--yellow);font-weight:900;font-size:.82rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .g-fitem b{display:block;font-weight:800;font-size:.94rem;margin-bottom:1px}
+  .g-fitem span.d{display:block;font-size:.84rem;color:var(--muted);line-height:1.5}
+  .g-alt{text-align:center;margin-top:20px;font-size:.88rem;color:var(--muted)}
+  .g-alt a{color:var(--yellow);font-weight:700;cursor:pointer;text-decoration:underline}
+  .g-terms{text-align:center;margin-top:16px;font-size:.74rem;color:var(--muted2);line-height:1.6}
+  .g-terms a{color:var(--muted);text-decoration:underline}
+  .g-nota{background:var(--surf2);border:1px solid var(--bord);border-radius:12px;padding:14px;font-size:.86rem;color:var(--muted);line-height:1.6;margin-top:16px}
+  .acct-card{display:flex;align-items:center;gap:13px;background:var(--surf2);border:1px solid var(--bord);border-radius:14px;padding:14px;margin-top:6px}
+  .acct-foto{width:42px;height:42px;border-radius:50%;flex-shrink:0;object-fit:cover}
+  .acct-ini{width:42px;height:42px;border-radius:50%;flex-shrink:0;background:var(--yellow);color:#0A0A0A;font-weight:900;font-size:1.1rem;display:flex;align-items:center;justify-content:center}
+  .acct-lbl{font-size:.74rem;color:var(--muted2);margin-bottom:2px}
+  .acct-mail{font-size:.98rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ok-cta{background:var(--surf2);border:1px solid rgba(255,214,0,.3);border-radius:16px;padding:20px;margin:22px 0 4px;text-align:left}
+  .ok-cta-t{font-weight:900;font-size:1.02rem;margin-bottom:6px}
+  .ok-cta-p{font-size:.9rem;color:var(--muted);line-height:1.6;margin-bottom:6px}
+  .ok-cta-h{font-size:.8rem;color:var(--muted2);line-height:1.5;margin-top:10px;text-align:center}
+
   /* Progreso de pasos */
   .prog{display:flex;align-items:center;gap:6px;margin-bottom:22px}
   .prog .pdot{flex:1;height:6px;border-radius:4px;background:var(--surf2);transition:.4s}
@@ -205,146 +231,83 @@
 <section id="registro"><div class="wrap">
   <div class="form-box">
     <div id="formContent">
-      <div class="prog">
-        <div class="pdot on" id="pd1"></div><div class="pdot" id="pd2"></div><div class="pdot" id="pd3"></div>
-        <span class="plbl" id="plbl">Paso 1 de 3</span>
+
+      <!-- ══ A) ENTRAR CON GOOGLE ══ -->
+      <div id="gStart">
+        <h2>Sumate a BOLT</h2>
+        <div class="sub">Entrás con tu cuenta de Google y ya quedás registrado. Sin formularios largos.</div>
+
+        <button class="btn-google" id="btnGoogle" onclick="entrarConGoogle()">
+          <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <span>Continuar con Google</span>
+        </button>
+        <div class="msg" id="gMsg"></div>
+
+        <div class="g-flow">
+          <div class="g-fitem"><span class="g-fn">1</span><div><b>Entrás con Google</b><span class="d">Un toque. No tenés que inventar otra contraseña.</span></div></div>
+          <div class="g-fitem"><span class="g-fn">2</span><div><b>Te damos tu link personal</b><span class="d">Al instante en pantalla, y también te lo mandamos por mail.</span></div></div>
+          <div class="g-fitem"><span class="g-fn">3</span><div><b>Completás el resto cuando puedas</b><span class="d">Tu WhatsApp, tu oficio, el DNI y la documentación. 5 minutos desde el celular.</span></div></div>
+        </div>
+
+        <div class="g-alt">¿No tenés cuenta de Google? <a onclick="verManual()">Registrate con tu WhatsApp</a></div>
+        <div class="g-terms">Al registrarte aceptás los <a href="../terms.html" target="_blank">Términos</a> y la <a href="../privacy.html" target="_blank">Política de privacidad</a> de BOLT.</div>
       </div>
 
-      <!-- PASO 1 -->
-      <div class="fstep" id="step1">
-        <h2>Tus datos</h2>
-        <div class="sub">Empecemos por lo básico. Te lleva 1 minuto.</div>
-        <div class="row">
-          <div><label>Nombre *</label><input id="nombre" type="text" placeholder="Juan"></div>
-          <div><label>Apellido *</label><input id="apellido" type="text" placeholder="Pérez"></div>
+      <!-- ══ B) CONFIRMAR (volvió de Google) ══ -->
+      <div id="gConfirm" style="display:none">
+        <h2 id="gHola">¡Hola!</h2>
+        <div class="sub">Confirmá que querés sumarte como profesional.</div>
+        <div class="acct-card">
+          <img id="gFoto" class="acct-foto" alt="" style="display:none">
+          <div class="acct-ini" id="gIni">·</div>
+          <div style="flex:1;min-width:0">
+            <div class="acct-lbl">Te registrás con esta cuenta</div>
+            <div class="acct-mail" id="gMail">—</div>
+          </div>
         </div>
+        <div class="g-nota">Ahora esto es todo. Después te pedimos tu WhatsApp, tu oficio y la documentación por tu link personal — lo hacés desde el celular sacando las fotos en el momento.</div>
+        <button class="btn-submit" id="btnRegistrar" onclick="registrarConGoogle()">Registrarme como profesional ⚡</button>
+        <div class="msg" id="gcMsg"></div>
+        <div class="g-alt"><a onclick="salirGoogle()">No soy yo · entrar con otra cuenta</a></div>
+      </div>
+
+      <!-- ══ C) SIN GOOGLE (respaldo) ══ -->
+      <div id="manualForm" style="display:none">
+        <h2>Registrate en 30 segundos</h2>
+        <div class="sub">Solo esto. El resto te lo pedimos después por WhatsApp.</div>
         <div class="row">
-          <div><label>DNI *</label><input id="dni" type="text" inputmode="numeric" placeholder="30.123.456"></div>
-          <div><label>Fecha de nacimiento</label><input id="fecha_nac" type="date"></div>
+          <div><label>Nombre *</label><input id="m_nombre" type="text" placeholder="Juan"></div>
+          <div><label>Apellido *</label><input id="m_apellido" type="text" placeholder="Pérez"></div>
         </div>
         <label>WhatsApp *</label>
-        <input id="telefono" type="tel" inputmode="numeric" placeholder="291 4XXXXXX">
-        <label>Email</label>
-        <input id="email" type="email" placeholder="tunombre@email.com">
-        <label>Domicilio</label>
-        <input id="domicilio" type="text" placeholder="Calle, número, ciudad">
-        <button class="btn-submit" onclick="nextStep(2)">Continuar →</button>
+        <input id="m_telefono" type="tel" inputmode="numeric" placeholder="291 4XXXXXX">
+        <label>Email <span style="color:var(--muted2);font-weight:400">— opcional, para mandarte el link</span></label>
+        <input id="m_email" type="email" placeholder="tunombre@email.com">
+        <button class="btn-submit" id="btnManual" onclick="registrarManual()">Registrarme ⚡</button>
+        <div class="msg" id="mMsg"></div>
+        <div class="g-alt"><a onclick="verGoogle()">← Mejor entro con Google</a></div>
       </div>
 
-      <!-- PASO 2 -->
-      <div class="fstep" id="step2" style="display:none">
-        <h2>Tu oficio</h2>
-        <div class="sub">Contanos a qué te dedicás.</div>
-        <label>Tus oficios * <span style="color:var(--muted2);font-weight:400">— elegí hasta 3</span></label>
-        <div id="profChips" class="chips"><span class="hint">Cargando oficios...</span></div>
-        <div class="prof-count" id="profCount">Ninguno seleccionado · podés elegir hasta 3</div>
-        <div id="matriBox" class="matri-box" style="display:none">
-          <label class="matri-check">
-            <input type="checkbox" id="matriculado">
-            <span><b>Soy matriculado</b> <span style="color:var(--muted);font-weight:400">— tengo matrícula habilitante. Te mostramos con una insignia ✔ Matriculado y podés cobrar diferenciado.</span></span>
-          </label>
-        </div>
-        <label>Ciudad / Zona de servicio *</label>
-        <select id="ciudad">
-          <option value="">Elegí tu zona...</option>
-          <option value="Bahía Blanca">Bahía Blanca (y Punta Alta, Ing. White, Cerri)</option>
-          <option value="Monte Hermoso / Sauce Grande">Monte Hermoso / Sauce Grande</option>
-          <option value="Mar del Plata">Mar del Plata (y Batán)</option>
-          <option value="Córdoba">Córdoba (y Villa Allende, Carlos Paz, Unquillo)</option>
-          <option value="Rosario">Rosario (y Funes, Roldán, V. G. Gálvez, Baigorria)</option>
-          <option value="Mendoza">Mendoza (y Godoy Cruz, Guaymallén, Maipú)</option>
-          <option value="Neuquén">Neuquén (y Plottier, Cipolletti)</option>
-          <option value="Tucumán">San Miguel de Tucumán (y Yerba Buena, Tafí Viejo)</option>
-          <option value="Salta">Salta (y San Lorenzo, Cerrillos)</option>
-          <option value="La Plata">La Plata (y City Bell, Gonnet, Berisso)</option>
-          <option value="CABA">CABA — Ciudad de Buenos Aires</option>
-        </select>
-        <label>Matrícula / registro (si tu oficio lo requiere)</label>
-        <input id="matricula" type="text" placeholder="Ej: gasista matriculado N° ...">
-        <label>Tu zona o barrio</label>
-        <input id="zona" type="text" placeholder="Ej: Centro, Villa Mitre, Palihue...">
-        <label>Años de experiencia</label>
-        <input id="experiencia" type="text" placeholder="Ej: 8 años">
-        <div class="hint">El precio de tu visita y de tu trabajo lo acordás <b>vos directo con cada cliente</b>. BOLT solo te conecta. 👇</div>
-        <div class="btn-rowf">
-          <button class="btn-back" onclick="nextStep(1)">←</button>
-          <button class="btn-submit" onclick="nextStep(3)">Continuar →</button>
-        </div>
-      </div>
-
-      <!-- PASO 3 -->
-      <div class="fstep" id="step3" style="display:none">
-        <h2>Verificación 🛡️</h2>
-        <div class="sub">Esto genera confianza con los clientes. Solo te lo pedimos una vez.</div>
-
-        <label>Antecedentes penales *</label>
-        <select id="antecedentes">
-          <option value="">Elegí una opción...</option>
-          <option value="Tengo certificado vigente">Tengo el certificado de antecedentes vigente</option>
-          <option value="En tramite">Lo tengo en trámite</option>
-          <option value="No tengo">Todavía no lo tengo</option>
-        </select>
-        <div class="hint">Si no lo tenés, te ayudamos a tramitarlo. No frena tu registro.</div>
-
-        <label>¿Sos monotributista? *</label>
-        <select id="monotributo">
-          <option value="">Elegí una opción...</option>
-          <option value="Sí, monotributista activo">Sí, soy monotributista activo</option>
-          <option value="En trámite">Lo estoy tramitando</option>
-          <option value="Todavía no">Todavía no, pero quiero serlo</option>
-        </select>
-        <div class="hint">Para facturar de forma legal tus trabajos necesitás ser monotributista. Si todavía no lo sos, te orientamos para darte de alta (es gratis y rápido).</div>
-
-        <label>Foto del DNI — frente *</label>
-        <label class="upload" id="u_dnif">
-          <div class="uemoji">📷</div><div class="utext">Tocá para subir el frente del DNI</div>
-          <input type="file" accept="image/*" id="dni_frente" onchange="onFile('dni_frente','u_dnif','Frente del DNI ✓')">
-        </label>
-
-        <label>Foto del DNI — dorso *</label>
-        <label class="upload" id="u_dnid">
-          <div class="uemoji">📷</div><div class="utext">Tocá para subir el dorso del DNI</div>
-          <input type="file" accept="image/*" id="dni_dorso" onchange="onFile('dni_dorso','u_dnid','Dorso del DNI ✓')">
-        </label>
-
-        <label>Certificado de antecedentes penales *</label>
-        <label class="upload" id="u_ant">
-          <div class="uemoji">📄</div><div class="utext">Subir certificado (foto o PDF)</div>
-          <input type="file" accept="image/*,application/pdf" id="antecedentes_file" onchange="onFile('antecedentes_file','u_ant','Certificado ✓')">
-        </label>
-        <div class="hint">¿No lo tenés? Sacalo online en 5 minutos 👉 <a href="https://www.argentina.gob.ar/justicia/reincidencia/certificado-de-antecedentes-penales-web" target="_blank" style="color:var(--yellow)">argentina.gob.ar (antecedentes web)</a></div>
-
-        <label>Constancia de monotributo *</label>
-        <label class="upload" id="u_mono">
-          <div class="uemoji">🧾</div><div class="utext">Subir constancia de monotributo (foto o PDF)</div>
-          <input type="file" accept="image/*,application/pdf" id="monotributo_file" onchange="onFile('monotributo_file','u_mono','Constancia ✓')">
-        </label>
-        <div class="hint">La descargás de AFIP 👉 <a href="https://monotributo.afip.gob.ar" target="_blank" style="color:var(--yellow)">monotributo.afip.gob.ar</a></div>
-
-        <label>Selfie sosteniendo tu DNI *</label>
-        <label class="upload" id="u_selfie">
-          <div class="uemoji">🤳</div><div class="utext">Subir selfie con DNI</div>
-          <input type="file" accept="image/*" id="selfie" onchange="onFile('selfie','u_selfie','Selfie ✓')">
-        </label>
-
-        <div class="btn-rowf">
-          <button class="btn-back" onclick="nextStep(2)">←</button>
-          <button class="btn-submit" id="btnSubmit" onclick="enviar()">Enviar mi solicitud ⚡</button>
-        </div>
-        <div class="msg" id="msg"></div>
-      </div>
     </div>
 
     <!-- ÉXITO -->
     <div class="ok-box" id="okBox">
       <div class="em">🎉</div>
-      <h3>¡Felicitaciones, ya diste el primer paso!</h3>
-      <div class="okp">¡Recibimos tu solicitud para sumarte a BOLT! 🎉 Quedaste anotado entre los primeros profesionales de tu ciudad. <b>Apenas completemos el cupo de tu zona, te avisamos por mail y WhatsApp</b> para activar la app. Mientras tanto, verificamos tus datos:</div>
+      <h3 id="okTitulo">¡Ya estás en BOLT!</h3>
+      <div class="okp" id="okSub">Quedaste anotado entre los primeros profesionales de tu ciudad.</div>
+
+      <div class="ok-cta">
+        <div class="ok-cta-t">⚡ Te falta completar tus datos</div>
+        <div class="ok-cta-p">Tu WhatsApp, tu oficio, el DNI y la documentación. Son 5 minutos y lo podés hacer <b>ahora mismo</b> desde el celular.</div>
+        <a class="btn-submit" id="btnCompletar" href="#" style="display:block;text-decoration:none;text-align:center">Completar mis datos ahora ⚡</a>
+        <div class="ok-cta-h" id="okMailHint"></div>
+      </div>
+
       <div class="tl">
         <div class="tl-item done"><div class="tl-ic">✅</div><div class="tl-tx"><b>Solicitud recibida</b><span>Ahora mismo</span></div></div>
-        <div class="tl-item wait"><div class="tl-ic">⏳</div><div class="tl-tx"><b>Verificamos tus datos y documentación</b><span>Entre 24 y 48 hs hábiles</span></div></div>
-        <div class="tl-item"><div class="tl-ic">📲</div><div class="tl-tx"><b>Te avisamos por mail y WhatsApp</b><span>Apenas se complete el cupo de tu ciudad</span></div></div>
-        <div class="tl-item"><div class="tl-ic">🚀</div><div class="tl-tx"><b>Empezás a recibir trabajos</b><span>Activás tu disponibilidad y a trabajar</span></div></div>
+        <div class="tl-item wait"><div class="tl-ic">📋</div><div class="tl-tx"><b>Completás tus datos y documentación</b><span>Con tu link personal, cuando puedas</span></div></div>
+        <div class="tl-item"><div class="tl-ic">🛡️</div><div class="tl-tx"><b>Verificamos tu identidad</b><span>Entre 24 y 48 hs hábiles</span></div></div>
+        <div class="tl-item"><div class="tl-ic">🚀</div><div class="tl-tx"><b>Te activamos y empezás a recibir trabajos</b><span>Te avisamos por mail y WhatsApp</span></div></div>
       </div>
       <div class="okp" style="margin-top:18px">Mientras tanto, seguinos en redes <b>@bolt.app</b> ⚡</div>
     </div>
@@ -363,212 +326,252 @@
   const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // ═══════════════════════════════════════════════════════════════════════
+  //  ALTA DE PROFESIONAL — SOLO CON GOOGLE
+  //  Antes: 3 pasos + 5 documentos obligatorios acá mismo. Se caía muchísima
+  //  gente (en el celu, abrir la cámara recarga la página y borra todo).
+  //  Ahora: entra con Google y queda registrado. El resto (WhatsApp, oficio,
+  //  DNI, antecedentes, monotributo, selfie) lo completa después por su link
+  //  personal — mismo flujo que el alta desde la app (WorkerSignupScreen.js).
+  // ═══════════════════════════════════════════════════════════════════════
   const QS = new URLSearchParams(location.search);
-  const FUENTE = QS.get('fuente') || 'landing';
-  // Links pre-filtrados por campaña: ?ciudad=Córdoba&oficio=Electricista
-  const _ciudadURL = QS.get('ciudad') || '';
-  if (_ciudadURL) { const c = document.getElementById('ciudad'); if (c) c.value = _ciudadURL; }
+  // La fuente de campaña sobrevive al viaje de ida y vuelta a Google.
+  const _f = QS.get('fuente');
+  if (_f) { try { sessionStorage.setItem('bolt_fuente', _f); } catch(e){} }
+  const FUENTE = _f || (function(){ try { return sessionStorage.getItem('bolt_fuente'); } catch(e){ return null; } })() || 'landing';
 
-  // Profesiones desde la base (sync con la app)
-  const FALLBACK = ['Electricista','Plomero','Gasista','Pintor','Albañil','Cerrajero','Jardinero','Limpieza','Encomiendas / Fletes','Aire acondicionado','Heladeras y lavarropas','Alarmas / Cámaras','Durlock'];
-  const MAX_PROFS = 3;
-  let selectedProfs = []; // [{id, name}]
-  function updateProfCount(){
-    const el = document.getElementById('profCount');
-    if (!el) return;
-    const n = selectedProfs.length;
-    el.textContent = n === 0 ? 'Ninguno seleccionado · podés elegir hasta 3'
-      : `${n} de 3 seleccionado${n>1?'s':''}: ${selectedProfs.map(p=>p.name).join(', ')}`;
+  const $ = id => document.getElementById(id);
+  const linkCompletar = t => new URL('completar.html?t=' + encodeURIComponent(t), location.href).href;
+  function genToken(){
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const r = () => Math.random().toString(36).slice(2);
+    return Date.now().toString(36) + '-' + r() + r() + r();
   }
-  (async () => {
-    const cont = document.getElementById('profChips');
-    let nombres = [];
+  function vista(cual){
+    ['gStart','gConfirm','manualForm'].forEach(id => $(id).style.display = (id === cual ? 'block' : 'none'));
+  }
+  function verManual(){ vista('manualForm'); }
+  function verGoogle(){ vista('gStart'); }
+
+  // ── 1. Ir a Google ────────────────────────────────────────────────────
+  async function entrarConGoogle(){
+    const btn = $('btnGoogle'), msg = $('gMsg');
+    btn.disabled = true;
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Abriendo Google…';
     try {
-      const { data } = await sb.from('professions').select('id,name').order('name');
-      if (data && data.length) nombres = data.map(p => ({ id: p.id, name: p.name }));
-    } catch (e) {}
-    if (!nombres.length) nombres = FALLBACK.map(n => ({ id: null, name: n }));
-    const _oficioURL = (QS.get('oficio') || '').toLowerCase();
-    cont.innerHTML = '';
-    nombres.forEach(p => {
-      const chip = document.createElement('div');
-      chip.className = 'chip';
-      chip.textContent = p.name;
-      chip.onclick = () => toggleProf(p, chip);
-      cont.appendChild(chip);
-      if (_oficioURL && p.name.toLowerCase() === _oficioURL) toggleProf(p, chip);
-    });
-  })();
-
-  function toggleProf(p, chip){
-    const i = selectedProfs.findIndex(x => x.name === p.name);
-    if (i >= 0) { selectedProfs.splice(i, 1); chip.classList.remove('on'); }
-    else {
-      if (selectedProfs.length >= MAX_PROFS) return; // tope de 3
-      selectedProfs.push(p); chip.classList.add('on');
-    }
-    const full = selectedProfs.length >= MAX_PROFS;
-    document.querySelectorAll('#profChips .chip').forEach(c => {
-      if (!c.classList.contains('on')) c.classList.toggle('dis', full);
-    });
-    updateProfCount();
-    updateMatri();
-  }
-
-  function updateMatri(){
-    const box = document.getElementById('matriBox');
-    if (!box) return;
-    const show = selectedProfs.some(p => ['electricista','gasista'].includes(p.name.toLowerCase()));
-    box.style.display = show ? 'block' : 'none';
-    if (!show){ const cb = document.getElementById('matriculado'); if (cb){ cb.checked = false; } box.classList.remove('checked'); }
-  }
-  document.addEventListener('change', e => {
-    if (e.target && e.target.id === 'matriculado'){
-      const box = document.getElementById('matriBox');
-      if (box) box.classList.toggle('checked', e.target.checked);
-    }
-  });
-
-  function val(id){ return (document.getElementById(id).value || '').trim(); }
-
-  // Navegación de pasos (con validación)
-  function nextStep(n){
-    const msg = document.getElementById('msg');
-    if (n === 2){ // validar paso 1
-      if (!val('nombre') || !val('apellido') || !val('dni') || !val('fecha_nac') || !val('telefono') || !val('email') || !val('domicilio')){
-        flash('Completá todos los datos: nombre, apellido, DNI, fecha de nacimiento, WhatsApp, email y domicilio.'); return;
-      }
-    }
-    if (n === 3){ // validar paso 2
-      if (!selectedProfs.length){ flash('Elegí al menos un oficio (podés elegir hasta 3).'); return; }
-      if (!val('ciudad')){ flash('Elegí tu ciudad / zona de servicio.'); return; }
-      if (!val('zona')){ flash('Indicá tu zona o barrio.'); return; }
-      if (!val('experiencia')){ flash('Indicá tus años de experiencia.'); return; }
-    }
-    if (msg) msg.textContent = '';
-    [1,2,3].forEach(s => document.getElementById('step'+s).style.display = (s===n?'block':'none'));
-    ['pd1','pd2','pd3'].forEach((id,i)=> document.getElementById(id).classList.toggle('on', i < n));
-    document.getElementById('plbl').textContent = 'Paso ' + n + ' de 3';
-    document.querySelector('.form-box').scrollIntoView({ behavior:'smooth', block:'start' });
-  }
-  function flash(t){
-    // mostrar error en el paso actual: usamos un alert liviano arriba
-    let m = document.getElementById('stepMsg');
-    if(!m){ m=document.createElement('div'); m.id='stepMsg'; m.className='msg'; m.style.color='var(--red)'; document.querySelector('.prog').after(m); }
-    m.style.color='var(--red)'; m.textContent=t; setTimeout(()=>{ if(m) m.textContent=''; }, 3500);
-  }
-
-  // Mostrar nombre de archivo seleccionado
-  function onFile(inputId, boxId, okText){
-    const f = document.getElementById(inputId).files[0];
-    const box = document.getElementById(boxId);
-    if (f){ box.classList.add('has'); box.querySelector('.utext').textContent = okText + ' (' + (f.name.length>22?f.name.slice(0,20)+'…':f.name) + ')'; }
-  }
-
-  async function uploadFile(inputId, prefix){
-    const f = document.getElementById(inputId).files[0];
-    if (!f) return null;
-    try {
-      const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
-      const path = Date.now() + '_' + prefix + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
-      const { error } = await sb.storage.from('prestador-docs').upload(path, f, { upsert:false, contentType:f.type });
-      if (error) throw error;
-      // El bucket es PRIVADO (documentos personales): guardamos el path, no una URL.
-      // El panel admin genera una signed URL con su sesión para verlos.
-      return path;
-    } catch (e){ console.warn('upload fail', inputId, e); return null; }
-  }
-
-  // === Autoguardado anti-recarga: el celu recarga al abrir la cámara y borra todo.
-  //     Guardamos los campos de texto para que no se pierdan (los archivos no se pueden persistir). ===
-  const _REGKEY = 'bolt_reg_v1';
-  function _regCampos(){ return document.querySelectorAll('#formContent input, #formContent select, #formContent textarea'); }
-  function _regGuardar(){
-    const d = {};
-    _regCampos().forEach(el => { if (el.type === 'file' || !el.id) return; d[el.id] = (el.type === 'checkbox') ? el.checked : el.value; });
-    try { localStorage.setItem(_REGKEY, JSON.stringify(d)); } catch(e){}
-  }
-  function _regRestaurar(){
-    let d; try { d = JSON.parse(localStorage.getItem(_REGKEY) || '{}'); } catch(e){ return; }
-    _regCampos().forEach(el => {
-      if (el.type === 'file' || !el.id || !(el.id in d)) return;
-      if (el.type === 'checkbox') el.checked = d[el.id]; else el.value = d[el.id];
-      if (el.tagName === 'SELECT') el.dispatchEvent(new Event('change', { bubbles:true }));
-    });
-  }
-  function _regLimpiar(){ try { localStorage.removeItem(_REGKEY); } catch(e){} }
-  function _regInit(){ _regRestaurar(); document.addEventListener('input', _regGuardar, true); document.addEventListener('change', _regGuardar, true); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _regInit); else _regInit();
-
-  async function enviar(){
-    const msg = document.getElementById('msg');
-    if (!val('antecedentes')){ msg.style.color='var(--red)'; msg.textContent='Elegí tu situación de antecedentes.'; return; }
-    if (!val('monotributo')){ msg.style.color='var(--red)'; msg.textContent='Decinos tu situación de monotributo.'; return; }
-    const _req = [['dni_frente','el frente del DNI'],['dni_dorso','el dorso del DNI'],['antecedentes_file','el certificado de antecedentes'],['monotributo_file','la constancia de monotributo'],['selfie','tu selfie con el DNI']];
-    for (const [_id,_lbl] of _req){ if (!document.getElementById(_id).files[0]){ msg.style.color='var(--red)'; msg.textContent='Subí '+_lbl+'.'; return; } }
-
-    // Anti-duplicado: ¿ya se registró con ese DNI, email o WhatsApp?
-    const _dniN = val('dni').replace(/\D/g,'');
-    const _telN = val('telefono').replace(/\D/g,'');
-    const _emailN = (val('email')||'').trim();
-    try {
-      const { data: yaReg } = await sb.rpc('prestador_ya_registrado', { p_dni: _dniN, p_email: _emailN, p_tel: _telN });
-      if (yaReg === true) {
-        msg.style.color = 'var(--red)';
-        msg.textContent = '✓ Ya tenemos tu registro con esos datos. Te avisamos por mail y WhatsApp ni bien se complete el cupo. ¡Gracias!';
-        return;
-      }
-    } catch (_) { /* si el chequeo falla, dejamos continuar para no bloquear el registro */ }
-
-    const btn = document.getElementById('btnSubmit');
-    btn.disabled = true; btn.textContent = 'Subiendo documentación...';
-    msg.style.color='var(--muted)'; msg.textContent='Esto puede tardar unos segundos…';
-    try {
-      const [dniF, dniD, antF, monoF, self] = await Promise.all([
-        uploadFile('dni_frente','dnifrente'),
-        uploadFile('dni_dorso','dnidorso'),
-        uploadFile('antecedentes_file','antecedentes'),
-        uploadFile('monotributo_file','monotributo'),
-        uploadFile('selfie','selfie'),
-      ]);
-      const { error } = await sb.from('prestador_leads').insert({
-        nombre: val('nombre'),
-        apellido: val('apellido') || null,
-        dni: val('dni').replace(/\D/g,'') || null,
-        fecha_nac: val('fecha_nac') || null,
-        telefono: val('telefono').replace(/\D/g,''),
-        email: val('email') || null,
-        domicilio: val('domicilio') || null,
-        profesion: selectedProfs.map(p => p.name).join(', '),
-        profesion_id: selectedProfs[0]?.id || null,
-        matricula: val('matricula') || null,
-        matriculado: document.getElementById('matriculado')?.checked || false,
-        ciudad: val('ciudad') || null,
-        zona: val('zona') || null,
-        precio_visita: null,
-        experiencia: val('experiencia') || null,
-        antecedentes: val('antecedentes'),
-        monotributo: val('monotributo'),
-        monotributo_url: monoF,
-        dni_frente_url: dniF,
-        dni_dorso_url: dniD,
-        antecedentes_url: antF,
-        selfie_url: self,
-        fuente: FUENTE,
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: location.origin + location.pathname + '#registro',
+          queryParams: { prompt: 'select_account' },
+        },
       });
       if (error) throw error;
-      _regLimpiar();
-      document.getElementById('formContent').style.display = 'none';
-      document.getElementById('okBox').style.display = 'block';
-      document.getElementById('okBox').scrollIntoView({ behavior:'smooth', block:'center' });
-      fiesta();
-    } catch (e){
-      btn.disabled = false; btn.textContent = 'Enviar mi solicitud ⚡';
-      msg.style.color = 'var(--red)';
-      msg.textContent = 'Hubo un error al enviar. Probá de nuevo en un momento.';
+    } catch (e) {
       console.error(e);
+      btn.disabled = false;
+      msg.style.color = 'var(--red)';
+      msg.innerHTML = 'No pudimos abrir Google. Probá de nuevo o <a style="color:var(--yellow);cursor:pointer" onclick="verManual()">registrate con tu WhatsApp</a>.';
     }
   }
+
+  async function salirGoogle(){
+    try { await sb.auth.signOut(); } catch(e){}
+    vista('gStart');
+    $('btnGoogle').disabled = false;
+    $('gMsg').textContent = '';
+  }
+
+  // ── 2. Volvió de Google: mostrar la cuenta y confirmar ─────────────────
+  function datosDeCuenta(user){
+    const m = user.user_metadata || {};
+    const full = (m.full_name || m.name || '').trim();
+    const partes = full ? full.split(/\s+/) : [];
+    return {
+      email: user.email || '',
+      nombre: partes[0] || (user.email || '').split('@')[0] || 'Profesional',
+      apellido: partes.slice(1).join(' ') || null,
+      foto: m.avatar_url || m.picture || '',
+    };
+  }
+
+  async function mostrarConfirmar(user){
+    const d = datosDeCuenta(user);
+    $('gHola').textContent = '¡Hola, ' + d.nombre + '!';
+    $('gMail').textContent = d.email || 'tu cuenta de Google';
+    if (d.foto){ const img = $('gFoto'); img.src = d.foto; img.style.display = 'block'; $('gIni').style.display = 'none'; }
+    else { $('gIni').textContent = (d.nombre[0] || '·').toUpperCase(); }
+    vista('gConfirm');
+
+    // ¿Ya se había registrado? Le devolvemos su link en vez de duplicarlo.
+    try {
+      const { data: ya } = await sb.rpc('prestador_ya_registrado', { p_dni: '', p_email: d.email, p_tel: '' });
+      if (ya === true) {
+        const { data: token } = await sb.rpc('prestador_mi_token');
+        exito({ nombre: d.nombre, token: token || null, email: d.email, yaEstaba: true });
+      }
+    } catch (e) { /* si falla el chequeo, sigue el alta normal */ }
+  }
+
+  // ── 3. Crear el lead ──────────────────────────────────────────────────
+  async function registrarConGoogle(){
+    const btn = $('btnRegistrar'), msg = $('gcMsg');
+    const { data: { session } } = await sb.auth.getSession();
+    const user = session && session.user;
+    if (!user){ vista('gStart'); return; }
+    const d = datosDeCuenta(user);
+    if (!d.email){
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Tu cuenta de Google no tiene un email asociado. Probá con otra cuenta.';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Registrando…';
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Un momento…';
+
+    // Anti-duplicado (si el chequeo falla, no bloquea el registro)
+    try {
+      const { data: ya } = await sb.rpc('prestador_ya_registrado', { p_dni: '', p_email: d.email, p_tel: '' });
+      if (ya === true){
+        const { data: token } = await sb.rpc('prestador_mi_token');
+        exito({ nombre: d.nombre, token: token || null, email: d.email, yaEstaba: true });
+        return;
+      }
+    } catch (e) {}
+
+    const token = genToken();
+    try {
+      const { error } = await sb.from('prestador_leads').insert({
+        nombre: d.nombre,
+        apellido: d.apellido,
+        email: d.email,
+        user_id: user.id,
+        profesion: 'A completar',
+        fuente: FUENTE === 'landing' ? 'web-google' : FUENTE,
+        completar_token: token,
+      });
+      if (error) throw error;
+
+      // Mail con el link personal (misma función que usa el alta presencial).
+      let mailOk = false;
+      try {
+        const { error: fnErr } = await sb.functions.invoke('notify-datos-pendientes', { body: { token } });
+        mailOk = !fnErr;
+      } catch (e) {}
+
+      exito({ nombre: d.nombre, token, email: d.email, mailOk });
+    } catch (e) {
+      console.error(e);
+      btn.disabled = false; btn.textContent = 'Registrarme como profesional ⚡';
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Hubo un error al registrarte. Probá de nuevo en un momento.';
+    }
+  }
+
+  // ── 4. Respaldo sin Google (nombre + WhatsApp) ────────────────────────
+  async function registrarManual(){
+    const btn = $('btnManual'), msg = $('mMsg');
+    const v = id => ($(id).value || '').trim();
+    msg.style.color = 'var(--red)';
+    if (!v('m_nombre')){ msg.textContent = 'Falta tu nombre.'; return; }
+    if (!v('m_apellido')){ msg.textContent = 'Falta tu apellido.'; return; }
+    const tel = v('m_telefono').replace(/\D/g, '');
+    if (tel.length < 8){ msg.textContent = 'Falta tu WhatsApp (con característica, sin el 0 ni el 15).'; return; }
+    const email = v('m_email');
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.textContent = 'Ese email no parece válido. Corregilo o dejalo vacío.'; return; }
+
+    btn.disabled = true; btn.textContent = 'Registrando…';
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Un momento…';
+
+    try {
+      const { data: ya } = await sb.rpc('prestador_ya_registrado', { p_dni: '', p_email: email, p_tel: tel });
+      if (ya === true){
+        btn.disabled = false; btn.textContent = 'Registrarme ⚡';
+        msg.style.color = 'var(--red)';
+        msg.textContent = '✓ Ya tenemos tu registro con esos datos. Te avisamos ni bien se active tu zona. ¡Gracias!';
+        return;
+      }
+    } catch (e) {}
+
+    const token = genToken();
+    try {
+      const { error } = await sb.from('prestador_leads').insert({
+        nombre: v('m_nombre'),
+        apellido: v('m_apellido'),
+        telefono: tel,
+        email: email || null,
+        profesion: 'A completar',
+        fuente: 'web-whatsapp',
+        completar_token: token,
+      });
+      if (error) throw error;
+      let mailOk = false;
+      if (email){
+        try {
+          const r = await fetch(SUPABASE_URL + '/functions/v1/notify-datos-pendientes', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY },
+            body: JSON.stringify({ token }),
+          });
+          mailOk = r.ok;
+        } catch (e) {}
+      }
+      exito({ nombre: v('m_nombre'), token, email: email || '', mailOk });
+    } catch (e) {
+      console.error(e);
+      btn.disabled = false; btn.textContent = 'Registrarme ⚡';
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Hubo un error al registrarte. Probá de nuevo en un momento.';
+    }
+  }
+
+  // ── 5. Pantalla de éxito ──────────────────────────────────────────────
+  function exito({ nombre, token, email, mailOk, yaEstaba }){
+    $('okTitulo').textContent = yaEstaba
+      ? '¡' + nombre + ', ya estabas en BOLT!'
+      : '¡' + nombre + ', ya estás en BOLT!';
+    $('okSub').textContent = yaEstaba
+      ? 'Tenemos tu registro. Seguí desde donde lo dejaste.'
+      : 'Quedaste anotado entre los primeros profesionales de tu ciudad.';
+
+    if (token){
+      $('btnCompletar').href = linkCompletar(token);
+      $('okMailHint').textContent = email
+        ? (mailOk === false
+            ? 'También te va a llegar este link por mail a ' + email + '.'
+            : 'Te mandamos este mismo link por mail a ' + email + ' (mirá también en spam o promociones), así podés volver cuando quieras.')
+        : 'Guardá esta pantalla: este link es tuyo y podés volver cuando quieras.';
+    } else {
+      // Sin token no hay link personal: el mail que ya recibió es la vía.
+      $('btnCompletar').style.display = 'none';
+      $('okMailHint').textContent = email
+        ? 'Buscá en tu casilla ' + email + ' el mail de BOLT con tu link para completar los datos (mirá también en spam).'
+        : 'Te contactamos por WhatsApp para completar los datos que faltan.';
+    }
+
+    $('formContent').style.display = 'none';
+    $('okBox').style.display = 'block';
+    $('okBox').scrollIntoView({ behavior:'smooth', block:'center' });
+    fiesta();
+  }
+
+  // ── 6. Al cargar: ¿venimos de Google? ─────────────────────────────────
+  (async () => {
+    let session = null;
+    try { ({ data: { session } } = await sb.auth.getSession()); } catch (e) {}
+
+    // Limpiar de la URL el ?code= / #access_token= que deja el login.
+    if (/[?&]code=|[?&]error=|access_token=/.test(location.search + location.hash)){
+      const u = new URL(location.href);
+      ['code','state','error','error_description'].forEach(k => u.searchParams.delete(k));
+      history.replaceState({}, '', u.pathname + u.search + '#registro');
+    }
+
+    if (session && session.user){
+      await mostrarConfirmar(session.user);
+      document.querySelector('.form-box').scrollIntoView({ behavior:'smooth', block:'center' });
+    }
+  })();
 
   // 🎉 Confetti
   function fiesta(){
