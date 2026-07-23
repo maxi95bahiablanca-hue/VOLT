@@ -73,6 +73,7 @@ jobs:
       - name: Build release APK + AAB
         run: |
           cd android
+          chmod +x ./gradlew   # por si el bit de ejecución se pierde (Windows no lo conserva)
           ./gradlew assembleRelease bundleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
             -Pandroid.injected.signing.store.password=voltpass2024 \
