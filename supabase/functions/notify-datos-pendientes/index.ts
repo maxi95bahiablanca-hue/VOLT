@@ -38,6 +38,10 @@ serve(async (req) => {
     const { token, variante } = await req.json().catch(() => ({}));
     if (!token || typeof token !== 'string' || token.length < 20) return json({ error: 'token requerido' }, 400);
     const esRecordatorio = variante === 'recordatorio';
+    // 'web' = se anotó solo desde bolt.com.ar/prestadores (alta con Google).
+    // El texto por defecto ("junto al equipo de BOLT") es del alta presencial,
+    // donde Maxi lo carga con el trabajador adelante: no aplica acá.
+    const esWeb = variante === 'web';
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -84,10 +88,14 @@ serve(async (req) => {
         </td>
       </tr>`).join('');
 
-    const badgeTxt = esRecordatorio ? '&#9200;&nbsp;&nbsp;Te falta poco' : '&#9889;&nbsp;&nbsp;Registro iniciado';
+    const badgeTxt = esRecordatorio
+      ? '&#9200;&nbsp;&nbsp;Te falta poco'
+      : (esWeb ? '&#9889;&nbsp;&nbsp;Ya estás anotado' : '&#9889;&nbsp;&nbsp;Registro iniciado');
     const h1Txt    = esRecordatorio ? `${nombre}, tu lugar en BOLT te espera` : `¡Bienvenido a BOLT, ${nombre}!`;
     const introTxt = esRecordatorio
       ? `Hace unos días iniciamos tu registro como profesional y quedó <strong style="color:#FFD600;">guardado</strong>. Te falta poco: completá estos datos y quedás listo para empezar a recibir trabajos cerca tuyo:`
+      : esWeb
+      ? `Te anotaste como profesional en BOLT y <strong style="color:#FFD600;">ya quedaste registrado</strong> entre los primeros de tu zona. Para activar tu perfil y empezar a recibir trabajos cerca tuyo, solo falta que completes esto:`
       : `Ya iniciamos tu registro como profesional junto al equipo de BOLT. Para <strong style="color:#FFD600;">activar tu perfil</strong> y empezar a recibir trabajos cerca tuyo, solo falta que completes esto:`;
 
     const cuerpoFaltan = `
@@ -282,6 +290,8 @@ serve(async (req) => {
     const subject = faltan.length
       ? (esRecordatorio
           ? `⏰ ${nombre}, te falta poco para activar tu perfil en BOLT`
+          : esWeb
+          ? `⚡ ${nombre}, ya estás anotado en BOLT — falta completar tus datos`
           : `⚡ ${nombre}, completá tu registro en BOLT — falta${faltan.length > 1 ? 'n' : ''} ${faltan.length} dato${faltan.length > 1 ? 's' : ''}`)
       : 'Tu registro en BOLT está completo ⚡';
 

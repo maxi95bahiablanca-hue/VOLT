@@ -455,7 +455,7 @@
       // Mail con el link personal (misma función que usa el alta presencial).
       let mailOk = false;
       try {
-        const { error: fnErr } = await sb.functions.invoke('notify-datos-pendientes', { body: { token } });
+        const { error: fnErr } = await sb.functions.invoke('notify-datos-pendientes', { body: { token, variante: 'web' } });
         mailOk = !fnErr;
       } catch (e) {}
 
@@ -511,7 +511,7 @@
           const r = await fetch(SUPABASE_URL + '/functions/v1/notify-datos-pendientes', {
             method: 'POST',
             headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY },
-            body: JSON.stringify({ token }),
+            body: JSON.stringify({ token, variante: 'web' }),
           });
           mailOk = r.ok;
         } catch (e) {}
