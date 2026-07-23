@@ -325,7 +325,13 @@
 <script>
   const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // flowType 'pkce': la vuelta de Google trae ?code= en la query.
+  // Con el flujo por defecto (implicit) el token viene en el #hash, y cualquier
+  // ancla nuestra en la URL de retorno lo pisaba: el usuario volvía logueado en
+  // Google pero sin sesión acá, y veía otra vez el botón de registrarse.
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
+  });
   // ═══════════════════════════════════════════════════════════════════════
   //  ALTA DE PROFESIONAL — SOLO CON GOOGLE
   //  Antes: 3 pasos + 5 documentos obligatorios acá mismo. Se caía muchísima
@@ -362,7 +368,7 @@
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: location.origin + location.pathname + '#registro',
+          redirectTo: location.origin + location.pathname, // sin ancla: el #hash rompe el retorno
           queryParams: { prompt: 'select_account' },
         },
       });
@@ -556,19 +562,47 @@
   }
 
   // ── 6. Al cargar: ¿venimos de Google? ─────────────────────────────────
+  //    El intercambio del ?code= por la sesión es asincrónico. Si preguntáramos
+  //    una sola vez podríamos llegar antes de que termine y mostrarle otra vez
+  //    el botón de registrarse a alguien que YA se logueó.
   (async () => {
-    let session = null;
-    try { ({ data: { session } } = await sb.auth.getSession()); } catch (e) {}
+    const url = new URL(location.href);
+    const volvimosDeGoogle = url.searchParams.has('code') || url.searchParams.has('error') || /access_token=/.test(location.hash);
+    const errGoogle = url.searchParams.get('error_description') || url.searchParams.get('error');
 
-    // Limpiar de la URL el ?code= / #access_token= que deja el login.
-    if (/[?&]code=|[?&]error=|access_token=/.test(location.search + location.hash)){
-      const u = new URL(location.href);
-      ['code','state','error','error_description'].forEach(k => u.searchParams.delete(k));
-      history.replaceState({}, '', u.pathname + u.search + '#registro');
+    // Red de seguridad: si la sesión aparece más tarde, reaccionamos igual.
+    sb.auth.onAuthStateChange((evento, sesion) => {
+      if (sesion && sesion.user && $('gConfirm').style.display === 'none' && $('okBox').style.display !== 'block') {
+        mostrarConfirmar(sesion.user);
+      }
+    });
+
+    let session = null;
+    for (let intento = 0; intento < (volvimosDeGoogle ? 12 : 1); intento++) {
+      try { ({ data: { session } } = await sb.auth.getSession()); } catch (e) {}
+      if (session && session.user) break;
+      await new Promise(r => setTimeout(r, 400)); // hasta ~5s esperando el intercambio
     }
 
-    if (session && session.user){
+    // Limpiar de la URL el ?code= que deja el login (sin ancla: rompe el retorno).
+    if (volvimosDeGoogle) {
+      ['code','state','error','error_description'].forEach(k => url.searchParams.delete(k));
+      history.replaceState({}, '', url.pathname + url.search);
+    }
+
+    if (session && session.user) {
       await mostrarConfirmar(session.user);
+      document.querySelector('.form-box').scrollIntoView({ behavior:'smooth', block:'center' });
+      return;
+    }
+
+    // Volvió de Google pero no quedó sesión: hay que decirlo, no dejarlo en la nada.
+    if (volvimosDeGoogle) {
+      const m = $('gMsg');
+      m.style.color = 'var(--red)';
+      m.innerHTML = errGoogle
+        ? 'Google no completó el ingreso (' + String(errGoogle).slice(0, 80) + '). Probá de nuevo o <a style="color:var(--yellow);cursor:pointer" onclick="verManual()">registrate con tu WhatsApp</a>.'
+        : 'No pudimos terminar de entrar con Google. Si estás dentro de otra app (WhatsApp, Instagram), abrí esta página en Chrome. También podés <a style="color:var(--yellow);cursor:pointer" onclick="verManual()">registrarte con tu WhatsApp</a>.';
       document.querySelector('.form-box').scrollIntoView({ behavior:'smooth', block:'center' });
     }
   })();
