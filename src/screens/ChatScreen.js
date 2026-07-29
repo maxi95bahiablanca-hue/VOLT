@@ -7,7 +7,11 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import chatService from '../services/chatService';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { Audio } from 'expo-av';
+import ChatAttachment from '../components/ChatAttachment';
+import chatService, { ETIQUETA } from '../services/chatService';
 import demoChatService from '../demo/demoChatService';
 import { isDemoMode } from '../demo/demoMode';
 import volt from '../utils/voltVoice';
@@ -50,13 +54,20 @@ const CLIENT_QUICK = [
   '¡Excelente trabajo!',
 ];
 
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
 const ChatScreen = ({ job, userId, isWorker, onClose }) => {
   const [messages, setMessages] = useState([]);
   const [text, setText]         = useState('');
   const [loading, setLoading]   = useState(true);
   const [sending, setSending]   = useState(false);
+  const [subiendo, setSubiendo] = useState(false);   // hay un adjunto en camino
+  const [grabando, setGrabando] = useState(false);
+  const [segundos, setSegundos] = useState(0);
   const listRef    = useRef(null);
   const channelRef = useRef(null);
+  const recRef     = useRef(null);
+  const cronoRef   = useRef(null);
   const insets     = useSafeAreaInsets();
   const chat = isDemoMode() ? demoChatService : chatService;
 
@@ -75,6 +86,11 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
       mounted = false;
       if (chat.unsubscribe) chat.unsubscribe(channelRef.current);
       else channelRef.current?.unsubscribe?.();
+      // Si sale del chat grabando, se corta y se descarta: no dejamos el
+      // micrófono tomado ni un archivo colgado.
+      clearInterval(cronoRef.current);
+      recRef.current?.stopAndUnloadAsync?.().catch(() => {});
+      recRef.current = null;
     };
   }, [job.id]);
 
@@ -111,6 +127,117 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
     }
   };
 
+  // ─── Adjuntos ─────────────────────────────────────────────────────────────
+  // Se manda uno por vez y con aviso mientras sube: en el medio de un trabajo,
+  // nadie se queda mirando una pantalla trabada sin saber si salió o no.
+  const enviarAdjunto = async ({ uri, tipo, nombre, mime, duracion }) => {
+    if (subiendo) return;
+    setSubiendo(true);
+    try {
+      await chat.sendAttachment(job.id, userId, { uri, tipo, nombre, mime, duracion });
+      if (!isDemoMode()) {
+        const otherId = isWorker ? job.client_id : job.professionals?.user_id;
+        const fromName = isWorker ? (job.professionals?.first_name || 'El profesional') : 'El cliente';
+        if (otherId) {
+          notificationService.sendToUser(otherId, {
+            title: `💬 ${fromName}`,
+            body:  ETIQUETA[tipo] || '📎 Adjunto',
+            data:  { jobId: job.id, screen: 'tracking' },
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      Alert.alert('No se pudo enviar', e?.message || 'Revisá tu conexión e intentá de nuevo.');
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const elegirDeGaleria = async (soloFotos) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos.'); return; }
+    const r = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: soloFotos ? ['images'] : ['images', 'videos'],
+      quality: 0.7,
+      videoMaxDuration: 60,
+    });
+    if (r.canceled) return;
+    const a = r.assets[0];
+    const esVideo = a.type === 'video';
+    await enviarAdjunto({
+      uri: a.uri,
+      tipo: esVideo ? 'video' : 'image',
+      nombre: a.fileName || undefined,
+      mime: a.mimeType || (esVideo ? 'video/mp4' : 'image/jpeg'),
+      duracion: a.duration ? Math.round(a.duration / 1000) : undefined,
+    });
+  };
+
+  const sacarFoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permiso requerido', 'Necesitamos la cámara.'); return; }
+    const r = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    if (r.canceled) return;
+    await enviarAdjunto({ uri: r.assets[0].uri, tipo: 'image', mime: 'image/jpeg' });
+  };
+
+  const elegirArchivo = async () => {
+    const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+    if (r.canceled) return;
+    const a = r.assets[0];
+    await enviarAdjunto({ uri: a.uri, tipo: 'file', nombre: a.name, mime: a.mimeType });
+  };
+
+  const abrirAdjuntos = () => {
+    Alert.alert('Adjuntar', '¿Qué querés mandar?', [
+      { text: 'Sacar una foto',        onPress: sacarFoto },
+      { text: 'Foto o video',          onPress: () => elegirDeGaleria(false) },
+      { text: 'Un archivo',            onPress: elegirArchivo },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  // ─── Audio ────────────────────────────────────────────────────────────────
+  const grabarAudio = async () => {
+    try {
+      const permiso = await Audio.requestPermissionsAsync();
+      if (!permiso.granted) { Alert.alert('Permiso requerido', 'Necesitamos el micrófono.'); return; }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      recRef.current = recording;
+      setGrabando(true);
+      setSegundos(0);
+      cronoRef.current = setInterval(() => {
+        setSegundos(s => {
+          // Tope de 5 minutos: más que eso no es un mensaje, es una llamada.
+          if (s >= 300) { detenerAudio(false); return s; }
+          return s + 1;
+        });
+      }, 1000);
+    } catch {
+      Alert.alert('Ups', 'No pudimos acceder al micrófono.');
+    }
+  };
+
+  const detenerAudio = async (descartar) => {
+    clearInterval(cronoRef.current);
+    const rec = recRef.current;
+    recRef.current = null;
+    const dur = segundos;
+    setGrabando(false);
+    setSegundos(0);
+    if (!rec) return;
+    try {
+      await rec.stopAndUnloadAsync();
+      const uri = rec.getURI();
+      if (descartar || !uri) return;
+      if (dur < 1) { Alert.alert('Muy corto', 'Mantené apretado un poquito más para que se escuche.'); return; }
+      await enviarAdjunto({ uri, tipo: 'audio', mime: 'audio/m4a', duracion: dur });
+    } catch {
+      Alert.alert('Ups', 'No pudimos guardar el audio.');
+    }
+  };
+
   const renderMsg = ({ item }) => {
     if (item.type === 'system') {
       return (
@@ -121,12 +248,19 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
     }
     const isMine = item.sender_id === userId;
     const time   = new Date(item.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    const conAdjunto = !!item.attachment_url;
     return (
       <View style={[styles.msgRow, isMine ? styles.msgRowMine : styles.msgRowOther]}>
-        <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
-          <Text style={[styles.bubbleText, isMine ? styles.bubbleTextMine : styles.bubbleTextOther]}>
-            {item.content}
-          </Text>
+        <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther, conAdjunto && styles.bubbleAdjunto]}>
+          {conAdjunto && <ChatAttachment msg={item} mine={isMine} />}
+          {/* Con adjunto, el texto es sólo la etiqueta ("📷 Foto"): no hace
+              falta repetirla debajo de la imagen. En audio y archivo tampoco,
+              que ya se explican solos. */}
+          {!conAdjunto && (
+            <Text style={[styles.bubbleText, isMine ? styles.bubbleTextMine : styles.bubbleTextOther]}>
+              {item.content}
+            </Text>
+          )}
           <View style={styles.bubbleMeta}>
             <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>{time}</Text>
             {isMine && (
@@ -323,29 +457,59 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
             )}
           />
 
-          {/* Input */}
-          <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-            <TextInput
-              style={styles.input}
-              placeholder="Escribí un mensaje..."
-              placeholderTextColor="#444"
-              value={text}
-              onChangeText={setText}
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity
-              style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
-              onPress={() => send()}
-              disabled={!text.trim() || sending}
-              activeOpacity={0.8}
-            >
-              {sending
-                ? <ActivityIndicator size="small" color="#0A0A0A" />
-                : <Ionicons name="send" size={18} color="#0A0A0A" />
-              }
-            </TouchableOpacity>
-          </View>
+          {/* Barra de grabación: reemplaza al input mientras se graba */}
+          {grabando ? (
+            <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+              <TouchableOpacity style={styles.cancelarGrab} onPress={() => detenerAudio(true)} activeOpacity={0.8}>
+                <Ionicons name="trash-outline" size={20} color="#ff4444" />
+              </TouchableOpacity>
+              <View style={styles.grabandoWrap}>
+                <View style={styles.grabandoDot} />
+                <Text style={styles.grabandoTxt}>Grabando {mmss(segundos)}</Text>
+              </View>
+              <TouchableOpacity style={styles.sendBtn} onPress={() => detenerAudio(false)} activeOpacity={0.8}>
+                <Ionicons name="send" size={18} color="#0A0A0A" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            /* Input */
+            <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+              <TouchableOpacity
+                style={styles.adjuntarBtn}
+                onPress={abrirAdjuntos}
+                disabled={subiendo}
+                activeOpacity={0.8}
+              >
+                {subiendo
+                  ? <ActivityIndicator size="small" color="#FFD600" />
+                  : <Ionicons name="add" size={24} color="#FFD600" />
+                }
+              </TouchableOpacity>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Escribí un mensaje..."
+                placeholderTextColor="#444"
+                value={text}
+                onChangeText={setText}
+                multiline
+                maxLength={500}
+              />
+
+              {/* Con texto escrito manda; vacío, graba un audio */}
+              <TouchableOpacity
+                style={[styles.sendBtn, sending && styles.sendBtnDisabled]}
+                onPress={() => (text.trim() ? send() : grabarAudio())}
+                disabled={sending || subiendo}
+                activeOpacity={0.8}
+              >
+                {sending
+                  ? <ActivityIndicator size="small" color="#0A0A0A" />
+                  : <Ionicons name={text.trim() ? 'send' : 'mic'} size={18} color="#0A0A0A" />
+                }
+              </TouchableOpacity>
+            </View>
+          )}
         </KeyboardAvoidingView>
       )}
     </SafeAreaView>
@@ -443,6 +607,8 @@ const styles = StyleSheet.create({
   msgRowOther: { alignSelf: 'flex-start' },
 
   bubble:      { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
+  // Con adjunto se achica el padding: la imagen o el reproductor mandan la forma
+  bubbleAdjunto: { paddingHorizontal: 6, paddingVertical: 6 },
   bubbleMine:  { backgroundColor: '#FFD600', borderBottomRightRadius: 4 },
   bubbleOther: { backgroundColor: '#2a2a2a', borderBottomLeftRadius: 4 },
 
@@ -482,6 +648,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
+
+  adjuntarBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#1f1f1f', borderWidth: 1, borderColor: '#2e2e2e',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cancelarGrab: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255,68,68,0.10)', borderWidth: 1, borderColor: 'rgba(255,68,68,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  grabandoWrap: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9,
+    height: 44, paddingHorizontal: 16,
+    backgroundColor: '#1f1f1f', borderRadius: 22,
+    borderWidth: 1, borderColor: 'rgba(255,68,68,0.35)',
+  },
+  grabandoDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#ff4444' },
+  grabandoTxt: { color: '#F5F5F5', fontSize: 14, fontWeight: '700' },
   sendBtnDisabled: { opacity: 0.4 },
 });
 

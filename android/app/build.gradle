@@ -89,13 +89,24 @@ android {
 
     namespace 'com.bolt.app'
     defaultConfig {
-        applicationId 'ar.com.bolt.com'
+        // Por defecto es la app de Play. Con -PappId=... sale una app aparte, que
+        // se instala AL LADO de la de Play para poder probar sin desinstalarla
+        // (desinstalar pone en riesgo el conteo de testers de la prueba cerrada).
+        // Usar sólo packages ya registrados en Firebase (google-services.json),
+        // o el build falla con "No matching client found for package name".
+        applicationId findProperty('appId') ?: 'ar.com.bolt.com'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 11
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+
+        // Nombre visible. En el build de prueba cambia para no confundirla con la
+        // app real en el cajón de aplicaciones. Va acá y no en strings.xml porque
+        // ahí no se puede condicionar (si se regenera strings.xml con un
+        // app_name, hay que sacarlo o Gradle se queja de recurso duplicado).
+        resValue "string", "app_name", (findProperty('appName') ?: 'BOLT')
     }
     signingConfigs {
         debug {

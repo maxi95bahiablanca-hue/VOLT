@@ -67,6 +67,30 @@ const demoChatService = {
     return mine;
   },
 
+  // En el demo no hay servidor donde subir nada: se muestra el adjunto local y
+  // el profesional contesta como si lo hubiera visto.
+  sendAttachment: async (_jobId, senderId, { uri, tipo, nombre, duracion }) => {
+    const etiquetas = { image: '📷 Foto', video: '🎥 Video', audio: '🎤 Audio', file: '📎 Archivo' };
+    const mine = {
+      id: newId(), type: 'text', sender_id: senderId,
+      content: etiquetas[tipo] || '📎 Adjunto',
+      attachment_url: uri, attachment_type: tipo,
+      attachment_name: nombre ?? null, attachment_duration: duracion ?? null,
+      created_at: new Date().toISOString(), read_by_other: true,
+    };
+    if (_onNew) {
+      _onNew(mine);
+      setTimeout(() => {
+        _onNew && _onNew({
+          id: newId(), type: 'text', sender_id: 'demo-prof-1',
+          content: tipo === 'audio' ? 'Escuché el audio, ya entiendo el problema 👌' : 'Vi lo que me mandaste, gracias 👍',
+          created_at: new Date().toISOString(), read_by_other: false,
+        });
+      }, 1600);
+    }
+    return mine;
+  },
+
   sendSystemMessage: async () => {},
   markAsRead: async () => {},
   getUnreadCount: async () => 0,

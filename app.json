@@ -37,7 +37,8 @@
         "NSLocationAlwaysUsageDescription": "Si trabajás con BOLT, compartimos tu ubicación mientras estás en camino a un trabajo para que el cliente pueda seguir tu llegada. Solo mientras tenés un trabajo aceptado.",
         "NSCameraUsageDescription": "Necesitamos la cámara para que puedas sacar la foto de tu DNI, tu selfie de verificación y fotos del trabajo a realizar.",
         "NSPhotoLibraryUsageDescription": "Necesitamos acceso a tus fotos para que puedas adjuntar imágenes del trabajo y tu documentación.",
-        "NSPhotoLibraryAddUsageDescription": "Guardamos en tus fotos los comprobantes que descargues desde la app."
+        "NSPhotoLibraryAddUsageDescription": "Guardamos en tus fotos los comprobantes que descargues desde la app.",
+        "NSMicrophoneUsageDescription": "BOLT usa el micrófono para que puedas mandar audios explicando el problema, en el chat con el profesional."
       }
     },
     "android": {

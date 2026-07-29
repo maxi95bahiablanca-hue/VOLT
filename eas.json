@@ -8,8 +8,12 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "android": { "buildType": "apk" },
-      "ios": { "simulator": true },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://lyeqnvldemcltlbujlnc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0",
@@ -19,8 +23,12 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "android": { "buildType": "apk" },
-      "ios": { "simulator": true },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://lyeqnvldemcltlbujlnc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0",
@@ -35,6 +43,20 @@
       },
       "ios": {
         "credentialsSource": "remote"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://lyeqnvldemcltlbujlnc.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0",
+        "EXPO_PUBLIC_MP_PUBLIC_KEY": "TEST-98324a02-6443-4944-a232-4eb67dd727ac"
+      }
+    },
+    "test": {
+      "distribution": "internal",
+      "channel": "test",
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "local",
+        "gradleCommand": ":app:assembleRelease -PappId=com.bolt.app -PappName=BOLT-PRUEBA"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://lyeqnvldemcltlbujlnc.supabase.co",
