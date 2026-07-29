@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   ActivityIndicator, Platform, TextInput, KeyboardAvoidingView,
@@ -8,6 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '../supabase';
 
 const LoginScreen = () => {
@@ -19,6 +20,7 @@ const LoginScreen = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
   const [success, setSuccess] = useState(null);
+  const [appleDisponible, setAppleDisponible] = useState(false);
 
   // ─── Google OAuth ────────────────────────────────────────
   const signInWithGoogle = async () => {
@@ -52,6 +54,51 @@ const LoginScreen = () => {
       }
     } catch {
       setError('No se pudo iniciar sesión con Google. Intentá de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Sign in with Apple ──────────────────────────────────
+  // Apple lo exige en iOS cuando la app ofrece login con Google (guideline 4.8).
+  // El botón sólo se muestra si el dispositivo lo soporta (iOS 13+).
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    AppleAuthentication.isAvailableAsync()
+      .then(setAppleDisponible)
+      .catch(() => setAppleDisponible(false));
+  }, []);
+
+  const signInWithApple = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) throw new Error('Apple no devolvió el token');
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+      if (error) throw error;
+
+      // Apple manda el nombre UNA sola vez, en el primer ingreso. Si no lo
+      // guardamos ahora, se pierde para siempre.
+      const nombre = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean).join(' ').trim();
+      if (nombre) {
+        await supabase.auth.updateUser({ data: { full_name: nombre } }).catch(() => {});
+      }
+    } catch (e) {
+      // Cancelar no es un error que haya que mostrarle a nadie
+      if (e?.code !== 'ERR_REQUEST_CANCELED' && e?.code !== 'ERR_CANCELED') {
+        setError('No se pudo iniciar sesión con Apple. Intentá de nuevo.');
+      }
     } finally {
       setLoading(false);
     }
@@ -134,6 +181,17 @@ const LoginScreen = () => {
                 </>
               )}
             </TouchableOpacity>
+
+            {/* Botón Apple (solo iOS) */}
+            {appleDisponible && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={14}
+                style={styles.appleBtn}
+                onPress={signInWithApple}
+              />
+            )}
 
             {/* Botón email */}
             <TouchableOpacity
@@ -307,6 +365,8 @@ const styles = StyleSheet.create({
     gap: 12, backgroundColor: '#F5F5F5',
     borderRadius: 16, paddingVertical: 18, marginBottom: 10,
   },
+  // La altura la fija Apple: su botón nativo no acepta padding propio
+  appleBtn: { height: 56, marginBottom: 10 },
   googleIcon: {
     width: 24, height: 24, borderRadius: 12,
     backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',

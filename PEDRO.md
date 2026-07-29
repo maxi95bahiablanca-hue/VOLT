@@ -135,24 +135,35 @@ EAS te genera los certificados y el provisioning profile solo — no hace falta 
 nada en el portal de Apple. `eas submit` te va a pedir tu Apple ID y el App-Specific
 Password.
 
-### 6.4 Los tres motivos por los que te la van a rechazar
+### 6.4 Los tres motivos de rechazo — estado
 
-Esto no es teoría — son las causas más comunes de rechazo y **esta app pega en las tres**:
+Son las causas más comunes de rechazo y esta app pegaba en las tres. **Dos están
+resueltas en el código** (29-jul-2026); la tercera es trámite tuyo:
 
-1. 🔴 **Falta "Sign in with Apple".** La guideline **4.8** exige que, si ofrecés login
-   con Google (y lo ofrecemos), también ofrezcas Sign in with Apple. **Hay que
-   implementarlo**: `expo-apple-authentication` + habilitar el provider Apple en Supabase.
-   Es trabajo real, contalo en el presupuesto de tiempo.
+1. ✅ **"Sign in with Apple" (guideline 4.8) — implementado.** `expo-apple-authentication`
+   instalado, `ios.usesAppleSignIn: true` y el plugin en `app.json`, y el botón nativo en
+   `src/screens/LoginScreen.js` (sólo aparece en iOS, vía `isAvailableAsync()`). Usa
+   `supabase.auth.signInWithIdToken({ provider: 'apple' })` y guarda el nombre en el
+   primer ingreso, que es la única vez que Apple lo manda.
 
-2. 🔴 **Falta borrar la cuenta desde la app.** La guideline **5.1.1(v)** exige que el
-   usuario pueda eliminar su cuenta desde adentro de la app, no sólo desactivarla. Hoy no
-   existe esa opción. Va en `src/screens/ProfileScreen.js`.
+   ⚠️ **Falta lo que sólo podés hacer vos, con tu cuenta de Apple:**
+   - En **developer.apple.com** → Identifiers → tu App ID → habilitar **Sign In with Apple**;
+     crear una **Services ID** y una **key** de Sign in with Apple.
+   - En **Supabase** → Authentication → Providers → **Apple**: pegar Services ID, Team ID,
+     Key ID y la clave `.p8`. **Sin esto el botón sale pero el login falla.**
+
+2. ✅ **Borrar la cuenta desde la app (guideline 5.1.1(v)) — implementado.** Botón "Borrar
+   mi cuenta" al final de `src/screens/ProfileScreen.js`, con doble confirmación. Llama a
+   `authService.deleteAccount()` → RPC `borrar_mi_cuenta()`
+   (`supabase/migrations/032_borrar_cuenta.sql`, **ya aplicada en producción**).
+   Es un borrado real: se lleva trabajos, mensajes, calificaciones, push tokens, el perfil
+   de profesional y la fila de `auth.users`. La función es `SECURITY DEFINER` y sólo puede
+   borrar al usuario de la sesión que la llama (`auth.uid()`), nunca a otro.
 
 3. 🟡 **Ubicación en background.** Apple la revisa con lupa. Los textos de permiso ya
-   están escritos y son claros (`app.json` → `ios.infoPlist`), pero preparate para
-   grabar un video mostrando el caso de uso y para explicarlo en las notas de revisión.
-   El argumento es el mismo que el de una app de viajes: se comparte la ubicación
-   **sólo mientras el profesional está yendo a un trabajo aceptado**.
+   están escritos y son claros (`app.json` → `ios.infoPlist`). Falta grabar el video del
+   caso de uso; las notas de revisión ya están redactadas en **`APPLE_REVIEW.md`** —
+   copialas tal cual en App Store Connect.
 
 Lo bueno: **no hay pagos dentro de la app** (`MONETIZATION_MODE = 'free'`), así que te
 ahorrás toda la discusión de In-App Purchase.
@@ -201,6 +212,18 @@ rompe nada: se mantienen el proyecto, el `projectId`, el canal de OTA y las cred
 Alternativa si no quiere convertirla: Pedro crea su propio proyecto de Expo para iOS y usa
 su `projectId`. Funciona, pero quedan dos proyectos separados y el OTA de Android sigue en
 el de Maxi. Es más prolijo convertir la cuenta.
+
+**✅ El keystore de Android ya está en EAS** (29-jul-2026). Se subió
+`credentials/bolt-upload.keystore` a la cuenta de Expo y quedó como credencial por defecto
+de `ar.com.bolt.com` (SHA-1 `A9:1D:C8:58:2B:42:F6:7A:42:39:57:BF:60:28:A1:21:56:DE:6F:AC`,
+el mismo que espera Google Play). Ya no hace falta tener el archivo en la máquina para
+firmar.
+
+⚠️ **`eas.json` sigue con `credentialsSource: "local"` en el perfil `production` de
+Android, y así tiene que quedar por ahora.** Cambiarlo a `remote` sin necesidad no aporta
+nada; lo peligroso sería lo contrario: borrar el keystore de EAS o dejar que EAS genere uno
+nuevo. Si alguna vez EAS ofrece "generate new keystore" para Android, **decir que no**: con
+un keystore distinto, Play deja de aceptar las actualizaciones de la app publicada.
 
 ---
 

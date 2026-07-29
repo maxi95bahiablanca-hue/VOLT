@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../supabase';
+import authService from '../services/authService';
 import { showSuccess, showError } from '../utils/toast';
 import cardService from '../services/cardService';
 import MPCardForm from '../components/MPCardForm';
@@ -26,6 +27,7 @@ const LEVEL_MAP = (jobs, rating) => {
 
 const ProfileScreen = ({ session, professional, onClose }) => {
   const [signingOut, setSigningOut]       = useState(false);
+  const [deleting, setDeleting]           = useState(false);
   const [showWorkerPanel, setWorkerPanel] = useState(false);
   const [showAdmin, setShowAdmin]         = useState(false);
   const [photoUrl, setPhotoUrl]           = useState(null);
@@ -179,6 +181,38 @@ const ProfileScreen = ({ session, professional, onClose }) => {
     setSigningOut(true);
     await supabase.auth.signOut().catch(() => {});
     setSigningOut(false);
+  };
+
+  // Borrar la cuenta. Apple lo exige (guideline 5.1.1(v)) y tiene que borrar de
+  // verdad: la función de la base se lleva perfil, trabajos, chats y la cuenta.
+  // Dos confirmaciones porque no hay vuelta atrás.
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Borrar mi cuenta',
+      'Se van a borrar tu cuenta y todos tus datos: perfil, trabajos, mensajes y calificaciones.\n\nEsto no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Continuar', style: 'destructive', onPress: () => {
+          Alert.alert(
+            '¿Seguro?',
+            'Última confirmación. Al tocar "Borrar" perdés el acceso y no se puede recuperar.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Borrar', style: 'destructive', onPress: async () => {
+                setDeleting(true);
+                try {
+                  await authService.deleteAccount();
+                  // La sesión ya se cerró: App.js manda al login solo.
+                } catch (e) {
+                  setDeleting(false);
+                  showError(e.message || 'No se pudo borrar la cuenta. Probá de nuevo.');
+                }
+              } },
+            ],
+          );
+        } },
+      ],
+    );
   };
 
   const level = professional
@@ -438,6 +472,26 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           <Text style={styles.signOutText}>Cerrar sesión</Text>
         </TouchableOpacity>
 
+        {/* Borrar cuenta */}
+        <TouchableOpacity
+          style={styles.deleteAccountBtn}
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+          activeOpacity={0.8}
+        >
+          {deleting ? (
+            <ActivityIndicator color="#888" size="small" />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={16} color="#888" />
+              <Text style={styles.deleteAccountText}>Borrar mi cuenta</Text>
+            </>
+          )}
+        </TouchableOpacity>
+        <Text style={styles.deleteAccountHint}>
+          Se borran tu cuenta y todos tus datos. No se puede deshacer.
+        </Text>
+
         <Text style={styles.version}>BOLT v1.0</Text>
 
       </ScrollView>
@@ -598,6 +652,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   signOutText: { color: '#ff4444', fontSize: 15, fontWeight: '700' },
+
+  deleteAccountBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 12, marginBottom: 6,
+  },
+  deleteAccountText: { color: '#888', fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
+  deleteAccountHint: { textAlign: 'center', fontSize: 11, color: '#3a3a3a', marginBottom: 20, lineHeight: 16 },
 
   version: { textAlign: 'center', fontSize: 12, color: '#2a2a2a' },
 });

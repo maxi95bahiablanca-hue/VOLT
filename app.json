@@ -24,6 +24,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.bolt.app",
       "buildNumber": "1",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
@@ -109,6 +110,7 @@
           "isAndroidBackgroundLocationEnabled": true
         }
       ],
+      "expo-apple-authentication",
       "expo-font"
     ],
     "extra": {
