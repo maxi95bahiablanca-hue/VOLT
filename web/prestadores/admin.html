@@ -209,6 +209,7 @@
       .order('created_at', { ascending: false });
     if (error){ alert('Error cargando: ' + error.message); return; }
     LEADS = data || [];
+    await cargarProfesionales();   // para el chip de "puede recibir trabajos"
     // llenar filtro de profesiones (un oficio por opción, no la cadena completa)
     const profs = [...new Set(LEADS.flatMap(oficiosDe))].sort();
     const sel = document.getElementById('fProf');
@@ -238,6 +239,35 @@ En principio todo va a ser gratuito, y vamos a lanzar una campaña de publicidad
 Cualquier consulta o duda, quedo a tu disposición. ¡Muchas gracias!`;
   }
   function waLink(l){ const n=(l.telefono||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10)); return 'https://wa.me/'+full+'?text='+encodeURIComponent(waMensaje(l)); }
+
+  // ── Mail para pedir el oficio (el único dato que no podemos cargar nosotros) ──
+  // pp_insert_own exige ser el dueño de la ficha, así que el oficio lo tiene que
+  // guardar la persona con su propia cuenta. El link la lleva justo a eso: entra
+  // con Google, toca su oficio y listo — la página detecta que ya está registrada
+  // y no le pide nada más.
+  function mailOficio(l){
+    const nombre = (l.nombre || '').trim();
+    const asunto = 'BOLT — falta un solo dato para activar tu perfil';
+    const cuerpo = `Hola ${nombre || ''}, soy Maximiliano de BOLT.
+
+Ya tenemos tu registro como profesional. Me falta un solo dato para activarte: qué oficio hacés.
+
+Son 10 segundos:
+
+1. Entrá a https://bolt.com.ar/prestadores
+2. Tocá "Continuar con Google" y usá la misma cuenta con la que te registraste
+3. Elegí tu oficio (hasta 3) y tocá "Guardar mi oficio"
+
+Con eso queda listo. Cuando te activemos te aviso, y desde ahí abrís BOLT, prendés el radar y empezás a recibir pedidos de clientes de tu zona.
+
+Cualquier duda respondeme este mail.
+
+Gracias!
+Maximiliano — BOLT
+https://bolt.com.ar`;
+    return 'mailto:' + encodeURIComponent(l.email || '') +
+           '?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo);
+  }
 
   // ===== Datos faltantes (mismo checklist que el mail automático) =====
   const CHECK_FALTA = [
@@ -328,6 +358,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
             <br><span style="color:var(--muted2)">${esc(l.fuente||'landing')} · ${fecha}</span>
           </div>
           ${chipFalta}
+          ${(() => { const e = estadoEnApp(l); return `<span class="ante ${e.cls}">${esc(e.txt)}</span>`; })()}
           ${ante?`<span class="ante ${anteCls}">🛡️ ${esc(ante)}</span>`:''}
           <div class="docs">
             ${doc(l.dni_frente_url,'DNI frente')}
@@ -339,6 +370,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
         </div>
         <div class="lead-actions">
           <a class="wa" href="${waLink(l)}" target="_blank">💬 WhatsApp</a>
+          ${estadoEnApp(l).cls === 'no' && l.email ? `<a class="wa" style="background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.35);color:var(--yellow)" href="${mailOficio(l)}">✉️ Pedirle el oficio</a>` : ''}
           ${faltan.length && l.completar_token ? `<a class="wa" style="background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.35);color:var(--yellow)" href="${waRecordatorio(l)}" target="_blank">⏰ Recordar faltantes</a>` : ''}
           ${aceptado
             ? `<div class="accept is-on">✓ Aceptado</div>`
@@ -384,7 +416,72 @@ Cualquier duda escribime por acá. ¡Gracias!`;
     const { error } = await sb.from('prestador_leads').update({ estado }).eq('id', id);
     if (error){ alert('Error: ' + error.message); return; }
     const l = LEADS.find(x=>x.id===id); if (l) l.estado = estado;
+    // El estado del lead NO habilita a nadie: la app y nearby_workers miran
+    // professionals.verification_status. Antes esto no se tocaba, así que
+    // "Aceptar" dejaba a la persona en pending y no podía trabajar nunca.
+    const aviso = await sincronizarProfesional(l, estado);
+    await cargarProfesionales();
     pintarStats(); render();
+    if (aviso) alert(aviso);
+  }
+
+  // ── Espejo del estado en la tabla que manda: professionals ────────────────
+  // La política professionals_admin_update (migración 002) permite este UPDATE
+  // solo con la sesión del email de admin.
+  async function sincronizarProfesional(l, estado){
+    const equivale = { aceptado: 'approved', rechazado: 'rejected' };
+    const vs = equivale[estado];
+    if (!vs || !l) return null;                       // nuevo/contactado no cambian la app
+    const quien = (l.nombre || 'este registro').trim();
+    if (!l.user_id){
+      return '⚠️ ' + quien + ' no tiene cuenta de Google vinculada, así que NO existe como ' +
+             'profesional en la app y este cambio no lo habilita.\n\n' +
+             'Tiene que entrar UNA vez a bolt.com.ar/prestadores con su Google.';
+    }
+    try {
+      const { data, error } = await sb.from('professionals')
+        .update({ verification_status: vs })
+        .eq('user_id', l.user_id)
+        .select('id, professional_professions(profession_id)');
+      if (error) throw error;
+      if (!data || !data.length){
+        return '⚠️ ' + quien + ' tiene cuenta pero no existe su ficha de profesional. ' +
+               'Que entre una vez a bolt.com.ar/prestadores con su Google.';
+      }
+      if (vs === 'approved' && !(data[0].professional_professions || []).length){
+        return '⚠️ ' + quien + ' quedó aprobado, pero NO tiene oficio cargado: no va a ' +
+               'aparecer en ninguna búsqueda.\n\nQue entre a bolt.com.ar/prestadores con su ' +
+               'Google y lo elija — son 10 segundos y la página se lo pide sola.';
+      }
+      return null;
+    } catch (e) {
+      return 'No se pudo activar en la app: ' + e.message;
+    }
+  }
+
+  // Estado real de cada prestador en la app, para no aprobar a ciegas.
+  // professionals_read y pp_read son públicas: alcanza con la sesión del admin.
+  let PROFS = {};
+  async function cargarProfesionales(){
+    try {
+      const { data } = await sb.from('professionals')
+        .select('user_id,verification_status,available,location,professional_professions(profession_id,professions(name))');
+      PROFS = {};
+      (data || []).forEach(p => { if (p.user_id) PROFS[p.user_id] = p; });
+    } catch (e) { PROFS = {}; }
+  }
+
+  // Las 3 condiciones de nearby_workers: approved + available + location.
+  // Los documentos no son una de ellas.
+  function estadoEnApp(l){
+    if (!l.user_id) return { cls:'no', txt:'✖ Sin cuenta de Google — no existe en la app' };
+    const p = PROFS[l.user_id];
+    if (!p) return { cls:'no', txt:'✖ Sin ficha de profesional en la app' };
+    const oficios = (p.professional_professions || []).map(x => x.professions && x.professions.name).filter(Boolean);
+    if (!oficios.length) return { cls:'no', txt:'⚠️ Sin oficio cargado — invisible en las búsquedas' };
+    if (p.verification_status !== 'approved') return { cls:'mid', txt:'⏳ ' + p.verification_status + ' en la app · ' + oficios.join(', ') };
+    if (!p.available || !p.location) return { cls:'mid', txt:'📴 Aprobado, falta que prenda el radar · ' + oficios.join(', ') };
+    return { cls:'ok', txt:'✅ Puede recibir trabajos · ' + oficios.join(', ') };
   }
 
   async function eliminar(id, nombre){

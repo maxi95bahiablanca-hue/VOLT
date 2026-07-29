@@ -494,14 +494,77 @@
     await cargarOficios();
     vista('gConfirm');
 
-    // ¿Ya se había registrado? Le devolvemos su link en vez de duplicarlo.
+    // ¿Ya se había registrado? Antes lo mandábamos derecho al éxito, y si le
+    // faltaba el oficio quedaba trabado para siempre: no había ninguna pantalla
+    // donde cargarlo (el link personal no escribe en professional_professions y
+    // el panel no puede cargar oficios de otro — pp_insert_own exige ser el
+    // dueño). Ahora, si vuelve a entrar por el mismo link, se lo pedimos acá.
     try {
       const { data: ya } = await sb.rpc('prestador_ya_registrado', { p_dni: '', p_email: d.email, p_tel: '' });
       if (ya === true) {
+        const prof = await miProfesional(user);
+        if (prof && !prof.oficios.length) { pedirSoloOficio(prof, d); return; }
         const { data: token } = await sb.rpc('prestador_mi_token');
         exito({ nombre: d.nombre, token: token || null, email: d.email, yaEstaba: true });
       }
     } catch (e) { /* si falla el chequeo, sigue el alta normal */ }
+  }
+
+  // ── Reparar al vuelo lo que falte ─────────────────────────────────────────
+  // Lee la fila que la app realmente mira. professionals_read y pp_read son
+  // públicas, así que esto funciona con la sesión de la propia persona.
+  async function miProfesional(user){
+    try {
+      const { data } = await sb.from('professionals')
+        .select('id,verification_status,professional_professions(profession_id)')
+        .eq('user_id', user.id).maybeSingle();
+      if (!data) return null;
+      return { id: data.id, estado: data.verification_status, oficios: data.professional_professions || [] };
+    } catch (e) { return null; }
+  }
+
+  // Ya está registrada pero sin oficio: es lo único que le falta para que, en
+  // cuanto se la acepte en el panel, pueda trabajar prendiendo el radar.
+  let PROF_REPARAR = null;
+  function pedirSoloOficio(prof, d){
+    PROF_REPARAR = { ...prof, datos: d };   // los datos van acá: después de guardar
+                                            // no se vuelve a pedir la sesión
+    $('gHola').textContent = '¡Hola de nuevo, ' + d.nombre + '!';
+    $('gConfirm').querySelector('.sub').textContent = 'Ya estás registrado. Falta un solo dato: tu oficio.';
+    $('gOficios').style.display = 'block';
+    $('gOficiosLbl').innerHTML = '¿Qué hacés? <span style="color:var(--muted2);font-weight:400">— hasta 3</span>';
+    $('gNota').textContent = 'Es lo único que falta. Sin oficio no aparecés en las búsquedas de los clientes.';
+    $('btnRegistrar').textContent = 'Guardar mi oficio ⚡';
+    $('btnRegistrar').onclick = guardarSoloOficio;
+    vista('gConfirm');
+  }
+
+  async function guardarSoloOficio(){
+    const btn = $('btnRegistrar'), msg = $('gcMsg');
+    const filas = elegidos.filter(o => o.id).map(o => ({ professional_id: PROF_REPARAR.id, profession_id: o.id, min_price: 0 }));
+    if (!filas.length){
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Tocá al menos un oficio para guardar.';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Un momento…';
+    try {
+      await sb.from('professional_professions').delete().eq('professional_id', PROF_REPARAR.id);
+      const { error } = await sb.from('professional_professions').insert(filas);
+      if (error) throw error;
+      // Desde acá el oficio YA está guardado: nada de lo que siga puede hacer
+      // que le digamos "no se pudo guardar". El token es un plus, no un requisito.
+      const d = PROF_REPARAR.datos;
+      let token = null;
+      try { ({ data: token } = await sb.rpc('prestador_mi_token')); } catch(e){}
+      exito({ nombre: d.nombre, token: token || null, email: d.email, yaEstaba: true, oficioReparado: true });
+    } catch (e) {
+      console.error(e);
+      btn.disabled = false; btn.textContent = 'Guardar mi oficio ⚡';
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'No se pudo guardar. Probá de nuevo en un momento.';
+    }
   }
 
   // ── Crear la fila que la app realmente mira ───────────────────────────────
@@ -545,6 +608,21 @@
     if (!d.email){
       msg.style.color = 'var(--red)';
       msg.textContent = 'Tu cuenta de Google no tiene un email asociado. Probá con otra cuenta.';
+      return;
+    }
+
+    // El oficio es el ÚNICO dato que pedimos sí o sí, y es un toque. Todo lo
+    // demás (WhatsApp, DNI, documentación) sigue siendo opcional y para después.
+    // Va acá porque es lo único que no se puede completar más tarde: el link
+    // personal no escribe en professional_professions, y sin oficio
+    // nearby_workers no la muestra ni estando aprobada. Sin esto, el registro
+    // terminaba "bien" y la persona igual no podía trabajar nunca.
+    if (!elegidos.filter(o => o.id).length){
+      msg.style.color = 'var(--red)';
+      msg.textContent = MODO_CALLE
+        ? 'Falta el oficio: tocá al menos uno para darlo de alta.'
+        : 'Tocá tu oficio arriba (uno alcanza) para terminar el registro.';
+      $('gOficios').scrollIntoView({ behavior:'smooth', block:'center' });
       return;
     }
 
@@ -651,7 +729,7 @@
   }
 
   // ── 5. Pantalla de éxito ──────────────────────────────────────────────
-  function exito({ nombre, token, email, mailOk, yaEstaba, profOk }){
+  function exito({ nombre, token, email, mailOk, yaEstaba, profOk, oficioReparado }){
     $('okTitulo').textContent = yaEstaba
       ? '¡' + nombre + ', ya estabas en BOLT!'
       : '¡' + nombre + ', ya estás en BOLT!';
@@ -670,6 +748,10 @@
       if (!elegidos.length){
         $('okSub').innerHTML += '<br><br>⚠️ <b>No eligió oficio</b>: hasta que lo cargue no va a aparecer en ninguna búsqueda.';
       }
+    } else if (oficioReparado){
+      $('okTitulo').textContent = '¡Listo, ' + nombre + '!';
+      $('okSub').innerHTML = 'Tu oficio quedó cargado: <b>' + elegidos.map(o => o.name).join(' · ') + '</b>.<br><br>' +
+        'Cuando te activemos te avisamos. Ahí entrás a BOLT con esta misma cuenta de Google y <b>prendés el radar</b> — sin eso no te llegan trabajos.';
     } else if (!yaEstaba && !elegidos.length){
       // Mismo agujero que en la calle, pero acá no hay nadie de BOLT al lado
       // para avisarlo de palabra. Volver a entrar no sirve (el anti-duplicado
