@@ -11,6 +11,7 @@ import notificationService from './src/services/notificationService';
 import jobService from './src/services/jobService';
 import professionalService from './src/services/professionalService';
 import * as TaskManager from 'expo-task-manager';
+import * as Updates from 'expo-updates';
 import notifee, { EventType } from '@notifee/react-native';
 import { displayIncomingJob, cancelIncomingJob, ensureFullScreenPermission } from './src/services/incomingCall';
 import { isDemoMode, getDemoRole, disableDemo } from './src/demo/demoMode';
@@ -91,6 +92,7 @@ export default function App() {
   const minimizedJobRef         = useRef(false);
   const screenRef               = useRef('home');
   const recentlyCancelledJobRef = useRef(null); // evita re-navegar al job recién cancelado
+  const updateListoRef          = useRef(false); // hay una actualización OTA descargada esperando
 
   // ─── Auth ─────────────────────────────────────────────
   useEffect(() => {
@@ -110,6 +112,42 @@ export default function App() {
   // Mantener refs sincronizados para acceso desde closures (AppState / notif handlers)
   useEffect(() => { professionalRef.current = professional; }, [professional]);
   useEffect(() => { screenRef.current = screen; }, [screen]);
+
+  // ─── Actualizaciones por aire (OTA) ───────────────────────────
+  // El tester no tiene que hacer nada: la actualización se descarga sola y se
+  // aplica al abrir la app o al volver a ella. Nunca en el medio de un trabajo
+  // (recargar ahí le borraría la pantalla al trabajador o al cliente).
+  useEffect(() => {
+    if (__DEV__) return;
+
+    const PANTALLAS_CRITICAS = ['jobTracking', 'workerIncoming', 'quoteSelection', 'jobRequest', 'rating'];
+    let cancelado = false;
+
+    const aplicarSiSePuede = async () => {
+      if (cancelado || !updateListoRef.current) return;
+      if (PANTALLAS_CRITICAS.includes(screenRef.current)) return;
+      try { await Updates.reloadAsync(); } catch { /* se reintenta al volver */ }
+    };
+
+    const buscar = async () => {
+      if (cancelado) return;
+      try {
+        const r = await Updates.checkForUpdateAsync();
+        if (!r.isAvailable || cancelado) return;
+        await Updates.fetchUpdateAsync();
+        if (cancelado) return;
+        updateListoRef.current = true;
+        aplicarSiSePuede();
+      } catch { /* sin conexión o sin update: se reintenta en el próximo ciclo */ }
+    };
+
+    buscar();
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') { buscar(); aplicarSiSePuede(); }
+    });
+
+    return () => { cancelado = true; sub.remove(); };
+  }, []);
 
   // ─── Setup notificaciones + profesional + trabajo activo ──
   useEffect(() => {

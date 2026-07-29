@@ -293,7 +293,11 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
         verificationStatus: existingStatus === 'approved' ? 'approved' : 'pending',
       });
 
-      showSuccess('Revisaremos tu documentación y te avisaremos por notificación en 24–48 hs.', '¡Solicitud enviada!');
+      if (existingStatus === 'approved') {
+        showSuccess('Tus oficios y datos quedaron actualizados. Seguís activo como profesional.', '¡Cambios guardados!');
+      } else {
+        showSuccess('Revisaremos tu documentación y te avisaremos por notificación en 24–48 hs.', '¡Solicitud enviada!');
+      }
       setTimeout(onBack, 2500);
     } catch (err) {
       Alert.alert('Error al enviar', err?.message || 'No se pudo enviar la solicitud. Revisá tu conexión e intentá de nuevo.');

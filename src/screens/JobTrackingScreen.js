@@ -1845,6 +1845,26 @@ window.addEventListener('message', e => {
                   <><Ionicons name="play" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Iniciar sesión de hoy</Text></>
                 )}
               </TouchableOpacity>
+
+              {/* Entre sesiones también se puede cerrar la obra: si no, para finalizar
+                  habría que arrancar una sesión de mentira primero. */}
+              <TouchableOpacity
+                style={styles.actionBtnSecondary}
+                onPress={() => {
+                  Alert.alert(
+                    '¿Finalizar el trabajo?',
+                    'Se cierra la obra completa, no solo el día de hoy. Esta acción no se puede deshacer.',
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      { text: 'Finalizar', style: 'destructive', onPress: handleFinishJob },
+                    ]
+                  );
+                }}
+                disabled={loading}
+              >
+                <Ionicons name="checkmark-done" size={18} color="#4285F4" />
+                <Text style={styles.actionBtnSecondaryText}>Finalizar trabajo (obra completa)</Text>
+              </TouchableOpacity>
             </>
           )}
 

@@ -14,11 +14,12 @@
       "backgroundColor": "#0A0A0A"
     },
     "updates": {
-      "enabled": false
+      "enabled": true,
+      "url": "https://u.expo.dev/196fdfff-0be6-4859-be4e-8f9b28796fe1",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.bolt.app",
@@ -27,7 +28,13 @@
           "location",
           "fetch",
           "remote-notification"
-        ]
+        ],
+        "NSLocationWhenInUseUsageDescription": "BOLT usa tu ubicación para mostrarte profesionales cerca tuyo y para que el profesional pueda llegar a tu domicilio.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Si trabajás con BOLT, compartimos tu ubicación mientras estás en camino a un trabajo para que el cliente pueda seguir tu llegada, igual que en una app de viajes. Solo mientras tenés un trabajo aceptado.",
+        "NSLocationAlwaysUsageDescription": "Si trabajás con BOLT, compartimos tu ubicación mientras estás en camino a un trabajo para que el cliente pueda seguir tu llegada. Solo mientras tenés un trabajo aceptado.",
+        "NSCameraUsageDescription": "Necesitamos la cámara para que puedas sacar la foto de tu DNI, tu selfie de verificación y fotos del trabajo a realizar.",
+        "NSPhotoLibraryUsageDescription": "Necesitamos acceso a tus fotos para que puedas adjuntar imágenes del trabajo y tu documentación.",
+        "NSPhotoLibraryAddUsageDescription": "Guardamos en tus fotos los comprobantes que descargues desde la app."
       }
     },
     "android": {
@@ -64,7 +71,8 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "versionCode": 11
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -77,7 +85,9 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#FFD600",
-          "sounds": ["./assets/alarm.wav"],
+          "sounds": [
+            "./assets/alarm.wav"
+          ],
           "mode": "production"
         }
       ],

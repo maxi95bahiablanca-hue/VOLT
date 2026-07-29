@@ -192,12 +192,25 @@
     cargar();
   }
 
+  // Oficios del lead, uno por elemento. Lee la tabla normalizada y, si un lead
+  // viejo todavía no tiene filas, cae al texto separado por comas.
+  function oficiosDe(l){
+    const rel = l.prestador_lead_profesiones || [];
+    if (rel.length) return rel.map(r => r.profesion_nombre);
+    return String(l.profesion || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s && s.toLowerCase() !== 'a completar');
+  }
+
   async function cargar(){
-    const { data, error } = await sb.from('prestador_leads').select('*').order('created_at', { ascending: false });
+    const { data, error } = await sb.from('prestador_leads')
+      .select('*, prestador_lead_profesiones(profesion_nombre, profesion_id)')
+      .order('created_at', { ascending: false });
     if (error){ alert('Error cargando: ' + error.message); return; }
     LEADS = data || [];
-    // llenar filtro de profesiones
-    const profs = [...new Set(LEADS.map(l => l.profesion))].sort();
+    // llenar filtro de profesiones (un oficio por opción, no la cadena completa)
+    const profs = [...new Set(LEADS.flatMap(oficiosDe))].sort();
     const sel = document.getElementById('fProf');
     sel.innerHTML = '<option value="">Todas las profesiones</option>' + profs.map(p => `<option>${esc(p)}</option>`).join('');
     // llenar filtro de ciudades
@@ -255,7 +268,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
     const total = LEADS.length;
     const aceptados = LEADS.filter(l=>l.estado==='aceptado').length;
     const nuevos = LEADS.filter(l=>l.estado==='nuevo').length;
-    const profs = new Set(LEADS.map(l=>l.profesion)).size;
+    const profs = new Set(LEADS.flatMap(oficiosDe)).size;
     document.getElementById('stats').innerHTML = `
       <div class="stat"><div class="n">${total}</div><div class="l">Registros</div></div>
       <div class="stat"><div class="n" style="color:var(--blue)">${nuevos}</div><div class="l">Nuevos sin contactar</div></div>
@@ -265,7 +278,8 @@ Cualquier duda escribime por acá. ¡Gracias!`;
     // barras por profesión
     const META = 25;
     const byProf = {};
-    LEADS.forEach(l => { byProf[l.profesion] = (byProf[l.profesion]||0)+1; });
+    // un trabajador con 3 oficios suma 1 en cada uno de los 3
+    LEADS.forEach(l => oficiosDe(l).forEach(p => { byProf[p] = (byProf[p]||0)+1; }));
     const bars = Object.entries(byProf).sort((a,b)=>b[1]-a[1]).map(([p,n])=>{
       const pct = Math.min(100, Math.round(n/META*100));
       return `<div class="pbar"><div class="pbar-top"><span>${esc(p)}</span><span>${n}/${META}</span></div>
@@ -280,7 +294,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
     const fe = document.getElementById('fEstado').value;
     let list = LEADS;
     if (fc) list = list.filter(l => l.ciudad === fc);
-    if (fp) list = list.filter(l => l.profesion === fp);
+    if (fp) list = list.filter(l => oficiosDe(l).includes(fp));
     if (fe) list = list.filter(l => (l.estado||'nuevo') === fe);
     document.getElementById('countPill').textContent = list.length + ' registro' + (list.length!==1?'s':'');
 
@@ -303,7 +317,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
         <div class="lead-main">
           <span class="lead-name">${esc(l.nombre)} ${esc(l.apellido||'')}</span>
           <span class="badge b-${est}" style="margin-left:8px">${est}</span>
-          <div><span class="lead-prof">${esc(l.profesion)}</span>${l.matricula?` <span class="lead-prof" style="color:var(--blue);background:rgba(77,171,247,.1);border-color:rgba(77,171,247,.25)">📋 ${esc(l.matricula)}</span>`:''}</div>
+          <div>${(oficiosDe(l).length ? oficiosDe(l) : ['A completar']).map(p => `<span class="lead-prof">${esc(p)}</span>`).join(' ')}${l.matricula?` <span class="lead-prof" style="color:var(--blue);background:rgba(77,171,247,.1);border-color:rgba(77,171,247,.25)">📋 ${esc(l.matricula)}</span>`:''}</div>
           <div class="lead-meta">
             ${l.ciudad?`🏙️ <b>${esc(l.ciudad)}</b> · `:''}${l.zona?`📍 ${esc(l.zona)} · `:''}📱 <b>${esc(l.telefono)}</b>
             ${l.dni?`<br>🪪 DNI: <b>${esc(l.dni)}</b>`:''}${l.fecha_nac?` · 🎂 ${esc(l.fecha_nac)}`:''}

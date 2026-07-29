@@ -7,6 +7,9 @@ dist/
 *.keystore
 *.jks
 *.p12
+credentials.json
+credentials/
+google-service-account.json
 CUENTAS_GOVOLT.md
 .netlify/
 android/app/google-services.json

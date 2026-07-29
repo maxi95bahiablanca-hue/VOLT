@@ -1,6 +1,8 @@
 // Notificación "estilo llamada" (full-screen intent) para pedidos entrantes.
 // Usa @notifee/react-native para abrir la app directo en la pantalla LLEGÓ PEDIDO
 // aunque la app esté en segundo plano o cerrada.
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import notifee, {
   AndroidImportance,
   AndroidVisibility,
@@ -59,13 +61,39 @@ export async function cancelIncomingJob() {
 
 // Pide el permiso de "pantalla completa" (Android 14+ lo restringe). Si no está
 // concedido, abre los ajustes del sistema para que el usuario lo active.
+// Android 14 (API 34) dejó de conceder USE_FULL_SCREEN_INTENT automáticamente a
+// las apps que no son de llamadas o alarmas. Sin ese permiso, el pedido entrante
+// degrada a un banner común y NO despierta la pantalla con el celular bloqueado.
+// notifee no expone si está concedido, así que lo pedimos una sola vez y dejamos
+// anotado que ya se pidió.
+const FS_PEDIDO_KEY = 'bolt.fullscreen.pedido';
+
 export async function ensureFullScreenPermission() {
   try {
     await notifee.requestPermission();
-    // En Android 14+ el permiso de full-screen intent se gestiona aparte:
-    if (notifee.openNotificationSettings) {
-      // No forzamos; solo nos aseguramos del canal. El sistema mostrará heads-up
-      // si el full-screen no está habilitado.
-    }
   } catch {}
+}
+
+/** ¿Corresponde ofrecerle al trabajador activar la pantalla completa? */
+export async function necesitaPermisoPantallaCompleta() {
+  if (Platform.OS !== 'android') return false;
+  if (Number(Platform.Version) < 34) return false;   // antes de Android 14 se concedía solo
+  try {
+    return !(await AsyncStorage.getItem(FS_PEDIDO_KEY));
+  } catch {
+    return false;
+  }
+}
+
+/** Abre los ajustes de notificaciones de BOLT para habilitar pantalla completa. */
+export async function abrirAjustesPantallaCompleta() {
+  try {
+    await AsyncStorage.setItem(FS_PEDIDO_KEY, '1');
+  } catch {}
+  try {
+    await notifee.openNotificationSettings();
+    return true;
+  } catch {
+    return false;
+  }
 }

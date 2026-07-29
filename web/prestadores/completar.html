@@ -138,7 +138,7 @@
   let FALTAN = [];
   let selectedProfs = [];
   const MAX_PROFS = 3;
-  const FALLBACK = ['Electricista','Plomero','Gasista','Pintor','Albañil','Cerrajero','Jardinero','Limpieza','Encomiendas / Fletes','Aire acondicionado','Heladeras y lavarropas','Alarmas / Cámaras','Durlock'];
+  const FALLBACK = ['Electricista','Plomero','Gasista','Pintor','Albañil','Carpintero','Cerrajero','Jardinero','Limpieza','Encomiendas / Fletes','Aire acondicionado','Heladeras y lavarropas','Alarmas / Cámaras','Durlock','Herrero'];
 
   async function fn(body){
     const r = await fetch(SUPABASE_URL + '/functions/v1/completar-registro', {

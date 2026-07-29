@@ -1,0 +1,29 @@
+# .easignore — qué NO subir al build de EAS (EAS lo usa en vez del .gitignore).
+# Igual que el .gitignore PERO incluye android/app/google-services.json, que el
+# build de Android necesita (el plugin com.google.gms.google-services lo exige).
+# Los secretos (llave, credenciales, .env) siguen EXCLUIDOS.
+
+node_modules/
+.expo/
+dist/
+.git/
+ios/
+
+# artefactos de build (se regeneran; achican el upload)
+android/.gradle/
+android/build/
+android/app/build/
+
+# --- SECRETOS: NUNCA subir ---
+.env
+*.keystore
+*.jks
+*.p12
+credentials.json
+credentials/
+google-service-account.json
+CUENTAS_GOVOLT.md
+.netlify/
+
+# NOTA: android/app/google-services.json SÍ va (lo necesita Gradle). No se commitea
+# al repo público (sigue en el .gitignore), pero SÍ se incluye en el build de EAS.

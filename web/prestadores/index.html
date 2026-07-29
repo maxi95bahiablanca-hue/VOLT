@@ -265,7 +265,15 @@
             <div class="acct-mail" id="gMail">—</div>
           </div>
         </div>
-        <div class="g-nota">Ahora esto es todo. Después te pedimos tu WhatsApp, tu oficio y la documentación por tu link personal — lo hacés desde el celular sacando las fotos en el momento.</div>
+        <!-- Oficio: sólo en el alta de la calle. Es UN toque y es lo que decide si
+             la persona puede recibir trabajos: nearby_workers busca por profesión,
+             así que sin al menos un oficio queda aprobado pero invisible. -->
+        <div id="gOficios" style="display:none">
+          <label style="margin-top:18px">¿Qué hace? <span style="color:var(--muted2);font-weight:400">— hasta 3, se puede elegir después</span></label>
+          <div class="chips" id="chips"></div>
+        </div>
+
+        <div class="g-nota" id="gNota">Ahora esto es todo. Después te pedimos tu WhatsApp, tu oficio y la documentación por tu link personal — lo hacés desde el celular sacando las fotos en el momento.</div>
         <button class="btn-submit" id="btnRegistrar" onclick="registrarConGoogle()">Registrarme como profesional ⚡</button>
         <div class="msg" id="gcMsg"></div>
         <div class="g-alt"><a onclick="salirGoogle()">No soy yo · entrar con otra cuenta</a></div>
@@ -309,7 +317,11 @@
         <div class="tl-item"><div class="tl-ic">🛡️</div><div class="tl-tx"><b>Verificamos tu identidad</b><span>Entre 24 y 48 hs hábiles</span></div></div>
         <div class="tl-item"><div class="tl-ic">🚀</div><div class="tl-tx"><b>Te activamos y empezás a recibir trabajos</b><span>Te avisamos por mail y WhatsApp</span></div></div>
       </div>
-      <div class="okp" style="margin-top:18px">Mientras tanto, seguinos en redes <b>@bolt.app</b> ⚡</div>
+      <div class="okp" style="margin-top:18px" id="okRedes">Mientras tanto, seguinos en redes <b>@bolt.app</b> ⚡</div>
+
+      <!-- Alta en la calle: cierra la sesión y vuelve a empezar limpio, para que
+           el siguiente no herede la cuenta de Google del anterior. -->
+      <button class="btn-submit" id="btnOtro" style="display:none" onclick="registrarOtro()">Registrar a otro ⚡</button>
     </div>
   </div>
 </div></section>
@@ -341,6 +353,21 @@
   //  personal — mismo flujo que el alta desde la app (WorkerSignupScreen.js).
   // ═══════════════════════════════════════════════════════════════════════
   const QS = new URLSearchParams(location.search);
+
+  // ── MODO CALLE (?nuevo=1) ────────────────────────────────────────────────
+  // Es el link que se reparte en persona. Dos diferencias con el registro
+  // público normal:
+  //   1. Arranca SIEMPRE sin sesión. Sin esto, el segundo profesional del día
+  //      hereda la cuenta de Google del primero (o la de quien presta el celu)
+  //      y el alta se le carga a la persona equivocada.
+  //   2. Deja al profesional ACTIVO en el momento (verification_status
+  //      'approved' + oficios), porque hay alguien de BOLT delante mirando.
+  //      El registro público sigue quedando 'pending' hasta que se lo revise.
+  // Igual que 'fuente', el modo tiene que sobrevivir el viaje a Google: el
+  // redirectTo se arma con location.pathname y pierde el ?nuevo=1 al volver.
+  const _n = QS.get('nuevo') === '1';
+  if (_n) { try { sessionStorage.setItem('bolt_calle', '1'); } catch(e){} }
+  const MODO_CALLE = _n || (function(){ try { return sessionStorage.getItem('bolt_calle') === '1'; } catch(e){ return false; } })();
   // La fuente de campaña sobrevive al viaje de ida y vuelta a Google.
   const _f = QS.get('fuente');
   if (_f) { try { sessionStorage.setItem('bolt_fuente', _f); } catch(e){} }
@@ -358,6 +385,44 @@
   }
   function verManual(){ vista('manualForm'); }
   function verGoogle(){ vista('gStart'); }
+
+  // Vuelve al principio para cargar a la próxima persona, sin arrastrar la
+  // cuenta de Google de la anterior. Recarga entera: es la forma más segura de
+  // que no quede nada del alta previa en pantalla ni en memoria.
+  async function registrarOtro(){
+    try { await sb.auth.signOut(); } catch(e){}
+    location.href = location.pathname + '?nuevo=1';
+  }
+
+  // ── Oficios (sólo modo calle) ─────────────────────────────────────────────
+  const MAX_PROFS = 3;
+  const FALLBACK_OFICIOS = ['Electricista','Plomero','Gasista','Pintor','Albañil','Carpintero','Cerrajero',
+                            'Jardinero','Limpieza','Encomiendas / Fletes','Aire acondicionado',
+                            'Heladeras y lavarropas','Alarmas / Cámaras','Durlock','Herrero'];
+  let elegidos = [];   // [{id, name}] — sólo los que tienen id sirven para la app
+
+  async function cargarOficios(){
+    let oficios;
+    try {
+      const { data } = await sb.from('professions').select('id,name').order('name');
+      oficios = (data && data.length) ? data : FALLBACK_OFICIOS.map(n => ({ id:null, name:n }));
+    } catch(e){
+      oficios = FALLBACK_OFICIOS.map(n => ({ id:null, name:n }));
+    }
+    const cont = $('chips');
+    cont.innerHTML = '';
+    oficios.forEach(o => {
+      const c = document.createElement('div');
+      c.className = 'chip';
+      c.textContent = o.name;
+      c.onclick = () => {
+        const i = elegidos.findIndex(e => e.name === o.name);
+        if (i >= 0){ elegidos.splice(i,1); c.classList.remove('on'); }
+        else if (elegidos.length < MAX_PROFS){ elegidos.push(o); c.classList.add('on'); }
+      };
+      cont.appendChild(c);
+    });
+  }
 
   // ── 1. Ir a Google ────────────────────────────────────────────────────
   async function entrarConGoogle(){
@@ -407,6 +472,13 @@
     $('gMail').textContent = d.email || 'tu cuenta de Google';
     if (d.foto){ const img = $('gFoto'); img.src = d.foto; img.style.display = 'block'; $('gIni').style.display = 'none'; }
     else { $('gIni').textContent = (d.nombre[0] || '·').toUpperCase(); }
+
+    if (MODO_CALLE){
+      $('gOficios').style.display = 'block';
+      $('gNota').textContent = 'Con esto ya queda activo. El WhatsApp y la documentación se los pedimos por mail, con su link personal.';
+      $('btnRegistrar').textContent = 'Dar de alta ⚡';
+      await cargarOficios();
+    }
     vista('gConfirm');
 
     // ¿Ya se había registrado? Le devolvemos su link en vez de duplicarlo.
@@ -417,6 +489,37 @@
         exito({ nombre: d.nombre, token: token || null, email: d.email, yaEstaba: true });
       }
     } catch (e) { /* si falla el chequeo, sigue el alta normal */ }
+  }
+
+  // ── Crear la fila que la app realmente mira ───────────────────────────────
+  // La app decide si alguien es profesional con professionalService.getByUserId,
+  // que lee 'professionals'. Un lead en prestador_leads NO alcanza: sin esta
+  // fila, la persona instala BOLT y le figura como usuario común.
+  // Si esto falla no se corta el alta — el lead y el mail ya son útiles.
+  async function crearProfesional(user, d){
+    try {
+      const { data: prof, error } = await sb.from('professionals').upsert({
+        user_id: user.id,
+        first_name: d.nombre,
+        last_name: d.apellido || '',
+        criminal_record_confirmed: false,
+        // En la calle hay alguien de BOLT delante: queda listo para trabajar.
+        // Por la web queda pendiente de revisión, como hasta ahora.
+        verification_status: MODO_CALLE ? 'approved' : 'pending',
+      }, { onConflict: 'user_id' }).select().single();
+      if (error) throw error;
+
+      const filas = elegidos.filter(o => o.id)
+                            .map(o => ({ professional_id: prof.id, profession_id: o.id, min_price: 0 }));
+      if (filas.length){
+        await sb.from('professional_professions').delete().eq('professional_id', prof.id);
+        await sb.from('professional_professions').insert(filas);
+      }
+      return true;
+    } catch (e) {
+      console.warn('no se pudo crear el profesional:', e);
+      return false;
+    }
   }
 
   // ── 3. Crear el lead ──────────────────────────────────────────────────
@@ -452,11 +555,14 @@
         apellido: d.apellido,
         email: d.email,
         user_id: user.id,
-        profesion: 'A completar',
-        fuente: FUENTE === 'landing' ? 'web-google' : FUENTE,
+        profesion: elegidos.length ? elegidos.map(o => o.name).join(', ') : 'A completar',
+        fuente: MODO_CALLE ? 'calle' : (FUENTE === 'landing' ? 'web-google' : FUENTE),
         completar_token: token,
       });
       if (error) throw error;
+
+      // La fila de 'professionals' — sin esto la app lo trata como usuario común.
+      const profOk = await crearProfesional(user, d);
 
       // Mail con el link personal (misma función que usa el alta presencial).
       let mailOk = false;
@@ -465,10 +571,10 @@
         mailOk = !fnErr;
       } catch (e) {}
 
-      exito({ nombre: d.nombre, token, email: d.email, mailOk });
+      exito({ nombre: d.nombre, token, email: d.email, mailOk, profOk });
     } catch (e) {
       console.error(e);
-      btn.disabled = false; btn.textContent = 'Registrarme como profesional ⚡';
+      btn.disabled = false; btn.textContent = MODO_CALLE ? 'Dar de alta ⚡' : 'Registrarme como profesional ⚡';
       msg.style.color = 'var(--red)';
       msg.textContent = 'Hubo un error al registrarte. Probá de nuevo en un momento.';
     }
@@ -532,13 +638,26 @@
   }
 
   // ── 5. Pantalla de éxito ──────────────────────────────────────────────
-  function exito({ nombre, token, email, mailOk, yaEstaba }){
+  function exito({ nombre, token, email, mailOk, yaEstaba, profOk }){
     $('okTitulo').textContent = yaEstaba
       ? '¡' + nombre + ', ya estabas en BOLT!'
       : '¡' + nombre + ', ya estás en BOLT!';
     $('okSub').textContent = yaEstaba
       ? 'Tenemos tu registro. Seguí desde donde lo dejaste.'
       : 'Quedaste anotado entre los primeros profesionales de tu ciudad.';
+
+    if (MODO_CALLE){
+      $('btnOtro').style.display = 'block';
+      $('okRedes').style.display = 'none';
+      // Lo que hay que decirle en la mano, que es donde se pierde la gente:
+      // sin la app instalada y sin el radar prendido no le llega ningún trabajo.
+      $('okSub').innerHTML = (profOk === false)
+        ? '⚠️ Quedó anotado, pero <b>no se pudo activar</b>. Anotalo y revisalo después en el panel.'
+        : 'Ya puede trabajar. Decile: <b>1)</b> que baje BOLT de Play Store, <b>2)</b> que entre con <b>esta misma cuenta de Google</b>, <b>3)</b> que <b>prenda el radar</b> — sin eso no le llega ningún trabajo.';
+      if (!elegidos.length){
+        $('okSub').innerHTML += '<br><br>⚠️ <b>No eligió oficio</b>: hasta que lo cargue no va a aparecer en ninguna búsqueda.';
+      }
+    }
 
     if (token){
       $('btnCompletar').href = linkCompletar(token);
@@ -569,6 +688,27 @@
     const url = new URL(location.href);
     const volvimosDeGoogle = url.searchParams.has('code') || url.searchParams.has('error') || /access_token=/.test(location.hash);
     const errGoogle = url.searchParams.get('error_description') || url.searchParams.get('error');
+
+    // ── Modo calle: empezar SIEMPRE sin sesión ────────────────────────────
+    // Sin esto, el navegador conserva la sesión del alta anterior y la página
+    // saluda con esa cuenta: el segundo profesional del día se registra sobre
+    // el primero, o sobre quien presta el celular. Es exactamente lo que pasa
+    // hoy en alta.html.
+    // No se toca la sesión cuando venimos de Google (ahí es la buena, la que
+    // acaba de crear la persona) ni si ya se llegó a la pantalla de éxito.
+    if (MODO_CALLE && !volvimosDeGoogle) {
+      try {
+        const { data: { session: previa } } = await sb.auth.getSession();
+        if (previa) await sb.auth.signOut();
+      } catch (e) {}
+      vista('gStart');
+
+      // En la calle no se scrollea una landing de 6 secciones: al formulario.
+      document.querySelector('.form-box').scrollIntoView({ block:'center' });
+      $('gStart').querySelector('h2').textContent = 'Alta de profesional';
+      $('gStart').querySelector('.sub').innerHTML =
+        'Que entre con <b>su propia cuenta de Google</b> — la misma que va a usar en la app.';
+    }
 
     // Red de seguridad: si la sesión aparece más tarde, reaccionamos igual.
     sb.auth.onAuthStateChange((evento, sesion) => {

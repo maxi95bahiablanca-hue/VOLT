@@ -128,6 +128,12 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
             <Item icon="briefcase-outline" label="Mi panel de trabajador" onPress={() => go('workerPanel')} />
           )}
 
+          {/* Ya aprobado: única entrada para cambiar oficios/datos, porque
+              "Trabajar con BOLT" se oculta apenas sos trabajador. */}
+          {isApproved && (
+            <Item icon="construct-outline" label="Editar mis oficios y datos" onPress={() => go('register')} />
+          )}
+
           {/* Admin */}
           {isAdmin && (
             <Item icon="shield-outline" label="Panel de administración" onPress={() => go('admin')} />

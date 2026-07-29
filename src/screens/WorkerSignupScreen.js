@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  ActivityIndicator, ScrollView, Linking,
+  ActivityIndicator, ScrollView, Linking, Alert, AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
+import { necesitaPermisoPantallaCompleta, abrirAjustesPantallaCompleta } from '../services/incomingCall';
+import { showInfo } from '../utils/toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  ALTA DE PROFESIONAL — SOLO CON GOOGLE
@@ -37,6 +39,40 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
     const parts = full.split(/\s+/);
     return { nombre: parts[0], apellido: parts.slice(1).join(' ') };
   }, [session]);
+
+  // Aceptar los términos es el momento natural para pedir el permiso de pantalla
+  // completa: recién ahí sabemos que va a recibir pedidos. En Android 14+ este
+  // permiso no se concede solo, y sin él el aviso no despierta la pantalla.
+  const volviendoDeAjustes = useRef(false);
+
+  const ofrecerPantallaCompleta = async () => {
+    if (!(await necesitaPermisoPantallaCompleta())) return;
+    Alert.alert(
+      'Que no se te escape ningún trabajo',
+      'En la pantalla que sigue activá "Notificaciones de pantalla completa". Es lo que hace que un pedido te suene y aparezca en pantalla aunque tengas el celular bloqueado.',
+      [
+        { text: 'Ahora no', style: 'cancel' },
+        {
+          text: 'Activar',
+          onPress: async () => {
+            const abrio = await abrirAjustesPantallaCompleta();
+            if (abrio) volviendoDeAjustes.current = true;
+          },
+        },
+      ]
+    );
+  };
+
+  // Al volver de los ajustes, un recordatorio suave de para qué era.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active' && volviendoDeAjustes.current) {
+        volviendoDeAjustes.current = false;
+        showInfo('Con esto, los pedidos te suenan y aparecen en pantalla aunque el celu esté bloqueado.', 'Avisos de trabajo');
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const registrar = async () => {
     if (!email) {
@@ -82,6 +118,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
       }
 
       setStatus('done');
+      ofrecerPantallaCompleta();
     } catch (e) {
       console.warn('registro prestador error', e);
       setErrorMsg('No pudimos registrar tu solicitud. Probá de nuevo en un momento.');
