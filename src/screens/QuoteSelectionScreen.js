@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
+import rescueService from '../services/rescueService';
 import paymentService from '../services/paymentService';
 import { chargesInApp, isFreeMode } from '../config/monetization';
 import ReputationCard from '../components/ReputationCard';
@@ -590,6 +591,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
 
   const timerRef          = useRef(null);
   const subsRef           = useRef(null);
+  const rescateIdRef      = useRef(null);   // se crea una sola vez al vencer sin respuestas
   const scheduledNotifRef = useRef(null);
   const jobsRef           = useRef(jobs);
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
@@ -630,6 +632,28 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
     }, 1000);
     return () => { clearInterval(timerRef.current); clearInterval(pollQuotes); subsRef.current?.unsubscribe?.(); };
   }, []);
+
+  // ── Se venció sin que nadie respondiera → rescate ─────────────────────────
+  // Se registra solo, sin que el cliente tenga que hacer nada: si cierra la app
+  // el pedido igual le llega al encargado. El botón de WhatsApp es el atajo.
+  useEffect(() => {
+    if (!expired || respondedJobs.length > 0 || rescateIdRef.current) return;
+    const primero = jobsRef.current[0];
+    if (!primero) return;
+    rescueService.registrar({
+      clientId:      primero.client_id,
+      professionId:  primero.profession_id,
+      oficio:        primero.professions?.name,
+      motivo:        'sin_respuestas',
+      notas:         primero.notes,
+      address:       primero.address,
+      lat:           primero.client_lat,
+      lng:           primero.client_lng,
+      fotos:         primero.problem_photos?.length ? primero.problem_photos
+                     : (primero.problem_photo_url ? [primero.problem_photo_url] : []),
+      quoteGroupId:  quoteGroupId,
+    }).then(r => { rescateIdRef.current = r?.id ?? null; });
+  }, [expired, respondedJobs.length]);
 
   // ── Detección de abandono ─────────────────────────────────────────────────
   useEffect(() => {
@@ -745,15 +769,36 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
 
   const urgencyColor = timeLeft <= 30 ? '#ff4444' : timeLeft <= 60 ? '#FF9800' : '#FFD600';
 
+  // Nadie respondió: el pedido NO se pierde. Pasa a una persona del equipo.
   if (expired && respondedJobs.length === 0) {
+    const primero = jobs[0];
+    const datosRescate = {
+      oficio:  primero?.professions?.name,
+      notas:   primero?.notes,
+      address: primero?.address,
+      fotos:   primero?.problem_photos?.length ? primero.problem_photos
+              : (primero?.problem_photo_url ? [primero.problem_photo_url] : []),
+    };
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.expiredWrap}>
-          <Ionicons name="time-outline" size={60} color="#2a2a2a" />
-          <Text style={styles.expiredTitle}>Sin respuestas</Text>
+          <Ionicons name="person-circle-outline" size={60} color="#FFD600" />
+          <Text style={styles.expiredTitle}>Lo tomamos nosotros</Text>
           <Text style={styles.expiredSub}>
-            Ningún profesional respondió esta vez.{'\n'}Podés intentarlo de nuevo.
+            Ningún profesional estaba libre en este momento, así que tu pedido pasó a
+            {' '}<Text style={{ color: '#F5F5F5', fontWeight: '700' }}>una persona del equipo</Text>,
+            que te va a buscar uno a mano.{'\n\n'}Escribinos por WhatsApp y lo resolvemos ahora.
           </Text>
+
+          <TouchableOpacity
+            style={styles.waBtn}
+            onPress={() => rescueService.abrirWhatsApp(datosRescate, rescateIdRef.current)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+            <Text style={styles.waBtnText}>Hablar con un encargado</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.retryBtn} onPress={onExpired} activeOpacity={0.85}>
             <Text style={styles.retryBtnText}>Volver al inicio</Text>
           </TouchableOpacity>
@@ -1135,8 +1180,15 @@ const styles = StyleSheet.create({
   expiredWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   expiredTitle: { fontSize: 24, fontWeight: '900', color: '#F5F5F5', marginTop: 20, marginBottom: 12 },
   expiredSub: { fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 22, marginBottom: 36 },
-  retryBtn: { backgroundColor: '#FFD600', borderRadius: 16, paddingHorizontal: 36, paddingVertical: 16 },
-  retryBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  retryBtn: { backgroundColor: '#1a1a1a', borderRadius: 16, paddingHorizontal: 36, paddingVertical: 15, marginTop: 12 },
+  retryBtnText: { color: '#888', fontSize: 15, fontWeight: '800' },
+
+  waBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: '#25D366', borderRadius: 16, paddingHorizontal: 30, paddingVertical: 17,
+    alignSelf: 'stretch',
+  },
+  waBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
 });
 
 export default QuoteSelectionScreen;

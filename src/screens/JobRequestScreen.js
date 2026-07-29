@@ -16,6 +16,7 @@ import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import { chargesInApp } from '../config/monetization';
 import professionalService from '../services/professionalService';
+import rescueService from '../services/rescueService';
 
 // ─── Overlay de búsqueda animado ─────────────────────────────────────────────
 const SearchingOverlay = ({ foundCount }) => {
@@ -204,9 +205,35 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
         workers = nearby.filter(w => w.user_id !== clientId).slice(0, 3);
       }
 
+      // No hay nadie disponible: en vez de mandarlo de vuelta con las manos
+      // vacías, el pedido pasa a una persona del equipo.
       if (workers.length === 0) {
-        Alert.alert('Sin profesionales', 'No hay profesionales disponibles cerca ahora. Intentá en unos minutos.');
+        const datos = {
+          oficio:  profession?.name,
+          notas:   notes.trim(),
+          address: address.trim() || 'Ubicación GPS',
+          fotos:   [],   // todavía no se subieron: van en el mensaje del cliente si las mandó
+        };
+        const rescate = await rescueService.registrar({
+          clientId,
+          professionId: profession?.id,
+          oficio:       profession?.name,
+          motivo:       'sin_profesionales',
+          notas:        datos.notas,
+          address:      datos.address,
+          lat:          userLocation?.latitude,
+          lng:          userLocation?.longitude,
+          fotos:        [],
+        });
         setLoading(false);
+        Alert.alert(
+          'No hay nadie libre ahora',
+          'Tu pedido pasó a una persona del equipo, que te va a conseguir un profesional a mano. Si querés, escribinos por WhatsApp y lo resolvemos ahora mismo.',
+          [
+            { text: 'Ahora no', style: 'cancel' },
+            { text: 'Escribir por WhatsApp', onPress: () => rescueService.abrirWhatsApp(datos, rescate?.id) },
+          ],
+        );
         return;
       }
       setFoundCount(workers.length);
