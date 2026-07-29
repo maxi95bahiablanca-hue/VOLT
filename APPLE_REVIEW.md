@@ -6,26 +6,27 @@ traducción para que sepas qué estás mandando.
 
 ---
 
-## Cuenta de prueba (obligatoria)
+## Cuenta de prueba — ✅ YA ESTÁ CREADA
 
-Apple rechaza sin probar si no puede entrar. Creá una cuenta con email y contraseña
-(la app las soporta, no hace falta Google ni Apple para probar) y cargala en
-**Sign-In Information**:
+Apple rechaza sin probar si no puede entrar. La cuenta ya existe en Supabase, con
+el email confirmado y el **login verificado** (29-jul-2026). Cargala tal cual en
+**App Store Connect → App Review Information → Sign-In Information**:
 
 ```
 Email:    review@bolt.com.ar
-Password: (la que le pongas)
+Password: BoltReview2026!
 ```
 
-Esa cuenta tiene que existir de verdad en Supabase y estar confirmada. Para que el
-revisor pueda ver la parte de profesional, aprobala a mano:
+Entra con **email y contraseña**, así el revisor no depende de Google ni de Apple ID.
 
-```sql
--- Reemplazá el email si usás otro
-update professionals
-   set verification_status = 'approved'
- where user_id = (select id from auth.users where email = 'review@bolt.com.ar');
-```
+La misma cuenta tiene **perfil de profesional aprobado** (oficio: Electricista),
+para que el revisor pueda ver los dos lados de la app: pedir un trabajo como
+cliente y recibirlo como profesional. El radar arranca apagado; lo prende él desde
+el inicio y ahí ve el permiso de ubicación en contexto, que es justo lo que Apple
+quiere entender.
+
+⚠️ **No borres ni cambies esa cuenta mientras la app esté en revisión.** Si Apple no
+puede entrar, el rechazo es automático.
 
 ---
 

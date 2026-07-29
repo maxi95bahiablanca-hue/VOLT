@@ -8,6 +8,32 @@ Contacto: Maxi (maxi95.bahiablanca@gmail.com).
 
 ---
 
+## 0. Empezá por acá — qué está listo y qué falta (30-jul-2026)
+
+**Del lado del código ya está todo lo que Apple exige.** No tenés que programar nada
+para poder enviar la app: lo que queda son trámites tuyos y una cosa de Maxi.
+
+| | Qué | Quién |
+|---|---|---|
+| ✅ | Sign in with Apple implementado (botón nativo, sólo iOS) | hecho |
+| ✅ | Borrar la cuenta desde la app, con borrado real | hecho |
+| ✅ | Notas de revisión escritas → `APPLE_REVIEW.md` | hecho |
+| ✅ | **Cuenta demo para el revisor**, probada: `review@bolt.com.ar` / `BoltReview2026!` | hecho |
+| ✅ | `eas.json` y `app.json` preparados para iOS (`buildNumber`, `usesAppleSignIn`, permisos) | hecho |
+| ✅ | Textos de permisos, incluido el de micrófono | hecho |
+| ⏳ | **Convertir la cuenta de Expo en organización e invitarte** — sin esto no podés buildear | **Maxi** (ver punto 8) |
+| ⏳ | Apple Developer Program (US$ 99/año) y una Mac con Xcode | **vos** |
+| ⏳ | Habilitar el provider **Apple** en Supabase con tus claves (ver 6.4) | **vos** |
+| ⏳ | Generar el proyecto iOS (`npx expo prebuild --platform ios`) | **vos** |
+| ⏳ | Grabar el video de la ubicación en segundo plano (guion en `APPLE_REVIEW.md`) | **vos** |
+| ⏳ | Pasarle a Maxi tu **usuario de GitHub** (el mail no alcanza para agregarte) | **vos** |
+
+**El orden que yo seguiría:** cuenta de Apple → que Maxi te sume a Expo → prebuild en la
+Mac → habilitar Apple en Supabase → build y subida → completar la ficha con
+`APPLE_REVIEW.md` y el video.
+
+---
+
 ## 1. Estado real, sin maquillaje
 
 | | |
@@ -146,11 +172,36 @@ resueltas en el código** (29-jul-2026); la tercera es trámite tuyo:
    `supabase.auth.signInWithIdToken({ provider: 'apple' })` y guarda el nombre en el
    primer ingreso, que es la única vez que Apple lo manda.
 
-   ⚠️ **Falta lo que sólo podés hacer vos, con tu cuenta de Apple:**
-   - En **developer.apple.com** → Identifiers → tu App ID → habilitar **Sign In with Apple**;
-     crear una **Services ID** y una **key** de Sign in with Apple.
-   - En **Supabase** → Authentication → Providers → **Apple**: pegar Services ID, Team ID,
-     Key ID y la clave `.p8`. **Sin esto el botón sale pero el login falla.**
+   ⚠️ **Falta lo que sólo podés hacer vos, con tu cuenta de Apple.** Es media hora, pero
+   si te salteás un paso el botón aparece y el login falla con un error críptico.
+   El orden exacto:
+
+   **En developer.apple.com:**
+   1. **Certificates, Identifiers & Profiles → Identifiers → App IDs.** Buscá el App ID
+      de la app (`com.bolt.app`; si tuviste que cambiar el bundle, el que hayas usado).
+      Si no existe todavía, lo crea EAS solo en el primer build — podés hacer el build
+      primero y volver acá.
+   2. Editalo → tildá **Sign In with Apple** → Save.
+   3. **Identifiers → + → Services IDs.** Creá uno nuevo, por ejemplo `com.bolt.app.signin`
+      (NO puede ser igual al bundle). Descripción: "BOLT Sign in with Apple".
+   4. Editá ese Services ID → tildá **Sign In with Apple** → **Configure**:
+      - Primary App ID: el del paso 1.
+      - **Return URLs**: `https://lyeqnvldemcltlbujlnc.supabase.co/auth/v1/callback`
+   5. **Keys → +**. Nombre "BOLT Sign in with Apple", tildá **Sign In with Apple**,
+      Configure → elegí el Primary App ID → Continue → Register.
+      **Descargá el archivo `.p8` — se descarga UNA sola vez.** Anotá el **Key ID**.
+   6. Anotá tu **Team ID** (arriba a la derecha, o en Membership).
+
+   **En Supabase** (pedile el acceso a Maxi) → Authentication → Providers → **Apple**:
+   - **Enable** en sí.
+   - *Client IDs*: poné **los dos** separados por coma — el **bundle** (`com.bolt.app`,
+     que es el que manda la app nativa) y el **Services ID** del paso 3. Si ponés sólo
+     uno, el login falla en uno de los dos caminos.
+   - *Secret Key (for OAuth)*: el contenido del `.p8`, junto con Team ID y Key ID.
+   - Guardá y probá desde un iPhone real: el simulador no siempre tiene sesión de Apple.
+
+   💡 El código de la app usa `supabase.auth.signInWithIdToken({ provider: 'apple' })`,
+   o sea el camino nativo. Por eso el **bundle** tiene que estar sí o sí en Client IDs.
 
 2. ✅ **Borrar la cuenta desde la app (guideline 5.1.1(v)) — implementado.** Botón "Borrar
    mi cuenta" al final de `src/screens/ProfileScreen.js`, con doble confirmación. Llama a
