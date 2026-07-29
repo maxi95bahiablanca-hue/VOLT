@@ -265,11 +265,17 @@
             <div class="acct-mail" id="gMail">—</div>
           </div>
         </div>
-        <!-- Oficio: sólo en el alta de la calle. Es UN toque y es lo que decide si
-             la persona puede recibir trabajos: nearby_workers busca por profesión,
-             así que sin al menos un oficio queda aprobado pero invisible. -->
+        <!-- Oficio: se pregunta en LOS DOS modos. Es UN toque y es lo que decide
+             si la persona puede recibir trabajos: nearby_workers busca por
+             profesión, así que sin al menos un oficio queda invisible aunque
+             esté aprobada. Antes sólo se pedía en el alta de la calle, y el que
+             se registraba solo quedaba pending Y sin oficio: había que aprobarlo
+             y cargarle el oficio a mano, porque su link personal
+             (completar.html → completar-registro) sólo escribe en
+             prestador_leads, nunca en professional_professions.
+             El texto lo ajusta mostrarConfirmar() según el modo. -->
         <div id="gOficios" style="display:none">
-          <label style="margin-top:18px">¿Qué hace? <span style="color:var(--muted2);font-weight:400">— hasta 3, se puede elegir después</span></label>
+          <label style="margin-top:18px" id="gOficiosLbl">¿Qué hace? <span style="color:var(--muted2);font-weight:400">— hasta 3, se puede elegir después</span></label>
           <div class="chips" id="chips"></div>
         </div>
 
@@ -473,12 +479,19 @@
     if (d.foto){ const img = $('gFoto'); img.src = d.foto; img.style.display = 'block'; $('gIni').style.display = 'none'; }
     else { $('gIni').textContent = (d.nombre[0] || '·').toUpperCase(); }
 
+    // El oficio se pregunta siempre: es el único dato que no se puede recuperar
+    // después (el link personal no llega a professional_professions).
+    $('gOficios').style.display = 'block';
     if (MODO_CALLE){
-      $('gOficios').style.display = 'block';
+      $('gOficiosLbl').innerHTML = '¿Qué hace? <span style="color:var(--muted2);font-weight:400">— hasta 3, se puede elegir después</span>';
       $('gNota').textContent = 'Con esto ya queda activo. El WhatsApp y la documentación se los pedimos por mail, con su link personal.';
       $('btnRegistrar').textContent = 'Dar de alta ⚡';
-      await cargarOficios();
+    } else {
+      $('gOficiosLbl').innerHTML = '¿Qué hacés? <span style="color:var(--muted2);font-weight:400">— hasta 3, elegí los tuyos</span>';
+      // El oficio ya lo elige acá: la nota no puede seguir prometiéndolo después.
+      $('gNota').textContent = 'Ahora esto es todo. Después te pedimos tu WhatsApp y la documentación por tu link personal — lo hacés desde el celular sacando las fotos en el momento.';
     }
+    await cargarOficios();
     vista('gConfirm');
 
     // ¿Ya se había registrado? Le devolvemos su link en vez de duplicarlo.
@@ -657,6 +670,11 @@
       if (!elegidos.length){
         $('okSub').innerHTML += '<br><br>⚠️ <b>No eligió oficio</b>: hasta que lo cargue no va a aparecer en ninguna búsqueda.';
       }
+    } else if (!yaEstaba && !elegidos.length){
+      // Mismo agujero que en la calle, pero acá no hay nadie de BOLT al lado
+      // para avisarlo de palabra. Volver a entrar no sirve (el anti-duplicado
+      // manda derecho a esta pantalla), así que se lo pedimos por el contacto.
+      $('okSub').innerHTML += '<br><br>⚠️ <b>No elegiste tu oficio</b>: hasta que lo tengamos cargado no vas a aparecer en las búsquedas. Te lo preguntamos cuando te contactemos.';
     }
 
     if (token){
