@@ -5,7 +5,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+// expo-file-system 19 (SDK 54): readAsStringAsync y EncodingType se mudaron a
+// /legacy. Importados de la raiz TIRAN ERROR en runtime, no avisan en el build.
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../supabase';
 import { showSuccess, showError } from '../utils/toast';
 import volt from '../utils/voltVoice';

@@ -8,7 +8,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+// expo-file-system 19 (SDK 54): readAsStringAsync y EncodingType se mudaron a
+// /legacy. Importados de la raiz TIRAN ERROR en runtime, no avisan en el build.
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../supabase';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
@@ -115,14 +117,17 @@ const SearchingOverlay = ({ foundCount }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialNotes, onQuoteGroupCreated, onBack }) => {
+const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialNotes, initialPhotos, onQuoteGroupCreated, onBack }) => {
   const [notes, setNotes]     = useState(initialNotes || '');
   const [loading, setLoading] = useState(false);
   const [notesTouched, setNotesTouched] = useState(false);
   const [foundCount, setFoundCount]     = useState(0);
 
   // Foto opcional del problema
+  // La foto que se elige acá. Las que ya vienen del asistente (initialPhotos)
+  // se suman aparte: el cliente ya se tomó el trabajo de sacarlas.
   const [problemPhoto, setProblemPhoto] = useState(null); // { uri, ext }
+  const fotosAsistente = Array.isArray(initialPhotos) ? initialPhotos : [];
 
   // Dirección del servicio — auto-detectada, editable si el usuario no está en el lugar
   const [address, setAddress]         = useState(userLocation?.address || '');
@@ -206,24 +211,28 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
       }
       setFoundCount(workers.length);
 
-      // Subir foto del problema si hay una
-      let problemPhotoUrl = null;
-      if (problemPhoto?.uri) {
+      // Subir las fotos del problema: las que pidió el asistente y la que se
+      // haya elegido en esta pantalla. Si alguna falla, seguimos con las demás:
+      // una foto nunca puede frenar un pedido.
+      const subirFoto = async (f, i) => {
         try {
-          const path = `problem-photos/${clientId}/${Date.now()}.${problemPhoto.ext}`;
-          const base64 = await FileSystem.readAsStringAsync(problemPhoto.uri, { encoding: FileSystem.EncodingType.Base64 });
+          const ext  = f.ext || 'jpg';
+          const path = `problem-photos/${clientId}/${Date.now()}-${i}.${ext}`;
+          const base64 = await FileSystem.readAsStringAsync(f.uri, { encoding: FileSystem.EncodingType.Base64 });
           const binary = atob(base64);
           const bytes  = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          for (let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
           const { error: upErr } = await supabase.storage
             .from('avatars')
-            .upload(path, bytes, { upsert: true, contentType: `image/${problemPhoto.ext}` });
-          if (!upErr) {
-            const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-            problemPhotoUrl = data.publicUrl;
-          }
-        } catch { /* si falla la foto, seguimos sin ella */ }
-      }
+            .upload(path, bytes, { upsert: true, contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}` });
+          if (upErr) return null;
+          return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+        } catch { return null; }
+      };
+
+      const aSubir = [...fotosAsistente, ...(problemPhoto?.uri ? [problemPhoto] : [])];
+      const problemPhotos = (await Promise.all(aSubir.map(subirFoto))).filter(Boolean);
+      const problemPhotoUrl = problemPhotos[0] ?? null;
 
       // Crear grupo de cotización (un job por trabajador)
       const { quoteGroupId, jobs } = await jobService.createQuoteGroup({
@@ -234,7 +243,8 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
         clientLng:       userLocation?.longitude,
         address:         address.trim() || 'Ubicación GPS',
         notes:           notes.trim(),
-        problemPhotoUrl: problemPhotoUrl,
+        problemPhotoUrl,
+        problemPhotos,
       });
 
       // Navegar ANTES de las notificaciones — las notifs no deben bloquear el flujo
@@ -381,6 +391,21 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
           />
           {notesTouched && notes.trim().length < 10 && (
             <Text style={styles.notesError}>Describí el problema con un poco más de detalle para continuar.</Text>
+          )}
+
+          {/* Fotos que ya mandó en el cuestionario: se muestran para que no las
+              vuelva a sacar. No se pueden borrar acá, se manda lo que eligió. */}
+          {fotosAsistente.length > 0 && (
+            <View style={styles.fotosPrevias}>
+              <Text style={styles.fotosPreviasTxt}>
+                {fotosAsistente.length === 1 ? 'Ya mandaste 1 foto' : `Ya mandaste ${fotosAsistente.length} fotos`}
+              </Text>
+              <View style={styles.fotosPreviasRow}>
+                {fotosAsistente.map((f, i) => (
+                  <Image key={i} source={{ uri: f.uri }} style={styles.fotoPrevia} />
+                ))}
+              </View>
+            </View>
           )}
 
           {/* Foto del problema (opcional) */}
@@ -581,6 +606,11 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed', backgroundColor: '#0D0D0D',
   },
   photoPickBtnText: { fontSize: 13, color: '#888' },
+
+  fotosPrevias: { marginTop: 12, marginBottom: 4 },
+  fotosPreviasTxt: { fontSize: 12, color: '#4CAF50', fontWeight: '700', marginBottom: 8 },
+  fotosPreviasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  fotoPrevia: { width: 64, height: 64, borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a' },
   photoPreview: {
     marginTop: 12, borderRadius: 12, overflow: 'hidden',
     position: 'relative',

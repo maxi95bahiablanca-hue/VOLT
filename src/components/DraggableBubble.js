@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Animated, PanResponder, Dimensions, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -12,11 +12,21 @@ export default function DraggableBubble({
   onPress,
   badgeCount = 0,
   dotColor,                 // puntito de estado (opcional)
+  deadline,                 // ms epoch: si viene, la burbuja muestra el tiempo que falta
   startX = W - 78,
   startY = H - 230,
 }) {
   const pos = useRef(new Animated.ValueXY({ x: startX, y: startY })).current;
   const moved = useRef(false);
+  // El reloj corre acá adentro para que el tick de cada segundo no vuelva a
+  // dibujar la pantalla entera (el home tiene el mapa).
+  const [left, setLeft] = useState(() => (deadline ? Math.max(0, Math.round((deadline - Date.now()) / 1000)) : 0));
+  useEffect(() => {
+    if (!deadline) return;
+    const t = setInterval(() => setLeft(Math.max(0, Math.round((deadline - Date.now()) / 1000))), 1000);
+    return () => clearInterval(t);
+  }, [deadline]);
+  const reloj = left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : `${left}s`;
   const [closed, setClosed] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [overClose, setOverClose] = useState(false);
@@ -62,7 +72,10 @@ export default function DraggableBubble({
         style={[styles.bubble, overClose && styles.bubbleOverClose, { transform: pos.getTranslateTransform() }]}
         {...responder.panHandlers}
       >
-        <Ionicons name={icon} size={24} color="#0A0A0A" />
+        <Ionicons name={icon} size={deadline ? 18 : 24} color="#0A0A0A" />
+        {deadline > 0 && (
+          <Text style={styles.clock}>{left > 0 ? reloj : 'ver'}</Text>
+        )}
         {dotColor && <View style={[styles.dot, { backgroundColor: dotColor }]} />}
         {badgeCount > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{badgeCount > 9 ? '9+' : badgeCount}</Text></View>}
       </Animated.View>
@@ -79,6 +92,7 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: '#0A0A0A',
   },
   bubbleOverClose: { opacity: 0.5, transform: [{ scale: 0.9 }] },
+  clock: { color: '#0A0A0A', fontSize: 11, fontWeight: '900', marginTop: 1 },
   dot: {
     position: 'absolute', top: 3, right: 3, width: 13, height: 13, borderRadius: 7,
     borderWidth: 2, borderColor: '#FFD600',

@@ -5,7 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Notifications from 'expo-notifications';
 import Toast from 'react-native-toast-message';
 import ErrorBoundary from './src/components/ErrorBoundary';
-import { toastConfig } from './src/utils/toast';
+import { toastConfig, showInfo } from './src/utils/toast';
 import { supabase } from './src/supabase';
 import notificationService from './src/services/notificationService';
 import jobService from './src/services/jobService';
@@ -34,6 +34,11 @@ import { applyGlobalFont } from './src/globalFont';
 
 // Aplica la fuente Nunito (redondeada, estilo del logo) a toda la app.
 applyGlobalFont();
+
+// Ventana que tiene el cliente esperando propuestas. Los profesionales tienen 3
+// minutos para responder (WorkerIncomingScreen), así que le damos uno más para
+// que alcance a elegir. Si cambia uno, cambiar el otro.
+const QUOTE_WINDOW_MS = 240 * 1000;
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -81,6 +86,11 @@ export default function App() {
   const [assistantMode, setAssistantMode]   = useState('text');
   const [quoteGroupId, setQuoteGroupId]     = useState(null);
   const [quoteJobs, setQuoteJobs]           = useState([]);
+  // Espera del presupuesto: el reloj vive acá (no adentro de la pantalla) para
+  // que el cliente pueda minimizar, seguir usando la app y volver al mismo
+  // contador en vez de a uno que arranca de cero.
+  const [quoteDeadline, setQuoteDeadline]   = useState(null);
+  const [quoteMinimized, setQuoteMinimized] = useState(false);
   const [activeJob, setActiveJob]           = useState(null);
   const [incomingJob, setIncomingJob]       = useState(null);
   const [completedJob, setCompletedJob]     = useState(null);
@@ -318,8 +328,8 @@ export default function App() {
   // Cuando el asistente terminó de armar el pedido → vamos a la PLANTILLA clásica
   // (JobRequestScreen) precargada, que sigue el flujo normal (3 presupuestos → tracking).
   // worker:null = modo automático (la plantilla busca los 3 cercanos del oficio detectado).
-  const handleAssistantReady = (profession, notes) => {
-    setJobRequestData({ worker: null, profession, userLocation: assistantLoc, initialNotes: notes });
+  const handleAssistantReady = (profession, notes, fotos) => {
+    setJobRequestData({ worker: null, profession, userLocation: assistantLoc, initialNotes: notes, initialPhotos: fotos || [] });
     setScreen('jobRequest');
   };
 
@@ -327,16 +337,54 @@ export default function App() {
   const handleQuoteGroupCreated = (groupId, jobs) => {
     setQuoteGroupId(groupId);
     setQuoteJobs(jobs);
+    setQuoteDeadline(Date.now() + QUOTE_WINDOW_MS);
+    setQuoteMinimized(false);
     setJobRequestData(null);
     setScreen('quoteSelection');
   };
 
-  // ─── Callbacks de QuoteSelectionScreen ───────────────
-  const handleWorkerSelected = (job) => {
-    setQuoteGroupId(null); setQuoteJobs([]); setActiveJob(job); setScreen('jobTracking');
+  const limpiarQuote = () => {
+    setQuoteGroupId(null); setQuoteJobs([]); setQuoteDeadline(null); setQuoteMinimized(false);
   };
 
-  const handleQuoteExpired = () => { disableDemo(); setQuoteGroupId(null); setQuoteJobs([]); setScreen('home'); };
+  // ─── Callbacks de QuoteSelectionScreen ───────────────
+  const handleWorkerSelected = (job) => {
+    limpiarQuote(); setActiveJob(job); setScreen('jobTracking');
+  };
+
+  const handleQuoteExpired = () => { disableDemo(); limpiarQuote(); setScreen('home'); };
+
+  // "Seguir usando la app": NO cancela nada, solo esconde la pantalla. Las
+  // solicitudes siguen vivas y la burbuja del home lo trae de vuelta.
+  const handleQuoteMinimize = () => { setQuoteMinimized(true); setScreen('home'); };
+  const handleQuoteResume   = () => { setQuoteMinimized(false); setScreen('quoteSelection'); };
+
+  // Con la pantalla de propuestas minimizada nadie escucha las respuestas: la
+  // suscripción vive adentro de esa pantalla. Acá seguimos mirando cada 5 s y le
+  // avisamos apenas alguien responde, así "seguir usando la app" no significa
+  // perderse el presupuesto.
+  useEffect(() => {
+    if (!quoteMinimized || !quoteGroupId) return;
+    let vivo = true;
+    let avisados = quoteJobs.filter(j => j.status === 'accepted').length;
+    const t = setInterval(async () => {
+      try {
+        const fresh = await jobService.getQuoteGroup(quoteGroupId);
+        if (!vivo || !fresh?.length) return;
+        setQuoteJobs(prev => prev.map(j => fresh.find(f => f.id === j.id) ?? j));
+        const responden = fresh.filter(j => j.status === 'accepted').length;
+        if (responden > avisados) {
+          avisados = responden;
+          showInfo(
+            responden === 1 ? 'Un profesional te respondió. Tocá la burbuja para verlo.'
+                            : `${responden} profesionales te respondieron.`,
+            'Tenés propuestas'
+          );
+        }
+      } catch { /* silencioso: es un respaldo, no puede molestar */ }
+    }, 5000);
+    return () => { vivo = false; clearInterval(t); };
+  }, [quoteMinimized, quoteGroupId]);
 
   const handleQuoteBack = async () => {
     if (quoteGroupId && quoteJobs.length > 0) {
@@ -347,7 +395,7 @@ export default function App() {
       ).catch(() => {});
     }
     disableDemo();
-    setQuoteGroupId(null); setQuoteJobs([]); setScreen('home');
+    limpiarQuote(); setScreen('home');
   };
 
   // ─── Callbacks de WorkerIncomingScreen ───────────────
@@ -418,6 +466,7 @@ export default function App() {
           clientId={session.user.id}
           userLocation={jobRequestData.userLocation}
           initialNotes={jobRequestData.initialNotes}
+          initialPhotos={jobRequestData.initialPhotos}
           onQuoteGroupCreated={handleQuoteGroupCreated}
           onBack={() => setScreen('home')}
         />
@@ -429,8 +478,10 @@ export default function App() {
           quoteGroupId={quoteGroupId}
           jobs={quoteJobs}
           clientId={session.user.id}
+          deadline={quoteDeadline}
           onSelected={handleWorkerSelected}
           onExpired={handleQuoteExpired}
+          onMinimize={handleQuoteMinimize}
           onBack={handleQuoteBack}
         />
       );
@@ -478,6 +529,10 @@ export default function App() {
         onIncomingJob={handleIncomingJob}
         activeJob={activeJob}
         onResumeJob={() => { minimizedJobRef.current = false; setScreen('jobTracking'); }}
+        quoteWaiting={quoteMinimized && !!quoteGroupId}
+        quoteDeadline={quoteDeadline}
+        quoteResponded={quoteJobs.filter(j => j.status === 'accepted').length}
+        onResumeQuote={handleQuoteResume}
       />
     );
   };

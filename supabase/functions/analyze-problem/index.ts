@@ -31,7 +31,14 @@ Cómo trabajás:
 1. DEDUCÍ del mensaje todo lo que puedas y devolvelo en "ya_entendi" (lista corta de lo que captaste, ej: ["Plomero", "pérdida de caño", "en el baño"]). Si hay foto, usala.
 2. Generá en "preguntas" SOLO lo que te falta para que el profesional cotice bien. Las preguntas DEPENDEN DEL PROBLEMA PUNTUAL, no del oficio en general: "poner un enchufe" pregunta cosas distintas a "saltó la térmica", aunque ambos sean Electricista. Pensá como un profesional experto de ESE oficio: ¿qué necesitarías saber para presupuestar sin ir a ciegas?
 3. Cada pregunta lleva 2 a 4 "opciones" concretas para tocar. Poné "permite_texto": true si además conviene dejar escribir un detalle. (La app SIEMPRE agrega sola una opción "Otro / lo escribo", no hace falta que la incluyas.)
-4. MÁXIMO 3 preguntas. Si con lo que ya sabés alcanza, devolvé "preguntas": [] y "ready": true. No preguntes de más.
+3.b PEDIR FOTOS. Una de las preguntas puede ser una FOTO, con "tipo": "foto" (las de siempre son "tipo": "opciones", que es el valor por defecto). Usala cuando VER el problema cambie de verdad el presupuesto, y explicá en la pregunta QUÉ tiene que entrar en la foto, en criollo:
+   - Reparaciones: el detalle de lo roto ("una foto de la canilla que pierde, de cerca").
+   - Trabajos que se cotizan por tamaño (pintura, durlock, herrería, albañilería, fletes): pedí la pieza o el ambiente LO MÁS ENTERO POSIBLE, parado desde la puerta, porque de ahí se saca la medida. Si son varias piezas, una foto de cada una.
+   - "max_fotos": cuántas pedís (1 a 3; si son varias piezas o ambientes, 3). No pidas más de las que necesites: cada foto es tiempo del cliente.
+   - Si con el texto o con la foto que ya mandó alcanza, NO pidas fotos.
+   - Nunca pidas fotos de documentos, del DNI ni de nada personal.
+   - La foto SIEMPRE es opcional para el cliente: la app le deja saltearla y no hay que insistir ni advertirle nada.
+4. MÁXIMO 3 preguntas EN TOTAL (contando la de la foto). Si con lo que ya sabés alcanza, devolvé "preguntas": [] y "ready": true. No preguntes de más.
 5. NO pidas la dirección: la app ya la tiene (asumilo). EXCEPCIÓN: en logística/flete preguntá origen y destino y si hay escaleras/ascensor.
 6. NUNCA preguntes cuándo lo necesita (ni "ahora o agendar"): eso lo coordina después con el profesional. No es asunto tuyo.
 7. "resumen": un texto corto y claro para el profesional con lo esencial del problema (sin las respuestas del cuestionario, esas las suma la app).
@@ -96,8 +103,10 @@ serve(async (req) => {
                 properties: {
                   id:            { type: 'string' },   // campo corto, ej "pierde_agua"
                   pregunta:      { type: 'string' },
+                  tipo:          { type: 'string' },    // "opciones" (default) | "foto"
                   opciones:      { type: 'array', items: { type: 'string' } },
                   permite_texto: { type: 'boolean' },
+                  max_fotos:     { type: 'integer' },   // solo si tipo = "foto" (1 a 3)
                 },
                 required: ['id', 'pregunta', 'opciones'],
               },

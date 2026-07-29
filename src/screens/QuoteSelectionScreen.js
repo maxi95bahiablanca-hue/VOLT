@@ -14,7 +14,12 @@ import volt from '../utils/voltVoice';
 import { isDemoMode } from '../demo/demoMode';
 import demoJobService from '../demo/demoJobService';
 
-const TIMEOUT_SEC = 60;
+// El trabajador tiene 3 minutos para responder (ver WorkerIncomingScreen), así
+// que al cliente le damos 4: los 3 de la búsqueda más uno para elegir entre las
+// propuestas que hayan llegado.
+const TIMEOUT_SEC = 240;
+
+const fmtTiempo = (s) => (s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : String(s));
 
 // ─── Tarjeta de propuesta de un profesional ────────────────────────────────
 const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCompare, compareDisabled }) => {
@@ -567,9 +572,15 @@ const cmStyles = StyleSheet.create({
 });
 
 // ─── SCREEN PRINCIPAL ─────────────────────────────────────────────────────
-const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, onSelected, onExpired, onBack }) => {
+// `deadline` (ms epoch) lo maneja App.js: así el cliente puede minimizar esta
+// pantalla, seguir usando la app y volver al MISMO contador. Si no viene, se
+// cuenta desde ahora (por compatibilidad).
+const restante = (deadline) =>
+  deadline ? Math.max(0, Math.round((deadline - Date.now()) / 1000)) : TIMEOUT_SEC;
+
+const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSelected, onExpired, onMinimize, onBack }) => {
   const [jobs, setJobs]           = useState(initialJobs || []);
-  const [timeLeft, setTimeLeft]   = useState(TIMEOUT_SEC);
+  const [timeLeft, setTimeLeft]   = useState(() => restante(deadline));
   const [selecting, setSelecting] = useState(false);
   const [expired, setExpired]     = useState(false);
   const [compareList, setCompareList] = useState([]);
@@ -609,11 +620,13 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, onSelected, onE
       } catch { /* silent */ }
     }, 4000);
 
+    // Se recalcula contra el deadline en vez de restar 1: si el cliente minimiza
+    // y vuelve, o el celular suspende la app, el reloj sigue siendo el real.
+    if (restante(deadline) <= 0) setExpired(true);
     timerRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) { clearInterval(timerRef.current); setExpired(true); return 0; }
-        return t - 1;
-      });
+      const t = restante(deadline);
+      setTimeLeft(t);
+      if (t <= 0) { clearInterval(timerRef.current); setExpired(true); }
     }, 1000);
     return () => { clearInterval(timerRef.current); clearInterval(pollQuotes); subsRef.current?.unsubscribe?.(); };
   }, []);
@@ -730,7 +743,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, onSelected, onE
     ]);
   };
 
-  const urgencyColor = timeLeft <= 10 ? '#ff4444' : timeLeft <= 20 ? '#FF9800' : '#FFD600';
+  const urgencyColor = timeLeft <= 30 ? '#ff4444' : timeLeft <= 60 ? '#FF9800' : '#FFD600';
 
   if (expired && respondedJobs.length === 0) {
     return (
@@ -792,14 +805,28 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, onSelected, onE
         {!expired ? (
           <View style={styles.timerWrap}>
             <View style={[styles.timerRing, { borderColor: urgencyColor }]}>
-              <Text style={[styles.timerNum, { color: urgencyColor }]}>{timeLeft}</Text>
-              <Text style={styles.timerSec}>seg</Text>
+              <Text style={[styles.timerNum, { color: urgencyColor }]}>{fmtTiempo(timeLeft)}</Text>
+              <Text style={styles.timerSec}>{timeLeft >= 60 ? 'min' : 'seg'}</Text>
             </View>
             <Text style={styles.timerSub}>
               {respondedJobs.length > 0
                 ? `${respondedJobs.length} de ${jobs.length} ${respondedJobs.length === 1 ? 'respondió' : 'respondieron'}`
-                : 'Esperando respuestas...'}
+                : 'En 2 o 3 minutos te encontramos un profesional'}
             </Text>
+            {respondedJobs.length === 0 && (
+              <Text style={styles.timerHint}>
+                Les estamos avisando. Podés seguir usando la app: te avisamos apenas respondan.
+              </Text>
+            )}
+
+            {/* Minimizar: la búsqueda sigue corriendo, queda una burbuja en el
+                inicio para volver acá. No cancela nada. */}
+            {onMinimize && (
+              <TouchableOpacity style={styles.keepUsingBtn} onPress={onMinimize} activeOpacity={0.85}>
+                <Ionicons name="chevron-down" size={16} color="#FFD600" />
+                <Text style={styles.keepUsingText}>SEGUIR USANDO LA APP</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={styles.expiredBanner}>
@@ -895,7 +922,16 @@ const styles = StyleSheet.create({
   },
   timerNum: { fontSize: 26, fontWeight: '900' },
   timerSec: { fontSize: 9, color: '#555', marginTop: -2 },
-  timerSub: { color: '#555', fontSize: 13, marginTop: 8 },
+  timerSub: { color: '#555', fontSize: 13, marginTop: 8, textAlign: 'center' },
+  timerHint: { color: '#3d3d3d', fontSize: 11, marginTop: 6, textAlign: 'center', lineHeight: 16, paddingHorizontal: 24 },
+
+  keepUsingBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginTop: 14, paddingVertical: 10, paddingHorizontal: 18,
+    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,214,0,0.35)',
+    backgroundColor: 'rgba(255,214,0,0.07)',
+  },
+  keepUsingText: { color: '#FFD600', fontSize: 12, fontWeight: '900', letterSpacing: 0.4 },
 
   expiredBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

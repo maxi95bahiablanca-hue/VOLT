@@ -49,7 +49,7 @@ export async function displayIncomingJob(job = {}) {
       loopSound: true,
       ongoing: true,
       autoCancel: false,
-      timeoutAfter: 60000,          // se va sola a los 60s (igual que la ventana del pedido)
+      timeoutAfter: 180000,         // se va sola a los 3 min (igual que la ventana del pedido)
       lightUpScreen: true,
     },
   });

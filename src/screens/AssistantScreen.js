@@ -6,7 +6,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+// expo-file-system 19 (SDK 54): readAsStringAsync y EncodingType se mudaron a
+// /legacy. Importados de la raiz TIRAN ERROR en runtime, no avisan en el build.
+import * as FileSystem from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
 import assistantService from '../services/assistantService';
 
@@ -15,6 +17,10 @@ import assistantService from '../services/assistantService';
 // ("ya entendí") y arma SOLO las preguntas que faltan, específicas del problema.
 // Al completar → vuelve a la plantilla clásica (JobRequestScreen) vía onReady.
 const OTRO = '__otro__';
+
+// Tope duro de fotos del cuestionario. La IA puede pedir menos, nunca más: son
+// fotos que después se suben al storage y las mira el profesional.
+const MAX_FOTOS = 3;
 
 const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
   const insets = useSafeAreaInsets();
@@ -29,6 +35,7 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
   const [answers, setAnswers]   = useState({});
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherText, setOtherText] = useState('');
+  const [fotos, setFotos]         = useState([]);   // fotos del cuestionario → van con el trabajo
 
   const recRef     = useRef(null);
   const historyRef = useRef([]);   // [{ role:'user'|'model', text }]
@@ -121,7 +128,7 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
       .filter(Boolean);
     const base = (an.resumen || an.oficio || 'Solicitud').trim();
     const notes = [base, ...lines].join('\n');
-    onReady({ id: an.profession_id, name: an.oficio || 'Servicio' }, notes);
+    onReady({ id: an.profession_id, name: an.oficio || 'Servicio' }, notes, fotos);
   };
 
   // ─── Foto ───────────────────────────────────────────────
@@ -173,11 +180,38 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
     } catch { Alert.alert('Ups', 'No pudimos acceder al micrófono.'); }
   };
 
+  // ─── Preguntas de FOTO ──────────────────────────────────
+  // La IA puede pedir fotos como una pregunta más (tipo: 'foto'). NO se le
+  // mandan al modelo: se guardan con el trabajo para que las vea el profesional.
+  // Así ver el problema no cuesta un peso más de IA.
+  const tomarFoto = async (desde) => {
+    const preg = analysis.preguntas[qIndex];
+    const tope = Math.min(Math.max(preg.max_fotos || 1, 1), MAX_FOTOS);
+    if (fotos.length >= tope) return;
+    try {
+      const permiso = desde === 'camara'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permiso.status !== 'granted') {
+        Alert.alert('Permiso requerido', desde === 'camara' ? 'Necesitamos la cámara.' : 'Necesitamos acceso a tus fotos.');
+        return;
+      }
+      const r = desde === 'camara'
+        ? await ImagePicker.launchCameraAsync({ quality: 0.6 })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.6 });
+      if (r.canceled) return;
+      const a = r.assets[0];
+      setFotos(prev => [...prev, { uri: a.uri, ext: (a.uri.split('.').pop() || 'jpg').toLowerCase() }]);
+    } catch { Alert.alert('Ups', 'No pudimos tomar la foto.'); }
+  };
+
   // ─── Render: pregunta actual (vista B) ──────────────────
   const renderQuestions = () => {
     const preg = analysis.preguntas[qIndex];
     const total = analysis.preguntas.length;
     const opciones = Array.isArray(preg.opciones) ? preg.opciones : [];
+    const esFoto = preg.tipo === 'foto';
+    const tope = Math.min(Math.max(preg.max_fotos || 1, 1), MAX_FOTOS);
     return (
       <ScrollView contentContainerStyle={styles.qScroll} keyboardShouldPersistTaps="handled">
         {/* Lo que ya entendió la IA */}
@@ -206,7 +240,58 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
         {/* Pregunta */}
         <Text style={styles.question}>{preg.pregunta}</Text>
 
-        {/* Opciones */}
+        {/* Pregunta de FOTO: sacar/elegir, con miniaturas y salida siempre a mano */}
+        {esFoto ? (
+          <View style={styles.opts}>
+            {fotos.length > 0 && (
+              <View style={styles.thumbs}>
+                {fotos.map((f, i) => (
+                  <View key={i} style={styles.thumbWrap}>
+                    <Image source={{ uri: f.uri }} style={styles.thumb} />
+                    <TouchableOpacity
+                      style={styles.thumbDel}
+                      onPress={() => setFotos(prev => prev.filter((_, j) => j !== i))}
+                    >
+                      <Ionicons name="close" size={13} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {fotos.length < tope ? (
+              <>
+                <TouchableOpacity style={styles.opt} activeOpacity={0.85} onPress={() => tomarFoto('camara')}>
+                  <Text style={styles.optTxt}>Sacar foto ahora</Text>
+                  <Ionicons name="camera-outline" size={18} color="#FFD600" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.opt} activeOpacity={0.85} onPress={() => tomarFoto('galeria')}>
+                  <Text style={styles.optTxt}>Elegir de mis fotos</Text>
+                  <Ionicons name="images-outline" size={18} color="#666" />
+                </TouchableOpacity>
+                <Text style={styles.fotoHint}>
+                  {tope > 1 ? `Podés mandar hasta ${tope}. ` : ''}Si no podés sacarla, seguí igual.
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.fotoHint}>Listo, ya tenemos {tope === 1 ? 'la foto' : 'las fotos'}.</Text>
+            )}
+
+            <TouchableOpacity
+              style={fotos.length > 0 ? styles.optPrimary : styles.optOther}
+              activeOpacity={0.85}
+              onPress={() => answerCurrent(fotos.length > 0
+                ? `${fotos.length} foto${fotos.length > 1 ? 's' : ''} adjunta${fotos.length > 1 ? 's' : ''}`
+                : 'Sin foto')}
+            >
+              <Text style={fotos.length > 0 ? styles.optPrimaryTxt : styles.optOtherTxt}>
+                {fotos.length > 0 ? 'Continuar' : 'Ahora no puedo'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+
+        /* Opciones */
         <View style={styles.opts}>
           {opciones.map((op, i) => (
             <TouchableOpacity key={i} style={styles.opt} activeOpacity={0.85} onPress={() => answerCurrent(op)}>
@@ -239,6 +324,7 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
             </View>
           )}
         </View>
+        )}
       </ScrollView>
     );
   };
@@ -371,6 +457,19 @@ const styles = StyleSheet.create({
   optTxt: { flex: 1, color: '#F5F5F5', fontSize: 15.5, fontWeight: '700' },
   optOther: { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: 'rgba(255,214,0,0.4)', borderStyle: 'dashed', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 15, marginTop: 2 },
   optOtherTxt: { color: '#FFD600', fontSize: 15, fontWeight: '800' },
+
+  // Pregunta de foto
+  optPrimary: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD600', borderRadius: 14, paddingVertical: 16, marginTop: 2 },
+  optPrimaryTxt: { color: '#10100A', fontSize: 15.5, fontWeight: '900' },
+  fotoHint: { color: '#5a5a5a', fontSize: 12, lineHeight: 17, marginTop: 2, marginBottom: 4 },
+  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
+  thumbWrap: { width: 84, height: 84 },
+  thumb: { width: 84, height: 84, borderRadius: 12, borderWidth: 1, borderColor: '#2a2a33' },
+  thumbDel: {
+    position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#ff4444', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#0A0A0A',
+  },
   otherBox: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 2 },
   otherInput: { flex: 1, minHeight: 52, maxHeight: 120, backgroundColor: '#16161B', borderWidth: 1, borderColor: '#FFD600', borderRadius: 14, color: '#F5F5F5', fontSize: 15, paddingHorizontal: 14, paddingVertical: 12 },
   otherBtn: { width: 50, height: 52, borderRadius: 14, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center' },

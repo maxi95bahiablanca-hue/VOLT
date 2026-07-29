@@ -5,7 +5,9 @@ import {
   Alert, Platform, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+// expo-file-system 19 (SDK 54): readAsStringAsync y EncodingType se mudaron a
+// /legacy. Importados de la raiz TIRAN ERROR en runtime, no avisan en el build.
+import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';

@@ -270,7 +270,9 @@ const jobService = {
     if (error) throw error;
   },
 
-  createQuoteGroup: async ({ clientId, workers, professionId, clientLat, clientLng, address, notes, problemPhotoUrl }) => {
+  // `problemPhotos` es la lista completa (migración 033). `problemPhotoUrl` se
+  // sigue mandando con la primera para las pantallas viejas.
+  createQuoteGroup: async ({ clientId, workers, professionId, clientLat, clientLng, address, notes, problemPhotoUrl, problemPhotos }) => {
     const quoteGroupId = uuidv4();
     const rows = await Promise.all(workers.map(async w => {
       const billed30 = await billed30Of(w.id);
@@ -286,6 +288,7 @@ const jobService = {
         commission_pct:    commissionForBilled(billed30, w.avg_rating),
         quote_group_id:    quoteGroupId,
         ...(problemPhotoUrl ? { problem_photo_url: problemPhotoUrl } : {}),
+        ...(problemPhotos?.length ? { problem_photos: problemPhotos } : {}),
       };
     }));
     const { data, error } = await supabase

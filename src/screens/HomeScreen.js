@@ -647,7 +647,11 @@ const bubbleStyles = StyleSheet.create({
   },
 });
 
-const HomeScreen = ({ session, professional, onRequestJob, onOpenAssistant, onActiveJob, onIncomingJob, activeJob, onResumeJob }) => {
+const HomeScreen = ({
+  session, professional, onRequestJob, onOpenAssistant, onActiveJob, onIncomingJob,
+  activeJob, onResumeJob,
+  quoteWaiting, quoteDeadline, quoteResponded = 0, onResumeQuote,
+}) => {
   const userId = session?.user?.id;
 
   // Estado del profesional (si el user está registrado como trabajador)
@@ -1176,6 +1180,20 @@ const HomeScreen = ({ session, professional, onRequestJob, onOpenAssistant, onAc
 
       {/* Burbuja arrastrable de trabajo en curso (volver al seguimiento) */}
       {hasActiveJob && <DraggableBubble icon="navigate" onPress={onResumeJob} dotColor="#4CAF50" />}
+
+      {/* Burbuja de "esperando presupuesto": aparece cuando el cliente toca
+          SEGUIR USANDO LA APP. Muestra cuánto falta y cuántos respondieron, y
+          lo devuelve a las propuestas. Va más arriba para no taparse con la de
+          trabajo en curso. */}
+      {quoteWaiting && (
+        <DraggableBubble
+          icon="hourglass"
+          onPress={onResumeQuote}
+          deadline={quoteDeadline}
+          badgeCount={quoteResponded}
+          startY={SCREEN_H - 330}
+        />
+      )}
 
       {/* BARRA SUPERIOR */}
       <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">

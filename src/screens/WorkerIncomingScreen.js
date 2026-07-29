@@ -24,7 +24,12 @@ const REJECTION_REASONS = [
 const CONFIDENCE_LEVELS = ['Alta', 'Media', 'Baja'];
 const MATERIAL_CHIPS = ['Cable', 'Llave térmica', 'Disyuntor', 'Cañería', 'Sellador', 'Tornillos', 'Pintura', 'Cemento', 'Membrana', 'Otro'];
 
-const TIMEOUT_SEC     = 60;
+// 3 minutos. Con 45-60 segundos el trabajador no llegaba a agarrar el teléfono:
+// si está arriba de una escalera o manejando, perdía el trabajo sin enterarse.
+const TIMEOUT_SEC     = 180;
+
+// "2:35" mientras falta más de un minuto; abajo de eso, los segundos pelados.
+const fmtTiempo = (s) => (s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : String(s));
 const ARRIVAL_OPTIONS  = ['~15 min', '~30 min', '~45 min', '~1 hora', '+1 hora'];
 const DURATION_OPTIONS = ['~30 min', '~1 hora', '~2 horas', '~3 horas', '+3 horas'];
 const SESSION_OPTIONS  = ['2', '3', '4', '5', '6', '7+'];
@@ -49,7 +54,7 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
     ])).start();
   }, []);
 
-  const urgencyColor = timeLeft <= 10 ? '#ff4444' : timeLeft <= 20 ? '#FF9800' : '#FFD600';
+  const urgencyColor = timeLeft <= 30 ? '#ff4444' : timeLeft <= 60 ? '#FF9800' : '#FFD600';
   const ringScale  = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] });
   const ringOpacity = ringAnim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.4, 0] });
 
@@ -64,8 +69,8 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
 
           {/* Timer central */}
           <View style={[alertStyles.timerCircle, { borderColor: urgencyColor }]}>
-            <Text style={[alertStyles.timerNum, { color: urgencyColor }]}>{timeLeft}</Text>
-            <Text style={alertStyles.timerSec}>seg</Text>
+            <Text style={[alertStyles.timerNum, { color: urgencyColor }]}>{fmtTiempo(timeLeft)}</Text>
+            <Text style={alertStyles.timerSec}>{timeLeft >= 60 ? 'min' : 'seg'}</Text>
           </View>
         </View>
 
@@ -134,7 +139,7 @@ const DetailsPhase = ({
   const [costMax, setCostMax]             = useState('');
   const [timeEst, setTimeEst]             = useState('');
 
-  const urgencyColor = timeLeft <= 10 ? '#ff4444' : timeLeft <= 20 ? '#FF9800' : '#4CAF50';
+  const urgencyColor = timeLeft <= 30 ? '#ff4444' : timeLeft <= 60 ? '#FF9800' : '#4CAF50';
 
   const toggleMaterial = (mat) =>
     setSelectedMaterials(prev => prev.includes(mat) ? prev.filter(m => m !== mat) : [...prev, mat]);
@@ -187,7 +192,7 @@ const DetailsPhase = ({
         <View style={styles.quietTimer}>
           <View style={[styles.quietTimerDot, { backgroundColor: urgencyColor }]} />
           <Text style={[styles.quietTimerText, { color: urgencyColor }]}>
-            {timedOut ? 'Tiempo agotado' : `${timeLeft}s para responder`}
+            {timedOut ? 'Tiempo agotado' : `${fmtTiempo(timeLeft)}${timeLeft >= 60 ? ' min' : 's'} para responder`}
           </Text>
         </View>
 
@@ -232,12 +237,26 @@ const DetailsPhase = ({
               </View>
             </>
           ) : null}
-          {job.problem_photo_url ? (
-            <>
-              <View style={styles.divider} />
-              <Image source={{ uri: job.problem_photo_url }} style={styles.problemPhoto} resizeMode="cover" />
-            </>
-          ) : null}
+          {/* Fotos del cliente. `problem_photos` puede traer varias (migración
+              033); si el cliente tiene la app vieja, viene sólo la de siempre. */}
+          {(() => {
+            const fotos = job.problem_photos?.length ? job.problem_photos : (job.problem_photo_url ? [job.problem_photo_url] : []);
+            if (!fotos.length) return null;
+            return (
+              <>
+                <View style={styles.divider} />
+                {fotos.length === 1 ? (
+                  <Image source={{ uri: fotos[0] }} style={styles.problemPhoto} resizeMode="cover" />
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    {fotos.map((u, i) => (
+                      <Image key={i} source={{ uri: u }} style={styles.problemPhotoMulti} resizeMode="cover" />
+                    ))}
+                  </ScrollView>
+                )}
+              </>
+            );
+          })()}
         </View>
 
         {/* Tiempo estimado de llegada */}
@@ -695,6 +714,7 @@ const styles = StyleSheet.create({
   rowVal:   { fontSize: 15, color: '#F5F5F5', fontWeight: '600' },
   divider:  { height: 1, backgroundColor: '#1a1a1a', marginHorizontal: 16 },
   problemPhoto: { width: '100%', height: 160, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  problemPhotoMulti: { width: 150, height: 150, borderRadius: 12, marginBottom: 10 },
 
   arrivalCard: {
     width: '100%', backgroundColor: '#111',
