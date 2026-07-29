@@ -7,7 +7,11 @@ node_modules/
 .expo/
 dist/
 .git/
-ios/
+
+# ios/ NO se excluye: el proyecto es bare (android/ va versionado), así que si
+# se genera la carpeta ios/ tiene que viajar al build igual que android/. Si se
+# excluyera, EAS haría un prebuild limpio en cada build y descartaría cualquier
+# cambio hecho en Xcode.
 
 # artefactos de build (se regeneran; achican el upload)
 android/.gradle/

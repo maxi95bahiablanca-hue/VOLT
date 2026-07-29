@@ -9,6 +9,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": { "buildType": "apk" },
+      "ios": { "simulator": true },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://lyeqnvldemcltlbujlnc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0",
@@ -19,6 +20,7 @@
       "distribution": "internal",
       "channel": "preview",
       "android": { "buildType": "apk" },
+      "ios": { "simulator": true },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://lyeqnvldemcltlbujlnc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0",
@@ -26,9 +28,14 @@
       }
     },
     "production": {
-      "credentialsSource": "local",
       "channel": "production",
-      "android": { "buildType": "app-bundle" },
+      "android": {
+        "buildType": "app-bundle",
+        "credentialsSource": "local"
+      },
+      "ios": {
+        "credentialsSource": "remote"
+      },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://lyeqnvldemcltlbujlnc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0",

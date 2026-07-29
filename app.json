@@ -23,7 +23,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.bolt.app",
+      "buildNumber": "1",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "location",
           "fetch",
