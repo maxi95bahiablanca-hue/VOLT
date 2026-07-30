@@ -265,8 +265,13 @@ Cualquier duda respondeme este mail.
 Gracias!
 Maximiliano — BOLT
 https://bolt.com.ar`;
-    return 'mailto:' + encodeURIComponent(l.email || '') +
-           '?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo);
+    // Compositor web de Gmail, no mailto: en Chrome sin cliente de correo
+    // asociado el mailto no hace absolutamente nada al tocarlo (pasó el 29-jul).
+    // Esto abre una pestaña con el mail escrito, listo para apretar Enviar.
+    return 'https://mail.google.com/mail/?view=cm&fs=1' +
+           '&to=' + encodeURIComponent(l.email || '') +
+           '&su=' + encodeURIComponent(asunto) +
+           '&body=' + encodeURIComponent(cuerpo);
   }
 
   // ===== Datos faltantes (mismo checklist que el mail automático) =====
