@@ -15,27 +15,44 @@
 -- Es exactamente el patrón que hay que evitar: un estado sin salida, esperando
 -- una acción que nadie va a hacer.
 --
--- Arreglo: la excepción sólo corre si el trabajo tiene un pago REAL pendiente
--- (una fila en `payments` para ese job que todavía no se aprobó). Si no hay
--- ningún pago en juego, cualquiera de las dos partes puede cerrarlo.
+-- ⚠️ Esta función se reescribe ENTERA (CREATE OR REPLACE), así que abajo están
+-- TODAS las protecciones de la 028 tal cual estaban. Lo único que cambia es la
+-- última: ahora exige que haya un pago REAL pendiente para bloquear el cierre.
 --
 -- Seguro de correr varias veces.
 
 CREATE OR REPLACE FUNCTION public.protect_job_money_fields()
-RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Nadie toca los montos de un trabajo ya terminado.
-  IF OLD.status = 'completed' AND (
-       NEW.visit_amount IS DISTINCT FROM OLD.visit_amount OR
-       NEW.work_amount  IS DISTINCT FROM OLD.work_amount
-     ) THEN
-    RAISE EXCEPTION 'No se pueden cambiar los montos de un trabajo terminado';
+  -- El backend (service_role) y los roles internos de Supabase pasan siempre
+  IF current_user IN ('postgres', 'supabase_admin', 'service_role')
+     OR coalesce(auth.jwt() ->> 'role', '') = 'service_role' THEN
+    RETURN NEW;
   END IF;
 
-  -- Sólo se protege el cierre cuando hay plata de por medio de verdad.
+  IF NEW.visit_paid IS DISTINCT FROM OLD.visit_paid THEN
+    RAISE EXCEPTION 'visit_paid solo lo confirma el sistema de pagos';
+  END IF;
+
+  IF NEW.visit_amount IS DISTINCT FROM OLD.visit_amount THEN
+    RAISE EXCEPTION 'visit_amount no se puede modificar despues de crear el trabajo';
+  END IF;
+
+  IF NEW.commission_pct IS DISTINCT FROM OLD.commission_pct THEN
+    RAISE EXCEPTION 'commission_pct no se puede modificar despues de crear el trabajo';
+  END IF;
+
+  IF OLD.status IN ('awaiting_payment', 'completed')
+     AND (NEW.work_amount IS DISTINCT FROM OLD.work_amount
+          OR NEW.materials_cost IS DISTINCT FROM OLD.materials_cost) THEN
+    RAISE EXCEPTION 'Los montos no se pueden modificar cuando el trabajo espera pago o termino';
+  END IF;
+
+  -- ▼ LO ÚNICO QUE CAMBIA: sólo se bloquea el cierre si hay un pago de verdad
+  --   esperando. Sin pagos en juego (modo gratis), cualquiera de las dos partes
+  --   puede finalizar el trabajo.
   IF NEW.status = 'completed' AND OLD.status = 'awaiting_payment'
      AND EXISTS (SELECT 1 FROM payments p
                   WHERE p.job_id = OLD.id AND p.status <> 'approved') THEN
@@ -52,8 +69,9 @@ CREATE TRIGGER trg_protect_job_money
   FOR EACH ROW
   EXECUTE FUNCTION public.protect_job_money_fields();
 
--- Los que ya quedaron trabados: en modo gratis, `awaiting_payment` no es un
--- estado válido — el trabajo está hecho y el pago se arregla afuera.
+-- Los que ya quedaron trabados (como el pedido de ayer): en modo gratis
+-- `awaiting_payment` no es un estado válido — el trabajo está hecho y el pago se
+-- arregla afuera. Se los devuelve a in_progress para que se puedan cerrar.
 UPDATE jobs
    SET status = 'in_progress'
  WHERE status = 'awaiting_payment'
