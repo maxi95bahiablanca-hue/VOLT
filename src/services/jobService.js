@@ -128,6 +128,10 @@ const jobService = {
 
   arrive:  async (jobId) => update(jobId, { status: 'arrived',     arrived_at:      new Date().toISOString() }),
   start:   async (jobId) => update(jobId, { status: 'in_progress', work_started_at: new Date().toISOString() }),
+  // Cuando el profesional dice cuando va (o que ya salio). Campos de la
+  // migracion 040: scheduled_for / scheduled_ok / on_the_way_at.
+  setSchedule: async (jobId, campos) => update(jobId, campos),
+
   complete: async (jobId) => update(jobId, { status: 'completed',  completed_at:    new Date().toISOString() }),
   cancel:  async (jobId, userId) => update(jobId, { status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: userId }),
 

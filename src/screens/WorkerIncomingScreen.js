@@ -447,6 +447,39 @@ const DetailsPhase = ({
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
+/** Aceptar NO quiere decir "salgo ahora": el 90% de las veces se coordina para
+ *  otro momento. Sin esta pregunta, jobs.scheduled_for queda vacío, el cliente
+ *  ve "va en camino" cuando nadie salió, y el trabajo termina en la lista de
+ *  trabados como "aceptó y no fue" (Maxi, 31-jul-2026). */
+const preguntarCuandoVoy = (jobId) => {
+  const guardar = async (campos, aviso) => {
+    try {
+      await jobService.setSchedule(jobId, campos);
+      if (aviso) chatService.sendSystemMessage(jobId, aviso).catch(() => {});
+    } catch (e) { /* que no frene nada: el vigilante lo va a levantar igual */ }
+  };
+  const enHoras = (h) => new Date(Date.now() + h * 3600000).toISOString();
+  const mañanaALas = (hora) => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(hora, 0, 0, 0);
+    return d.toISOString();
+  };
+  Alert.alert(
+    '¿Cuándo vas?',
+    'El cliente lo ve en su pantalla. Si vas ahora, decíselo; si es para más tarde, también.',
+    [
+      { text: 'Voy ahora', onPress: () => guardar(
+          { on_the_way_at: new Date().toISOString() }, 'El profesional ya salió para tu domicilio 🚗') },
+      { text: 'Hoy más tarde', onPress: () => guardar(
+          { scheduled_for: enHoras(4) }, 'Quedó en ir hoy más tarde. Coordinen la hora por acá 👇') },
+      { text: 'Mañana', onPress: () => guardar(
+          { scheduled_for: mañanaALas(10) }, 'Quedó en ir mañana. Coordinen la hora por acá 👇') },
+    ],
+    { cancelable: false }
+  );
+};
+
 const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onRejected }) => {
   const [phase, setPhase]       = useState('alert'); // 'alert' | 'details'
   const [timeLeft, setTimeLeft] = useState(TIMEOUT_SEC);
@@ -573,9 +606,10 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         await jobService.addEvent(job.id, 'estimated',    `Llega en aprox. ${arrivalEst}.`).catch(() => {});
         await jobService.addEvent(job.id, 'trip_started', `En camino a tu domicilio 🚗`).catch(() => {});
       }
+      preguntarCuandoVoy(job.id);
       onAccepted({ ...job, status: 'accepted' });
-    } catch {
-      Alert.alert('Error', 'No se pudo aceptar el trabajo. Intentá de nuevo.');
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo aceptar el trabajo: ' + (e?.message || 'probá de nuevo'));
       setLoading(false);
     }
   };
