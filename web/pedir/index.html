@@ -263,9 +263,15 @@
         <p class="sub" style="margin:8px 0 0">Avisamos a <b id="cuantos">0</b> profesionales cerca tuyo.<br>Quedate en esta pantalla, van apareciendo acá.</p>
       </div>
       <div id="listaProfs"></div>
+      <!-- Nadie con el radar prendido NO es "no encontramos a nadie": el pedido
+           lo toma una persona de BOLT y se resuelve igual. El cartel tiene que
+           decir eso, no dar sensación de fracaso (Maxi, 31-jul-2026). -->
       <div id="sinRespuesta" style="display:none">
-        <div class="aviso">Todavía no contestó nadie. No te quedes sin solución: escribinos y lo resolvemos a mano.</div>
-        <a class="btn wa" id="btnRescate" href="#" target="_blank" style="display:block;text-align:center;text-decoration:none;margin-top:14px">💬 Que me resuelvan por WhatsApp</a>
+        <div class="ok-ico">🙋</div>
+        <h1 style="text-align:center">Nos ocupamos <em>nosotros</em></h1>
+        <p class="sub" style="text-align:center">Ninguno de los profesionales de tu zona está disponible en este momento, así que tu pedido pasa a una persona de BOLT: te conseguimos a alguien y te contestamos por WhatsApp.</p>
+        <a class="btn" id="btnRescate" href="#" target="_blank" style="display:block;text-align:center;text-decoration:none">Seguir por WhatsApp →</a>
+        <p class="sub" style="text-align:center;font-size:.8rem;margin-top:14px">Ya tenemos tu pedido anotado. Si preferís, esperá acá: si alguien se libera, te aparece en esta pantalla.</p>
       </div>
     </section>
 
@@ -689,10 +695,41 @@ async function entrarConMail(){
 
 async function olvideClave(){
   const mail = $('txtMail').value.trim();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){ $('errLogin').textContent = 'Escribí tu correo arriba y volvé a tocar acá.'; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){
+    $('errLogin').style.color = 'var(--yellow)';
+    $('errLogin').textContent = 'Escribí tu correo arriba y volvé a tocar acá.';
+    $('txtMail').focus();
+    return;
+  }
   await sb.auth.resetPasswordForEmail(mail, { redirectTo: location.origin + location.pathname });
   $('errLogin').style.color = 'var(--muted)';
-  $('errLogin').textContent = 'Si ese correo tiene cuenta, te llega un mail para cambiar la contraseña.';
+  $('errLogin').textContent = 'Listo: si ese correo tiene cuenta, te llega un mail con un enlace. Abrilo desde este mismo teléfono y te pedimos la contraseña nueva acá.';
+}
+
+// Cuando vuelve del mail de recuperación, Supabase deja la sesión abierta y
+// avisa con este evento. Sin esto, el link del mail "no llevaba a ningún lado":
+// el cliente volvía a la página y no pasaba nada (Maxi, 31-jul-2026).
+sb.auth.onAuthStateChange((evento) => {
+  if (evento === 'PASSWORD_RECOVERY') pedirClaveNueva();
+});
+
+function pedirClaveNueva(){
+  ir(0);
+  $('p-login').innerHTML = `
+    <h1>Elegí tu <em>nueva contraseña</em></h1>
+    <p class="sub">Escribila y entrás derecho a hacer tu pedido.</p>
+    <input class="campo" id="txtNueva" type="password" autocomplete="new-password" placeholder="Nueva contraseña (6 o más)">
+    <button class="btn" style="margin-top:12px" onclick="guardarClaveNueva()">Guardar y entrar</button>
+    <div class="err" id="errNueva"></div>`;
+}
+
+async function guardarClaveNueva(){
+  const p = $('txtNueva').value;
+  if (p.length < 6){ $('errNueva').textContent = 'Necesita al menos 6 caracteres.'; return; }
+  const { error } = await sb.auth.updateUser({ password: p });
+  if (error){ $('errNueva').textContent = 'No se pudo cambiar: ' + error.message; return; }
+  await pintarSesion();
+  ir(1);
 }
 
 async function salir(){
@@ -1079,7 +1116,9 @@ function sinNadie(){
   clearInterval(S.timer);
   $('cajaBuscando').style.display = 'none';
   $('sinRespuesta').style.display = 'block';
-  const txt = `Hola! Soy ${S.nombre || ''}. Pedí por la web de BOLT un ${S.oficio || 'profesional'} para ${S.direccion || 'mi domicilio'} y no me respondió nadie.\n\n${S.resumen || ''}`;
+  // El mensaje sale del celular del cliente, así que le llega a BOLT desde su
+  // propio número y se le puede contestar directo.
+  const txt = `Hola! Soy ${S.nombre || ''}, pedí un ${S.oficio || 'profesional'} por la web de BOLT.\n\n${S.resumen || ''}\n\nDirección: ${S.direccion || ''}`;
   $('btnRescate').href = `https://wa.me/${WA_SOPORTE}?text=${encodeURIComponent(txt)}`;
 }
 
