@@ -114,6 +114,12 @@
   .prof-top .nom{font-weight:800}
   .prof-top .meta{font-size:.78rem;color:var(--muted)}
   .eta{font-size:.78rem;font-weight:800;color:var(--yellow);text-align:right}
+  .obra{background:var(--surf2);border:1px solid var(--bord);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+  .obra h5{font-size:.72rem;font-weight:900;color:var(--yellow);letter-spacing:.4px;margin-bottom:8px}
+  .obra .barra{display:flex;gap:4px;margin:8px 0}
+  .obra .barra i{flex:1;height:6px;border-radius:3px;background:var(--bord)}
+  .obra .barra i.on{background:var(--ok)}
+  .obra .det{font-size:.8rem;color:var(--muted)}
   .estado-txt{font-size:.95rem;font-weight:900;color:var(--yellow);margin-bottom:12px}
   .pasos{display:flex;flex-direction:column;gap:9px}
   .paso-item{display:flex;gap:10px;align-items:center;font-size:.88rem;color:var(--muted2)}
@@ -294,6 +300,7 @@
               <div class="eta" id="segEta"></div>
             </div>
             <div class="estado-txt" id="estadoTxt"></div>
+            <div id="cajaObra" style="display:none"></div>
             <div class="pasos" id="pasos"></div>
             <!-- Cuando el profesional toca "Llegué", tiene que decir su código:
                  así el cliente sabe que el que está en la puerta es el suyo. -->
@@ -947,7 +954,7 @@ async function elegir(jobId){
       .eq('quote_group_id', S.quoteGroupId).neq('id', jobId).in('status', ['pending','accepted']);
     await sb.from('jobs').update({ quote_group_id: null }).eq('id', jobId);
     const { data } = await sb.from('jobs')
-      .select('id,status,address,notes,verification_code,professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+      .select('id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
       .eq('id', jobId).single();
     mostrarListo(data);
   } catch (e) {
@@ -1065,9 +1072,34 @@ const TEXTO_ESTADO = {
   cancelled:   'Pedido cancelado',
 };
 
+/** Obra de varios días: el cliente tiene que ver en qué jornada va, cuánto se
+ *  trabajó y cuándo vuelve. Sin esto se entera de que "faltan días" sólo si el
+ *  profesional se lo dice de palabra (Maxi, 31-jul-2026). */
+function pintarObra(){
+  const j = S.job || {};
+  if (!j.is_multiday){ $('cajaObra').style.display = 'none'; return; }
+  const total = Number(j.estimated_sessions) || 0;
+  const hechas = Number(j.completed_sessions) || 0;
+  const enCurso = !!j.current_session_start;
+  const hs = Math.round((Number(j.total_minutes_worked) || 0) / 6) / 10;
+  const barra = Array.from({ length: total }, (_, i) =>
+    `<i class="${i < hechas ? 'on' : ''}"></i>`).join('');
+  const vuelve = j.scheduled_return
+    ? new Date(j.scheduled_return).toLocaleString('es-AR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })
+    : null;
+  $('cajaObra').style.display = 'block';
+  $('cajaObra').innerHTML = `<div class="obra">
+    <h5>🏗️ TRABAJO DE ${total} JORNADAS</h5>
+    <div><b>${enCurso ? 'Jornada ' + Math.min(hechas + 1, total) + ' en curso' : hechas + ' de ' + total + ' jornadas hechas'}</b></div>
+    <div class="barra">${barra}</div>
+    <div class="det">${hs > 0 ? hs + ' h trabajadas en total' : 'Todavía sin horas registradas'}${vuelve ? ' · vuelve el ' + vuelve : ''}</div>
+  </div>`;
+}
+
 function pintarPasos(estado){
   const idx = PASOS.findIndex(p => p[0] === estado);
   $('estadoTxt').textContent = TEXTO_ESTADO[estado] || '';
+  try { pintarObra(); } catch (e) {}
   $('pasos').innerHTML = PASOS.map(([k, txt], i) => {
     // El paso en curso se tilda igual cuando ya ocurrió (llegó, está trabajando):
     // "Llegó a tu domicilio" en amarillo sin tilde se leía como que NO había llegado.
@@ -1093,7 +1125,7 @@ function seguirEstado(){
     .subscribe();
   // Respaldo, por si el realtime no engancha
   setInterval(async () => {
-    const { data } = await sb.from('jobs').select('status,verification_code').eq('id', id).single();
+    const { data } = await sb.from('jobs').select('status,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return').eq('id', id).single();
     if (data && (data.status !== S.job.status || data.verification_code !== S.job.verification_code)){
       S.job = { ...S.job, ...data };
       pintarPasos(data.status);
@@ -1212,7 +1244,7 @@ window.addEventListener('beforeunload', (e) => {
   const u = await usuarioActual();
   if (!u) return;
   const { data } = await sb.from('jobs')
-    .select('id,status,address,notes,verification_code,client_lat,client_lng,professions(name),professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+    .select('id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,client_lat,client_lng,professions(name),professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
     .eq('id', jobId).eq('client_id', u.id).single();
   if (!data || ['completed','cancelled'].includes(data.status)){
     try { localStorage.removeItem('bolt_job'); } catch (e) {}
