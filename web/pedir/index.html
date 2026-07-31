@@ -63,6 +63,8 @@
   .prog-txt{font-size:.75rem;font-weight:800;color:var(--muted2);letter-spacing:.4px}
   .opcion{width:100%;background:var(--surf);border:1px solid var(--bord);color:var(--text);border-radius:14px;padding:16px;font-size:.98rem;font-weight:700;text-align:left;cursor:pointer;font-family:inherit;margin-bottom:9px;transition:.14s}
   .opcion:hover{border-color:var(--yellow);background:var(--surf2)}
+  .opcion.on{border-color:var(--yellow);background:rgba(255,214,0,.1);color:var(--yellow)}
+  .opcion.on::before{content:'✓ '}
   .opcion.otra{color:var(--muted);font-weight:600}
   .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
   .thumbs img{width:74px;height:74px;object-fit:cover;border-radius:11px;border:1px solid var(--bord)}
@@ -291,10 +293,21 @@
               <div class="eta" id="segEta"></div>
             </div>
             <div class="pasos" id="pasos"></div>
+            <!-- Cuando el profesional toca "Llegué", tiene que decir su código:
+                 así el cliente sabe que el que está en la puerta es el suyo. -->
+            <div id="cajaCodigo" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--bord)">
+              <div class="ed-lbl" style="margin:0 0 8px">Llegó. Pedile los 4 números de su código:</div>
+              <div style="display:flex;gap:8px">
+                <input class="campo" id="txtCodigo" inputmode="numeric" maxlength="4" placeholder="0000" style="flex:1;text-align:center;font-size:1.4rem;letter-spacing:6px;font-weight:900">
+                <button class="mini" style="flex:0 0 100px;background:var(--yellow);color:#000;border:none;font-weight:900" onclick="verificarCodigo()">Verificar</button>
+              </div>
+              <div class="err" id="errCodigo"></div>
+            </div>
             <div class="acciones">
               <button class="mini" id="btnCancelar" onclick="cancelarTrabajo()">Cancelar pedido</button>
               <a class="mini" id="btnSoporte" href="#" target="_blank">Necesito ayuda</a>
             </div>
+            <button class="mini" style="width:100%;margin-top:8px" onclick="pedirOtro()">＋ Pedir otro trabajo</button>
           </div>
         </div>
 
@@ -475,11 +488,25 @@ function pintarPregunta(){
     const tope = Math.min(Math.max(Number(p.max_fotos) || 1, 1), 3);
     html += `<button class="opcion" onclick="$('inputFoto').click()">📷 Sacar o elegir ${tope > 1 ? 'fotos' : 'una foto'}</button>`;
   }
-  html += opciones.map(o => `<button class="opcion" onclick="responderPregunta(${JSON.stringify(o).replace(/"/g,'&quot;')})">${esc(o)}</button>`).join('');
+  // Se pueden marcar VARIAS: "paredes y techo" es una respuesta mucho mas util
+  // para el que va a cotizar que obligarlo a elegir una sola (Maxi, 31-jul).
+  html += opciones.map(o => `<button class="opcion" data-val="${esc(o)}" onclick="marcarOpcion(this)">${esc(o)}</button>`).join('');
+  if (opciones.length > 1) html += `<p class="sub" style="font-size:.8rem;margin:2px 0 12px">Podés marcar más de una.</p>`;
+  html += `<button class="btn" id="btnListo" style="display:none;margin-top:2px" onclick="confirmarMarcadas()">Listo</button>`;
   // La app siempre suma esta salida sola: sirve cuando ninguna opción encaja.
   html += `<button class="opcion otra" onclick="abrirOtro()">✏️ Otro / lo escribo</button>`;
   $('opciones').innerHTML = html;
   $('thumbs').innerHTML = '';
+}
+
+function marcarOpcion(el){
+  el.classList.toggle('on');
+  const hay = document.querySelectorAll('#opciones .opcion.on').length;
+  const b = $('btnListo'); if (b) b.style.display = hay ? 'block' : 'none';
+}
+function confirmarMarcadas(){
+  const vals = [...document.querySelectorAll('#opciones .opcion.on')].map(e => e.dataset.val);
+  if (vals.length) responderPregunta(vals.join(' + '));
 }
 
 function abrirOtro(){ $('cajaOtro').style.display = 'block'; $('txtOtro').focus(); }
@@ -498,9 +525,14 @@ function responderPregunta(valor){
 
 /** Junta todo en las notas que va a leer el profesional (formato de la app). */
 function terminarPreguntas(){
-  const lineas = PREGUNTAS
-    .map(p => { const r = RESPUESTAS[p.id]; return r ? `• ${p.pregunta} ${r.valor}` : null; })
-    .filter(Boolean);
+  const lineas = PREGUNTAS.map(p => {
+    const r = RESPUESTAS[p.id];
+    if (!r) return null;
+    // La de la foto no se escribe como pregunta: al profesional le sirve saber
+    // si hay fotos o no, no leer "¿Nos mandás una foto? Te la mando ahora".
+    if (p.tipo === 'foto') return FOTOS.length ? `• Fotos del problema: ${FOTOS.length} adjunta(s)` : '• Sin fotos: el cliente no pudo sacarlas';
+    return `• ${p.pregunta} ${r.valor}`;
+  }).filter(Boolean);
   S.resumen = [S.resumen || S.oficio || 'Solicitud', ...lineas].join('\n');
   ir(3);
 }
@@ -832,7 +864,7 @@ async function pedir(){
         body: {
           userId: w.user_id,
           title: '⚡ Nueva solicitud de trabajo',
-          body: `${S.oficio || 'Servicio'} cerca tuyo. Tenés 60 seg para responder.`,
+          body: `${S.oficio || 'Servicio'} cerca tuyo. Tenés 3 minutos para responder.`,
           data: { jobId: j.id, screen: 'worker_incoming' },
         },
       });
@@ -913,7 +945,7 @@ async function elegir(jobId){
       .eq('quote_group_id', S.quoteGroupId).neq('id', jobId).in('status', ['pending','accepted']);
     await sb.from('jobs').update({ quote_group_id: null }).eq('id', jobId);
     const { data } = await sb.from('jobs')
-      .select('id,address,notes,professionals(first_name,last_name,phone,avg_rating,completed_jobs)')
+      .select('id,status,address,notes,verification_code,professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
       .eq('id', jobId).single();
     mostrarListo(data);
   } catch (e) {
@@ -937,7 +969,7 @@ const PASOS = [
   ['in_progress', 'Trabajo en curso'],
   ['completed',   'Trabajo terminado'],
 ];
-const RAPIDAS = ['¿En cuánto llegás?', 'Te espero, timbre 2', 'Avisame cuando salgas', 'Gracias!'];
+const RAPIDAS = ['¿En cuánto llegás?', 'Avisame cuando salgas', 'Ya estoy en casa', '¿Necesitás que compre algo?', '¿Cuánto me saldría?', 'Gracias!'];
 
 let MAPA = null, MARCA_YO = null, MARCA_PRO = null;
 
@@ -958,11 +990,15 @@ async function mostrarListo(job){
     encodeURIComponent(`Hola, necesito ayuda con mi pedido de BOLT (${S.oficio || ''} en ${S.direccion || ''}).`);
 
   ir(6);
-  pintarPasos(job.status || 'accepted');
-  armarMapa();
-  seguirProfesional();
-  seguirEstado();
-  arrancarChat();
+  // Cada pieza va aparte: si el mapa falla (Leaflet no cargó, el div sin
+  // tamaño), antes se cortaba TODO lo que venía después — el estado no se
+  // actualizaba nunca y el chat no arrancaba (Maxi, 31-jul-2026).
+  const intentar = (fn, que) => { try { fn(); } catch (e) { console.warn('falló ' + que, e); } };
+  intentar(() => pintarPasos(job.status || 'accepted'), 'pasos');
+  intentar(armarMapa, 'mapa');
+  intentar(seguirProfesional, 'ubicación');
+  intentar(seguirEstado, 'estado');
+  intentar(arrancarChat, 'chat');
 }
 
 // ── Mapa ────────────────────────────────────────────────────────────────
@@ -1026,6 +1062,8 @@ function pintarPasos(estado){
     return `<div class="paso-item ${cls}"><div class="pt">${idx > i ? '✓' : ''}</div>${esc(txt)}</div>`;
   }).join('');
   $('btnCancelar').style.display = ['accepted'].includes(estado) ? 'block' : 'none';
+  const hayCodigo = estado === 'arrived' && S.job && S.job.verification_code && !S.codigoOk;
+  $('cajaCodigo').style.display = hayCodigo ? 'block' : 'none';
   if (estado === 'completed') pedirCalificacion();
   if (estado === 'cancelled'){
     $('segEta').textContent = 'Cancelado';
@@ -1041,9 +1079,29 @@ function seguirEstado(){
     .subscribe();
   // Respaldo, por si el realtime no engancha
   setInterval(async () => {
-    const { data } = await sb.from('jobs').select('status').eq('id', id).single();
-    if (data && data.status !== S.job.status){ S.job.status = data.status; pintarPasos(data.status); }
+    const { data } = await sb.from('jobs').select('status,verification_code').eq('id', id).single();
+    if (data && (data.status !== S.job.status || data.verification_code !== S.job.verification_code)){
+      S.job = { ...S.job, ...data };
+      pintarPasos(data.status);
+    }
   }, 12000);
+}
+
+function verificarCodigo(){
+  const v = ($('txtCodigo').value || '').trim();
+  if (v === String(S.job.verification_code)){
+    S.codigoOk = true;
+    $('cajaCodigo').innerHTML = '<div class="paso-item hecho"><div class="pt">✓</div>Verificado: es tu profesional de BOLT. Podés abrirle.</div>';
+  } else {
+    $('errCodigo').textContent = 'Ese código no coincide. Pedíle que lo lea de su pantalla.';
+  }
+}
+
+/** Pedir otro trabajo sin perder el que está en curso ni tener que escribirle
+ *  a nadie: el pedido actual queda igual, se abre uno nuevo desde cero. */
+function pedirOtro(){
+  try { localStorage.removeItem('bolt_job'); } catch (e) {}
+  location.href = location.pathname;
 }
 
 async function cancelarTrabajo(){
@@ -1139,7 +1197,7 @@ window.addEventListener('beforeunload', (e) => {
   const u = await usuarioActual();
   if (!u) return;
   const { data } = await sb.from('jobs')
-    .select('id,status,address,notes,client_lat,client_lng,professions(name),professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+    .select('id,status,address,notes,verification_code,client_lat,client_lng,professions(name),professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
     .eq('id', jobId).eq('client_id', u.id).single();
   if (!data || ['completed','cancelled'].includes(data.status)){
     try { localStorage.removeItem('bolt_job'); } catch (e) {}

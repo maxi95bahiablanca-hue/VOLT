@@ -285,8 +285,8 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
           return notificationService.sendToUser(w.user_id, {
             title: '⚡ Nueva solicitud de trabajo',
             body:  chargesInApp()
-              ? `${profession?.name || 'Servicio'} — $${(w.min_price || 30000).toLocaleString('es-AR')} visita. Tenés 60 seg para responder.`
-              : `${profession?.name || 'Servicio'} cerca tuyo. Tenés 60 seg para responder.`,
+              ? `${profession?.name || 'Servicio'} — $${(w.min_price || 30000).toLocaleString('es-AR')} visita. Tenés 3 minutos para responder.`
+              : `${profession?.name || 'Servicio'} cerca tuyo. Tenés 3 minutos para responder.`,
             data:  { jobId: job.id, screen: 'worker_incoming' },
           });
         })
