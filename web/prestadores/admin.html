@@ -121,6 +121,11 @@
     <div id="trabados"></div>
   </div>
 
+  <div id="embudoBox" style="display:none">
+    <div class="section-ttl">📉 De cada pedido, cuántos terminan en trabajo <span style="color:var(--muted);font-weight:400;font-size:.82rem">(últimos 30 días)</span></div>
+    <div class="prof-bars" id="embudo" style="grid-template-columns:1fr"></div>
+  </div>
+
   <div class="stats" id="stats"></div>
 
   <div class="section-ttl">📊 Progreso por profesión <span style="color:var(--muted);font-weight:400;font-size:.82rem">(meta: 25 por oficio)</span></div>
@@ -227,6 +232,7 @@
     await cargarProfesionales();   // para el chip de "puede recibir trabajos"
     if (!CATALOGO.length) await cargarCatalogo();
     cargarTrabados();
+    cargarEmbudo();
     // llenar filtro de profesiones (un oficio por opción, no la cadena completa)
     const profs = [...new Set(LEADS.flatMap(oficiosDe))].sort();
     const sel = document.getElementById('fProf');
@@ -645,6 +651,36 @@ Cualquier duda escribime por acá. ¡Gracias!`;
     mensaje_sin_respuesta: { txt: 'Mensaje sin contestar',      pregunta: 'El cliente te escribio y esta esperando respuesta.' },
   };
 
+  /** El embudo: donde se pierden los pedidos. Sin esto se trabaja a ciegas —
+   *  en Big Pizza el mismo grafico mostro que se caia el 47% en un solo paso. */
+  async function cargarEmbudo(){
+    try {
+      const { data, error } = await sb.rpc('embudo_bolt', { p_dias: 30 });
+      if (error) throw error;
+      const filas = data || [];
+      const tope = Math.max(1, ...filas.map(f => Number(f.cuantos)));
+      document.getElementById('embudoBox').style.display = filas.length ? 'block' : 'none';
+      let previo = null;
+      document.getElementById('embudo').innerHTML = filas.map(f => {
+        const n = Number(f.cuantos);
+        const pct = Math.round(n / tope * 100);
+        const caida = (previo !== null && previo > n) ? (previo - n) : 0;
+        previo = n;
+        const clave = f.etapa === 'TRABAJO HECHO';
+        return `<div class="pbar">
+          <div class="pbar-top">
+            <span style="${clave ? 'color:var(--green)' : ''}">${esc(f.etapa)}</span>
+            <span>${n}${caida ? ` <span style="color:var(--red)">− ${caida}</span>` : ''}</span>
+          </div>
+          <div class="pbar-track"><div class="pbar-fill ${clave ? 'done' : ''}" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('embudoBox').style.display = 'none';
+      console.warn('embudo:', e.message);
+    }
+  }
+
   async function cargarTrabados(){
     try {
       const { data, error } = await sb.rpc('trabajos_trabados');
@@ -713,6 +749,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
     }
     alert('Listo: ahora es de ' + nuevo.nombre + '. Avisale vos al cliente si hace falta.');
     cargarTrabados();
+    cargarEmbudo();
   }
 
   async function cerrarTrabado(jobId){
@@ -721,6 +758,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
       .update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId);
     if (error){ alert('No se pudo: ' + error.message); return; }
     cargarTrabados();
+    cargarEmbudo();
   }
 
   // Estado real de cada prestador en la app, para no aprobar a ciegas.
