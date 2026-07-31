@@ -574,7 +574,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
           // MODO COMISIÓN: se cobra por la app → awaiting_payment
           await jobService.setWorkAmount(job.id, labor, mats);
           const visitPaid = !!job.visit_paid;
-          const visitAmt  = job.visit_amount || 30000;
+          const visitAmt  = job.visit_amount ?? 30000;
           jobService.addEvent(job.id, 'work_done', `Trabajo completado ✅`).catch(() => {});
           const totalAPagar = (visitPaid ? 0 : visitAmt) + mats + labor;
           notifTitle = '💳 Trabajo listo — hora de pagar';
@@ -1100,7 +1100,7 @@ window.addEventListener('message', e => {
             </Text>
             <View style={styles.visitModalAmount}>
               <Text style={styles.visitModalAmountLabel}>Visita / diagnóstico</Text>
-              <Text style={styles.visitModalAmountValue}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
+              <Text style={styles.visitModalAmountValue}>${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>
             </View>
             <View style={styles.cardOnlyBadge}>
               <Ionicons name="card-outline" size={14} color="#FFD600" />
@@ -1108,7 +1108,7 @@ window.addEventListener('message', e => {
             </View>
             <TouchableOpacity style={styles.payBtn} onPress={handleVisitPay} disabled={loading} accessibilityRole="button" accessibilityLabel="Pagar la visita">
               {loading ? <ActivityIndicator color="#fff" /> : (
-                <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar visita ${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text></>
+                <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar visita ${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text></>
               )}
             </TouchableOpacity>
             {isDemoMode() && (
@@ -1861,7 +1861,7 @@ window.addEventListener('message', e => {
             </View>
             {chargesInApp() && (
               <View style={styles.visitBadge}>
-                <Text style={styles.visitBadgeText}>Visita ${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
+                <Text style={styles.visitBadgeText}>Visita ${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>
               </View>
             )}
           </View>
@@ -2010,7 +2010,7 @@ window.addEventListener('message', e => {
 
           {/* Acción del cliente — confirmar pago final (solo en modo comisión) */}
           {!isWorker && chargesInApp() && job.status === 'awaiting_payment' && (() => {
-            const visitAmt  = job.visit_amount   || 30000;
+            const visitAmt  = job.visit_amount   ?? 30000;
             const matsAmt   = job.materials_cost || 0;
             const workAmt   = job.work_amount    || 0;
             const visitPaid = !!job.visit_paid;

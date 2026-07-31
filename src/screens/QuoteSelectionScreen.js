@@ -78,7 +78,7 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
         {!isFreeMode() && (
           <View style={styles.priceWrap}>
             <Text style={styles.priceLabel}>Visita</Text>
-            <Text style={styles.priceVal}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
+            <Text style={styles.priceVal}>${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>
           </View>
         )}
       </View>
@@ -196,7 +196,7 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
               <View style={styles.modalJobRow}>
                 <Ionicons name="card-outline" size={16} color="#FFD600" />
                 <Text style={styles.modalJobText}>
-                  Visita: ${(job.visit_amount || 30000).toLocaleString('es-AR')}
+                  Visita: ${(job.visit_amount ?? 30000).toLocaleString('es-AR')}
                 </Text>
               </View>
             )}
@@ -245,7 +245,7 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
 const CompareModal = ({ jobs, onClose, onSelect, selecting }) => {
   const METRICS = [
     { key: 'arrival',   label: 'Llega en',      get: j => j.arrival_estimate || '—' },
-    ...(!isFreeMode() ? [{ key: 'price', label: 'Visita', get: j => `$${(j.visit_amount || 30000).toLocaleString('es-AR')}` }] : []),
+    ...(!isFreeMode() ? [{ key: 'price', label: 'Visita', get: j => `$${(j.visit_amount ?? 30000).toLocaleString('es-AR')}` }] : []),
     { key: 'rating',    label: 'Calificación',   get: j => {
       const r = parseFloat(j.professionals?.effective_rating ?? j.professionals?.avg_rating) || 0;
       return r ? r.toFixed(1) + ' ★' : '—';
@@ -400,7 +400,7 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
   const rows = [
     { icon: 'construct-outline',  label: 'Servicio',           val: job.professions?.name || '—',                       color: '#FFD600' },
     { icon: 'navigate-outline',   label: 'Llegada estimada',   val: job.arrival_estimate || '—',                        color: '#FFD600' },
-    ...(!isFreeMode() ? [{ icon: 'card-outline', label: 'Visita', val: `$${(job.visit_amount || 30000).toLocaleString('es-AR')}`, color: '#FFD600' }] : []),
+    ...(!isFreeMode() ? [{ icon: 'card-outline', label: 'Visita', val: `$${(job.visit_amount ?? 30000).toLocaleString('es-AR')}`, color: '#FFD600' }] : []),
     { icon: 'cart-outline',       label: 'Materiales',         val: hasMats ? 'No incluidos' : 'No necesarios',         color: hasMats ? '#FF9800' : '#4CAF50' },
     { icon: 'time-outline',       label: 'Duración estimada',  val: duration || 'A confirmar al llegar',                color: '#888' },
   ];
@@ -467,7 +467,7 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
             <Ionicons name={chargesInApp() ? 'lock-closed' : 'information-circle-outline'} size={16} color="#33d17a" />
             <Text style={{ flex: 1, color: '#9fcaa9', fontSize: 12.5, lineHeight: 18 }}>
               {chargesInApp() ? (
-                <>Al confirmar abonás la visita de <Text style={{ fontWeight: '800', color: '#fff' }}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>. El dinero queda <Text style={{ fontWeight: '800', color: '#33d17a' }}>retenido por BOLT</Text> y se libera al profesional recién cuando finalizás el trabajo.</>
+                <>Al confirmar abonás la visita de <Text style={{ fontWeight: '800', color: '#fff' }}>${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>. El dinero queda <Text style={{ fontWeight: '800', color: '#33d17a' }}>retenido por BOLT</Text> y se libera al profesional recién cuando finalizás el trabajo.</>
               ) : (
                 <>El precio lo acordás <Text style={{ fontWeight: '800', color: '#fff' }}>directamente con el profesional</Text>. El pago es entre ustedes (efectivo, transferencia, lo que prefieran). BOLT te conecta, sin intermediar el cobro.</>
               )}

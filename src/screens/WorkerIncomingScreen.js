@@ -87,7 +87,7 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
         </Text>
         {!isFreeMode() && (
           <Text style={alertStyles.visitAmt}>
-            Visita: ${(job.visit_amount || 30000).toLocaleString('es-AR')}
+            Visita: ${(job.visit_amount ?? 30000).toLocaleString('es-AR')}
           </Text>
         )}
 
@@ -212,7 +212,7 @@ const DetailsPhase = ({
                 <View style={styles.rowIcon}><Ionicons name="cash-outline" size={20} color="#FFD600" /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowLabel}>Cobro por visita</Text>
-                  <Text style={styles.rowVal}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
+                  <Text style={styles.rowVal}>${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>
                 </View>
               </View>
             </>
@@ -459,12 +459,36 @@ const preguntarCuandoVoy = (jobId) => {
     } catch (e) { /* que no frene nada: el vigilante lo va a levantar igual */ }
   };
   const enHoras = (h) => new Date(Date.now() + h * 3600000).toISOString();
-  const mañanaALas = (hora) => {
+  const enDiasALas = (dias, hora) => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + dias);
     d.setHours(hora, 0, 0, 0);
     return d.toISOString();
   };
+
+  // Segundo paso: sólo si no va hoy. Va aparte porque en Android Alert.alert
+  // muestra COMO MUCHO 3 botones (positive/negative/neutral): el cuarto no se
+  // dibuja. Encadenar dos alerts nativos es la única forma de dar las cuatro
+  // opciones sin un modal propio — y un modal propio acá no sirve, porque la
+  // pantalla se desmonta apenas acepta y se lo llevaría puesto.
+  const preguntarQueDia = () => {
+    Alert.alert(
+      '¿Qué día vas?',
+      'Después ajustan la hora exacta por el chat.',
+      [
+        { text: 'Mañana', onPress: () => guardar(
+            { scheduled_for: enDiasALas(1, 10) }, 'Quedó en ir mañana. Coordinen la hora por acá 👇') },
+        { text: 'Pasado mañana', onPress: () => guardar(
+            { scheduled_for: enDiasALas(2, 10) }, 'Quedó en ir pasado mañana. Coordinen la hora por acá 👇') },
+        // Sin fecha elegida: se agenda a 3 días para que el vigilante no lo dé
+        // por trabado, y el aviso deja claro que el día se define en el chat.
+        { text: 'Lo arreglo por chat', onPress: () => guardar(
+            { scheduled_for: enDiasALas(3, 10) }, 'El profesional va a coordinar el día con vos por acá 👇') },
+      ],
+      { cancelable: false }
+    );
+  };
+
   Alert.alert(
     '¿Cuándo vas?',
     'El cliente lo ve en su pantalla. Si vas ahora, decíselo; si es para más tarde, también.',
@@ -473,8 +497,7 @@ const preguntarCuandoVoy = (jobId) => {
           { on_the_way_at: new Date().toISOString() }, 'El profesional ya salió para tu domicilio 🚗') },
       { text: 'Hoy más tarde', onPress: () => guardar(
           { scheduled_for: enHoras(4) }, 'Quedó en ir hoy más tarde. Coordinen la hora por acá 👇') },
-      { text: 'Mañana', onPress: () => guardar(
-          { scheduled_for: mañanaALas(10) }, 'Quedó en ir mañana. Coordinen la hora por acá 👇') },
+      { text: 'Otro día…', onPress: preguntarQueDia },
     ],
     { cancelable: false }
   );

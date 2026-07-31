@@ -39,7 +39,7 @@ const jobService = {
         client_lng:      clientLng,
         address,
         notes,
-        visit_amount:    visitAmount || 30000,   // precio que fijó el trabajador
+        visit_amount:    visitAmount ?? 30000,   // precio que fijó el trabajador
         commission_pct:  commissionPct ?? 20,
       })
       .select()
@@ -288,7 +288,10 @@ const jobService = {
         client_lng:        clientLng,
         address,
         notes,
-        visit_amount:      w.min_price || 30000,
+        // `??` y no `||`: en modo gratuito min_price es 0 y con `||` se grababa
+        // $30.000 en la base, un costo que no existe (quedó afuera del fix de
+        // las pantallas del 31-jul y este es el que ESCRIBE el dato).
+        visit_amount:      w.min_price ?? 30000,
         commission_pct:    commissionForBilled(billed30, w.avg_rating),
         quote_group_id:    quoteGroupId,
         ...(problemPhotoUrl ? { problem_photo_url: problemPhotoUrl } : {}),

@@ -22,6 +22,12 @@ const OTRO = '__otro__';
 // fotos que después se suben al storage y las mira el profesional.
 const MAX_FOTOS = 3;
 
+// `max_fotos` de la IA es cuántas PIDE, no cuántas se permiten: si el cliente
+// quiere mostrar más ángulos, mejor para el que va a cotizar. El tope real es
+// siempre MAX_FOTOS, igual que en la web (Maxi, 31-jul: en la app sólo dejaba
+// cargar una porque la IA casi siempre manda max_fotos: 1).
+const topeFotos = () => MAX_FOTOS;
+
 const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
   const insets = useSafeAreaInsets();
 
@@ -185,9 +191,9 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
   // mandan al modelo: se guardan con el trabajo para que las vea el profesional.
   // Así ver el problema no cuesta un peso más de IA.
   const tomarFoto = async (desde) => {
-    const preg = analysis.preguntas[qIndex];
-    const tope = Math.min(Math.max(preg.max_fotos || 1, 1), MAX_FOTOS);
-    if (fotos.length >= tope) return;
+    const tope = topeFotos();
+    const restantes = tope - fotos.length;
+    if (restantes <= 0) return;
     try {
       const permiso = desde === 'camara'
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -196,12 +202,21 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
         Alert.alert('Permiso requerido', desde === 'camara' ? 'Necesitamos la cámara.' : 'Necesitamos acceso a tus fotos.');
         return;
       }
+      // De la galería se pueden elegir varias de una sola vez (como en la web
+      // con Ctrl). De la cámara, de a una: se saca, vuelve, y puede sacar otra.
       const r = desde === 'camara'
         ? await ImagePicker.launchCameraAsync({ quality: 0.6 })
-        : await ImagePicker.launchImageLibraryAsync({ quality: 0.6 });
+        : await ImagePicker.launchImageLibraryAsync({
+            quality: 0.6,
+            allowsMultipleSelection: true,
+            selectionLimit: restantes,
+          });
       if (r.canceled) return;
-      const a = r.assets[0];
-      setFotos(prev => [...prev, { uri: a.uri, ext: (a.uri.split('.').pop() || 'jpg').toLowerCase() }]);
+      const nuevas = (r.assets || []).slice(0, restantes).map(a => ({
+        uri: a.uri,
+        ext: (a.uri.split('.').pop() || 'jpg').toLowerCase(),
+      }));
+      if (nuevas.length) setFotos(prev => [...prev, ...nuevas]);
     } catch { Alert.alert('Ups', 'No pudimos tomar la foto.'); }
   };
 
@@ -211,7 +226,7 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
     const total = analysis.preguntas.length;
     const opciones = Array.isArray(preg.opciones) ? preg.opciones : [];
     const esFoto = preg.tipo === 'foto';
-    const tope = Math.min(Math.max(preg.max_fotos || 1, 1), MAX_FOTOS);
+    const tope = topeFotos();
     return (
       <ScrollView contentContainerStyle={styles.qScroll} keyboardShouldPersistTaps="handled">
         {/* Lo que ya entendió la IA */}
@@ -262,19 +277,21 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
             {fotos.length < tope ? (
               <>
                 <TouchableOpacity style={styles.opt} activeOpacity={0.85} onPress={() => tomarFoto('camara')}>
-                  <Text style={styles.optTxt}>Sacar foto ahora</Text>
+                  <Text style={styles.optTxt}>{fotos.length ? 'Sacar otra foto' : 'Sacar foto ahora'}</Text>
                   <Ionicons name="camera-outline" size={18} color="#FFD600" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.opt} activeOpacity={0.85} onPress={() => tomarFoto('galeria')}>
-                  <Text style={styles.optTxt}>Elegir de mis fotos</Text>
+                  <Text style={styles.optTxt}>{fotos.length ? 'Elegir otra de mis fotos' : 'Elegir de mis fotos'}</Text>
                   <Ionicons name="images-outline" size={18} color="#666" />
                 </TouchableOpacity>
                 <Text style={styles.fotoHint}>
-                  {tope > 1 ? `Podés mandar hasta ${tope}. ` : ''}Si no podés sacarla, seguí igual.
+                  {fotos.length
+                    ? `Podés sumar ${tope - fotos.length} más, o seguí con las que tenés.`
+                    : `Podés mandar hasta ${tope}. Si no podés sacarlas, seguí igual.`}
                 </Text>
               </>
             ) : (
-              <Text style={styles.fotoHint}>Listo, ya tenemos {tope === 1 ? 'la foto' : 'las fotos'}.</Text>
+              <Text style={styles.fotoHint}>Listo, ya tenemos las {tope} fotos.</Text>
             )}
 
             <TouchableOpacity
