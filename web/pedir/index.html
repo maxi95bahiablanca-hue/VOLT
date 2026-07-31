@@ -114,6 +114,7 @@
   .prof-top .nom{font-weight:800}
   .prof-top .meta{font-size:.78rem;color:var(--muted)}
   .eta{font-size:.78rem;font-weight:800;color:var(--yellow);text-align:right}
+  .estado-txt{font-size:.95rem;font-weight:900;color:var(--yellow);margin-bottom:12px}
   .pasos{display:flex;flex-direction:column;gap:9px}
   .paso-item{display:flex;gap:10px;align-items:center;font-size:.88rem;color:var(--muted2)}
   .paso-item .pt{width:20px;height:20px;border-radius:50%;border:2px solid var(--bord);display:grid;place-items:center;font-size:.7rem;flex-shrink:0}
@@ -292,6 +293,7 @@
               </div>
               <div class="eta" id="segEta"></div>
             </div>
+            <div class="estado-txt" id="estadoTxt"></div>
             <div class="pasos" id="pasos"></div>
             <!-- Cuando el profesional toca "Llegué", tiene que decir su código:
                  así el cliente sabe que el que está en la puerta es el suyo. -->
@@ -1055,11 +1057,23 @@ function seguirProfesional(){
 }
 
 // ── Estado del trabajo ──────────────────────────────────────────────────
+const TEXTO_ESTADO = {
+  accepted:    '🚗 Va en camino a tu casa',
+  arrived:     '🚪 Ya está en la puerta',
+  in_progress: '🔧 Trabajando',
+  completed:   '✅ Trabajo terminado',
+  cancelled:   'Pedido cancelado',
+};
+
 function pintarPasos(estado){
   const idx = PASOS.findIndex(p => p[0] === estado);
+  $('estadoTxt').textContent = TEXTO_ESTADO[estado] || '';
   $('pasos').innerHTML = PASOS.map(([k, txt], i) => {
-    const cls = idx > i ? 'hecho' : (idx === i ? 'ahora' : '');
-    return `<div class="paso-item ${cls}"><div class="pt">${idx > i ? '✓' : ''}</div>${esc(txt)}</div>`;
+    // El paso en curso se tilda igual cuando ya ocurrió (llegó, está trabajando):
+    // "Llegó a tu domicilio" en amarillo sin tilde se leía como que NO había llegado.
+    const paso = idx > i || (idx === i && k !== 'accepted' && estado !== 'accepted');
+    const cls = paso ? 'hecho' : (idx === i ? 'ahora' : '');
+    return `<div class="paso-item ${cls}"><div class="pt">${paso ? '✓' : ''}</div>${esc(txt)}</div>`;
   }).join('');
   $('btnCancelar').style.display = ['accepted'].includes(estado) ? 'block' : 'none';
   const hayCodigo = estado === 'arrived' && S.job && S.job.verification_code && !S.codigoOk;
@@ -1092,6 +1106,7 @@ function verificarCodigo(){
   if (v === String(S.job.verification_code)){
     S.codigoOk = true;
     $('cajaCodigo').innerHTML = '<div class="paso-item hecho"><div class="pt">✓</div>Verificado: es tu profesional de BOLT. Podés abrirle.</div>';
+    pintarPasos(S.job.status);
   } else {
     $('errCodigo').textContent = 'Ese código no coincide. Pedíle que lo lea de su pantalla.';
   }
