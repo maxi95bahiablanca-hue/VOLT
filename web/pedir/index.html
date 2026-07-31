@@ -142,6 +142,8 @@
     .col-der{flex:1;min-width:0}
     #mapa{height:320px}
   }
+  .link{background:none;border:none;color:var(--muted);font-size:.87rem;cursor:pointer;font-family:inherit;text-decoration:none}
+  .link b{color:var(--yellow)}
   .sep{display:flex;align-items:center;gap:12px;color:var(--muted2);font-size:.78rem;font-weight:700;margin:18px 0 12px}
   .sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--bord)}
   .pie{text-align:center;font-size:.75rem;color:var(--muted2);padding:18px}
@@ -173,11 +175,15 @@
       </button>
       <div class="sep">o con tu correo</div>
       <input class="campo" id="txtMail" inputmode="email" autocomplete="email" placeholder="tu@correo.com">
-      <input class="campo" id="txtPass" type="password" autocomplete="current-password" placeholder="Elegí una contraseña (6 o más)" style="margin-top:9px">
-      <button class="btn sec" id="btnMail" style="margin-top:10px" onclick="entrarConMail()">Entrar</button>
+      <input class="campo" id="txtPass" type="password" autocomplete="current-password" placeholder="Contraseña" style="margin-top:9px">
+      <input class="campo" id="txtNombreAlta" placeholder="Tu nombre" style="margin-top:9px;display:none">
+      <button class="btn sec" id="btnMail" style="margin-top:10px" onclick="entrarConMail()">Iniciar sesión</button>
       <div class="err" id="errLogin"></div>
-      <div class="aviso" style="margin-top:16px">
-        <b>¿Primera vez?</b> Escribí tu correo y elegí una contraseña: con ese mismo botón te creamos la cuenta al instante. No mandamos mails de confirmación ni publicidad.
+      <div style="text-align:center;margin-top:14px">
+        <button class="link" id="btnModo" onclick="cambiarModo()">¿No tenés cuenta? <b>Creá una</b></button>
+      </div>
+      <div style="text-align:center;margin-top:10px">
+        <button class="link" id="btnOlvide" onclick="olvideClave()">Olvidé mi contraseña</button>
       </div>
     </section>
 
@@ -220,6 +226,8 @@
     <section class="pantalla" id="p-ubic">
       <h1>¿Dónde es?</h1>
       <p class="sub">Lo usamos para buscar profesionales cerca tuyo.</p>
+      <!-- Si ya pidió antes, su dirección queda guardada y es un solo toque -->
+      <button class="btn" id="btnDirGuardada" style="margin:0 0 10px;display:none" onclick="usarDirGuardada()"></button>
       <button class="btn" style="margin:0" onclick="usarGPS()">📍 Usar mi ubicación</button>
       <label class="lbl">O escribí la dirección</label>
       <input class="campo" id="txtDir" placeholder="Ej: Alsina 65, Bahía Blanca">
@@ -523,6 +531,13 @@ $('txtMsg').addEventListener('keydown', (e) => {
 });
 
 // ── 3: ubicación ────────────────────────────────────────────────────────
+function usarDirGuardada(){
+  const d = S.dirGuardada; if (!d) return;
+  S.lat = d.lat; S.lng = d.lng; S.direccion = d.direccion;
+  $('txtDir').value = d.direccion;
+  ir(4); pintarResumen();
+}
+
 function usarGPS(){
   $('errUbic').textContent = '';
   if (!navigator.geolocation){ $('errUbic').textContent = 'Tu navegador no comparte ubicación. Escribí la dirección.'; return; }
@@ -596,6 +611,13 @@ async function pintarSesion(){
   $('subCuenta').textContent = 'Entraste como ' + (u.email || 'tu cuenta') + '. Estos datos los ve sólo el profesional que elijas.';
   if (!$('txtNombre').value) $('txtNombre').value = S.nombre || meta.nombre || meta.full_name || meta.name || '';
   if (!$('txtTel').value)    $('txtTel').value    = S.tel || meta.telefono || '';
+  // La direccion del ultimo pedido queda guardada en la cuenta: la proxima vez
+  // es un solo toque. Solo se guarda lo que hace falta para buscar cerca.
+  if (meta.direccion && meta.lat && meta.lng){
+    S.dirGuardada = { direccion: meta.direccion, lat: meta.lat, lng: meta.lng };
+    $('btnDirGuardada').style.display = 'block';
+    $('btnDirGuardada').textContent = '⚡ Pedir a ' + meta.direccion;
+  }
   return u;
 }
 
@@ -605,38 +627,72 @@ async function pintarSesion(){
   if (u) ir(1);
 })();
 
-/** Entrar o registrarse con correo. Un solo botón: si la cuenta no existe, se
- *  crea. Pedirle a alguien que elija entre "entrar" y "registrarse" antes de
- *  saber si ya tiene cuenta es una fuente de abandono al pedo. */
+// Dos modos separados, como cualquier página: iniciar sesión o crear cuenta.
+// (Antes era un botón solo que hacía las dos cosas y no se entendía qué pasaba
+//  cuando fallaba — Maxi, 31-jul-2026.)
+let MODO = 'entrar';
+function cambiarModo(){
+  MODO = MODO === 'entrar' ? 'crear' : 'entrar';
+  const crear = MODO === 'crear';
+  $('btnMail').textContent = crear ? 'Crear mi cuenta' : 'Iniciar sesión';
+  $('btnModo').innerHTML = crear ? '¿Ya tenés cuenta? <b>Iniciá sesión</b>' : '¿No tenés cuenta? <b>Creá una</b>';
+  $('txtPass').placeholder = crear ? 'Elegí una contraseña (6 o más)' : 'Contraseña';
+  $('txtPass').autocomplete = crear ? 'new-password' : 'current-password';
+  $('txtNombreAlta').style.display = crear ? 'block' : 'none';
+  $('btnOlvide').style.display = crear ? 'none' : 'block';
+  $('errLogin').textContent = '';
+}
+
 async function entrarConMail(){
   const mail = $('txtMail').value.trim();
   const pass = $('txtPass').value;
   const btn = $('btnMail');
+  const crear = MODO === 'crear';
   $('errLogin').textContent = '';
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){ $('errLogin').textContent = 'Revisá el correo.'; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){ $('errLogin').textContent = 'Revisá el correo: falta el @ o el punto.'; return; }
   if (pass.length < 6){ $('errLogin').textContent = 'La contraseña necesita al menos 6 caracteres.'; return; }
-  btn.disabled = true; btn.textContent = 'Entrando…';
+
+  btn.disabled = true; btn.textContent = crear ? 'Creando…' : 'Entrando…';
   try {
-    let { error } = await sb.auth.signInWithPassword({ email: mail, password: pass });
-    if (error){
-      // No existe todavía → se crea. Con autoconfirm queda logueado al toque.
-      const alta = await sb.auth.signUp({ email: mail, password: pass });
-      if (alta.error) throw alta.error;
-      if (!alta.data.session){
-        // Si algún día se activa la confirmación por mail, avisarlo claro.
+    if (crear){
+      const nombre = $('txtNombreAlta').value.trim();
+      const { data, error } = await sb.auth.signUp({ email: mail, password: pass, options: { data: { nombre } } });
+      if (error) throw error;
+      if (!data.session){
+        $('errLogin').style.color = 'var(--muted)';
         $('errLogin').textContent = 'Te mandamos un correo para confirmar la cuenta. Confirmalo y volvé.';
         return;
       }
+      S.nombre = nombre;
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email: mail, password: pass });
+      if (error) throw error;
     }
     await pintarSesion();
     ir(1);                       // ya adentro: a contar el problema
   } catch (e) {
-    $('errLogin').textContent = (e.message || '').includes('Invalid login')
-      ? 'Esa contraseña no coincide con la cuenta.'
-      : 'No pudimos entrar: ' + (e.message || 'error');
+    // Mensajes concretos: "no pudimos entrar" no le dice a nadie qué hacer.
+    const m = (e.message || '').toLowerCase();
+    $('errLogin').style.color = 'var(--red)';
+    if (m.includes('already registered') || m.includes('already been registered'))
+      $('errLogin').innerHTML = 'Ese correo ya tiene cuenta. Tocá <b>¿Ya tenés cuenta? Iniciá sesión</b>.';
+    else if (m.includes('invalid login'))
+      $('errLogin').innerHTML = 'El correo o la contraseña no coinciden. Si es tu primera vez, tocá <b>Creá una</b>.';
+    else if (m.includes('email') && m.includes('invalid'))
+      $('errLogin').textContent = 'Ese correo no es válido para Supabase. Probá con otro.';
+    else
+      $('errLogin').textContent = (crear ? 'No pudimos crear la cuenta: ' : 'No pudimos entrar: ') + (e.message || 'error');
   } finally {
-    btn.disabled = false; btn.textContent = 'Entrar o crear mi cuenta';
+    btn.disabled = false; btn.textContent = crear ? 'Crear mi cuenta' : 'Iniciar sesión';
   }
+}
+
+async function olvideClave(){
+  const mail = $('txtMail').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){ $('errLogin').textContent = 'Escribí tu correo arriba y volvé a tocar acá.'; return; }
+  await sb.auth.resetPasswordForEmail(mail, { redirectTo: location.origin + location.pathname });
+  $('errLogin').style.color = 'var(--muted)';
+  $('errLogin').textContent = 'Si ese correo tiene cuenta, te llega un mail para cambiar la contraseña.';
 }
 
 async function salir(){
@@ -692,7 +748,7 @@ async function pedir(){
     if (!user){ btn.disabled = false; btn.textContent = 'Buscar profesionales'; ir(0); return; }
     S.userId = user.id;
     // El nombre y el WhatsApp quedan en la cuenta: la próxima vez ya vienen puestos.
-    sb.auth.updateUser({ data: { nombre: S.nombre, telefono: S.tel } }).catch(() => {});
+    sb.auth.updateUser({ data: { nombre: S.nombre, telefono: S.tel, direccion: S.direccion, lat: S.lat, lng: S.lng } }).catch(() => {});
 
     // 1. Profesionales cerca, con ese oficio y el radar prendido
     const { data: workers, error: eW } = await sb.rpc('nearby_workers', {
