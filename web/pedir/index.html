@@ -1231,7 +1231,10 @@ async function arrancarChat(){
         (p) => pintarMsg(p.new))
     .subscribe();
   if (!data || !data.length){
-    enviarMsg(`Hola! Soy ${S.nombre}. ${S.resumen || ''} Dirección: ${S.direccion}`);
+    // El problema y la direccion YA le llegan al profesional en las notas del
+    // pedido: repetirlos en el chat es ruido. El primer mensaje tiene que
+    // servir para lo unico que falta resolver — cuando viene (Maxi, 31-jul).
+    enviarMsg(`Hola! Soy ${S.nombre}. ¿Qué día y a qué hora te queda bien para venir a ver el trabajo?`);
   }
 }
 
