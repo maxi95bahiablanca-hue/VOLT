@@ -32,6 +32,9 @@ const TIMEOUT_SEC     = 180;
 const fmtTiempo = (s) => (s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : String(s));
 const ARRIVAL_OPTIONS  = ['~15 min', '~30 min', '~45 min', '~1 hora', '+1 hora'];
 const DURATION_OPTIONS = ['~30 min', '~1 hora', '~2 horas', '~3 horas', '+3 horas'];
+// Verde de 4 para arriba, amarillo en el medio, rojo abajo de 3: el profesional
+// tiene que poder leerlo de un vistazo, con la alarma sonando.
+const colorEstrellas = (n) => (n >= 4 ? '#4CAF50' : n >= 3 ? '#FF9800' : '#ff4444');
 const SESSION_OPTIONS  = ['2', '3', '4', '5', '6', '7+'];
 const HRS_DAY_OPTIONS  = ['~2 hs', '~3 hs', '~4 hs', '~6 hs', '~8 hs'];
 
@@ -138,6 +141,18 @@ const DetailsPhase = ({
   const [costMin, setCostMin]             = useState('');
   const [costMax, setCostMax]             = useState('');
   const [timeEst, setTimeEst]             = useState('');
+  const [repuCliente, setRepuCliente]     = useState({ promedio: null, cantidad: 0 });
+
+  // La reputación del cliente se pide una sola vez al abrir los detalles. Si
+  // falla queda en "cliente nuevo": nunca puede demorar ni romper la pantalla
+  // que decide si el trabajo se toma o se pierde.
+  useEffect(() => {
+    let vivo = true;
+    jobService.getClientReputation(job.client_id)
+      .then(r => { if (vivo) setRepuCliente(r); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [job.client_id]);
 
   const urgencyColor = timeLeft <= 30 ? '#ff4444' : timeLeft <= 60 ? '#FF9800' : '#4CAF50';
 
@@ -223,6 +238,33 @@ const DetailsPhase = ({
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>Dirección</Text>
               <Text style={styles.rowVal}>{job.address || 'Ver en mapa'}</Text>
+            </View>
+          </View>
+
+          {/* Cómo viene calificado el CLIENTE (migración 043). Va ANTES de
+              aceptar, que es el único momento en que sirve: después ya viajó.
+              Si nadie lo calificó todavía se dice así, sin inventar un número:
+              "sin calificaciones" no es lo mismo que "malo". */}
+          <View style={styles.divider} />
+          <View style={styles.row}>
+            <View style={styles.rowIcon}>
+              <Ionicons name="person-circle-outline" size={20} color="#FFD600" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Quien pide</Text>
+              {repuCliente.cantidad > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="star" size={14} color={colorEstrellas(repuCliente.promedio)} />
+                  <Text style={[styles.rowVal, { color: colorEstrellas(repuCliente.promedio) }]}>
+                    {repuCliente.promedio.toFixed(1)}
+                  </Text>
+                  <Text style={[styles.rowLabel, { marginTop: 0 }]}>
+                    ({repuCliente.cantidad} {repuCliente.cantidad === 1 ? 'trabajo' : 'trabajos'})
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.rowVal, { color: '#777' }]}>Cliente nuevo — sin calificaciones</Text>
+              )}
             </View>
           </View>
           {job.notes ? (

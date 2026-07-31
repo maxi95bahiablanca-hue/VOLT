@@ -274,6 +274,34 @@ const jobService = {
     if (error) throw error;
   },
 
+  // ─── Calificación DEL CLIENTE, la escribe el profesional (migración 043) ───
+  // Tabla aparte de `reviews` porque aquella tiene job_id UNIQUE.
+  rateClient: async ({ jobId, clientId, professionalId, rating, motivo, comment }) => {
+    const { error } = await supabase.from('client_reviews').insert({
+      job_id: jobId, client_id: clientId, professional_id: professionalId,
+      rating,
+      ...(motivo  ? { motivo }  : {}),
+      ...(comment ? { comment } : {}),
+    });
+    if (error) throw error;
+  },
+
+  // Lo que ve el profesional ANTES de aceptar: promedio y cantidad, nada más.
+  // Nunca tira: un cliente sin calificaciones es lo normal al principio y no
+  // puede frenar la pantalla del trabajo entrante.
+  getClientReputation: async (clientId) => {
+    if (!clientId) return { promedio: null, cantidad: 0 };
+    try {
+      const { data, error } = await supabase.rpc('client_reputation', { p_client_id: clientId });
+      if (error) throw error;
+      const fila = Array.isArray(data) ? data[0] : data;
+      const cantidad = Number(fila?.cantidad) || 0;
+      return { promedio: cantidad > 0 ? Number(fila.promedio) : null, cantidad };
+    } catch {
+      return { promedio: null, cantidad: 0 };
+    }
+  },
+
   // `problemPhotos` es la lista completa (migración 033). `problemPhotoUrl` se
   // sigue mandando con la primera para las pantallas viejas.
   createQuoteGroup: async ({ clientId, workers, professionId, clientLat, clientLng, address, notes, problemPhotoUrl, problemPhotos }) => {

@@ -38,6 +38,17 @@ const EVENT_ICONS = {
   work_done:      { icon: 'checkmark-done-outline',   color: '#4CAF50' },
 };
 
+// Lo que significa cada estrella cuando el profesional califica al cliente.
+// Hablan de lo que al profesional le importa: si estaba, si pagó, cómo trató.
+const CLIENT_STAR_LABELS = [
+  '',
+  'Muy malo — no lo volvería a atender',
+  'Malo — hubo problemas serios',
+  'Normal — nada para destacar',
+  'Bueno — todo en orden',
+  'Excelente — ojalá todos así',
+];
+
 const PROGRESS_STEPS = [
   { label: 'Aceptado',  step: 1 },
   { label: 'En camino', step: 2 },
@@ -170,6 +181,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [enteredCode, setEnteredCode] = useState('');
   const [codeResult, setCodeResult]   = useState(null);
   const [completedModal, setCompletedModal] = useState(false);
+  const [clientStars, setClientStars]       = useState(0);   // el profesional califica al cliente
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const [workElapsed, setWorkElapsed]       = useState(0);
   const [problemModal, setProblemModal]     = useState(false);
@@ -377,6 +389,18 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const handleAvailabilityAndComplete = async (hoursFromNow) => {
     setCompletedModal(false);
+    // La calificación del cliente va primero pero NUNCA frena el cierre: si
+    // falla (o si no puntuó), el trabajo se termina igual.
+    if (clientStars > 0 && professional?.id && job.client_id) {
+      try {
+        await jobService.rateClient({
+          jobId:          job.id,
+          clientId:       job.client_id,
+          professionalId: professional.id,
+          rating:         clientStars,
+        });
+      } catch {}
+    }
     try {
       if (professional?.id) {
         await professionalService.setAvailableAt(professional.id, hoursFromNow);
@@ -1235,12 +1259,43 @@ window.addEventListener('message', e => {
         <View style={styles.completedOverlay}>
           <View style={styles.completedBox}>
             <Ionicons name="checkmark-circle" size={52} color="#4CAF50" />
-            <Text style={styles.completedTitle}>¡Pago recibido!</Text>
+            {/* En modo gratuito no hay ningún pago por la app: decir "pago
+                recibido" es prometer algo que no pasó. */}
+            <Text style={styles.completedTitle}>
+              {chargesInApp() ? '¡Pago recibido!' : '¡Trabajo terminado!'}
+            </Text>
             {jobEarned > 0 && (
               <View style={styles.completedVolt}>
                 <Text style={styles.completedVoltText}>⚡ {volt.coachPostJob(jobEarned, jobCommission)}</Text>
               </View>
             )}
+            {/* Calificación del CLIENTE (migración 043). Es opcional a
+                propósito: si no toca ninguna estrella, sigue de largo y no
+                se guarda nada. Nada puede quedar trabado esperando esto. */}
+            <Text style={styles.completedSub}>¿Cómo fue el cliente?</Text>
+            <View style={styles.clientStarsRow}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <TouchableOpacity
+                  key={n}
+                  onPress={() => setClientStars(n)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Calificar al cliente con ${n} estrella${n > 1 ? 's' : ''}`}
+                >
+                  <Ionicons
+                    name={n <= clientStars ? 'star' : 'star-outline'}
+                    size={30}
+                    color={n <= clientStars ? '#FFD600' : '#444'}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.clientStarsHint}>
+              {clientStars === 0
+                ? 'Opcional. Lo ven los otros profesionales antes de aceptarle un trabajo.'
+                : CLIENT_STAR_LABELS[clientStars]}
+            </Text>
+
             <Text style={styles.completedSub}>¿Cuándo volvés a estar disponible para nuevos pedidos?</Text>
             {[
               { label: 'Ahora mismo',  icon: 'flash',        hours: 0 },
@@ -2268,6 +2323,9 @@ const styles = StyleSheet.create({
   completedSub:   { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20, marginBottom: 8 },
   completedVolt:  { backgroundColor: '#0D0D00', borderRadius: 12, borderWidth: 1, borderColor: '#FFD60030', padding: 12, marginVertical: 4 },
   completedVoltText: { fontSize: 13, color: '#cfcfcf', textAlign: 'center', lineHeight: 19 },
+  // Estrellas con las que el profesional califica al cliente
+  clientStarsRow:  { flexDirection: 'row', gap: 10, justifyContent: 'center', marginBottom: 6 },
+  clientStarsHint: { fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 14, paddingHorizontal: 8 },
   completedOpt: {
     width: '100%', flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
