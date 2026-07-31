@@ -59,6 +59,16 @@
   .wa{background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.3);color:#25D366;border-radius:10px;padding:9px;text-align:center;font-weight:700;font-size:.82rem;cursor:pointer}
   .accept{background:var(--green);color:#062;border:none;border-radius:10px;padding:10px;text-align:center;font-weight:800;font-size:.84rem;cursor:pointer}
   .accept.is-on{background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.4);cursor:default}
+  /* Editor de datos y oficios (admin) */
+  .editor{flex-basis:100%;margin-top:12px;padding:12px;border:1px solid var(--bord);border-radius:12px;background:rgba(255,255,255,.02)}
+  .ed-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+  .ed-lbl{display:flex;flex-direction:column;gap:4px;font-size:.72rem;font-weight:700;color:var(--muted)}
+  .ed-inp{background:rgba(0,0,0,.25);border:1px solid var(--bord);border-radius:9px;padding:8px;color:#fff;font-size:.85rem;font-family:inherit}
+  .ed-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .ed-chip{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:6px 12px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .ed-chip.on{background:rgba(255,214,0,.14);border-color:rgba(255,214,0,.5);color:var(--yellow)}
+  .ed-acts{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .ed-msg{font-size:.78rem;font-weight:700}
   .docs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .doc{font-size:.72rem;font-weight:700;color:var(--blue);background:rgba(77,171,247,.1);border:1px solid rgba(77,171,247,.3);border-radius:8px;padding:4px 9px}
   .doc.none{color:var(--muted2);background:transparent;border-color:var(--bord)}
@@ -210,6 +220,7 @@
     if (error){ alert('Error cargando: ' + error.message); return; }
     LEADS = data || [];
     await cargarProfesionales();   // para el chip de "puede recibir trabajos"
+    if (!CATALOGO.length) await cargarCatalogo();
     // llenar filtro de profesiones (un oficio por opción, no la cadena completa)
     const profs = [...new Set(LEADS.flatMap(oficiosDe))].sort();
     const sel = document.getElementById('fProf');
@@ -225,18 +236,60 @@
   function esc(t){ const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
 
   // Mensaje de lanzamiento completo, listo para enviar (1-click)
-  function waMensaje(l){
-    const nombre = (l.nombre||'').trim();
-    const saludo = nombre ? `Hola ${nombre}!` : 'Hola!';
-    return `${saludo} Soy Maximiliano, del equipo de BOLT, y te contacto por tu registro como profesional. ¿Cómo estás?
-
-Te cuento que ya estás aceptado y sos de los primeros del cupo. 🎉
-
-La aplicación está prevista para lanzarse en 30/45 días aproximadamente, y te vamos a avisar por mail y WhatsApp.
+  //
+  // 🔴 30-jul-2026: este mensaje felicitaba a TODOS ("ya estás aceptado, sos de
+  // los primeros del cupo") sin mirar si la persona podía trabajar. A los que se
+  // anotaron por el formulario sin Google hubo que escribirles de nuevo al rato
+  // pidiéndoles que entraran otra vez por el mismo link — quedando como que nos
+  // habíamos equivocado. Ahora el texto depende del estado real: si falta un
+  // paso, se pide de entrada y como parte natural del alta.
+  const LINK_ALTA = 'https://bolt.com.ar/prestadores';
+  const CIERRE_WA = `La aplicación está prevista para lanzarse en 30/45 días aproximadamente, y te vamos a avisar por mail y WhatsApp.
 
 En principio todo va a ser gratuito, y vamos a lanzar una campaña de publicidad masiva una vez registrados todos los trabajadores.
 
 Cualquier consulta o duda, quedo a tu disposición. ¡Muchas gracias!`;
+
+  function waMensaje(l){
+    const nombre = (l.nombre||'').trim();
+    const saludo = nombre ? `Hola ${nombre}!` : 'Hola!';
+    const p = l.user_id ? PROFS[l.user_id] : null;
+    const tieneOficio = !!(p && (p.professional_professions || []).length);
+
+    // Todavía no abrió la app. NO se le pide que vuelva a registrarse: cuando
+    // entre con el mismo mail queda activo solo (trigger de la migración 036).
+    // Lo único que se le avisa es con qué cuenta tiene que entrar, que es el
+    // único punto donde se puede perder.
+    if (!l.user_id || !p){
+      const conQue = l.email ? `la cuenta de Google **${l.email}**` : 'la cuenta de Google del celular (la de Play Store)';
+      return `${saludo} Soy Maximiliano, del equipo de BOLT, y te contacto por tu registro como profesional. ¿Cómo estás?
+
+Ya estás aceptado y sos de los primeros del cupo. 🎉
+
+Un dato importante para cuando salga la app: cuando la instales, entrá con ${conQue.replace(/\*\*/g,'')} — es la que tenemos asociada a tu registro, así te reconoce y ya quedás activo.
+
+${CIERRE_WA}`;
+    }
+
+    // Existe, pero sin oficio no aparece en ninguna búsqueda.
+    if (!tieneOficio){
+      return `${saludo} Soy Maximiliano, del equipo de BOLT, y te contacto por tu registro como profesional. ¿Cómo estás?
+
+Ya estás aceptado y sos de los primeros del cupo. 🎉 Me falta un solo dato para que aparezcas en las búsquedas: tu oficio. Son 10 segundos:
+
+1) Entrá a ${LINK_ALTA}
+2) Entrá con la misma cuenta de Google con la que te registraste
+3) Elegí tu oficio (hasta 3) y guardá
+
+${CIERRE_WA}`;
+    }
+
+    // Listo para trabajar: lo único que falta es la app y el radar.
+    return `${saludo} Soy Maximiliano, del equipo de BOLT, y te contacto por tu registro como profesional. ¿Cómo estás?
+
+Te cuento que ya estás aceptado y sos de los primeros del cupo. 🎉
+
+${CIERRE_WA}`;
   }
   function waLink(l){ const n=(l.telefono||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10)); return 'https://wa.me/'+full+'?text='+encodeURIComponent(waMensaje(l)); }
 
@@ -373,7 +426,9 @@ Cualquier duda escribime por acá. ¡Gracias!`;
             ${doc(l.selfie_url,'Selfie')}
           </div>
         </div>
+        ${editorHTML(l)}
         <div class="lead-actions">
+          <button class="wa" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#fff;cursor:pointer" onclick="editar('${l.id}')">✏️ Editar datos</button>
           <a class="wa" href="${waLink(l)}" target="_blank">💬 WhatsApp</a>
           ${estadoEnApp(l).cls === 'no' && l.email ? `<a class="wa" style="background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.35);color:var(--yellow)" href="${mailOficio(l)}">✉️ Pedirle el oficio</a>` : ''}
           ${faltan.length && l.completar_token ? `<a class="wa" style="background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.35);color:var(--yellow)" href="${waRecordatorio(l)}" target="_blank">⏰ Recordar faltantes</a>` : ''}
@@ -390,6 +445,108 @@ Cualquier duda escribime por acá. ¡Gracias!`;
         </div>
       </div>`;
     }).join('');
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  EDITOR — cargarle los datos y el oficio a cualquiera desde acá
+  // ------------------------------------------------------------------------
+  //  Antes, si alguien te decía el oficio por WhatsApp, no había forma de
+  //  cargarlo: la base sólo dejaba guardarlo al dueño de la ficha, así que el
+  //  único camino era pedirle que entrara él. Con la migración 036 el admin
+  //  escribe en professional_professions, y esto es la pantalla para hacerlo.
+  //
+  //  Se guarda en dos lados y no es lo mismo:
+  //    · prestador_leads  → el registro del panel (un trigger arma los oficios
+  //      del lead a partir del texto de 'profesion')
+  //    · professional_professions → lo que mira la app para mostrarlo en las
+  //      búsquedas. Sólo existe si la persona ya tiene ficha (o sea, si entró
+  //      alguna vez con su cuenta).
+  // ════════════════════════════════════════════════════════════════════════
+  const CAMPOS_EDIT = [
+    ['nombre','Nombre'], ['apellido','Apellido'], ['telefono','WhatsApp'],
+    ['email','Email'], ['ciudad','Ciudad'], ['zona','Zona o barrio'],
+  ];
+
+  function editorHTML(l){
+    const elegidos = oficiosDe(l).map(s => s.toLowerCase());
+    const chips = CATALOGO.map(p => {
+      const on = elegidos.includes(String(p.name).toLowerCase());
+      return `<button type="button" class="ed-chip${on?' on':''}" data-prof="${p.id}" data-nom="${esc(p.name)}"
+                onclick="this.classList.toggle('on')">${esc(p.name)}</button>`;
+    }).join('');
+    const inputs = CAMPOS_EDIT.map(([k,label]) =>
+      `<label class="ed-lbl">${label}<input class="ed-inp" data-campo="${k}" value="${esc(l[k]||'')}"></label>`
+    ).join('');
+    return `<div class="editor" id="ed-${l.id}" style="display:none">
+      <div class="ed-grid">${inputs}</div>
+      <div class="ed-lbl" style="margin-top:10px">Oficios (tocá los que hace)</div>
+      <div class="ed-chips">${chips || '<span class="muted">No se pudo cargar el catálogo de oficios.</span>'}</div>
+      <div class="ed-acts">
+        <button class="accept" onclick="guardarEdicion('${l.id}')">💾 Guardar</button>
+        <button class="estado-sel" style="cursor:pointer" onclick="editar('${l.id}')">Cancelar</button>
+        <span class="ed-msg" id="edmsg-${l.id}"></span>
+      </div>
+    </div>`;
+  }
+
+  function editar(id){
+    const el = document.getElementById('ed-' + id);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function guardarEdicion(id){
+    const l = LEADS.find(x => x.id === id); if (!l) return;
+    const cont = document.getElementById('ed-' + id);
+    const msg  = document.getElementById('edmsg-' + id);
+    const dato = {};
+    cont.querySelectorAll('.ed-inp').forEach(i => {
+      const v = i.value.trim();
+      dato[i.dataset.campo] = v || null;
+    });
+    const chips = [...cont.querySelectorAll('.ed-chip.on')];
+    const ids     = chips.map(c => Number(c.dataset.prof));
+    const nombres = chips.map(c => c.dataset.nom);
+    // El texto es lo que lee el trigger de la 031 para armar los oficios del lead.
+    dato.profesion = nombres.length ? nombres.join(', ') : 'A completar';
+
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Guardando…';
+    try {
+      const { error } = await sb.from('prestador_leads').update(dato).eq('id', id);
+      if (error) throw error;
+      const aviso = await guardarOficiosEnApp(l, ids);
+      await cargar();                       // relee todo: leads, fichas y oficios
+      if (aviso) alert(aviso);
+    } catch (e) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'No se pudo guardar: ' + e.message;
+    }
+  }
+
+  // Espejo de los oficios en la tabla que mira la app. Sin ficha no hay dónde
+  // guardarlos todavía: los va a cargar solo el trigger cuando la persona entre
+  // por primera vez con su cuenta.
+  async function guardarOficiosEnApp(l, ids){
+    const p = l.user_id ? PROFS[l.user_id] : null;
+    if (!p) {
+      return ids.length
+        ? 'Datos guardados. ' + (l.nombre || 'Esta persona') + ' todavía no abrió la app, ' +
+          'así que el oficio queda anotado acá y se le carga solo la primera vez que entre.'
+        : null;
+    }
+    const actuales = (p.professional_professions || []).map(x => x.profession_id);
+    const sumar  = ids.filter(i => !actuales.includes(i));
+    const restar = actuales.filter(i => !ids.includes(i));
+    if (restar.length){
+      const { error } = await sb.from('professional_professions')
+        .delete().eq('professional_id', p.id).in('profession_id', restar);
+      if (error) throw error;
+    }
+    if (sumar.length){
+      const { error } = await sb.from('professional_professions')
+        .insert(sumar.map(i => ({ professional_id: p.id, profession_id: i, min_price: 0 })));
+      if (error) throw error;
+    }
+    return null;
   }
 
   // Router del <select>: aceptar dispara mail + WhatsApp; el resto solo cambia estado
@@ -438,10 +595,16 @@ Cualquier duda escribime por acá. ¡Gracias!`;
     const vs = equivale[estado];
     if (!vs || !l) return null;                       // nuevo/contactado no cambian la app
     const quien = (l.nombre || 'este registro').trim();
+    // No hace falta pedirle nada: el trigger trg_activar_prestador (migración
+    // 036) lo activa solo la primera vez que entra con ese mismo mail. El texto
+    // viejo mandaba a pedirle que "vuelva a entrar por el link", que era
+    // innecesario y quedaba pésimo con alguien que ya se había registrado.
     if (!l.user_id){
-      return '⚠️ ' + quien + ' no tiene cuenta de Google vinculada, así que NO existe como ' +
-             'profesional en la app y este cambio no lo habilita.\n\n' +
-             'Tiene que entrar UNA vez a bolt.com.ar/prestadores con su Google.';
+      return 'ℹ️ ' + quien + ' todavía no abrió la app, así que este cambio no lo activa ahora.' +
+             '\n\nNo tenés que pedirle nada: cuando entre por primera vez con ' +
+             (l.email ? l.email : 'el mail que dejó') + ' queda activo solo, con los oficios ' +
+             'que tenga cargados acá.\n\n(Sólo hace falta el link de bolt.com.ar/prestadores ' +
+             'si entra con OTRA cuenta de Google distinta a ese mail.)';
     }
     try {
       const { data, error } = await sb.from('professionals')
@@ -469,11 +632,23 @@ Cualquier duda escribime por acá. ¡Gracias!`;
   let PROFS = {};
   async function cargarProfesionales(){
     try {
+      // El id va en el select porque es lo que necesita professional_professions
+      // para que el admin pueda cargarle el oficio a cualquiera (migración 036).
       const { data } = await sb.from('professionals')
-        .select('user_id,verification_status,available,location,professional_professions(profession_id,professions(name))');
+        .select('id,user_id,verification_status,available,location,professional_professions(profession_id,professions(name))');
       PROFS = {};
       (data || []).forEach(p => { if (p.user_id) PROFS[p.user_id] = p; });
     } catch (e) { PROFS = {}; }
+  }
+
+  // Catálogo de oficios, para los chips del editor. professions es de lectura
+  // pública, así que alcanza con la sesión del admin.
+  let CATALOGO = [];
+  async function cargarCatalogo(){
+    try {
+      const { data } = await sb.from('professions').select('id,name').order('name');
+      CATALOGO = data || [];
+    } catch (e) { CATALOGO = []; }
   }
 
   // Las 3 condiciones de nearby_workers: approved + available + location.
