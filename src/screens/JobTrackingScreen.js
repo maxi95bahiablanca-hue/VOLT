@@ -532,8 +532,8 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
       if (notifTitle) {
         await notificationService.sendToUser(clientId, { title: notifTitle, body: notifBody, data: { jobId: job.id, screen: 'tracking' } });
       }
-    } catch {
-      Alert.alert('Error', 'No se pudo actualizar el estado.');
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo actualizar el estado: ' + (e?.message || JSON.stringify(e)));
     } finally {
       setLoading(false);
     }
@@ -557,8 +557,10 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         }
       }
       setJob(j => ({ ...j, status: 'completed', completed_at: new Date().toISOString() }));
-    } catch {
-      Alert.alert('Error', 'No se pudo finalizar el trabajo. Intentá de nuevo.');
+    } catch (e) {
+      // El catch mudo escondía la causa: sin el mensaje real no hay forma de
+      // saber si fue RLS, un trigger o la red (31-jul-2026).
+      Alert.alert('Error', 'No se pudo finalizar el trabajo: ' + (e?.message || e?.error_description || JSON.stringify(e)));
     } finally {
       setLoading(false);
     }
