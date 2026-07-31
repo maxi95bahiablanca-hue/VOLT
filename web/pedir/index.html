@@ -954,7 +954,7 @@ async function elegir(jobId){
       .eq('quote_group_id', S.quoteGroupId).neq('id', jobId).in('status', ['pending','accepted']);
     await sb.from('jobs').update({ quote_group_id: null }).eq('id', jobId);
     const { data } = await sb.from('jobs')
-      .select('id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+      .select('id,status,address,notes,verification_code,scheduled_for,scheduled_ok,on_the_way_at,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
       .eq('id', jobId).single();
     mostrarListo(data);
   } catch (e) {
@@ -974,6 +974,7 @@ async function elegir(jobId){
 // ════════════════════════════════════════════════════════════════════════
 const PASOS = [
   ['accepted',    'Aceptó tu pedido'],
+  ['agendado',    'Quedaron en un día y hora'],
   ['arrived',     'Llegó a tu domicilio'],
   ['in_progress', 'Trabajo en curso'],
   ['completed',   'Trabajo terminado'],
@@ -1097,9 +1098,27 @@ function pintarObra(){
   </div>`;
 }
 
+/** Texto honesto del estado. Aceptar NO es "va en camino": el 90% de las veces
+ *  se coordina para otro momento, y decir que ya salió es mentirle al cliente
+ *  (Maxi, 31-jul-2026). Sólo se dice "en camino" cuando el profesional avisó
+ *  que salió de verdad (on_the_way_at). */
+function textoDeEstado(estado){
+  const j = S.job || {};
+  if (estado !== 'accepted') return TEXTO_ESTADO[estado] || '';
+  if (j.on_the_way_at) return '🚗 Va en camino a tu casa';
+  if (j.scheduled_for){
+    const f = new Date(j.scheduled_for).toLocaleString('es-AR',
+      { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return (j.scheduled_ok ? '📅 Van a ir el ' : '📅 Propuso ir el ') + f;
+  }
+  return '🤝 Falta acordar el día y la hora';
+}
+
 function pintarPasos(estado){
-  const idx = PASOS.findIndex(p => p[0] === estado);
-  $('estadoTxt').textContent = TEXTO_ESTADO[estado] || '';
+  // El paso "agendado" sólo cuenta si realmente quedaron en algo.
+  const efectivo = (estado === 'accepted' && (S.job || {}).scheduled_for) ? 'agendado' : estado;
+  const idx = PASOS.findIndex(p => p[0] === efectivo);
+  $('estadoTxt').textContent = textoDeEstado(estado);
   try { pintarObra(); } catch (e) {}
   $('pasos').innerHTML = PASOS.map(([k, txt], i) => {
     // El paso en curso se tilda igual cuando ya ocurrió (llegó, está trabajando):
@@ -1109,6 +1128,14 @@ function pintarPasos(estado){
     return `<div class="paso-item ${cls}"><div class="pt">${paso ? '✓' : ''}</div>${esc(txt)}</div>`;
   }).join('');
   $('btnCancelar').style.display = ['accepted'].includes(estado) ? 'block' : 'none';
+  // Sin turno acordado, el chat es lo único que destraba: se lo decimos.
+  const faltaTurno = estado === 'accepted' && !(S.job || {}).scheduled_for;
+  $('cajaObra').style.display = faltaTurno ? 'block' : $('cajaObra').style.display;
+  if (faltaTurno){
+    $('cajaObra').innerHTML = '<div class="obra"><h5>🤝 FALTA ACORDAR CUÁNDO VIENE</h5>' +
+      '<div class="det">Escribile por el chat para arreglar el día y la hora que te queden bien.</div>' +
+      '<button class="mini" style="width:100%;margin-top:10px" onclick="preguntarCuando()">Preguntarle cuándo puede venir</button></div>';
+  }
   const hayCodigo = estado === 'arrived' && S.job && S.job.verification_code && !S.codigoOk;
   $('cajaCodigo').style.display = hayCodigo ? 'block' : 'none';
   if (estado === 'completed') pedirCalificacion();
@@ -1126,7 +1153,7 @@ function seguirEstado(){
     .subscribe();
   // Respaldo, por si el realtime no engancha
   setInterval(async () => {
-    const { data } = await sb.from('jobs').select('status,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return').eq('id', id).single();
+    const { data } = await sb.from('jobs').select('status,verification_code,scheduled_for,scheduled_ok,on_the_way_at,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return').eq('id', id).single();
     if (data && (data.status !== S.job.status || data.verification_code !== S.job.verification_code)){
       S.job = { ...S.job, ...data };
       pintarPasos(data.status);
@@ -1146,6 +1173,12 @@ async function cerrarJornada(){
     S.job.current_session_start = null;
     pintarObra();
   } else alert(data);
+}
+
+/** Un toque y el mensaje sale escrito: acordar el turno no puede depender de
+ *  que el cliente sepa qué escribir. */
+function preguntarCuando(){
+  enviarMsg('Hola! ¿Qué día y a qué hora te queda bien venir?');
 }
 
 function verificarCodigo(){
@@ -1262,7 +1295,7 @@ window.addEventListener('beforeunload', (e) => {
 //  desde la app o desde otro celular, y el cliente igual tiene que encontrarlo
 //  al entrar. Antes sólo se acordaba de los pedidos hechos en ESTE navegador,
 //  así que un pedido de la app no aparecía por ningún lado (Maxi, 31-jul-2026).
-const CAMPOS_JOB = 'id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,client_lat,client_lng,created_at,professions(name),professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)';
+const CAMPOS_JOB = 'id,status,address,notes,verification_code,scheduled_for,scheduled_ok,on_the_way_at,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,client_lat,client_lng,created_at,professions(name),professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)';
 
 (async () => {
   const u = await usuarioActual();
