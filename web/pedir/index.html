@@ -1258,29 +1258,35 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 // ── Volver a un pedido en curso ─────────────────────────────────────────
-//  El cliente cierra la pestaña, atiende al profesional, vuelve más tarde a
-//  ver el estado o a escribirle. Sin esto se encontraría con el formulario
-//  vacío y creería que su pedido se perdió.
+//  Se busca en la BASE, no en el navegador: el trabajo puede haberse pedido
+//  desde la app o desde otro celular, y el cliente igual tiene que encontrarlo
+//  al entrar. Antes sólo se acordaba de los pedidos hechos en ESTE navegador,
+//  así que un pedido de la app no aparecía por ningún lado (Maxi, 31-jul-2026).
+const CAMPOS_JOB = 'id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,client_lat,client_lng,created_at,professions(name),professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)';
+
 (async () => {
-  let jobId = null;
-  try { jobId = localStorage.getItem('bolt_job'); } catch (e) {}
-  if (!jobId) return;
   const u = await usuarioActual();
   if (!u) return;
+  // Cualquier trabajo mío que siga vivo, venga de donde venga. Los que están
+  // esperando respuesta (pending) no se muestran acá: esos viven en la pantalla
+  // de búsqueda y se resuelven solos o caen en el rescate.
   const { data } = await sb.from('jobs')
-    .select('id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,client_lat,client_lng,professions(name),professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
-    .eq('id', jobId).eq('client_id', u.id).single();
-  if (!data || ['completed','cancelled'].includes(data.status)){
-    try { localStorage.removeItem('bolt_job'); } catch (e) {}
-    return;
-  }
+    .select(CAMPOS_JOB)
+    .eq('client_id', u.id)
+    .in('status', ['accepted', 'arrived', 'in_progress'])
+    .is('quote_group_id', null)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  const job = (data || [])[0];
+  if (!job){ try { localStorage.removeItem('bolt_job'); } catch (e) {} return; }
   S.userId = u.id;
-  S.lat = data.client_lat; S.lng = data.client_lng;
-  S.direccion = data.address || '';
-  S.oficio = data.professions?.name || '';
+  S.lat = job.client_lat; S.lng = job.client_lng;
+  S.direccion = job.address || '';
+  S.oficio = job.professions?.name || '';
   S.nombre = (u.user_metadata || {}).nombre || '';
-  mostrarListo(data);
+  mostrarListo(job);
 })();
+
 </script>
 </body>
 </html>
