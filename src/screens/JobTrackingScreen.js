@@ -437,6 +437,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         .catch(() => {});
       const s = await locationService.watchLocation(async (lat, lng) => {
         await professionalService.updateLocation(userId, lat, lng).catch(() => {});
+        detectarQueSeFue(lat, lng);
       }).catch(() => null);
       if (cancelled) { s?.remove?.(); return; }
       sub = s;
@@ -444,6 +445,57 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
     return () => { cancelled = true; sub?.remove?.(); };
   }, [isWorker, job.status, userId]);
+
+  // ── "¿Te fuiste?" ────────────────────────────────────────────────────────
+  //  Regla de Maxi: nada puede quedar esperando a que alguien se acuerde de
+  //  apretar un botón. El trabajador no va a cerrar la jornada al irse, pero el
+  //  GPS ya sabe que se fue: si se aleja más de 150 m del domicilio y no vuelve
+  //  en 15 minutos, se le pregunta. Si contesta, la jornada se cierra con la
+  //  hora REAL (mucho mejor que el tope de 10 h del cierre automático).
+  const lejosDesde = useRef(null);
+  const yaPregunto = useRef(false);
+
+  const detectarQueSeFue = (lat, lng) => {
+    if (!isWorker || yaPregunto.current) return;
+    const enObra = job.is_multiday && job.current_session_start;
+    if (!enObra && job.status !== 'in_progress') return;
+
+    const R = 6371000;
+    const dLat = (lat - job.client_lat) * Math.PI / 180;
+    const dLng = (lng - job.client_lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(job.client_lat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    const metros = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    if (metros < 150) { lejosDesde.current = null; return; }   // volvió: falsa alarma
+    if (!lejosDesde.current) { lejosDesde.current = Date.now(); return; }
+    if (Date.now() - lejosDesde.current < 15 * 60 * 1000) return;
+
+    yaPregunto.current = true;
+    Alert.alert(
+      '¿Terminaste por hoy?',
+      'Vimos que ya no estás en el domicilio. Si terminaste, cerramos la jornada con la hora de ahora.',
+      [
+        { text: 'No, sigo', onPress: () => { yaPregunto.current = false; lejosDesde.current = null; } },
+        { text: 'Sí, terminé', onPress: () => cerrarJornadaAhora() },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const cerrarJornadaAhora = async () => {
+    try {
+      if (job.is_multiday && job.current_session_start) {
+        await jobService.endSession(job.id, job.current_session_start,
+                                    job.completed_sessions || 0, job.total_minutes_worked || 0);
+        setJob(j => ({ ...j, current_session_start: null,
+                       completed_sessions: (j.completed_sessions || 0) + 1, status: 'arrived' }));
+        chatService.sendSystemMessage(job.id, 'El profesional terminó por hoy. Vuelve en la próxima jornada.').catch(() => {});
+      }
+    } catch (e) {
+      Alert.alert('No se pudo cerrar', e?.message || 'Probá desde el botón de la pantalla.');
+    }
+  };
 
   const handleWorkerAction = async (action) => {
     setLoading(true);
