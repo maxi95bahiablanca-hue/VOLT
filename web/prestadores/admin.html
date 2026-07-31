@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  :root{--bg:#0A0A0A;--surf:#111;--surf2:#161616;--bord:#1f1f1f;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#00d68f;--blue:#4dabf7;--red:#ff4466}
+  :root{--bg:#0A0A0A;--surf:#111;--surf2:#161616;--bord:#1f1f1f;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#00d68f;--blue:#FFD600;--red:#ff4466}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding-bottom:40px}
   .wrap{max-width:1100px;margin:0 auto;padding:0 18px}
   a{color:inherit;text-decoration:none}
@@ -70,7 +70,7 @@
   .ed-acts{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
   .ed-msg{font-size:.78rem;font-weight:700}
   .docs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-  .doc{font-size:.72rem;font-weight:700;color:var(--blue);background:rgba(77,171,247,.1);border:1px solid rgba(77,171,247,.3);border-radius:8px;padding:4px 9px}
+  .doc{font-size:.72rem;font-weight:700;color:var(--blue);background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);border-radius:8px;padding:4px 9px}
   .doc.none{color:var(--muted2);background:transparent;border-color:var(--bord)}
   .ante{display:inline-block;font-size:.72rem;font-weight:700;border-radius:8px;padding:2px 8px;margin-top:6px}
   .ante.ok{color:var(--green);background:rgba(0,214,143,.12)}
@@ -78,7 +78,7 @@
   .ante.no{color:var(--red);background:rgba(255,68,102,.12)}
   .estado-sel{font-size:.82rem}
   .badge{display:inline-block;font-size:.66rem;font-weight:800;border-radius:7px;padding:2px 8px;text-transform:uppercase;letter-spacing:.5px}
-  .b-nuevo{background:rgba(77,171,247,.15);color:var(--blue)}
+  .b-nuevo{background:rgba(255,214,0,.15);color:var(--blue)}
   .b-contactado{background:rgba(255,214,0,.15);color:var(--yellow)}
   .b-aceptado{background:rgba(0,214,143,.15);color:var(--green)}
   .b-rechazado{background:rgba(255,68,102,.12);color:var(--red)}
@@ -405,7 +405,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
         <div class="lead-main">
           <span class="lead-name">${esc(l.nombre)} ${esc(l.apellido||'')}</span>
           <span class="badge b-${est}" style="margin-left:8px">${est}</span>
-          <div>${(oficiosDe(l).length ? oficiosDe(l) : ['A completar']).map(p => `<span class="lead-prof">${esc(p)}</span>`).join(' ')}${l.matricula?` <span class="lead-prof" style="color:var(--blue);background:rgba(77,171,247,.1);border-color:rgba(77,171,247,.25)">📋 ${esc(l.matricula)}</span>`:''}</div>
+          <div>${(oficiosDe(l).length ? oficiosDe(l) : ['A completar']).map(p => `<span class="lead-prof">${esc(p)}</span>`).join(' ')}${l.matricula?` <span class="lead-prof" style="color:var(--blue);background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.25)">📋 ${esc(l.matricula)}</span>`:''}</div>
           <div class="lead-meta">
             ${l.ciudad?`🏙️ <b>${esc(l.ciudad)}</b> · `:''}${l.zona?`📍 ${esc(l.zona)} · `:''}📱 <b>${esc(l.telefono)}</b>
             ${l.dni?`<br>🪪 DNI: <b>${esc(l.dni)}</b>`:''}${l.fecha_nac?` · 🎂 ${esc(l.fecha_nac)}`:''}
