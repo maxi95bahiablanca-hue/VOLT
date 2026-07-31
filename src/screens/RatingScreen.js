@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, TextInput, ActivityIndicator,
-  ScrollView, Image, Platform,
+  ScrollView, Image, Platform, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import jobService from '../services/jobService';
@@ -52,7 +52,11 @@ const RatingScreen = ({ job, session, onDone }) => {
   const totalCost = (job.visit_paid ? 0 : visitAmt) + workAmt + matsAmt;
 
   const handleSubmit = async () => {
-    if (rating === 0) return;
+    // Antes salia mudo: el boton no hacia NADA y parecia roto (Maxi, 31-jul).
+    if (rating === 0) {
+      Alert.alert('Falta la puntuacion', 'Tocá las estrellas para puntuar a ' + profFirstName + ' y después enviás.');
+      return;
+    }
     setLoading(true);
     try {
       await jobService.submitReview({
