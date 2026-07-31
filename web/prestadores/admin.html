@@ -662,6 +662,7 @@ Cualquier duda escribime por acá. ¡Gracias!`;
           </div>
           <div class="lead-actions">
             ${m.pregunta && t.worker_user ? `<button class="wa" onclick="preguntarAlTrabajador('${t.job_id}','${t.worker_user}','${t.motivo}')">📲 Preguntarle</button>` : ''}
+            <button class="accept" onclick="asignarOtro('${t.job_id}')">🔁 Asignar otro trabajador</button>
             <button class="estado-sel" style="cursor:pointer" onclick="cerrarTrabado('${t.job_id}')">Cerrar este trabajo</button>
           </div>
         </div>`;
@@ -682,6 +683,36 @@ Cualquier duda escribime por acá. ¡Gracias!`;
       });
       alert('Listo, le preguntamos. Si no contesta, el trabajo sigue apareciendo en esta lista.');
     } catch (e) { alert('No se pudo avisar: ' + e.message); }
+  }
+
+  /** Le saca el trabajo al que no respondio y se lo da a otro. El cliente NO se
+   *  entera: sigue con SU pedido, no tiene que volver a empezar. El aviso se lo
+   *  da Maxi a mano si hace falta. */
+  async function asignarOtro(jobId){
+    const { data: cand, error } = await sb.rpc('candidatos_para_trabajo', { p_job_id: jobId });
+    if (error){ alert('No se pudo buscar profesionales: ' + error.message); return; }
+    if (!cand || !cand.length){ alert('No hay otro profesional aprobado con ese oficio.'); return; }
+    const lista = cand.map((c, i) =>
+      `${i + 1}) ${c.nombre}${c.disponible ? ' (radar prendido)' : ' (sin radar)'} - ${c.trabajos} trabajos`).join(String.fromCharCode(10));
+    const salto = String.fromCharCode(10);
+    const elegido = prompt('A quien se lo paso?' + salto + salto + lista + salto + salto + 'Escribi el numero:');
+    const n = parseInt(elegido, 10);
+    if (!n || n < 1 || n > cand.length) return;
+    const nuevo = cand[n - 1];
+    if (!confirm('Pasarle el trabajo a ' + nuevo.nombre + '?' + salto + salto + 'Al anterior se le borra de su lista y deja de verlo.')) return;
+    const { data, error: e2 } = await sb.rpc('reasignar_trabajo', { p_job_id: jobId, p_prof_id: nuevo.id });
+    if (e2){ alert('No se pudo: ' + e2.message); return; }
+    if (data !== 'reasignado'){ alert(data); return; }
+    // Avisarle al que lo recibe, que si no no se entera de que tiene trabajo.
+    const nuevoUser = (await sb.from('professionals').select('user_id').eq('id', nuevo.id).single()).data;
+    if (nuevoUser?.user_id){
+      sb.functions.invoke('send-push', { body: {
+        userId: nuevoUser.user_id, title: '⚡ Te asignamos un trabajo',
+        body: 'Un trabajo paso a vos. Abrilo en BOLT para ver los detalles.',
+        data: { jobId, screen: 'tracking' } } }).catch(() => {});
+    }
+    alert('Listo: ahora es de ' + nuevo.nombre + '. Avisale vos al cliente si hace falta.');
+    cargarTrabados();
   }
 
   async function cerrarTrabado(jobId){
