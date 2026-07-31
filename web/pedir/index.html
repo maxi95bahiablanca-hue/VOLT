@@ -943,6 +943,18 @@ async function revisarRespuestas(){
   }).join('');
 }
 
+/** Avisarle al profesional. Todo lo que el cliente hace desde la web tiene que
+ *  llegarle en el momento: si no, se entera cuando abre la app y ya es tarde
+ *  (auditoria de avisos, 31-jul-2026). */
+function avisarAlProfesional(titulo, cuerpo){
+  const destino = S.profesional && S.profesional.user_id;
+  if (!destino || !S.job) return;
+  sb.functions.invoke('send-push', {
+    body: { userId: destino, title: titulo, body: cuerpo,
+            data: { jobId: S.job.id, screen: 'tracking' } },
+  }).catch(() => {});
+}
+
 async function elegir(jobId){
   clearInterval(S.timer); clearInterval(S.poll);
   try { S.canal && sb.removeChannel(S.canal); } catch (e) {}
@@ -957,6 +969,7 @@ async function elegir(jobId){
       .select('id,status,address,notes,verification_code,scheduled_for,scheduled_ok,on_the_way_at,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
       .eq('id', jobId).single();
     mostrarListo(data);
+    avisarAlProfesional('🎉 Te eligieron', (S.nombre || 'El cliente') + ' te eligió para el trabajo. Entrá para coordinar el día y la hora.');
   } catch (e) {
     alert('No pudimos confirmar: ' + e.message);
   }
@@ -1082,7 +1095,6 @@ function pintarObra(){
   const total = Number(j.estimated_sessions) || 0;
   const hechas = Number(j.completed_sessions) || 0;
   const enCurso = !!j.current_session_start;
-  const hs = Math.round((Number(j.total_minutes_worked) || 0) / 6) / 10;
   const barra = Array.from({ length: total }, (_, i) =>
     `<i class="${i < hechas ? 'on' : ''}"></i>`).join('');
   const vuelve = j.scheduled_return
@@ -1093,7 +1105,7 @@ function pintarObra(){
     <h5>🏗️ TRABAJO DE ${total} JORNADAS</h5>
     <div><b>${enCurso ? 'Jornada ' + Math.min(hechas + 1, total) + ' en curso' : hechas + ' de ' + total + ' jornadas hechas'}</b></div>
     <div class="barra">${barra}</div>
-    <div class="det">${hs > 0 ? hs + ' h trabajadas en total' : 'Todavía sin horas registradas'}${vuelve ? ' · vuelve el ' + vuelve : ''}</div>
+    <div class="det">${vuelve ? 'Vuelve el ' + vuelve : 'El profesional te avisa cuándo vuelve'}</div>
     ${enCurso ? '<button class="mini" style="width:100%;margin-top:10px" onclick="cerrarJornada()">Ya se fue por hoy</button>' : ''}
   </div>`;
 }
@@ -1171,6 +1183,7 @@ async function cerrarJornada(){
   if (data === 'cerrada'){
     S.job.completed_sessions = (S.job.completed_sessions || 0) + 1;
     S.job.current_session_start = null;
+    avisarAlProfesional('Jornada cerrada', (S.nombre || 'El cliente') + ' confirmó que terminaste por hoy.');
     pintarObra();
   } else alert(data);
 }
@@ -1202,6 +1215,7 @@ function pedirOtro(){
 async function cancelarTrabajo(){
   if (!confirm('¿Seguro que querés cancelar el pedido?')) return;
   await sb.from('jobs').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', S.job.id);
+  avisarAlProfesional('Pedido cancelado', (S.nombre || 'El cliente') + ' canceló el pedido de ' + (S.oficio || 'trabajo') + '.');
   pintarPasos('cancelled');
 }
 

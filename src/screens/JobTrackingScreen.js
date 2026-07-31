@@ -1734,7 +1734,7 @@ window.addEventListener('message', e => {
                 <Text style={styles.sessionCardTitle}>
                   Sesión {(job.completed_sessions || 0) + (inSession ? 1 : 0)} de {job.estimated_sessions || '?'}
                 </Text>
-                <Text style={styles.sessionCardHours}>{totalMinutesFormatted()} trabajadas</Text>
+
               </View>
               {job.estimated_hrs_session && (
                 <Text style={styles.sessionCardSub}>
@@ -1744,7 +1744,7 @@ window.addEventListener('message', e => {
               {inSession && (
                 <View style={styles.sessionTimerRow}>
                   <View style={styles.sessionTimerDot} />
-                  <Text style={styles.sessionTimerText}>Sesión en curso: {fmtTime(sessionElapsed)}</Text>
+                  <Text style={styles.sessionTimerText}>Jornada en curso</Text>
                 </View>
               )}
             </View>
