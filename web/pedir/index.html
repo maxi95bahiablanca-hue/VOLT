@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<!-- Mapa: Leaflet + tiles de CARTO (no necesita clave ni cuenta) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   /* ── Mismo lenguaje visual que bolt.com.ar: negro + amarillo ───────────── */
   *{margin:0;padding:0;box-sizing:border-box}
@@ -83,6 +85,51 @@
   .dato{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--bord);font-size:.92rem}
   .dato b{font-weight:800}
   .muted{color:var(--muted)}
+  /* ── Seguimiento: todo en una pantalla ──────────────────────────────────
+     El cliente NO tiene que cambiar de pestaña ni de pantalla: el mapa, el
+     estado y el chat conviven. En el celular se apilan (mapa, panel, chat);
+     desde 900px el chat se va al costado y queda siempre visible. */
+  .seguir{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+  .col-izq{display:flex;flex-direction:column;gap:14px}
+  #mapa{height:230px;border-radius:16px;border:1px solid var(--bord);background:var(--surf);z-index:1}
+  .panel{background:var(--surf);border:1px solid var(--bord);border-radius:16px;padding:15px}
+  .prof-top{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+  .prof-top .ava{width:48px;height:48px;border-radius:50%;background:var(--surf2);display:grid;place-items:center;font-size:1.25rem;font-weight:900;color:var(--yellow);flex-shrink:0;overflow:hidden}
+  .prof-top .ava img{width:100%;height:100%;object-fit:cover}
+  .prof-top .info{flex:1;min-width:0}
+  .prof-top .nom{font-weight:800}
+  .prof-top .meta{font-size:.78rem;color:var(--muted)}
+  .eta{font-size:.78rem;font-weight:800;color:var(--yellow);text-align:right}
+  .pasos{display:flex;flex-direction:column;gap:9px}
+  .paso-item{display:flex;gap:10px;align-items:center;font-size:.88rem;color:var(--muted2)}
+  .paso-item .pt{width:20px;height:20px;border-radius:50%;border:2px solid var(--bord);display:grid;place-items:center;font-size:.7rem;flex-shrink:0}
+  .paso-item.hecho{color:var(--text)}
+  .paso-item.hecho .pt{background:var(--ok);border-color:var(--ok);color:#04310f;font-weight:900}
+  .paso-item.ahora{color:var(--yellow);font-weight:800}
+  .paso-item.ahora .pt{border-color:var(--yellow);animation:pulso2 1.4s ease-in-out infinite}
+  @keyframes pulso2{50%{box-shadow:0 0 0 5px rgba(255,214,0,.14)}}
+  .acciones{display:flex;gap:8px;margin-top:15px}
+  .mini{flex:1;background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:10px;padding:10px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;text-align:center;text-decoration:none}
+
+  .col-der{background:var(--surf);border:1px solid var(--bord);border-radius:16px;display:flex;flex-direction:column;min-height:300px;overflow:hidden}
+  .chat-top{padding:12px 15px;border-bottom:1px solid var(--bord);font-size:.85rem;color:var(--muted)}
+  .chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;min-height:140px}
+  .msg{max-width:82%;padding:9px 13px;border-radius:14px;font-size:.9rem;white-space:pre-wrap;word-break:break-word}
+  .msg.otro{background:var(--surf2);border:1px solid var(--bord);align-self:flex-start;border-bottom-left-radius:4px}
+  .msg.mio{background:var(--yellow);color:#000;font-weight:600;align-self:flex-end;border-bottom-right-radius:4px}
+  .msg.sistema{align-self:center;background:transparent;color:var(--muted2);font-size:.78rem;text-align:center;font-weight:700}
+  .chat-rapidas{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 8px}
+  .rapida{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .estrellas{display:flex;gap:8px;justify-content:center;margin:14px 0}
+  .est{font-size:2rem;cursor:pointer;filter:grayscale(1);opacity:.4}
+  .est.on{filter:none;opacity:1}
+  @media(min-width:900px){
+    .app{max-width:1040px}
+    .seguir{flex-direction:row;align-items:stretch}
+    .col-izq{flex:1.15;min-width:0}
+    .col-der{flex:1;min-width:0}
+    #mapa{height:320px}
+  }
   .sep{display:flex;align-items:center;gap:12px;color:var(--muted2);font-size:.78rem;font-weight:700;margin:18px 0 12px}
   .sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--bord)}
   .pie{text-align:center;font-size:.75rem;color:var(--muted2);padding:18px}
@@ -183,14 +230,48 @@
       </div>
     </section>
 
-    <!-- 6. LISTO ──────────────────────────────────────────────────────── -->
-    <section class="pantalla" id="p-listo">
-      <div class="ok-ico">✅</div>
-      <h1 style="text-align:center">¡Listo!</h1>
-      <p class="sub" style="text-align:center" id="subListo"></p>
-      <div id="datosJob"></div>
-      <a class="btn wa" id="btnWaProf" href="#" target="_blank" style="display:block;text-align:center;text-decoration:none;margin-top:18px">💬 Escribirle por WhatsApp</a>
-      <button class="btn sec" onclick="location.reload()">Hacer otro pedido</button>
+    <!-- 6. SEGUIMIENTO: mapa + estado + chat, todo junto ──────────────── -->
+    <section class="pantalla" id="p-seguir">
+      <div class="seguir">
+        <!-- Columna izquierda: mapa y estado -->
+        <div class="col-izq">
+          <div id="mapa"></div>
+          <div class="panel">
+            <div class="prof-top">
+              <div class="ava" id="segAva">·</div>
+              <div class="info">
+                <div class="nom" id="segNom">Profesional</div>
+                <div class="meta" id="segMeta"></div>
+              </div>
+              <div class="eta" id="segEta"></div>
+            </div>
+            <div class="pasos" id="pasos"></div>
+            <div class="acciones">
+              <button class="mini" id="btnCancelar" onclick="cancelarTrabajo()">Cancelar pedido</button>
+              <a class="mini" id="btnSoporte" href="#" target="_blank">Necesito ayuda</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna derecha: el chat, siempre abierto -->
+        <div class="col-der">
+          <div class="chat-top">💬 Chat con <b id="chatCon">el profesional</b></div>
+          <div class="chat-msgs" id="chatMsgs"></div>
+          <div class="chat-rapidas" id="chatRapidas"></div>
+          <div class="fila" style="margin:0;padding:10px;border-top:1px solid var(--bord)">
+            <textarea class="campo" id="txtMsg" rows="1" placeholder="Escribile…"></textarea>
+            <button class="env" onclick="enviarMsg()">➤</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Calificación, cuando el trabajo termina -->
+      <div id="cajaRating" style="display:none">
+        <h1 style="text-align:center;margin-top:22px">¿Cómo salió?</h1>
+        <div class="estrellas" id="estrellas"></div>
+        <textarea class="campo" id="txtComentario" rows="2" placeholder="Contanos cómo fue (opcional)"></textarea>
+        <button class="btn" onclick="calificar()">Enviar</button>
+      </div>
     </section>
   </main>
 
@@ -198,6 +279,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ════════════════════════════════════════════════════════════════════════
 //  BOLT — PEDIR DESDE LA WEB
@@ -237,11 +319,12 @@ const S = {
   nombre: '', tel: '',
   quoteGroupId: null,
   jobs: [],
+  userId: null, job: null, profesional: null,
   timer: null, canal: null, poll: null,
 };
 
 // ── Navegación ──────────────────────────────────────────────────────────
-const PANTALLAS = ['p-inicio','p-chat','p-ubic','p-datos','p-buscando','p-listo'];
+const PANTALLAS = ['p-inicio','p-chat','p-ubic','p-datos','p-buscando','p-seguir'];
 const TITULOS   = ['', 'CONTANOS MÁS', 'DÓNDE', 'CONTACTO', 'BUSCANDO', ''];
 let actual = 0;
 function ir(i){
@@ -336,6 +419,9 @@ function responder(){
 }
 $('txtChat').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); responder(); }
+});
+$('txtMsg').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); enviarMsg(); }
 });
 
 // ── 3: ubicación ────────────────────────────────────────────────────────
@@ -500,6 +586,7 @@ async function pedir(){
   try {
     const user = await usuarioActual();
     if (!user){ btn.disabled = false; btn.textContent = 'Buscar profesionales'; await pintarSesion(); return; }
+    S.userId = user.id;
     // El nombre y el WhatsApp quedan en la cuenta: la próxima vez ya vienen puestos.
     sb.auth.updateUser({ data: { nombre: S.nombre, telefono: S.tel } }).catch(() => {});
 
@@ -616,19 +703,191 @@ async function elegir(jobId){
   }
 }
 
-function mostrarListo(job){
-  const p = (job && job.professionals) || {};
-  const nom = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'El profesional';
-  $('subListo').textContent = nom + ' ya tiene tu pedido y tu contacto.';
-  $('datosJob').innerHTML =
-    `<div class="dato"><span class="muted">Profesional</span><b>${esc(nom)}</b></div>` +
-    `<div class="dato"><span class="muted">Trabajo</span><b>${esc(S.oficio || '-')}</b></div>` +
-    `<div class="dato"><span class="muted">Dirección</span><b>${esc(job?.address || S.direccion)}</b></div>`;
-  const tel = (p.phone || '').replace(/\D/g, '');
-  const wa = tel ? (tel.startsWith('54') ? tel : '549' + tel.slice(-10)) : WA_SOPORTE;
-  const txt = `Hola ${nom}! Soy ${S.nombre}, te escribo por BOLT ⚡ ${S.resumen || ''} — Dirección: ${S.direccion}`;
-  $('btnWaProf').href = `https://wa.me/${wa}?text=${encodeURIComponent(txt)}`;
+// ════════════════════════════════════════════════════════════════════════
+//  SEGUIMIENTO — mapa, estado y chat en la MISMA pantalla
+// ------------------------------------------------------------------------
+//  🔴 Por qué el chat es de la plataforma y NO un botón de WhatsApp: si la
+//  conversación se va a WhatsApp, el trabajo desaparece del sistema — no se
+//  sabe si se hizo, no hay con qué mediar un problema, no hay calificación y
+//  el teléfono del profesional queda expuesto para siempre. La app hace lo
+//  mismo (no tiene ningún botón de WhatsApp al profesional, sólo a soporte y
+//  al 911), así que la web no puede ser la puerta de atrás de esa decisión.
+// ════════════════════════════════════════════════════════════════════════
+const PASOS = [
+  ['accepted',    'Aceptó tu pedido'],
+  ['arrived',     'Llegó a tu domicilio'],
+  ['in_progress', 'Trabajo en curso'],
+  ['completed',   'Trabajo terminado'],
+];
+const RAPIDAS = ['¿En cuánto llegás?', 'Te espero, timbre 2', 'Avisame cuando salgas', 'Gracias!'];
+
+let MAPA = null, MARCA_YO = null, MARCA_PRO = null;
+
+async function mostrarListo(job){
+  S.job = job;
+  S.profesional = (job && job.professionals) || {};
+  const nom = [S.profesional.first_name, S.profesional.last_name].filter(Boolean).join(' ') || 'El profesional';
+  const ini = (S.profesional.first_name || 'P')[0].toUpperCase();
+  $('segNom').textContent = nom;
+  $('segAva').textContent = ini;
+  $('chatCon').textContent = S.profesional.first_name || 'el profesional';
+  const rat = Number(S.profesional.avg_rating) > 0 ? `⭐ ${Number(S.profesional.avg_rating).toFixed(1)} · ` : '';
+  $('segMeta').textContent = `${rat}${S.profesional.completed_jobs || 0} trabajos · ${S.oficio || ''}`;
+  $('btnSoporte').href = `https://wa.me/${WA_SOPORTE}?text=` +
+    encodeURIComponent(`Hola, necesito ayuda con mi pedido de BOLT (${S.oficio || ''} en ${S.direccion || ''}).`);
+
   ir(5);
+  pintarPasos(job.status || 'accepted');
+  armarMapa();
+  seguirProfesional();
+  seguirEstado();
+  arrancarChat();
+}
+
+// ── Mapa ────────────────────────────────────────────────────────────────
+function armarMapa(){
+  if (MAPA || !window.L) return;
+  MAPA = L.map('mapa', { zoomControl: false, attributionControl: false }).setView([S.lat, S.lng], 15);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(MAPA);
+  const icono = (color, txt) => L.divIcon({
+    className: '', iconSize: [34, 34], iconAnchor: [17, 17],
+    html: `<div style="width:34px;height:34px;border-radius:50%;background:${color};display:grid;place-items:center;font-size:16px;box-shadow:0 0 0 4px rgba(255,214,0,.18)">${txt}</div>`,
+  });
+  MARCA_YO = L.marker([S.lat, S.lng], { icon: icono('#FFD600', '🏠') }).addTo(MAPA);
+}
+
+/** La ubicación del trabajador llega como POINT(lng lat) por realtime (igual
+ *  que en la app) o como hex EWKB si viene de un select. Se aceptan las dos. */
+function leerPunto(v){
+  if (!v) return null;
+  const m = String(v).match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+  if (m) return { lng: Number(m[1]), lat: Number(m[2]) };
+  const hex = String(v);
+  if (!/^0101000020/.test(hex) || hex.length < 50) return null;
+  const doble = (h) => {
+    const b = new DataView(new ArrayBuffer(8));
+    for (let i = 0; i < 8; i++) b.setUint8(i, parseInt(h.substr(i * 2, 2), 16));
+    return b.getFloat64(0, true);
+  };
+  return { lng: doble(hex.slice(-32, -16)), lat: doble(hex.slice(-16)) };
+}
+
+function pintarProfesional(pt){
+  if (!pt || !MAPA) return;
+  const icono = L.divIcon({ className: '', iconSize: [34,34], iconAnchor: [17,17],
+    html: `<div style="width:34px;height:34px;border-radius:50%;background:#00D68F;display:grid;place-items:center;font-size:16px;box-shadow:0 0 0 4px rgba(0,214,143,.2)">🔧</div>` });
+  if (MARCA_PRO) MARCA_PRO.setLatLng([pt.lat, pt.lng]);
+  else MARCA_PRO = L.marker([pt.lat, pt.lng], { icon: icono }).addTo(MAPA);
+  MAPA.fitBounds(L.latLngBounds([[S.lat, S.lng], [pt.lat, pt.lng]]), { padding: [45, 45], maxZoom: 16 });
+  // Distancia en línea recta, sin prometer minutos que no podemos calcular.
+  const R = 6371, dLat = (pt.lat - S.lat) * Math.PI/180, dLng = (pt.lng - S.lng) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(S.lat*Math.PI/180)*Math.cos(pt.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  $('segEta').textContent = km < 1 ? `a ${Math.round(km*1000)} m` : `a ${km.toFixed(1)} km`;
+}
+
+function seguirProfesional(){
+  const id = S.profesional.id;
+  if (!id) return;
+  sb.from('professionals').select('location').eq('id', id).single()
+    .then(({ data }) => pintarProfesional(leerPunto(data?.location)));
+  sb.channel('pro-' + id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'professionals', filter: `id=eq.${id}` },
+        (p) => pintarProfesional(leerPunto(p.new?.location)))
+    .subscribe();
+}
+
+// ── Estado del trabajo ──────────────────────────────────────────────────
+function pintarPasos(estado){
+  const idx = PASOS.findIndex(p => p[0] === estado);
+  $('pasos').innerHTML = PASOS.map(([k, txt], i) => {
+    const cls = idx > i ? 'hecho' : (idx === i ? 'ahora' : '');
+    return `<div class="paso-item ${cls}"><div class="pt">${idx > i ? '✓' : ''}</div>${esc(txt)}</div>`;
+  }).join('');
+  $('btnCancelar').style.display = ['accepted'].includes(estado) ? 'block' : 'none';
+  if (estado === 'completed') pedirCalificacion();
+  if (estado === 'cancelled'){
+    $('segEta').textContent = 'Cancelado';
+    $('pasos').innerHTML = '<div class="paso-item">Este pedido se canceló.</div>';
+  }
+}
+
+function seguirEstado(){
+  const id = S.job.id;
+  sb.channel('job-' + id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs', filter: `id=eq.${id}` },
+        (p) => { S.job = { ...S.job, ...p.new }; pintarPasos(p.new.status); })
+    .subscribe();
+  // Respaldo, por si el realtime no engancha
+  setInterval(async () => {
+    const { data } = await sb.from('jobs').select('status').eq('id', id).single();
+    if (data && data.status !== S.job.status){ S.job.status = data.status; pintarPasos(data.status); }
+  }, 12000);
+}
+
+async function cancelarTrabajo(){
+  if (!confirm('¿Seguro que querés cancelar el pedido?')) return;
+  await sb.from('jobs').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', S.job.id);
+  pintarPasos('cancelled');
+}
+
+// ── Chat ────────────────────────────────────────────────────────────────
+async function arrancarChat(){
+  $('chatRapidas').innerHTML = RAPIDAS.map(r =>
+    `<button class="rapida" onclick="enviarMsg(${JSON.stringify(r).replace(/"/g,'&quot;')})">${esc(r)}</button>`).join('');
+  const { data } = await sb.from('messages').select('*').eq('job_id', S.job.id).order('created_at');
+  (data || []).forEach(pintarMsg);
+  sb.channel('chat-' + S.job.id)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `job_id=eq.${S.job.id}` },
+        (p) => pintarMsg(p.new))
+    .subscribe();
+  if (!data || !data.length){
+    enviarMsg(`Hola! Soy ${S.nombre}. ${S.resumen || ''} Dirección: ${S.direccion}`);
+  }
+}
+
+function pintarMsg(m){
+  if (document.getElementById('m-' + m.id)) return;    // no duplicar
+  const d = document.createElement('div');
+  d.id = 'm-' + m.id;
+  d.className = 'msg ' + (m.type === 'system' || !m.sender_id ? 'sistema' : (m.sender_id === S.userId ? 'mio' : 'otro'));
+  d.textContent = m.content;
+  $('chatMsgs').appendChild(d);
+  $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight;
+}
+
+async function enviarMsg(texto){
+  const t = (typeof texto === 'string' ? texto : $('txtMsg').value).trim();
+  if (!t) return;
+  if (typeof texto !== 'string') $('txtMsg').value = '';
+  const { data, error } = await sb.from('messages')
+    .insert({ job_id: S.job.id, sender_id: S.userId, content: t, type: 'text' })
+    .select().single();
+  if (error){ alert('No se pudo enviar: ' + error.message); return; }
+  pintarMsg(data);
+}
+
+// ── Calificación ────────────────────────────────────────────────────────
+let ESTRELLAS = 0;
+function pedirCalificacion(){
+  if ($('cajaRating').style.display === 'block') return;
+  $('cajaRating').style.display = 'block';
+  $('estrellas').innerHTML = [1,2,3,4,5].map(n =>
+    `<span class="est" data-n="${n}" onclick="marcarEstrellas(${n})">⭐</span>`).join('');
+  $('cajaRating').scrollIntoView({ behavior: 'smooth' });
+}
+function marcarEstrellas(n){
+  ESTRELLAS = n;
+  document.querySelectorAll('.est').forEach(e => e.classList.toggle('on', Number(e.dataset.n) <= n));
+}
+async function calificar(){
+  if (!ESTRELLAS){ alert('Tocá las estrellas para puntuar.'); return; }
+  await sb.from('reviews').insert({
+    job_id: S.job.id, client_id: S.userId, professional_id: S.profesional.id,
+    rating: ESTRELLAS, comment: $('txtComentario').value.trim() || null,
+  }).catch(() => {});
+  $('cajaRating').innerHTML = '<div class="ok-ico">🙌</div><p class="sub" style="text-align:center">¡Gracias! Tu opinión ayuda a los que vienen después.</p>' +
+    '<button class="btn sec" onclick="location.reload()">Hacer otro pedido</button>';
 }
 
 /** Nadie cerca o nadie contestó: el pedido no se pierde, pasa a una persona. */
