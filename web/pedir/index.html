@@ -1093,6 +1093,7 @@ function pintarObra(){
     <div><b>${enCurso ? 'Jornada ' + Math.min(hechas + 1, total) + ' en curso' : hechas + ' de ' + total + ' jornadas hechas'}</b></div>
     <div class="barra">${barra}</div>
     <div class="det">${hs > 0 ? hs + ' h trabajadas en total' : 'Todavía sin horas registradas'}${vuelve ? ' · vuelve el ' + vuelve : ''}</div>
+    ${enCurso ? '<button class="mini" style="width:100%;margin-top:10px" onclick="cerrarJornada()">Ya se fue por hoy</button>' : ''}
   </div>`;
 }
 
@@ -1131,6 +1132,20 @@ function seguirEstado(){
       pintarPasos(data.status);
     }
   }, 12000);
+}
+
+/** El cliente cierra la jornada del día. Es la segunda red: la primera es el
+ *  cierre automático de la noche (migración 037), porque el trabajador no se
+ *  va a acordar de apretar "terminar por hoy". */
+async function cerrarJornada(){
+  if (!confirm('¿Confirmás que el profesional se fue por hoy?')) return;
+  const { data, error } = await sb.rpc('cerrar_jornada_cliente', { p_job_id: S.job.id });
+  if (error){ alert('No se pudo: ' + error.message); return; }
+  if (data === 'cerrada'){
+    S.job.completed_sessions = (S.job.completed_sessions || 0) + 1;
+    S.job.current_session_start = null;
+    pintarObra();
+  } else alert(data);
 }
 
 function verificarCodigo(){

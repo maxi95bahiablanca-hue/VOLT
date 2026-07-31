@@ -26,12 +26,12 @@ import DraggableBubble from '../components/DraggableBubble';
 
 const EVENT_ICONS = {
   received:       { icon: 'search-outline',           color: '#888'    },
-  accepted:       { icon: 'checkmark-circle-outline', color: '#4285F4' },
-  reviewing:      { icon: 'eye-outline',              color: '#4285F4' },
+  accepted:       { icon: 'checkmark-circle-outline', color: '#FFD600' },
+  reviewing:      { icon: 'eye-outline',              color: '#FFD600' },
   photo_reviewed: { icon: 'image-outline',            color: '#FF9800' },
-  estimated:      { icon: 'time-outline',             color: '#4285F4' },
-  trip_started:   { icon: 'navigate-outline',         color: '#4285F4' },
-  halfway:        { icon: 'locate-outline',           color: '#4285F4' },
+  estimated:      { icon: 'time-outline',             color: '#FFD600' },
+  trip_started:   { icon: 'navigate-outline',         color: '#FFD600' },
+  halfway:        { icon: 'locate-outline',           color: '#FFD600' },
   nearby:         { icon: 'radio-outline',            color: '#4CAF50' },
   arrived:        { icon: 'home-outline',             color: '#FFD600' },
   work_started:   { icon: 'construct-outline',        color: '#FF9800' },
@@ -49,7 +49,7 @@ const PROGRESS_STEPS = [
 
 const STATUS_INFO = {
   pending:          { icon: 'time-outline',            color: '#888',    label: 'Esperando confirmación...' },
-  accepted:         { icon: 'navigate-outline',         color: '#4285F4', label: 'El profesional está en camino' },
+  accepted:         { icon: 'navigate-outline',         color: '#FFD600', label: 'El profesional está en camino' },
   arrived:          { icon: 'home-outline',             color: '#FFD600', label: 'El profesional llegó' },
   in_progress:      { icon: 'construct-outline',        color: '#FF9800', label: 'Trabajo en curso' },
   awaiting_payment: { icon: isFreeMode() ? 'checkmark-done-outline' : 'card-outline', color: '#4CAF50', label: isFreeMode() ? 'Por finalizar' : 'Listo para pagar' },
@@ -970,7 +970,7 @@ const map = L.map('map',{zoomControl:false,attributionControl:false})
   .setView([${job.client_lat || -38.71}, ${job.client_lng || -62.26}], 14);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
 const clientIcon = L.divIcon({html:'<div style="width:18px;height:18px;border-radius:50%;background:#FFD600;border:3px solid white;box-shadow:0 0 10px rgba(255,214,0,0.8)"></div>',iconSize:[18,18],iconAnchor:[9,9],className:''});
-const workerIcon = L.divIcon({html:'<div style="width:34px;height:34px;border-radius:17px;background:#1a1a1a;border:2.5px solid #4285F4;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 12px rgba(66,133,244,0.6)">⚡</div>',iconSize:[34,34],iconAnchor:[17,17],className:''});
+const workerIcon = L.divIcon({html:'<div style="width:34px;height:34px;border-radius:17px;background:#1a1a1a;border:2.5px solid #FFD600;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 12px rgba(255,214,0,0.6)">⚡</div>',iconSize:[34,34],iconAnchor:[17,17],className:''});
 L.marker([${job.client_lat || -38.71}, ${job.client_lng || -62.26}],{icon:clientIcon}).addTo(map).bindPopup('Tu ubicación').openPopup();
 let workerMarker = null;
 window.addEventListener('message', e => {
@@ -1038,7 +1038,7 @@ window.addEventListener('message', e => {
               <Text style={styles.visitModalAmountValue}>${(job.visit_amount || 30000).toLocaleString('es-AR')}</Text>
             </View>
             <View style={styles.cardOnlyBadge}>
-              <Ionicons name="card-outline" size={14} color="#4285F4" />
+              <Ionicons name="card-outline" size={14} color="#FFD600" />
               <Text style={styles.cardOnlyText}>Tarjeta de débito, crédito o billetera digital</Text>
             </View>
             <TouchableOpacity style={styles.payBtn} onPress={handleVisitPay} disabled={loading} accessibilityRole="button" accessibilityLabel="Pagar la visita">
@@ -1064,7 +1064,7 @@ window.addEventListener('message', e => {
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
-              <Ionicons name="calendar" size={28} color="#4285F4" />
+              <Ionicons name="calendar" size={28} color="#FFD600" />
               <Text style={styles.modalTitle}>Trabajo de varios días</Text>
               <TouchableOpacity onPress={() => setMultidayModal(false)}>
                 <Ionicons name="close" size={22} color="#555" />
@@ -1074,7 +1074,7 @@ window.addEventListener('message', e => {
               Indicá cuántos días estimás y cuántas horas por día. El cliente verá esta información y recibirá notificaciones al terminar cada jornada.
             </Text>
             <View style={styles.amountInputWrap}>
-              <Ionicons name="calendar-outline" size={18} color="#4285F4" />
+              <Ionicons name="calendar-outline" size={18} color="#FFD600" />
               <TextInput
                 style={styles.amountInput}
                 placeholder="Cantidad de días (ej: 3)"
@@ -1085,7 +1085,7 @@ window.addEventListener('message', e => {
               />
             </View>
             <View style={styles.amountInputWrap}>
-              <Ionicons name="time-outline" size={18} color="#4285F4" />
+              <Ionicons name="time-outline" size={18} color="#FFD600" />
               <TextInput
                 style={styles.amountInput}
                 placeholder="Horas por día (ej: 4 horas)"
@@ -1095,7 +1095,7 @@ window.addEventListener('message', e => {
               />
             </View>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#4285F4' }, (!multidaySessions || parseInt(multidaySessions) < 2) && { opacity: 0.4 }]}
+              style={[styles.actionBtn, { backgroundColor: '#FFD600' }, (!multidaySessions || parseInt(multidaySessions) < 2) && { opacity: 0.4 }]}
               onPress={handleConvertToMultiday}
               disabled={loading || !multidaySessions || parseInt(multidaySessions) < 2}
             >
@@ -1438,7 +1438,7 @@ window.addEventListener('message', e => {
               <View style={styles.infoStripSep} />
               <View style={styles.infoStripItem}>
                 <Text style={styles.infoStripLabel}>LLEGA EN</Text>
-                <Text style={[styles.infoStripValue, { color: '#4285F4' }]}>{job.arrival_estimate}</Text>
+                <Text style={[styles.infoStripValue, { color: '#FFD600' }]}>{job.arrival_estimate}</Text>
               </View>
             </>
           )}
@@ -1586,7 +1586,7 @@ window.addEventListener('message', e => {
               <Text style={styles.workerResponseTitle}>Respuesta del profesional</Text>
               {job.arrival_estimate ? (
                 <View style={styles.workerResponseRow}>
-                  <Ionicons name="time-outline" size={15} color="#4285F4" />
+                  <Ionicons name="time-outline" size={15} color="#FFD600" />
                   <Text style={styles.workerResponseText}>Llega en {job.arrival_estimate}</Text>
                 </View>
               ) : null}
@@ -1646,7 +1646,7 @@ window.addEventListener('message', e => {
           {/* Cliente confirma el plan multi-día (#2) */}
           {!isWorker && isMultiday && !job.multiday_confirmed && job.estimated_sessions && (
             <View style={styles.confirmCard}>
-              <Ionicons name="calendar-outline" size={20} color="#4285F4" />
+              <Ionicons name="calendar-outline" size={20} color="#FFD600" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.confirmCardTitle}>Plan de trabajo: {job.estimated_sessions} días</Text>
                 <Text style={styles.confirmCardSub}>
@@ -1697,7 +1697,7 @@ window.addEventListener('message', e => {
           {/* Fecha de regreso — cliente en trabajo multi-día entre jornadas */}
           {!isWorker && isMultiday && job.status === 'arrived' && !inSession && job.scheduled_return && (
             <View style={styles.returnCard}>
-              <Ionicons name="calendar" size={18} color="#4285F4" />
+              <Ionicons name="calendar" size={18} color="#FFD600" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.returnCardTitle}>El profesional regresa</Text>
                 <Text style={styles.returnCardDate}>
@@ -1862,7 +1862,7 @@ window.addEventListener('message', e => {
                 }}
                 disabled={loading}
               >
-                <Ionicons name="checkmark-done" size={18} color="#4285F4" />
+                <Ionicons name="checkmark-done" size={18} color="#FFD600" />
                 <Text style={styles.actionBtnSecondaryText}>Finalizar trabajo (obra completa)</Text>
               </TouchableOpacity>
             </>
@@ -1896,7 +1896,7 @@ window.addEventListener('message', e => {
           {/* in_progress + single-day: opción de convertir a multi-día */}
           {isWorker && job.status === 'in_progress' && !isMultiday && (
             <TouchableOpacity style={styles.actionBtnSecondary} onPress={() => setMultidayModal(true)}>
-              <Ionicons name="calendar-outline" size={18} color="#4285F4" />
+              <Ionicons name="calendar-outline" size={18} color="#FFD600" />
               <Text style={styles.actionBtnSecondaryText}>Este trabajo requiere varios días</Text>
             </TouchableOpacity>
           )}
@@ -1917,7 +1917,7 @@ window.addEventListener('message', e => {
                 }}
                 disabled={loading}
               >
-                <Ionicons name="moon-outline" size={18} color="#4285F4" />
+                <Ionicons name="moon-outline" size={18} color="#FFD600" />
                 <Text style={styles.actionBtnSecondaryText}>Terminar por hoy · vuelvo mañana</Text>
               </TouchableOpacity>
 
@@ -1984,7 +1984,7 @@ window.addEventListener('message', e => {
                   </View>
                 </View>
                 <View style={styles.cardOnlyBadge}>
-                  <Ionicons name="card-outline" size={14} color="#4285F4" />
+                  <Ionicons name="card-outline" size={14} color="#FFD600" />
                   <Text style={styles.cardOnlyText}>Tarjeta de débito, crédito o billetera digital</Text>
                 </View>
                 {/* Pago en 1 toque con tarjetas guardadas */}
@@ -2173,7 +2173,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(66,133,244,0.2)',
     borderRadius: 10, paddingVertical: 8,
   },
-  cardOnlyText: { color: '#4285F4', fontSize: 12, fontWeight: '600' },
+  cardOnlyText: { color: '#FFD600', fontSize: 12, fontWeight: '600' },
 
   payBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -2216,7 +2216,7 @@ const styles = StyleSheet.create({
     padding: 14, gap: 10,
   },
   workerResponseTitle: {
-    fontSize: 11, fontWeight: '800', color: '#4285F4',
+    fontSize: 11, fontWeight: '800', color: '#FFD600',
     textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4,
   },
   workerResponseRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
@@ -2240,22 +2240,22 @@ const styles = StyleSheet.create({
   actionBtnSecondary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, borderRadius: 14, paddingVertical: 15,
-    borderWidth: 1.5, borderColor: '#4285F430',
+    borderWidth: 1.5, borderColor: '#FFD60030',
     backgroundColor: 'rgba(66,133,244,0.06)',
   },
-  actionBtnSecondaryText: { color: '#4285F4', fontSize: 14, fontWeight: '800' },
+  actionBtnSecondaryText: { color: '#FFD600', fontSize: 14, fontWeight: '800' },
 
   // #2 Confirmación multi-día (cliente)
   confirmCard: {
     flexDirection: 'row', gap: 12, alignItems: 'flex-start',
     backgroundColor: '#06101F', borderRadius: 14,
-    borderWidth: 1, borderColor: '#4285F440', padding: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: '#FFD60040', padding: 14, marginBottom: 12,
   },
-  confirmCardTitle: { fontSize: 14, fontWeight: '900', color: '#4285F4', marginBottom: 4 },
+  confirmCardTitle: { fontSize: 14, fontWeight: '900', color: '#FFD600', marginBottom: 4 },
   confirmCardSub:   { fontSize: 13, color: '#aaa', lineHeight: 19, marginBottom: 10 },
   confirmCardBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    alignSelf: 'flex-start', backgroundColor: '#4285F4',
+    alignSelf: 'flex-start', backgroundColor: '#FFD600',
     borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10,
   },
   confirmCardBtnText: { color: '#fff', fontSize: 14, fontWeight: '900' },
@@ -2430,10 +2430,10 @@ const styles = StyleSheet.create({
   returnCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     backgroundColor: '#0A0F1A', borderRadius: 14,
-    borderWidth: 1.5, borderColor: '#4285F440',
+    borderWidth: 1.5, borderColor: '#FFD60040',
     padding: 14,
   },
-  returnCardTitle: { fontSize: 11, fontWeight: '800', color: '#4285F4', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
+  returnCardTitle: { fontSize: 11, fontWeight: '800', color: '#FFD600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
   returnCardDate:  { fontSize: 15, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
   returnCardSub:   { fontSize: 12, color: '#555' },
 
