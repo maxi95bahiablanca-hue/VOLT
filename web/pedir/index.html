@@ -338,6 +338,7 @@
         <div class="estrellas" id="estrellas"></div>
         <textarea class="campo" id="txtComentario" rows="2" placeholder="Contanos cómo fue (opcional)"></textarea>
         <button class="btn" onclick="calificar()">Enviar</button>
+        <div class="err" id="errRating"></div>
       </div>
     </section>
   </main>
@@ -1278,13 +1279,28 @@ function marcarEstrellas(n){
   document.querySelectorAll('.est').forEach(e => e.classList.toggle('on', Number(e.dataset.n) <= n));
 }
 async function calificar(){
-  if (!ESTRELLAS){ alert('Tocá las estrellas para puntuar.'); return; }
-  await sb.from('reviews').insert({
-    job_id: S.job.id, client_id: S.userId, professional_id: S.profesional.id,
-    rating: ESTRELLAS, comment: $('txtComentario').value.trim() || null,
-  }).catch(() => {});
-  $('cajaRating').innerHTML = '<div class="ok-ico">🙌</div><p class="sub" style="text-align:center">¡Gracias! Tu opinión ayuda a los que vienen después.</p>' +
-    '<button class="btn sec" onclick="location.reload()">Hacer otro pedido</button>';
+  const msg = $('errRating');
+  if (!ESTRELLAS){ msg.textContent = 'Tocá las estrellas para puntuar.'; return; }
+  const profId = (S.profesional && S.profesional.id) || (S.job && S.job.professional_id);
+  if (!S.job || !S.userId || !profId){
+    msg.textContent = 'No pudimos identificar el trabajo. Recargá la página y probá de nuevo.';
+    return;
+  }
+  msg.style.color = 'var(--muted)'; msg.textContent = 'Enviando…';
+  try {
+    const { error } = await sb.from('reviews').insert({
+      job_id: S.job.id, client_id: S.userId, professional_id: profId,
+      rating: ESTRELLAS, comment: ($('txtComentario').value || '').trim() || null,
+    });
+    // Si ya calificó antes, no es un error para el cliente: se le agradece igual.
+    if (error && !/duplicate|unique/i.test(error.message)) throw error;
+    $('cajaRating').innerHTML = '<div class="ok-ico">🙌</div>' +
+      '<p class="sub" style="text-align:center">¡Gracias! Tu opinión ayuda a los que vienen después.</p>' +
+      '<button class="btn sec" onclick="location.reload()">Hacer otro pedido</button>';
+  } catch (e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'No se pudo enviar: ' + (e.message || 'probá de nuevo');
+  }
 }
 
 /** Nadie cerca o nadie contestó: el pedido no se pierde, pasa a una persona. */
