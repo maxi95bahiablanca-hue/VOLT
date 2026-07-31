@@ -53,8 +53,20 @@
   .btn.wa{background:#25D366;color:#04310f}
   .btn-row{margin-top:auto;padding-top:18px}
 
+  /* Preguntas en tarjeta (igual que la app: de a una, con opciones para tocar) */
+  .entendi{background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:13px 15px;margin-bottom:16px}
+  .entendi h4{font-size:.72rem;font-weight:900;color:var(--yellow);letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .entendi .ch{display:inline-block;background:var(--surf2);border:1px solid var(--bord);border-radius:999px;padding:5px 11px;font-size:.78rem;margin:0 5px 5px 0;color:var(--muted)}
+  .prog{display:flex;gap:5px;margin-bottom:8px}
+  .prog i{flex:1;height:4px;border-radius:2px;background:var(--bord)}
+  .prog i.on{background:var(--yellow)}
+  .prog-txt{font-size:.75rem;font-weight:800;color:var(--muted2);letter-spacing:.4px}
+  .opcion{width:100%;background:var(--surf);border:1px solid var(--bord);color:var(--text);border-radius:14px;padding:16px;font-size:.98rem;font-weight:700;text-align:left;cursor:pointer;font-family:inherit;margin-bottom:9px;transition:.14s}
+  .opcion:hover{border-color:var(--yellow);background:var(--surf2)}
+  .opcion.otra{color:var(--muted);font-weight:600}
+  .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .thumbs img{width:74px;height:74px;object-fit:cover;border-radius:11px;border:1px solid var(--bord)}
   /* Charla con el asistente */
-  .charla{flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-bottom:12px;min-height:180px}
   .bub{max-width:86%;padding:12px 15px;border-radius:16px;font-size:.94rem;white-space:pre-wrap;word-break:break-word}
   .bub.bot{background:var(--surf);border:1px solid var(--bord);border-bottom-left-radius:5px;align-self:flex-start}
   .bub.yo{background:var(--yellow);color:#000;font-weight:700;border-bottom-right-radius:5px;align-self:flex-end}
@@ -156,12 +168,26 @@
       </div>
     </section>
 
-    <!-- 2. EL ASISTENTE PREGUNTA LO QUE FALTA ────────────────────────── -->
+    <!-- 2. LAS PREGUNTAS, DE A UNA, EN TARJETA ───────────────────────── -->
     <section class="pantalla" id="p-chat">
-      <div class="charla" id="charla"></div>
-      <div class="fila">
-        <textarea class="campo" id="txtChat" rows="1" placeholder="Escribí tu respuesta…"></textarea>
-        <button class="env" onclick="responder()">➤</button>
+      <div id="cajaPensando" style="text-align:center;padding:40px 0">
+        <div class="radar" style="width:70px;height:70px;font-size:1.5rem">⚡</div>
+        <p class="sub" style="margin-top:16px">Estamos viendo qué necesitás…</p>
+      </div>
+      <div id="cajaPreg" style="display:none;flex-direction:column;flex:1">
+        <div class="entendi" id="entendi"></div>
+        <div class="prog" id="prog"></div>
+        <div class="prog-txt" id="progTxt"></div>
+        <h1 id="preguntaTxt" style="font-size:1.35rem;margin:6px 0 18px"></h1>
+        <div id="opciones"></div>
+        <div id="cajaOtro" style="display:none">
+          <textarea class="campo" id="txtOtro" rows="2" placeholder="Contanos con tus palabras…"></textarea>
+          <button class="btn" style="margin-top:10px" onclick="confirmarOtro()">Listo</button>
+        </div>
+        <div id="cajaFoto" style="display:none">
+          <input type="file" id="inputFoto" accept="image/*" capture="environment" multiple style="display:none" onchange="tomarFotos(this)">
+          <div class="thumbs" id="thumbs"></div>
+        </div>
       </div>
       <div class="err" id="errChat"></div>
     </section>
@@ -311,7 +337,6 @@ const esc = (t) => { const d = document.createElement('div'); d.textContent = t 
 
 // Estado de la sesión de pedido (todo vive acá, no hay backend propio)
 const S = {
-  historial: [],       // charla con el asistente
   profesionId: null,
   oficio: null,
   resumen: '',
@@ -355,71 +380,132 @@ function tocarChip(el){
   else { S.profesionId = null; S.oficio = null; }
 }
 
-// ── 1 → 2: arranca la charla con el asistente ───────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+//  EL ASISTENTE — preguntas en TARJETA, no un chat
+// ------------------------------------------------------------------------
+//  Igual que AssistantScreen en la app, y por el mismo motivo: escribir en
+//  un chat es trabajo para el cliente y las respuestas salen desparejas.
+//  `analyze-problem` devuelve hasta 3 preguntas con 2 a 4 opciones concretas
+//  para TOCAR, y se muestran de a una con su barra de progreso.
+//
+//  Es UNA sola llamada al modelo (no hay ida y vuelta): la IA arma todas las
+//  preguntas de entrada, y las respuestas se juntan acá para armar las notas
+//  que ve el profesional — mismo formato que `finalize()` en la app.
+// ════════════════════════════════════════════════════════════════════════
+let PREGUNTAS = [], IDX = 0, RESPUESTAS = {}, FOTOS = [];
+
 function arrancar(){
   const txt = $('txtProblema').value.trim();
   if (!txt && !S.profesionId){ $('txtProblema').focus(); return; }
   ir(1);
-  $('charla').innerHTML = '';
-  const primero = txt || `Necesito un ${S.oficio}`;
-  burbuja('yo', primero);
-  S.historial = [{ role: 'user', text: primero }];
-  preguntarIA(primero);
+  $('cajaPensando').style.display = 'block';
+  $('cajaPreg').style.display = 'none';
+  analizar(txt || `Necesito un ${S.oficio}`);
 }
 
-function burbuja(quien, texto){
-  const d = document.createElement('div');
-  d.className = 'bub ' + quien;
-  d.textContent = texto;
-  $('charla').appendChild(d);
-  $('charla').scrollTop = $('charla').scrollHeight;
-  return d;
-}
-
-async function preguntarIA(mensaje){
-  const esperando = burbuja('bot esc', 'escribiendo…');
+async function analizar(mensaje){
+  S.resumen = mensaje;
   $('errChat').textContent = '';
   try {
-    const { data, error } = await sb.functions.invoke('analyze-problem', {
-      body: { message: mensaje, history: S.historial },
-    });
+    const { data, error } = await sb.functions.invoke('analyze-problem', { body: { message: mensaje } });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
-    esperando.remove();
 
-    if (data.reply){
-      burbuja('bot', data.reply);
-      S.historial.push({ role: 'model', text: data.reply });
-    }
     if (data.profession_id) S.profesionId = data.profession_id;
     if (data.oficio) S.oficio = data.oficio;
     if (data.resumen) S.resumen = data.resumen;
+    S.yaEntendi = Array.isArray(data.ya_entendi) ? data.ya_entendi : [];
 
-    // ready = el asistente ya tiene lo que necesita para pasar el pedido
-    if (data.ready){
-      S.resumen = data.resumen || S.resumen || mensaje;
-      setTimeout(() => ir(2), 700);
-    }
+    PREGUNTAS = (Array.isArray(data.preguntas) ? data.preguntas : []).filter(p => p?.id && p?.pregunta);
+    IDX = 0; RESPUESTAS = {};
+    if (!PREGUNTAS.length){ terminarPreguntas(); return; }
+    $('cajaPensando').style.display = 'none';
+    $('cajaPreg').style.display = 'flex';
+    pintarPregunta();
   } catch (e) {
-    esperando.remove();
-    // Si la IA no responde, NO se corta la venta: se sigue con lo que dijo.
-    burbuja('bot', 'Listo, con eso alcanza. Ahora decime dónde es.');
-    S.resumen = S.resumen || mensaje;
-    setTimeout(() => ir(2), 600);
+    // Si la IA no contesta, NO se corta el pedido: se sigue con lo que dijo
+    // el cliente y el profesional lo lee en las notas.
+    terminarPreguntas();
   }
 }
 
-function responder(){
-  const t = $('txtChat').value.trim();
-  if (!t) return;
-  $('txtChat').value = '';
-  burbuja('yo', t);
-  S.historial.push({ role: 'user', text: t });
-  preguntarIA(t);
+function pintarPregunta(){
+  const p = PREGUNTAS[IDX];
+  $('entendi').innerHTML = (S.yaEntendi || []).length
+    ? `<h4>⚡ YA ENTENDÍ ESTO</h4>` + S.yaEntendi.map(x => `<span class="ch">${esc(x)}</span>`).join('')
+    : '';
+  $('entendi').style.display = (S.yaEntendi || []).length ? 'block' : 'none';
+  $('prog').innerHTML = PREGUNTAS.map((_, i) => `<i class="${i <= IDX ? 'on' : ''}"></i>`).join('');
+  $('progTxt').textContent = `PREGUNTA ${IDX + 1} DE ${PREGUNTAS.length}`;
+  $('preguntaTxt').textContent = p.pregunta;
+  $('cajaOtro').style.display = 'none';
+  $('txtOtro').value = '';
+
+  const esFoto = p.tipo === 'foto';
+  $('cajaFoto').style.display = esFoto ? 'block' : 'none';
+  const opciones = Array.isArray(p.opciones) ? p.opciones : [];
+  let html = '';
+  if (esFoto){
+    const tope = Math.min(Math.max(Number(p.max_fotos) || 1, 1), 3);
+    html += `<button class="opcion" onclick="$('inputFoto').click()">📷 Sacar o elegir ${tope > 1 ? 'fotos' : 'una foto'}</button>`;
+  }
+  html += opciones.map(o => `<button class="opcion" onclick="responderPregunta(${JSON.stringify(o).replace(/"/g,'&quot;')})">${esc(o)}</button>`).join('');
+  // La app siempre suma esta salida sola: sirve cuando ninguna opción encaja.
+  html += `<button class="opcion otra" onclick="abrirOtro()">✏️ Otro / lo escribo</button>`;
+  $('opciones').innerHTML = html;
+  $('thumbs').innerHTML = '';
 }
-$('txtChat').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); responder(); }
-});
+
+function abrirOtro(){ $('cajaOtro').style.display = 'block'; $('txtOtro').focus(); }
+function confirmarOtro(){
+  const t = $('txtOtro').value.trim();
+  if (t) responderPregunta(t);
+}
+
+function responderPregunta(valor){
+  const p = PREGUNTAS[IDX];
+  RESPUESTAS[p.id] = { pregunta: p.pregunta, valor };
+  IDX++;
+  if (IDX >= PREGUNTAS.length) terminarPreguntas();
+  else pintarPregunta();
+}
+
+/** Junta todo en las notas que va a leer el profesional (formato de la app). */
+function terminarPreguntas(){
+  const lineas = PREGUNTAS
+    .map(p => { const r = RESPUESTAS[p.id]; return r ? `• ${p.pregunta} ${r.valor}` : null; })
+    .filter(Boolean);
+  S.resumen = [S.resumen || S.oficio || 'Solicitud', ...lineas].join('\n');
+  ir(2);
+}
+
+// ── Fotos del problema ──────────────────────────────────────────────────
+//  Van al mismo bucket que usa la app (`avatars`, carpeta problem-photos).
+//  Una foto NUNCA puede frenar un pedido: si la subida falla, se sigue igual.
+function tomarFotos(input){
+  const files = [...input.files].slice(0, 3);
+  if (!files.length) return;
+  FOTOS = files;
+  $('thumbs').innerHTML = files.map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join('');
+  responderPregunta('Te la mando ahora');
+}
+
+/** Se suben recién al crear el pedido, cuando ya hay sesión (el bucket pide
+ *  usuario). Devuelve las URLs públicas; si algo falla, devuelve lo que pudo:
+ *  una foto nunca puede frenar un pedido. */
+async function subirFotos(userId){
+  const urls = [];
+  for (let i = 0; i < FOTOS.length; i++){
+    const f = FOTOS[i];
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `problem-photos/${userId}/${Date.now()}-${i}.${ext}`;
+    try {
+      const { error } = await sb.storage.from('avatars').upload(path, f, { upsert: true, contentType: f.type || 'image/jpeg' });
+      if (!error) urls.push(sb.storage.from('avatars').getPublicUrl(path).data.publicUrl);
+    } catch (e) {}
+  }
+  return urls;
+}
 $('txtMsg').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); enviarMsg(); }
 });
@@ -604,8 +690,10 @@ async function pedir(){
 
     // 2. Un pedido por profesional, todos con el mismo grupo (igual que la app)
     S.quoteGroupId = crypto.randomUUID();
+    const fotos = FOTOS.length ? await subirFotos(user.id) : [];
     const notas = `${S.resumen || ''}\n\n— Pedido desde la web —\nContacto: ${S.nombre} · ${S.tel}`.trim();
     const filas = workers.map(w => ({
+      ...(fotos.length ? { problem_photo_url: fotos[0], problem_photos: fotos } : {}),
       client_id: user.id,
       professional_id: w.id,
       profession_id: S.profesionId,
