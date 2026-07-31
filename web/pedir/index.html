@@ -83,6 +83,8 @@
   .dato{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--bord);font-size:.92rem}
   .dato b{font-weight:800}
   .muted{color:var(--muted)}
+  .sep{display:flex;align-items:center;gap:12px;color:var(--muted2);font-size:.78rem;font-weight:700;margin:18px 0 12px}
+  .sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--bord)}
   .pie{text-align:center;font-size:.75rem;color:var(--muted2);padding:18px}
   .pie a{color:var(--muted);text-decoration:none}
 </style>
@@ -130,18 +132,40 @@
       </div>
     </section>
 
-    <!-- 4. CONTACTO ───────────────────────────────────────────────────── -->
+    <!-- 4. CUENTA + CONTACTO ──────────────────────────────────────────── -->
     <section class="pantalla" id="p-datos">
-      <h1>¿Cómo te contactamos?</h1>
-      <p class="sub">Sólo lo ve el profesional que elijas.</p>
-      <label class="lbl">Tu nombre</label>
-      <input class="campo" id="txtNombre" placeholder="Nombre">
-      <label class="lbl">Tu WhatsApp</label>
-      <input class="campo" id="txtTel" inputmode="tel" placeholder="291 555 5555">
-      <div class="aviso" id="avisoResumen"></div>
-      <div class="err" id="errDatos"></div>
-      <div class="btn-row">
-        <button class="btn" id="btnPedir" onclick="pedir()">Buscar profesionales</button>
+      <!-- 4a. Entrar (si todavía no hay sesión) -->
+      <div id="cajaLogin">
+        <h1>Entrá para <em>confirmar</em> tu pedido</h1>
+        <p class="sub">Con tu cuenta seguís el pedido, guardás tu historial y el profesional sabe con quién habla.</p>
+        <button class="btn" style="margin:0" onclick="entrarConGoogle()">
+          <span style="display:inline-flex;align-items:center;gap:9px;justify-content:center">
+            <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#4285F4" d="M45 24c0-1.6-.1-2.7-.4-3.9H24v7.1h12c-.2 1.9-1.5 4.7-4.4 6.6l6.7 5.2C42.2 35.3 45 30.1 45 24z"/><path fill="#34A853" d="M24 46c5.9 0 10.8-1.9 14.4-5.3l-6.7-5.2c-1.8 1.3-4.3 2.2-7.7 2.2-5.9 0-10.9-3.9-12.7-9.2l-7 5.4C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.3 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.7-4.5l-7-5.4C1.9 17.1 1 20.4 1 24s.9 6.9 2.3 9.9l8-5.4z"/><path fill="#EA4335" d="M24 9.5c4.2 0 7 1.8 8.6 3.3l6.3-6.1C35 3.3 30 1 24 1 15.4 1 7.9 5.9 4.3 13.1l7 5.4C13.1 13.4 18.1 9.5 24 9.5z"/></svg>
+            Continuar con Google
+          </span>
+        </button>
+        <div class="sep">o con tu correo</div>
+        <input class="campo" id="txtMail" inputmode="email" autocomplete="email" placeholder="tu@correo.com">
+        <input class="campo" id="txtPass" type="password" autocomplete="current-password" placeholder="Contraseña" style="margin-top:9px">
+        <button class="btn sec" id="btnMail" style="margin-top:10px" onclick="entrarConMail()">Entrar o crear mi cuenta</button>
+        <div class="err" id="errLogin"></div>
+        <p class="sub" style="font-size:.78rem;margin-top:14px">Si es tu primera vez, con esos datos te creamos la cuenta al toque. No mandamos mails de confirmación ni publicidad.</p>
+      </div>
+
+      <!-- 4b. Confirmar el pedido (con sesión) -->
+      <div id="cajaDatos" style="display:none;flex-direction:column;flex:1">
+        <h1>¿Cómo te <em>contactamos</em>?</h1>
+        <p class="sub" id="subCuenta"></p>
+        <label class="lbl">Tu nombre</label>
+        <input class="campo" id="txtNombre" placeholder="Nombre">
+        <label class="lbl">Tu WhatsApp</label>
+        <input class="campo" id="txtTel" inputmode="tel" placeholder="291 555 5555">
+        <div class="aviso" id="avisoResumen"></div>
+        <div class="err" id="errDatos"></div>
+        <div class="btn-row">
+          <button class="btn" id="btnPedir" onclick="pedir()">Buscar profesionales</button>
+          <button class="btn sec" onclick="salir()">Salir de esta cuenta</button>
+        </div>
       </div>
     </section>
 
@@ -226,6 +250,7 @@ function ir(i){
   $('paso').textContent = TITULOS[i];
   $('btnBack').style.display = (i > 0 && i < 4) ? 'block' : 'none';
   window.scrollTo(0, 0);
+  if (i === 3) pintarSesion();   // login o formulario, según tenga cuenta abierta
 }
 function atras(){ if (actual > 0) ir(actual - 1); }
 
@@ -359,23 +384,76 @@ function pintarResumen(){
 }
 
 // ── 4: crear el pedido ──────────────────────────────────────────────────
-/** Sesión mínima para poder crear el pedido (jobs.client_id es obligatorio).
- *
- *  Primero intenta la anónima, que es la que no le pide NADA al cliente. Hoy
- *  está apagada en el proyecto (`anonymous_provider_disabled`, verificado el
- *  31-jul-2026): se prende en el dashboard → Authentication → Providers →
- *  Anonymous sign-ins, y a partir de ahí este camino es directo.
- *
- *  Mientras tanto cae en Google, que sí está habilitado. Como Google se lleva
- *  al cliente a otra página, antes de irse se guarda todo el pedido y al
- *  volver se retoma solo, sin hacerle repetir nada.
- */
-async function asegurarSesion(){
+// ── CUENTA ──────────────────────────────────────────────────────────────
+//  El pedido necesita un usuario sí o sí (jobs.client_id es obligatorio) y
+//  además tener cuenta es lo que después permite historial, chat y volver a
+//  llamar al mismo profesional.
+//
+//  Habilitados hoy en el proyecto (verificado el 31-jul-2026 contra
+//  /auth/v1/settings): **google** y **email**. El correo está en autoconfirm,
+//  así que quien se registra con mail y contraseña entra en el acto, sin
+//  esperar ningún mail de verificación.
+//
+//  Facebook, Instagram y Apple están apagados: no alcanza con prenderlos en
+//  Supabase, cada uno necesita su app OAuth (los dos primeros salen de la app
+//  de Meta; Apple pide cuenta de desarrollador). Cuando estén, se suman acá
+//  con dos líneas: signInWithOAuth({ provider: 'facebook' }).
+async function usuarioActual(){
   const { data: { session } } = await sb.auth.getSession();
-  if (session?.user) return session.user;
-  const { data, error } = await sb.auth.signInAnonymously();
-  if (!error && data?.user) return data.user;
-  const e = new Error('ANON_OFF'); e.detalle = error?.message || ''; throw e;
+  return session?.user || null;
+}
+
+/** Muestra el login o el formulario del pedido, según haya sesión. */
+async function pintarSesion(){
+  const u = await usuarioActual();
+  $('cajaLogin').style.display = u ? 'none' : 'block';
+  $('cajaDatos').style.display = u ? 'flex' : 'none';
+  if (!u) return null;
+  const meta = u.user_metadata || {};
+  $('subCuenta').textContent = 'Entraste como ' + (u.email || 'tu cuenta') + '. Estos datos los ve sólo el profesional que elijas.';
+  if (!$('txtNombre').value) $('txtNombre').value = S.nombre || meta.nombre || meta.full_name || meta.name || '';
+  if (!$('txtTel').value)    $('txtTel').value    = S.tel || meta.telefono || '';
+  pintarResumen();
+  return u;
+}
+
+/** Entrar o registrarse con correo. Un solo botón: si la cuenta no existe, se
+ *  crea. Pedirle a alguien que elija entre "entrar" y "registrarse" antes de
+ *  saber si ya tiene cuenta es una fuente de abandono al pedo. */
+async function entrarConMail(){
+  const mail = $('txtMail').value.trim();
+  const pass = $('txtPass').value;
+  const btn = $('btnMail');
+  $('errLogin').textContent = '';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){ $('errLogin').textContent = 'Revisá el correo.'; return; }
+  if (pass.length < 6){ $('errLogin').textContent = 'La contraseña necesita al menos 6 caracteres.'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  try {
+    let { error } = await sb.auth.signInWithPassword({ email: mail, password: pass });
+    if (error){
+      // No existe todavía → se crea. Con autoconfirm queda logueado al toque.
+      const alta = await sb.auth.signUp({ email: mail, password: pass });
+      if (alta.error) throw alta.error;
+      if (!alta.data.session){
+        // Si algún día se activa la confirmación por mail, avisarlo claro.
+        $('errLogin').textContent = 'Te mandamos un correo para confirmar la cuenta. Confirmalo y volvé.';
+        return;
+      }
+    }
+    await pintarSesion();
+  } catch (e) {
+    $('errLogin').textContent = (e.message || '').includes('Invalid login')
+      ? 'Esa contraseña no coincide con la cuenta.'
+      : 'No pudimos entrar: ' + (e.message || 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar o crear mi cuenta';
+  }
+}
+
+async function salir(){
+  await sb.auth.signOut();
+  $('txtNombre').value = ''; $('txtTel').value = '';
+  await pintarSesion();
 }
 
 const GUARDADO = 'bolt_pedido';
@@ -420,7 +498,10 @@ async function pedir(){
 
   btn.disabled = true; btn.textContent = 'Buscando…';
   try {
-    const user = await asegurarSesion();
+    const user = await usuarioActual();
+    if (!user){ btn.disabled = false; btn.textContent = 'Buscar profesionales'; await pintarSesion(); return; }
+    // El nombre y el WhatsApp quedan en la cuenta: la próxima vez ya vienen puestos.
+    sb.auth.updateUser({ data: { nombre: S.nombre, telefono: S.tel } }).catch(() => {});
 
     // 1. Profesionales cerca, con ese oficio y el radar prendido
     const { data: workers, error: eW } = await sb.rpc('nearby_workers', {
@@ -456,20 +537,7 @@ async function pedir(){
   } catch (e) {
     btn.disabled = false; btn.textContent = 'Buscar profesionales';
     ir(3);
-    if (e.message === 'ANON_OFF'){
-      // No se le pide "que se registre": se le ofrece un toque para confirmar
-      // que es una persona, y el pedido sigue solo cuando vuelve.
-      $('errDatos').innerHTML = 'Un último paso para confirmar que sos vos:';
-      if (!$('btnGoogle')){
-        const b = document.createElement('button');
-        b.id = 'btnGoogle'; b.className = 'btn'; b.style.marginTop = '10px';
-        b.textContent = 'Continuar con Google';
-        b.onclick = () => { S.nombre = $('txtNombre').value.trim(); S.tel = $('txtTel').value.replace(/\D/g,''); entrarConGoogle(); };
-        $('errDatos').after(b);
-      }
-    } else {
-      $('errDatos').textContent = 'No pudimos crear el pedido: ' + (e.message || 'error');
-    }
+    $('errDatos').textContent = 'No pudimos crear el pedido: ' + (e.message || 'error');
   }
 }
 
