@@ -916,7 +916,7 @@ function escucharRespuestas(){
 async function revisarRespuestas(){
   if (!S.quoteGroupId) return;
   const { data } = await sb.from('jobs')
-    .select('id,status,professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+    .select('id,status,professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
     .eq('quote_group_id', S.quoteGroupId)
     .eq('status', 'accepted');
   if (!data || !data.length) return;
@@ -954,7 +954,7 @@ async function elegir(jobId){
       .eq('quote_group_id', S.quoteGroupId).neq('id', jobId).in('status', ['pending','accepted']);
     await sb.from('jobs').update({ quote_group_id: null }).eq('id', jobId);
     const { data } = await sb.from('jobs')
-      .select('id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+      .select('id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
       .eq('id', jobId).single();
     mostrarListo(data);
   } catch (e) {
@@ -1206,6 +1206,15 @@ async function enviarMsg(texto){
     .select().single();
   if (error){ alert('No se pudo enviar: ' + error.message); return; }
   pintarMsg(data);
+  // 🔴 Sin esto el mensaje queda mudo: el profesional se entera sólo si tiene
+  // la app abierta. Todo lo de CONTACTO tiene que avisar en el momento.
+  const destino = S.profesional && S.profesional.user_id;
+  if (destino){
+    sb.functions.invoke('send-push', {
+      body: { userId: destino, title: '💬 ' + (S.nombre || 'Tu cliente'),
+              body: t.slice(0, 120), data: { jobId: S.job.id, screen: 'chat' } },
+    }).catch(() => {});
+  }
 }
 
 // ── Calificación ────────────────────────────────────────────────────────
@@ -1259,7 +1268,7 @@ window.addEventListener('beforeunload', (e) => {
   const u = await usuarioActual();
   if (!u) return;
   const { data } = await sb.from('jobs')
-    .select('id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,client_lat,client_lng,professions(name),professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+    .select('id,status,address,notes,verification_code,is_multiday,estimated_sessions,completed_sessions,current_session_start,total_minutes_worked,scheduled_return,client_lat,client_lng,professions(name),professionals(id,user_id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
     .eq('id', jobId).eq('client_id', u.id).single();
   if (!data || ['completed','cancelled'].includes(data.status)){
     try { localStorage.removeItem('bolt_job'); } catch (e) {}

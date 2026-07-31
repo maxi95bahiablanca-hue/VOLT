@@ -91,7 +91,7 @@ const RatingScreen = ({ job, session, onDone }) => {
 
           {rating === 5 && (
             <View style={styles.communityCard}>
-              <Ionicons name="people" size={22} color="#4285F4" />
+              <Ionicons name="people" size={22} color="#FFD600" />
               <Text style={styles.communityText}>
                 Excelente. Tendremos en cuenta tu valoración para destacar a {profFirstName} dentro de la comunidad.
               </Text>
@@ -198,7 +198,7 @@ const RatingScreen = ({ job, session, onDone }) => {
 
           {rating === 5 && (
             <View style={styles.communityCard}>
-              <Ionicons name="people" size={20} color="#4285F4" />
+              <Ionicons name="people" size={20} color="#FFD600" />
               <Text style={styles.communityText}>
                 Excelente. Tendremos en cuenta tu valoración para destacar a {profFirstName} dentro de la comunidad.
               </Text>
@@ -354,8 +354,8 @@ const styles = StyleSheet.create({
   // ── Community card (5 estrellas) ──────────────────────────────────────────────
   communityCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: 'rgba(66,133,244,0.08)',
-    borderWidth: 1, borderColor: 'rgba(66,133,244,0.2)',
+    backgroundColor: 'rgba(255,214,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.2)',
     borderRadius: 14, padding: 14, width: '100%',
   },
   communityText: { flex: 1, fontSize: 13, color: '#BBBBBB', lineHeight: 19 },
@@ -407,11 +407,11 @@ const styles = StyleSheet.create({
     lineHeight: 21, marginTop: 4,
   },
   voltFarewell: {
-    backgroundColor: 'rgba(66,133,244,0.08)',
-    borderWidth: 1, borderColor: 'rgba(66,133,244,0.2)',
+    backgroundColor: 'rgba(255,214,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.2)',
     borderRadius: 14, padding: 14, gap: 8, width: '100%', alignItems: 'center',
   },
-  voltFarewellBadge: { fontSize: 11, fontWeight: '900', color: '#4285F4', letterSpacing: 1 },
+  voltFarewellBadge: { fontSize: 11, fontWeight: '900', color: '#FFD600', letterSpacing: 1 },
   voltFarewellText: { fontSize: 13, color: '#888', textAlign: 'center', lineHeight: 19 },
 
   doneBtn: {

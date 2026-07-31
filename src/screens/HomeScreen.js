@@ -134,7 +134,7 @@ const buildAmbientOnStreets = async (center) => {
 const CLIENT_TIPS = [
   { icon: 'shield-checkmark-outline', color: '#4CAF50', text: 'Siempre pedí el código de verificación antes de abrir la puerta' },
   { icon: 'star-outline',             color: '#FFD600', text: 'Calificá al profesional para ayudar a la comunidad BOLT' },
-  { icon: 'cash-outline',             color: '#4285F4', text: 'El pago lo coordinás directo con el profesional, como prefieran' },
+  { icon: 'cash-outline',             color: '#FFD600', text: 'El pago lo coordinás directo con el profesional, como prefieran' },
   { icon: 'people-outline',           color: '#FF9800', text: 'Todos los trabajadores tienen antecedentes verificados' },
   { icon: 'pricetag-outline',         color: '#888',    text: 'Acordá el precio con el profesional antes de que empiece el trabajo' },
 ];
@@ -142,7 +142,7 @@ const CLIENT_TIPS = [
 const WORKER_TIPS = [
   { icon: 'trending-up-outline', color: '#4CAF50', text: '¡Más calificación = menor comisión! Apuntá al nivel Elite' },
   { icon: 'id-card-outline',     color: '#FFD600', text: 'Mostrá siempre tu código de verificación al llegar al domicilio' },
-  { icon: 'flash-outline',       color: '#4285F4', text: 'Respondé rápido — los clientes eligen al primer disponible' },
+  { icon: 'flash-outline',       color: '#FFD600', text: 'Respondé rápido — los clientes eligen al primer disponible' },
   { icon: 'thumbs-up-outline',   color: '#FF9800', text: 'Un buen pre-diagnóstico genera más confianza y mejores calificaciones' },
 ];
 

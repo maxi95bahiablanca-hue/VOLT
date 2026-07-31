@@ -9,7 +9,7 @@ import { chargesInApp, isFreeMode } from '../config/monetization';
 
 const STATUS_INFO = {
   pending:          { label: 'Pendiente',       color: '#888',    icon: 'time-outline' },
-  accepted:         { label: 'En camino',        color: '#4285F4', icon: 'navigate-outline' },
+  accepted:         { label: 'En camino',        color: '#FFD600', icon: 'navigate-outline' },
   arrived:          { label: 'En domicilio',     color: '#FFD600', icon: 'home-outline' },
   in_progress:      { label: 'En progreso',      color: '#FF9800', icon: 'construct-outline' },
   awaiting_payment: { label: isFreeMode() ? 'Por finalizar' : 'Pago pendiente', color: '#4CAF50', icon: isFreeMode() ? 'checkmark-done-outline' : 'card-outline' },

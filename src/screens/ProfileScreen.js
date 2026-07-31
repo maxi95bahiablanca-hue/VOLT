@@ -22,7 +22,7 @@ const ADMIN_EMAILS = ['maxi95.bahiablanca@gmail.com'];
 
 const LEVEL_MAP = (jobs, rating) => {
   if (jobs >= 100 && rating >= 4.8) return { label: 'Elite',     color: '#FFD600' };
-  if (jobs >= 50  && rating >= 4.5) return { label: 'Pro',       color: '#4285F4' };
+  if (jobs >= 50  && rating >= 4.5) return { label: 'Pro',       color: '#FFD600' };
   if (jobs >= 10  && rating >= 4.0) return { label: 'Verificado', color: '#4CAF50' };
   return                                    { label: 'Nuevo',     color: '#888' };
 };
@@ -271,7 +271,7 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           )}
           {professional?.estudios_url && (
             <View style={styles.estudiosBadge}>
-              <Ionicons name="school" size={13} color="#4285F4" />
+              <Ionicons name="school" size={13} color="#FFD600" />
               <Text style={styles.estudiosBadgeText}>Certificado verificado</Text>
             </View>
           )}
@@ -572,11 +572,11 @@ const styles = StyleSheet.create({
   levelText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
   estudiosBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginTop: 8, borderWidth: 1, borderColor: '#4285F440',
+    marginTop: 8, borderWidth: 1, borderColor: '#FFD60040',
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4,
-    backgroundColor: 'rgba(66,133,244,0.08)',
+    backgroundColor: 'rgba(255,214,0,0.08)',
   },
-  estudiosBadgeText: { fontSize: 12, color: '#4285F4', fontWeight: '700' },
+  estudiosBadgeText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
 
   statsCard: {
     flexDirection: 'row', alignItems: 'center',

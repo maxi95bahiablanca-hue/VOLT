@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     borderRadius: 14, padding: 14, marginBottom: 16,
   },
   googleG: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  googleGText: { fontSize: 15, fontWeight: '900', color: '#4285F4' },
+  googleGText: { fontSize: 15, fontWeight: '900', color: '#FFD600' },
   acctLabel: { color: '#777', fontSize: 12, marginBottom: 2 },
   acctEmail: { color: '#F5F5F5', fontSize: 15, fontWeight: '700' },
 

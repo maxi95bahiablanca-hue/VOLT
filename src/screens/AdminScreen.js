@@ -168,7 +168,7 @@ const AdminScreen = ({ session, onClose }) => {
     });
 
   const STATUS_JOB = {
-    pending:'#888', accepted:'#4285F4', arrived:'#FFD600',
+    pending:'#888', accepted:'#FFD600', arrived:'#FFD600',
     in_progress:'#FF9800', awaiting_payment:'#4CAF50', completed:'#4CAF50', cancelled:'#ff4444',
   };
 

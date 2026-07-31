@@ -36,8 +36,8 @@ const ReputationCard = ({ prof, compact = false }) => {
         {recommendPct !== null && (
           <View style={styles.compactRow}>
             <Text style={styles.compactLabel}>Recomendado</Text>
-            <Bar value={recommendPct} color="#4285F4" />
-            <Text style={[styles.compactVal, { color: '#4285F4' }]}>{recommendPct}%</Text>
+            <Bar value={recommendPct} color="#FFD600" />
+            <Text style={[styles.compactVal, { color: '#FFD600' }]}>{recommendPct}%</Text>
           </View>
         )}
       </View>
@@ -101,11 +101,11 @@ const ReputationCard = ({ prof, compact = false }) => {
       {recommendPct !== null && (
         <View style={styles.metricWrap}>
           <View style={styles.metricHeader}>
-            <Ionicons name="heart-outline" size={14} color="#4285F4" />
+            <Ionicons name="heart-outline" size={14} color="#FFD600" />
             <Text style={styles.metricLabel}>Recomendado por clientes</Text>
-            <Text style={[styles.metricVal, { color: '#4285F4' }]}>{recommendPct}%</Text>
+            <Text style={[styles.metricVal, { color: '#FFD600' }]}>{recommendPct}%</Text>
           </View>
-          <Bar value={recommendPct} color="#4285F4" />
+          <Bar value={recommendPct} color="#FFD600" />
         </View>
       )}
     </View>

@@ -19,7 +19,7 @@ import { chargesInApp, isFreeMode } from '../config/monetization';
 
 const STATUS_LABEL = {
   pending:          { label: 'Pendiente',    color: '#888' },
-  accepted:         { label: 'En camino',    color: '#4285F4' },
+  accepted:         { label: 'En camino',    color: '#FFD600' },
   arrived:          { label: 'En domicilio', color: '#FFD600' },
   in_progress:      { label: 'Trabajando',   color: '#FF9800' },
   awaiting_payment: { label: isFreeMode() ? 'Finalizando' : 'Cobrando', color: '#4CAF50' },
@@ -74,7 +74,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
 
   const commission = commissionForBilled(billed30, professional.avg_rating);
   const level      = levelLabel(commission);
-  const levelColor = level === 'Elite' ? '#FFD600' : level === 'Pro' ? '#4285F4'
+  const levelColor = level === 'Elite' ? '#FFD600' : level === 'Pro' ? '#FFD600'
     : level === 'Activo' ? '#4CAF50' : '#888';
   const step       = nextCommissionStep(billed30);
 

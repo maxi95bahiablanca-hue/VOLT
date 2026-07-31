@@ -9,7 +9,7 @@ import { chargesInApp } from '../config/monetization';
 const STEPS = [
   {
     icon: 'search',
-    color: '#4285F4',
+    color: '#FFD600',
     title: 'Buscás el servicio',
     desc: 'Escribís qué necesitás (electricista, plomero, etc.) y ves los profesionales verificados disponibles en tu zona en tiempo real.',
   },

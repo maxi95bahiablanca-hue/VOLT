@@ -2169,8 +2169,8 @@ const styles = StyleSheet.create({
 
   cardOnlyBadge: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: 'rgba(66,133,244,0.08)',
-    borderWidth: 1, borderColor: 'rgba(66,133,244,0.2)',
+    backgroundColor: 'rgba(255,214,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.2)',
     borderRadius: 10, paddingVertical: 8,
   },
   cardOnlyText: { color: '#FFD600', fontSize: 12, fontWeight: '600' },
@@ -2241,7 +2241,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, borderRadius: 14, paddingVertical: 15,
     borderWidth: 1.5, borderColor: '#FFD60030',
-    backgroundColor: 'rgba(66,133,244,0.06)',
+    backgroundColor: 'rgba(255,214,0,0.06)',
   },
   actionBtnSecondaryText: { color: '#FFD600', fontSize: 14, fontWeight: '800' },
 

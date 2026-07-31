@@ -101,11 +101,11 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style }
   .user { position:relative; width:18px; height:18px; }
   .user .udot { position:relative; z-index:3;
                 width:16px; height:16px; border-radius:50%;
-                background:#4285F4; border:3px solid #fff;
-                box-shadow:0 0 8px rgba(66,133,244,.85); }
+                background:#FFD600; border:3px solid #fff;
+                box-shadow:0 0 8px rgba(255,214,0,.85); }
   .user .uring { position:absolute; z-index:1; left:50%; top:50%;
                  width:16px; height:16px; margin:-8px 0 0 -8px;
-                 border-radius:50%; border:2px solid #4285F4;
+                 border-radius:50%; border:2px solid #FFD600;
                  animation: reach 3s ease-out infinite; }
   .user .uring.b { animation-delay: 1.5s; }
   @keyframes reach { 0%{ transform:scale(1); opacity:.55; } 100%{ transform:scale(7.5); opacity:0; } }

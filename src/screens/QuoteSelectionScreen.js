@@ -45,7 +45,7 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
     <View style={[styles.card, inCompare && styles.cardCompared]}>
       {inCompare && (
         <View style={styles.compareBadge}>
-          <Ionicons name="git-compare-outline" size={11} color="#4285F4" />
+          <Ionicons name="git-compare-outline" size={11} color="#FFD600" />
           <Text style={styles.compareBadgeText}>Comparando</Text>
         </View>
       )}
@@ -86,7 +86,7 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
       {/* Llegada estimada */}
       {job.arrival_estimate && (
         <View style={styles.arrivalRow}>
-          <Ionicons name="navigate-outline" size={14} color="#4285F4" />
+          <Ionicons name="navigate-outline" size={14} color="#FFD600" />
           <Text style={styles.arrivalText}>Llega en {job.arrival_estimate}</Text>
         </View>
       )}
@@ -116,8 +116,8 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
           disabled={compareDisabled && !inCompare}
           activeOpacity={0.8}
         >
-          <Ionicons name="git-compare-outline" size={14} color={inCompare ? '#4285F4' : '#888'} />
-          <Text style={[styles.secondaryBtnText, inCompare && { color: '#4285F4' }]}>
+          <Ionicons name="git-compare-outline" size={14} color={inCompare ? '#FFD600' : '#888'} />
+          <Text style={[styles.secondaryBtnText, inCompare && { color: '#FFD600' }]}>
             {inCompare ? 'Quitar' : 'Comparar'}
           </Text>
         </TouchableOpacity>
@@ -188,7 +188,7 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
           <View style={styles.modalJobInfo}>
             {job.arrival_estimate && (
               <View style={styles.modalJobRow}>
-                <Ionicons name="navigate-outline" size={16} color="#4285F4" />
+                <Ionicons name="navigate-outline" size={16} color="#FFD600" />
                 <Text style={styles.modalJobText}>Llega en {job.arrival_estimate}</Text>
               </View>
             )}
@@ -374,17 +374,17 @@ const voltCardStyles = StyleSheet.create({
   wrap: {
     width: '100%',
     backgroundColor: '#0A0D15', borderRadius: 14,
-    borderWidth: 1, borderColor: '#4285F430',
+    borderWidth: 1, borderColor: '#FFD60030',
     paddingHorizontal: 16, paddingVertical: 14,
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     marginBottom: 4,
   },
   badge: {
-    backgroundColor: '#4285F420', borderRadius: 10,
-    borderWidth: 1, borderColor: '#4285F440',
+    backgroundColor: '#FFD60020', borderRadius: 10,
+    borderWidth: 1, borderColor: '#FFD60040',
     paddingHorizontal: 8, paddingVertical: 4,
   },
-  badgeText: { fontSize: 10, fontWeight: '900', color: '#4285F4', letterSpacing: 0.8 },
+  badgeText: { fontSize: 10, fontWeight: '900', color: '#FFD600', letterSpacing: 0.8 },
   message:   { flex: 1, fontSize: 13, color: '#BBBBBB', lineHeight: 19 },
 });
 
@@ -399,7 +399,7 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
 
   const rows = [
     { icon: 'construct-outline',  label: 'Servicio',           val: job.professions?.name || '—',                       color: '#FFD600' },
-    { icon: 'navigate-outline',   label: 'Llegada estimada',   val: job.arrival_estimate || '—',                        color: '#4285F4' },
+    { icon: 'navigate-outline',   label: 'Llegada estimada',   val: job.arrival_estimate || '—',                        color: '#FFD600' },
     ...(!isFreeMode() ? [{ icon: 'card-outline', label: 'Visita', val: `$${(job.visit_amount || 30000).toLocaleString('es-AR')}`, color: '#FFD600' }] : []),
     { icon: 'cart-outline',       label: 'Materiales',         val: hasMats ? 'No incluidos' : 'No necesarios',         color: hasMats ? '#FF9800' : '#4CAF50' },
     { icon: 'time-outline',       label: 'Duración estimada',  val: duration || 'A confirmar al llegar',                color: '#888' },
@@ -1001,16 +1001,16 @@ const styles = StyleSheet.create({
     borderRadius: 18, borderWidth: 1, borderColor: '#1E1E1E',
     padding: 16, marginBottom: 14, gap: 12,
   },
-  cardCompared: { borderColor: '#4285F460', backgroundColor: '#0A0D15' },
+  cardCompared: { borderColor: '#FFD60060', backgroundColor: '#0A0D15' },
 
   compareBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(66,133,244,0.12)',
-    borderWidth: 1, borderColor: 'rgba(66,133,244,0.3)',
+    backgroundColor: 'rgba(255,214,0,0.12)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.3)',
     borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3,
   },
-  compareBadgeText: { fontSize: 10, fontWeight: '800', color: '#4285F4' },
+  compareBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFD600' },
 
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatarWrap: { position: 'relative' },
@@ -1035,12 +1035,12 @@ const styles = StyleSheet.create({
 
   arrivalRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(66,133,244,0.08)',
-    borderWidth: 1, borderColor: 'rgba(66,133,244,0.2)',
+    backgroundColor: 'rgba(255,214,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.2)',
     borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
     alignSelf: 'flex-start',
   },
-  arrivalText: { fontSize: 13, fontWeight: '700', color: '#4285F4' },
+  arrivalText: { fontSize: 13, fontWeight: '700', color: '#FFD600' },
 
   quoteBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
@@ -1056,7 +1056,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0A0A', borderRadius: 10,
     borderWidth: 1, borderColor: '#1E1E1E', paddingVertical: 10,
   },
-  secondaryBtnActive: { borderColor: 'rgba(66,133,244,0.4)', backgroundColor: 'rgba(66,133,244,0.06)' },
+  secondaryBtnActive: { borderColor: 'rgba(255,214,0,0.4)', backgroundColor: 'rgba(255,214,0,0.06)' },
   secondaryBtnDisabled: { opacity: 0.35 },
   secondaryBtnText: { fontSize: 13, color: '#888', fontWeight: '600' },
 

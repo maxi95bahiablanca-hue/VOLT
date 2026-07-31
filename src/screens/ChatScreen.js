@@ -29,7 +29,7 @@ const STATUS_LABELS = {
 
 const STATUS_COLORS = {
   pending:          '#888',
-  accepted:         '#4285F4',
+  accepted:         '#FFD600',
   arrived:          '#FFD600',
   in_progress:      '#FF9800',
   awaiting_payment: '#4CAF50',
@@ -267,7 +267,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
               <Ionicons
                 name={item.read_by_other ? 'checkmark-done' : 'checkmark'}
                 size={12}
-                color={item.read_by_other ? '#4285F4' : '#888'}
+                color={item.read_by_other ? '#FFD600' : '#888'}
                 style={{ marginLeft: 3 }}
               />
             )}
@@ -325,7 +325,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
           )}
           {hasDuration && (
             <View style={styles.contextRow}>
-              <Ionicons name="time-outline" size={14} color="#4285F4" />
+              <Ionicons name="time-outline" size={14} color="#FFD600" />
               <Text style={styles.contextText}>Duración estimada: {job.work_duration_est}</Text>
             </View>
           )}
@@ -397,7 +397,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
         <View style={styles.headerInfo}>
           <Text style={styles.headerName} numberOfLines={1}>{profName}</Text>
           <Text style={styles.headerRole} numberOfLines={1}>
-            {profRole} · <Text style={{ color: '#4285F4' }}>BOLT coordina</Text>
+            {profRole} · <Text style={{ color: '#FFD600' }}>BOLT coordina</Text>
           </Text>
           <View style={styles.headerStatusRow}>
             <View style={[styles.statusPill, { borderColor: statusColor + '44' }]}>
@@ -406,7 +406,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
             </View>
             {job.arrival_estimate && job.status === 'accepted' && (
               <View style={styles.arrivalPill}>
-                <Ionicons name="navigate-outline" size={11} color="#4285F4" />
+                <Ionicons name="navigate-outline" size={11} color="#FFD600" />
                 <Text style={styles.arrivalPillText}>Llega en {job.arrival_estimate}</Text>
               </View>
             )}
@@ -560,11 +560,11 @@ const styles = StyleSheet.create({
 
   arrivalPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(66,133,244,0.1)',
-    borderWidth: 1, borderColor: 'rgba(66,133,244,0.25)',
+    backgroundColor: 'rgba(255,214,0,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)',
     borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
   },
-  arrivalPillText: { fontSize: 11, fontWeight: '700', color: '#4285F4' },
+  arrivalPillText: { fontSize: 11, fontWeight: '700', color: '#FFD600' },
 
   // ── Tarjeta de contexto ──────────────────────────────────────────────────────
   contextCard: {
@@ -590,11 +590,11 @@ const styles = StyleSheet.create({
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40, gap: 12 },
   emptyText: { color: '#444', fontSize: 14, textAlign: 'center', lineHeight: 22, paddingHorizontal: 24 },
   voltEmptyBadge: {
-    backgroundColor: 'rgba(66,133,244,0.1)',
-    borderWidth: 1, borderColor: 'rgba(66,133,244,0.25)',
+    backgroundColor: 'rgba(255,214,0,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)',
     borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6,
   },
-  voltEmptyBadgeText: { fontSize: 11, fontWeight: '900', color: '#4285F4', letterSpacing: 1 },
+  voltEmptyBadgeText: { fontSize: 11, fontWeight: '900', color: '#FFD600', letterSpacing: 1 },
 
   systemRow: { alignItems: 'center', marginVertical: 8 },
   systemText: {
