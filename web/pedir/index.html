@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>BOLT — Pedí un profesional ahora</title>
+<meta name="description" content="Contá qué necesitás y en minutos te contactan profesionales verificados de tu zona. Sin instalar nada.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ── Mismo lenguaje visual que bolt.com.ar: negro + amarillo ───────────── */
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0A0A0A;--surf:#141414;--surf2:#1a1a1a;--bord:#262626;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--ok:#00D68F;--red:#FF5252}
+  body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .app{max-width:520px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+
+  /* Barra de arriba */
+  .top{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--bord);position:sticky;top:0;background:rgba(10,10,10,.92);backdrop-filter:blur(8px);z-index:20}
+  .logo{font-weight:900;font-size:1.15rem;letter-spacing:-.5px}
+  .logo span{color:var(--yellow)}
+  .back{background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;line-height:1;padding:0 4px;font-family:inherit}
+  .paso{margin-left:auto;font-size:.72rem;font-weight:800;color:var(--muted2);letter-spacing:.5px}
+
+  main{flex:1;padding:20px 18px 32px;display:flex;flex-direction:column}
+  .pantalla{display:none;flex-direction:column;flex:1;animation:sube .25s ease}
+  .pantalla.on{display:flex}
+  @keyframes sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  h1{font-size:1.65rem;font-weight:900;line-height:1.2;letter-spacing:-.5px;margin-bottom:8px}
+  h1 em{font-style:normal;color:var(--yellow)}
+  .sub{color:var(--muted);font-size:.95rem;margin-bottom:20px}
+
+  /* Campos */
+  .campo{width:100%;background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:15px;color:var(--text);font-size:1rem;font-family:inherit;resize:none}
+  .campo:focus{outline:none;border-color:var(--yellow)}
+  .campo::placeholder{color:var(--muted2)}
+  label.lbl{font-size:.78rem;font-weight:800;color:var(--muted);margin:14px 0 6px;display:block;letter-spacing:.3px}
+
+  /* Chips de oficio */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .chip{background:var(--surf);border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:9px 15px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+  .chip:hover{border-color:var(--muted2);color:var(--text)}
+  .chip.on{background:rgba(255,214,0,.13);border-color:var(--yellow);color:var(--yellow)}
+
+  /* Botones */
+  .btn{width:100%;background:var(--yellow);color:#000;border:none;border-radius:14px;padding:16px;font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit;margin-top:auto;transition:.15s}
+  .btn:active{transform:scale(.985)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.sec{background:transparent;color:var(--text);border:1px solid var(--bord);margin-top:10px}
+  .btn.wa{background:#25D366;color:#04310f}
+  .btn-row{margin-top:auto;padding-top:18px}
+
+  /* Charla con el asistente */
+  .charla{flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-bottom:12px;min-height:180px}
+  .bub{max-width:86%;padding:12px 15px;border-radius:16px;font-size:.94rem;white-space:pre-wrap;word-break:break-word}
+  .bub.bot{background:var(--surf);border:1px solid var(--bord);border-bottom-left-radius:5px;align-self:flex-start}
+  .bub.yo{background:var(--yellow);color:#000;font-weight:700;border-bottom-right-radius:5px;align-self:flex-end}
+  .bub.esc{color:var(--muted2)}
+  .fila{display:flex;gap:8px;align-items:flex-end;margin-top:8px}
+  .fila .campo{flex:1}
+  .env{background:var(--yellow);border:none;border-radius:12px;width:48px;height:48px;font-size:1.2rem;cursor:pointer;flex-shrink:0}
+
+  /* Buscando */
+  .buscando{text-align:center;padding:36px 0 26px}
+  .radar{width:96px;height:96px;margin:0 auto 22px;border-radius:50%;border:2px solid var(--yellow);position:relative;display:grid;place-items:center;font-size:2.1rem}
+  .radar::after{content:'';position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--yellow);animation:pulso 1.8s ease-out infinite}
+  @keyframes pulso{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+  .reloj{font-size:2rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+
+  /* Tarjetas de profesional */
+  .prof{background:var(--surf);border:1px solid var(--bord);border-radius:16px;padding:15px;display:flex;gap:13px;align-items:center;margin-bottom:10px;animation:sube .3s ease}
+  .prof .ava{width:52px;height:52px;border-radius:50%;background:var(--surf2);display:grid;place-items:center;font-size:1.35rem;font-weight:900;color:var(--yellow);flex-shrink:0;overflow:hidden}
+  .prof .ava img{width:100%;height:100%;object-fit:cover}
+  .prof .info{flex:1;min-width:0}
+  .prof .nom{font-weight:800;font-size:1rem}
+  .prof .meta{font-size:.79rem;color:var(--muted)}
+  .prof .elegir{background:var(--yellow);color:#000;border:none;border-radius:11px;padding:11px 16px;font-weight:900;font-size:.85rem;cursor:pointer;font-family:inherit;flex-shrink:0}
+
+  .aviso{background:var(--surf);border:1px solid var(--bord);border-left:3px solid var(--yellow);border-radius:12px;padding:13px 15px;font-size:.87rem;color:var(--muted);margin-top:14px}
+  .err{color:var(--red);font-size:.87rem;font-weight:700;margin-top:12px;min-height:20px}
+  .ok-ico{font-size:3rem;text-align:center;margin-bottom:14px}
+  .dato{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--bord);font-size:.92rem}
+  .dato b{font-weight:800}
+  .muted{color:var(--muted)}
+  .pie{text-align:center;font-size:.75rem;color:var(--muted2);padding:18px}
+  .pie a{color:var(--muted);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <button class="back" id="btnBack" onclick="atras()" style="display:none">‹</button>
+    <div class="logo">BOLT<span>⚡</span></div>
+    <div class="paso" id="paso"></div>
+  </div>
+
+  <main>
+    <!-- 1. QUÉ NECESITÁS ─────────────────────────────────────────────── -->
+    <section class="pantalla on" id="p-inicio">
+      <h1>¿Qué necesitás <em>resolver</em>?</h1>
+      <p class="sub">Contanos el problema como se lo contarías a un amigo. En minutos te contactan profesionales de tu zona.</p>
+      <textarea class="campo" id="txtProblema" rows="4" placeholder="Ej: se me tapó el baño y el agua no baja"></textarea>
+      <div class="chips" id="chipsOficio"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="arrancar()">Continuar</button>
+      </div>
+    </section>
+
+    <!-- 2. EL ASISTENTE PREGUNTA LO QUE FALTA ────────────────────────── -->
+    <section class="pantalla" id="p-chat">
+      <div class="charla" id="charla"></div>
+      <div class="fila">
+        <textarea class="campo" id="txtChat" rows="1" placeholder="Escribí tu respuesta…"></textarea>
+        <button class="env" onclick="responder()">➤</button>
+      </div>
+      <div class="err" id="errChat"></div>
+    </section>
+
+    <!-- 3. DÓNDE ──────────────────────────────────────────────────────── -->
+    <section class="pantalla" id="p-ubic">
+      <h1>¿Dónde es?</h1>
+      <p class="sub">Lo usamos para buscar profesionales cerca tuyo.</p>
+      <button class="btn" style="margin:0" onclick="usarGPS()">📍 Usar mi ubicación</button>
+      <label class="lbl">O escribí la dirección</label>
+      <input class="campo" id="txtDir" placeholder="Ej: Alsina 65, Bahía Blanca">
+      <div class="err" id="errUbic"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="confirmarUbic()">Continuar</button>
+      </div>
+    </section>
+
+    <!-- 4. CONTACTO ───────────────────────────────────────────────────── -->
+    <section class="pantalla" id="p-datos">
+      <h1>¿Cómo te contactamos?</h1>
+      <p class="sub">Sólo lo ve el profesional que elijas.</p>
+      <label class="lbl">Tu nombre</label>
+      <input class="campo" id="txtNombre" placeholder="Nombre">
+      <label class="lbl">Tu WhatsApp</label>
+      <input class="campo" id="txtTel" inputmode="tel" placeholder="291 555 5555">
+      <div class="aviso" id="avisoResumen"></div>
+      <div class="err" id="errDatos"></div>
+      <div class="btn-row">
+        <button class="btn" id="btnPedir" onclick="pedir()">Buscar profesionales</button>
+      </div>
+    </section>
+
+    <!-- 5. BUSCANDO + PROPUESTAS ──────────────────────────────────────── -->
+    <section class="pantalla" id="p-buscando">
+      <div class="buscando" id="cajaBuscando">
+        <div class="radar">⚡</div>
+        <div class="reloj" id="reloj">3:00</div>
+        <p class="sub" style="margin:8px 0 0">Avisamos a <b id="cuantos">0</b> profesionales cerca tuyo.<br>Quedate en esta pantalla, van apareciendo acá.</p>
+      </div>
+      <div id="listaProfs"></div>
+      <div id="sinRespuesta" style="display:none">
+        <div class="aviso">Todavía no contestó nadie. No te quedes sin solución: escribinos y lo resolvemos a mano.</div>
+        <a class="btn wa" id="btnRescate" href="#" target="_blank" style="display:block;text-align:center;text-decoration:none;margin-top:14px">💬 Que me resuelvan por WhatsApp</a>
+      </div>
+    </section>
+
+    <!-- 6. LISTO ──────────────────────────────────────────────────────── -->
+    <section class="pantalla" id="p-listo">
+      <div class="ok-ico">✅</div>
+      <h1 style="text-align:center">¡Listo!</h1>
+      <p class="sub" style="text-align:center" id="subListo"></p>
+      <div id="datosJob"></div>
+      <a class="btn wa" id="btnWaProf" href="#" target="_blank" style="display:block;text-align:center;text-decoration:none;margin-top:18px">💬 Escribirle por WhatsApp</a>
+      <button class="btn sec" onclick="location.reload()">Hacer otro pedido</button>
+    </section>
+  </main>
+
+  <div class="pie">BOLT ⚡ · <a href="/">Inicio</a> · <a href="/terms.html">Términos</a> · <a href="/privacy.html">Privacidad</a></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ════════════════════════════════════════════════════════════════════════
+//  BOLT — PEDIR DESDE LA WEB
+// ------------------------------------------------------------------------
+//  Misma mecánica que la app, sin instalar nada:
+//    1. contás el problema → el asistente (analyze-problem, Gemini) saca el
+//       oficio y arma el resumen preguntando sólo lo que falta
+//    2. ubicación (GPS del navegador o dirección escrita)
+//    3. se crean N pedidos, uno por profesional cercano, todos con el mismo
+//       quote_group_id — igual que jobService.createQuoteGroup
+//    4. los que aceptan aparecen en vivo (realtime + polling de respaldo)
+//    5. elegís uno: los demás se cancelan solos
+//
+//  🔴 Diferencia con la app que hay que tener presente: acá NO hay push. Si
+//  el cliente cierra la pestaña, se pierde el aviso. Por eso el flujo dura
+//  3 minutos y la pantalla insiste en que se quede. Si no contesta nadie,
+//  cae en el mismo rescate por WhatsApp que la app (rescueService).
+// ════════════════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const WA_SOPORTE = '5492914199938';       // el mismo de rescueService
+const ESPERA_MS  = 3 * 60 * 1000;          // 3 minutos, como la app
+const RADIO_LIMITE = 10;                   // cuántos profesionales avisamos
+
+const $ = (id) => document.getElementById(id);
+const esc = (t) => { const d = document.createElement('div'); d.textContent = t ?? ''; return d.innerHTML; };
+
+// Estado de la sesión de pedido (todo vive acá, no hay backend propio)
+const S = {
+  historial: [],       // charla con el asistente
+  profesionId: null,
+  oficio: null,
+  resumen: '',
+  lat: null, lng: null, direccion: '',
+  nombre: '', tel: '',
+  quoteGroupId: null,
+  jobs: [],
+  timer: null, canal: null, poll: null,
+};
+
+// ── Navegación ──────────────────────────────────────────────────────────
+const PANTALLAS = ['p-inicio','p-chat','p-ubic','p-datos','p-buscando','p-listo'];
+const TITULOS   = ['', 'CONTANOS MÁS', 'DÓNDE', 'CONTACTO', 'BUSCANDO', ''];
+let actual = 0;
+function ir(i){
+  actual = i;
+  PANTALLAS.forEach((p, k) => $(p).classList.toggle('on', k === i));
+  $('paso').textContent = TITULOS[i];
+  $('btnBack').style.display = (i > 0 && i < 4) ? 'block' : 'none';
+  window.scrollTo(0, 0);
+}
+function atras(){ if (actual > 0) ir(actual - 1); }
+
+// ── Oficios rápidos (catálogo real, no una lista inventada) ─────────────
+let CATALOGO = [];
+(async () => {
+  try {
+    const { data } = await sb.from('professions').select('id,name,icon').order('name');
+    CATALOGO = data || [];
+    $('chipsOficio').innerHTML = CATALOGO.slice(0, 10).map(p =>
+      `<button type="button" class="chip" data-id="${p.id}" onclick="tocarChip(this)">${esc(p.name)}</button>`).join('');
+  } catch (e) { /* sin catálogo, el asistente igual deduce el oficio */ }
+})();
+
+function tocarChip(el){
+  const on = el.classList.contains('on');
+  document.querySelectorAll('#chipsOficio .chip').forEach(c => c.classList.remove('on'));
+  if (!on){ el.classList.add('on'); S.profesionId = Number(el.dataset.id); S.oficio = el.textContent; }
+  else { S.profesionId = null; S.oficio = null; }
+}
+
+// ── 1 → 2: arranca la charla con el asistente ───────────────────────────
+function arrancar(){
+  const txt = $('txtProblema').value.trim();
+  if (!txt && !S.profesionId){ $('txtProblema').focus(); return; }
+  ir(1);
+  $('charla').innerHTML = '';
+  const primero = txt || `Necesito un ${S.oficio}`;
+  burbuja('yo', primero);
+  S.historial = [{ role: 'user', text: primero }];
+  preguntarIA(primero);
+}
+
+function burbuja(quien, texto){
+  const d = document.createElement('div');
+  d.className = 'bub ' + quien;
+  d.textContent = texto;
+  $('charla').appendChild(d);
+  $('charla').scrollTop = $('charla').scrollHeight;
+  return d;
+}
+
+async function preguntarIA(mensaje){
+  const esperando = burbuja('bot esc', 'escribiendo…');
+  $('errChat').textContent = '';
+  try {
+    const { data, error } = await sb.functions.invoke('analyze-problem', {
+      body: { message: mensaje, history: S.historial },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    esperando.remove();
+
+    if (data.reply){
+      burbuja('bot', data.reply);
+      S.historial.push({ role: 'model', text: data.reply });
+    }
+    if (data.profession_id) S.profesionId = data.profession_id;
+    if (data.oficio) S.oficio = data.oficio;
+    if (data.resumen) S.resumen = data.resumen;
+
+    // ready = el asistente ya tiene lo que necesita para pasar el pedido
+    if (data.ready){
+      S.resumen = data.resumen || S.resumen || mensaje;
+      setTimeout(() => ir(2), 700);
+    }
+  } catch (e) {
+    esperando.remove();
+    // Si la IA no responde, NO se corta la venta: se sigue con lo que dijo.
+    burbuja('bot', 'Listo, con eso alcanza. Ahora decime dónde es.');
+    S.resumen = S.resumen || mensaje;
+    setTimeout(() => ir(2), 600);
+  }
+}
+
+function responder(){
+  const t = $('txtChat').value.trim();
+  if (!t) return;
+  $('txtChat').value = '';
+  burbuja('yo', t);
+  S.historial.push({ role: 'user', text: t });
+  preguntarIA(t);
+}
+$('txtChat').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); responder(); }
+});
+
+// ── 3: ubicación ────────────────────────────────────────────────────────
+function usarGPS(){
+  $('errUbic').textContent = '';
+  if (!navigator.geolocation){ $('errUbic').textContent = 'Tu navegador no comparte ubicación. Escribí la dirección.'; return; }
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    S.lat = pos.coords.latitude; S.lng = pos.coords.longitude;
+    $('txtDir').value = 'Mi ubicación actual';
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${S.lat}&lon=${S.lng}`);
+      const j = await r.json();
+      const a = j.address || {};
+      const calle = [a.road, a.house_number].filter(Boolean).join(' ');
+      if (calle) $('txtDir').value = calle + (a.city || a.town ? ', ' + (a.city || a.town) : '');
+    } catch (e) {}
+    S.direccion = $('txtDir').value;
+    ir(3); pintarResumen();
+  }, () => {
+    $('errUbic').textContent = 'No pudimos tomar tu ubicación. Escribí la dirección abajo.';
+  }, { enableHighAccuracy: true, timeout: 8000 });
+}
+
+async function confirmarUbic(){
+  const dir = $('txtDir').value.trim();
+  $('errUbic').textContent = '';
+  if (S.lat && S.lng){ S.direccion = dir || S.direccion; ir(3); pintarResumen(); return; }
+  if (dir.length < 5){ $('errUbic').textContent = 'Escribí la calle y la altura.'; return; }
+  // Geocodificado acotado a Bahía Blanca, como en el otro proyecto: una
+  // dirección sin altura cae en cualquier lado si no se limita.
+  try {
+    const q = encodeURIComponent(dir + ', Bahía Blanca, Argentina');
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`);
+    const j = await r.json();
+    if (!j.length){ $('errUbic').textContent = 'No encontramos esa dirección. Probá con calle y número.'; return; }
+    S.lat = Number(j[0].lat); S.lng = Number(j[0].lon); S.direccion = dir;
+    ir(3); pintarResumen();
+  } catch (e) {
+    $('errUbic').textContent = 'No pudimos ubicar la dirección. Probá de nuevo.';
+  }
+}
+
+function pintarResumen(){
+  $('avisoResumen').innerHTML = `<b>${esc(S.oficio || 'Profesional')}</b> · ${esc(S.direccion || 'tu ubicación')}<br>` +
+    `<span class="muted">${esc((S.resumen || '').slice(0, 160))}</span>`;
+}
+
+// ── 4: crear el pedido ──────────────────────────────────────────────────
+/** Sesión mínima para poder crear el pedido (jobs.client_id es obligatorio).
+ *
+ *  Primero intenta la anónima, que es la que no le pide NADA al cliente. Hoy
+ *  está apagada en el proyecto (`anonymous_provider_disabled`, verificado el
+ *  31-jul-2026): se prende en el dashboard → Authentication → Providers →
+ *  Anonymous sign-ins, y a partir de ahí este camino es directo.
+ *
+ *  Mientras tanto cae en Google, que sí está habilitado. Como Google se lleva
+ *  al cliente a otra página, antes de irse se guarda todo el pedido y al
+ *  volver se retoma solo, sin hacerle repetir nada.
+ */
+async function asegurarSesion(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) return session.user;
+  const { data, error } = await sb.auth.signInAnonymously();
+  if (!error && data?.user) return data.user;
+  const e = new Error('ANON_OFF'); e.detalle = error?.message || ''; throw e;
+}
+
+const GUARDADO = 'bolt_pedido';
+function guardarEstado(){
+  try { sessionStorage.setItem(GUARDADO, JSON.stringify({
+    profesionId: S.profesionId, oficio: S.oficio, resumen: S.resumen,
+    lat: S.lat, lng: S.lng, direccion: S.direccion, nombre: S.nombre, tel: S.tel,
+  })); } catch (e) {}
+}
+async function entrarConGoogle(){
+  guardarEstado();
+  await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: location.origin + location.pathname },
+  });
+}
+/** Al volver de Google: recuperar el pedido y seguir donde estaba. */
+(async () => {
+  let g = null;
+  try { g = JSON.parse(sessionStorage.getItem(GUARDADO) || 'null'); } catch (e) {}
+  if (!g) return;
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.user) return;               // todavía no volvió de Google
+  sessionStorage.removeItem(GUARDADO);
+  Object.assign(S, g);
+  $('txtNombre').value = S.nombre || '';
+  $('txtTel').value = S.tel || '';
+  $('txtDir').value = S.direccion || '';
+  pintarResumen();
+  ir(3);
+  if (S.profesionId && S.lat && S.nombre && S.tel) pedir();   // retoma solo
+})();
+
+async function pedir(){
+  const btn = $('btnPedir');
+  S.nombre = $('txtNombre').value.trim();
+  S.tel    = $('txtTel').value.replace(/\D/g, '');
+  $('errDatos').textContent = '';
+  if (S.nombre.length < 2){ $('errDatos').textContent = 'Poné tu nombre.'; return; }
+  if (S.tel.length < 8){ $('errDatos').textContent = 'Poné tu WhatsApp con característica.'; return; }
+  if (!S.profesionId){ $('errDatos').textContent = 'No pudimos identificar el oficio. Volvé y elegilo de la lista.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Buscando…';
+  try {
+    const user = await asegurarSesion();
+
+    // 1. Profesionales cerca, con ese oficio y el radar prendido
+    const { data: workers, error: eW } = await sb.rpc('nearby_workers', {
+      p_profession_id: S.profesionId, p_lat: S.lat, p_lng: S.lng, p_limit: RADIO_LIMITE,
+    });
+    if (eW) throw eW;
+
+    ir(4);
+    arrancarReloj();
+    $('cuantos').textContent = (workers || []).length;
+
+    if (!workers || !workers.length){ sinNadie(); return; }
+
+    // 2. Un pedido por profesional, todos con el mismo grupo (igual que la app)
+    S.quoteGroupId = crypto.randomUUID();
+    const notas = `${S.resumen || ''}\n\n— Pedido desde la web —\nContacto: ${S.nombre} · ${S.tel}`.trim();
+    const filas = workers.map(w => ({
+      client_id: user.id,
+      professional_id: w.id,
+      profession_id: S.profesionId,
+      client_lat: S.lat,
+      client_lng: S.lng,
+      address: S.direccion,
+      notes: notas,
+      visit_amount: w.min_price || 0,
+      quote_group_id: S.quoteGroupId,
+    }));
+    const { data: jobs, error: eJ } = await sb.from('jobs').insert(filas).select('id');
+    if (eJ) throw eJ;
+    S.jobs = jobs || [];
+
+    escucharRespuestas();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Buscar profesionales';
+    ir(3);
+    if (e.message === 'ANON_OFF'){
+      // No se le pide "que se registre": se le ofrece un toque para confirmar
+      // que es una persona, y el pedido sigue solo cuando vuelve.
+      $('errDatos').innerHTML = 'Un último paso para confirmar que sos vos:';
+      if (!$('btnGoogle')){
+        const b = document.createElement('button');
+        b.id = 'btnGoogle'; b.className = 'btn'; b.style.marginTop = '10px';
+        b.textContent = 'Continuar con Google';
+        b.onclick = () => { S.nombre = $('txtNombre').value.trim(); S.tel = $('txtTel').value.replace(/\D/g,''); entrarConGoogle(); };
+        $('errDatos').after(b);
+      }
+    } else {
+      $('errDatos').textContent = 'No pudimos crear el pedido: ' + (e.message || 'error');
+    }
+  }
+}
+
+// ── 5: esperar respuestas ───────────────────────────────────────────────
+function arrancarReloj(){
+  const fin = Date.now() + ESPERA_MS;
+  clearInterval(S.timer);
+  S.timer = setInterval(() => {
+    const falta = Math.max(0, fin - Date.now());
+    const m = Math.floor(falta / 60000), s = Math.floor((falta % 60000) / 1000);
+    $('reloj').textContent = m + ':' + String(s).padStart(2, '0');
+    if (falta <= 0){ clearInterval(S.timer); if (!document.querySelector('#listaProfs .prof')) sinNadie(); }
+  }, 500);
+}
+
+function escucharRespuestas(){
+  // Realtime: cuando un profesional acepta, su job pasa a 'accepted'.
+  S.canal = sb.channel('grupo-' + S.quoteGroupId)
+    .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'jobs', filter: `quote_group_id=eq.${S.quoteGroupId}` },
+        () => revisarRespuestas())
+    .subscribe();
+  // Respaldo: si el realtime no engancha (pasa detrás de algunos wifi), igual
+  // aparecen por polling. Es barato y evita la peor cara del producto: que un
+  // profesional haya aceptado y el cliente no lo vea.
+  S.poll = setInterval(revisarRespuestas, 5000);
+  revisarRespuestas();
+}
+
+async function revisarRespuestas(){
+  if (!S.quoteGroupId) return;
+  const { data } = await sb.from('jobs')
+    .select('id,status,professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+    .eq('quote_group_id', S.quoteGroupId)
+    .eq('status', 'accepted');
+  if (!data || !data.length) return;
+  $('sinRespuesta').style.display = 'none';
+  $('cajaBuscando').style.display = data.length ? 'none' : 'block';
+  if (data.length && !$('tituloElegi')){
+    const h = document.createElement('h1');
+    h.id = 'tituloElegi'; h.innerHTML = 'Te <em>respondieron</em>';
+    $('listaProfs').before(h);
+  }
+  $('listaProfs').innerHTML = data.map(j => {
+    const p = j.professionals || {};
+    const nom = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Profesional';
+    const ini = (p.first_name || 'P')[0].toUpperCase();
+    const rat = Number(p.avg_rating) > 0 ? `⭐ ${Number(p.avg_rating).toFixed(1)} · ` : '';
+    return `<div class="prof">
+      <div class="ava">${p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(ini)}</div>
+      <div class="info">
+        <div class="nom">${esc(nom)}</div>
+        <div class="meta">${rat}${p.completed_jobs || 0} trabajos</div>
+      </div>
+      <button class="elegir" onclick="elegir('${j.id}')">Elegir</button>
+    </div>`;
+  }).join('');
+}
+
+async function elegir(jobId){
+  clearInterval(S.timer); clearInterval(S.poll);
+  try { S.canal && sb.removeChannel(S.canal); } catch (e) {}
+  try {
+    // Los demás se cancelan y el elegido queda como pedido normal (misma
+    // secuencia que jobService.selectFromQuoteGroup).
+    await sb.from('jobs')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .eq('quote_group_id', S.quoteGroupId).neq('id', jobId).in('status', ['pending','accepted']);
+    await sb.from('jobs').update({ quote_group_id: null }).eq('id', jobId);
+    const { data } = await sb.from('jobs')
+      .select('id,address,notes,professionals(first_name,last_name,phone,avg_rating,completed_jobs)')
+      .eq('id', jobId).single();
+    mostrarListo(data);
+  } catch (e) {
+    alert('No pudimos confirmar: ' + e.message);
+  }
+}
+
+function mostrarListo(job){
+  const p = (job && job.professionals) || {};
+  const nom = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'El profesional';
+  $('subListo').textContent = nom + ' ya tiene tu pedido y tu contacto.';
+  $('datosJob').innerHTML =
+    `<div class="dato"><span class="muted">Profesional</span><b>${esc(nom)}</b></div>` +
+    `<div class="dato"><span class="muted">Trabajo</span><b>${esc(S.oficio || '-')}</b></div>` +
+    `<div class="dato"><span class="muted">Dirección</span><b>${esc(job?.address || S.direccion)}</b></div>`;
+  const tel = (p.phone || '').replace(/\D/g, '');
+  const wa = tel ? (tel.startsWith('54') ? tel : '549' + tel.slice(-10)) : WA_SOPORTE;
+  const txt = `Hola ${nom}! Soy ${S.nombre}, te escribo por BOLT ⚡ ${S.resumen || ''} — Dirección: ${S.direccion}`;
+  $('btnWaProf').href = `https://wa.me/${wa}?text=${encodeURIComponent(txt)}`;
+  ir(5);
+}
+
+/** Nadie cerca o nadie contestó: el pedido no se pierde, pasa a una persona. */
+function sinNadie(){
+  clearInterval(S.timer);
+  $('cajaBuscando').style.display = 'none';
+  $('sinRespuesta').style.display = 'block';
+  const txt = `Hola! Soy ${S.nombre || ''}. Pedí por la web de BOLT un ${S.oficio || 'profesional'} para ${S.direccion || 'mi domicilio'} y no me respondió nadie.\n\n${S.resumen || ''}`;
+  $('btnRescate').href = `https://wa.me/${WA_SOPORTE}?text=${encodeURIComponent(txt)}`;
+}
+
+// Si se va de la página con un pedido abierto, avisarle (no hay push que lo rescate).
+window.addEventListener('beforeunload', (e) => {
+  if (S.quoteGroupId && actual === 4){ e.preventDefault(); e.returnValue = ''; }
+});
+</script>
+</body>
+</html>
