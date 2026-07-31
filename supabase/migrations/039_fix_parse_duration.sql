@@ -30,27 +30,32 @@ RETURNS INT
 LANGUAGE plpgsql IMMUTABLE
 AS $$
 DECLARE
+  txt TEXT;
   solo_numeros TEXT;
   n INT;
 BEGIN
   IF dur IS NULL OR trim(dur) = '' THEN RETURN NULL; END IF;
-  dur := lower(regexp_replace(trim(dur), '[~[:space:]]+', ' ', 'g'));
+  txt := lower(trim(dur));
+  -- Las vocales acentuadas van por su codigo: si el SQL se copia y pega, un
+  -- acento mal codificado rompia la funcion entera (paso el 31-jul-2026).
+  txt := replace(replace(replace(replace(replace(txt,
+         chr(225),'a'), chr(233),'e'), chr(237),'i'), chr(243),'o'), chr(250),'u');
 
-  -- Sin barras invertidas: se borra todo lo que no sea dígito.
-  solo_numeros := regexp_replace(dur, '[^0-9]', '', 'g');
+  solo_numeros := regexp_replace(txt, '[^0-9]', '', 'g');
   IF solo_numeros = '' THEN RETURN NULL; END IF;
 
   BEGIN
-    n := left(solo_numeros, 6)::INT;   -- left() por si viene un número absurdo
+    n := left(solo_numeros, 6)::INT;
   EXCEPTION WHEN OTHERS THEN
-    RETURN NULL;                        -- ningún texto raro puede tumbar un UPDATE
+    RETURN NULL;
   END;
   IF n = 0 THEN RETURN NULL; END IF;
 
-  IF    dur LIKE '%semana%'                  THEN RETURN n * 5 * 8 * 60;
-  ELSIF dur LIKE '%día%' OR dur LIKE '%dia%' THEN RETURN n * 8 * 60;
-  ELSIF dur LIKE '%hora%' OR dur LIKE '%hr%' THEN RETURN n * 60;
-  ELSIF dur LIKE '%min%'                     THEN RETURN n;
+  IF    txt LIKE '%semana%' THEN RETURN n * 5 * 8 * 60;
+  ELSIF txt LIKE '%dia%'    THEN RETURN n * 8 * 60;
+  ELSIF txt LIKE '%hora%'   THEN RETURN n * 60;
+  ELSIF txt LIKE '%hr%'     THEN RETURN n * 60;
+  ELSIF txt LIKE '%min%'    THEN RETURN n;
   ELSE  RETURN NULL;
   END IF;
 END;
