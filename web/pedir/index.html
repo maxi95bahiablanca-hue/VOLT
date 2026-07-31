@@ -704,9 +704,28 @@ async function pedir(){
       visit_amount: w.min_price || 0,
       quote_group_id: S.quoteGroupId,
     }));
-    const { data: jobs, error: eJ } = await sb.from('jobs').insert(filas).select('id');
+    const { data: jobs, error: eJ } = await sb.from('jobs').insert(filas).select('id,professional_id');
     if (eJ) throw eJ;
     S.jobs = jobs || [];
+
+    // 3. 🔴 AVISARLES. Sin esto el profesional sólo se entera si tiene la app
+    //    abierta escuchando realtime — con la app cerrada o en segundo plano no
+    //    le llega NADA. La app manda este mismo push al crear el pedido
+    //    (JobRequestScreen.js:285) y la web no lo hacía: el 31-jul-2026 Maxi
+    //    probó desde la web con su cuenta de pintor y no le llegó nunca.
+    //    Es best-effort: si falla, el pedido ya está creado igual.
+    Promise.all((jobs || []).map(j => {
+      const w = (workers || []).find(x => x.id === j.professional_id);
+      if (!w?.user_id) return null;
+      return sb.functions.invoke('send-push', {
+        body: {
+          userId: w.user_id,
+          title: '⚡ Nueva solicitud de trabajo',
+          body: `${S.oficio || 'Servicio'} cerca tuyo. Tenés 60 seg para responder.`,
+          data: { jobId: j.id, screen: 'worker_incoming' },
+        },
+      });
+    }).filter(Boolean)).catch(() => {});
 
     escucharRespuestas();
   } catch (e) {
