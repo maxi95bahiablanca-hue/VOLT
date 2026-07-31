@@ -489,7 +489,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
                   <Text style={[styles.breakdownVal, { color: '#4CAF50' }]}>{100 - commission}% del trabajo</Text>
                 </View>
                 <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Visita (${(professional.min_price || 30000).toLocaleString('es-AR')})</Text>
+                  <Text style={styles.breakdownLabel}>Visita (${(professional.min_price ?? 30000).toLocaleString('es-AR')})</Text>
                   <Text style={styles.breakdownVal}>La retiene BOLT</Text>
                 </View>
               </View>

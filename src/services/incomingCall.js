@@ -3,6 +3,7 @@
 // aunque la app esté en segundo plano o cerrada.
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking } from 'react-native';
 import notifee, {
   AndroidImportance,
   AndroidVisibility,
@@ -90,8 +91,17 @@ export async function abrirAjustesPantallaCompleta() {
   try {
     await AsyncStorage.setItem(FS_PEDIDO_KEY, '1');
   } catch {}
+  // En Android 14+ el permiso de pantalla completa NO esta en los ajustes
+  // generales de notificaciones: tiene su propia pantalla. Sin ir ahi, el
+  // trabajador daba vueltas y la alarma seguia degradada a banner comun.
   try {
-    await notifee.openNotificationSettings();
+    await Linking.sendIntent('android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT', [
+      { key: 'android.provider.extra.APP_PACKAGE', value: 'ar.com.bolt.app' },
+    ]);
+    return true;
+  } catch {}
+  try {
+    await notifee.openNotificationSettings();   // respaldo para versiones viejas
     return true;
   } catch {
     return false;

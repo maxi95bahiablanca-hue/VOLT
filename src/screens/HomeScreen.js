@@ -8,6 +8,7 @@ import VoltMap from '../components/VoltMap';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import locationService from '../services/locationService';
+import { necesitaPermisoPantallaCompleta, abrirAjustesPantallaCompleta } from '../services/incomingCall';
 import * as Location from 'expo-location';
 import favoriteService from '../services/favoriteService';
 import ReputationCard from '../components/ReputationCard';
@@ -339,7 +340,7 @@ const EmergencyModal = ({ worker, onConfirm, onClose, loading }) => {
 
               <Text style={emStyles.priceNote}>
                 {chargesInApp()
-                  ? `Visita desde $${(worker.min_price || 30000).toLocaleString('es-AR')} · Precio mínimo para urgencias`
+                  ? `Visita desde $${(worker.min_price ?? 30000).toLocaleString('es-AR')} · Precio mínimo para urgencias`
                   : 'Profesional disponible más cercano · El precio lo acordás directo con él'}
               </Text>
             </>
@@ -524,7 +525,7 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose, isFavorite }) => {
           </View>
         ) : chargesInApp() ? (
           <View style={styles.cardStat}>
-            <Text style={styles.cardStatVal}>${(worker.min_price || 30000).toLocaleString('es-AR')}</Text>
+            <Text style={styles.cardStatVal}>${(worker.min_price ?? 30000).toLocaleString('es-AR')}</Text>
             <Text style={styles.cardStatLbl}>visita</Text>
           </View>
         ) : null}
@@ -547,7 +548,7 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose, isFavorite }) => {
       <TouchableOpacity style={styles.requestBtn} onPress={() => onContact(worker)} activeOpacity={0.85}>
         <Ionicons name="flash" size={20} color="#0A0A0A" />
         <Text style={styles.requestBtnText}>
-          {chargesInApp() ? `Solicitar — $${(worker.min_price || 30000).toLocaleString('es-AR')} visita` : 'Solicitar'}
+          {chargesInApp() ? `Solicitar — $${(worker.min_price ?? 30000).toLocaleString('es-AR')} visita` : 'Solicitar'}
         </Text>
       </TouchableOpacity>
     </Animated.View>
@@ -1044,6 +1045,23 @@ const HomeScreen = ({
     }
 
     setAvailable(next);
+    // Al prender el radar es CUANDO importa que la alarma suene con el telefono
+    // bloqueado. Antes solo se ofrecia al registrarse, asi que los que ya
+    // estaban registrados nunca lo vieron y no se enteraban de los trabajos
+    // (Android 14+ degrada la notificacion a banner comun). 31-jul-2026.
+    if (next) {
+      necesitaPermisoPantallaCompleta().then((hace_falta) => {
+        if (!hace_falta) return;
+        Alert.alert(
+          'Que te suene aunque tengas el celu bloqueado',
+          'Para que los trabajos te entren como una llamada —con sonido y pantalla completa— falta un permiso de Android. Es una vez sola.',
+          [
+            { text: 'Ahora no', style: 'cancel' },
+            { text: 'Activarlo', onPress: () => abrirAjustesPantallaCompleta() },
+          ]
+        );
+      }).catch(() => {});
+    }
     try {
       if (next) {
         // Guardar ubicación ANTES de aparecer como disponible

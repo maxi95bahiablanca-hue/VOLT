@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { chargesInApp } from '../config/monetization';
 import locationService from '../services/locationService';
 import professionalService from '../services/professionalService';
 
@@ -107,9 +108,14 @@ const ProfessionalsScreen = ({ profession, onBack }) => {
                   <Text style={styles.cardName}>
                     {worker.first_name} {worker.last_name}
                   </Text>
-                  <Text style={styles.cardPrice}>
-                    Desde ${formatPrice(worker.min_price)}
-                  </Text>
+                  {/* En modo gratis no hay visita ni precio de plataforma: mostrar
+                      "Desde $30.000" es inventarle un costo al cliente. Era la
+                      unica pantalla que no lo condicionaba (31-jul-2026). */}
+                  {chargesInApp() && Number(worker.min_price) > 0 && (
+                    <Text style={styles.cardPrice}>
+                      Desde ${formatPrice(worker.min_price)}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.cardDistanceBox}>
                   <Ionicons name="location-sharp" size={14} color="#6200ee" />

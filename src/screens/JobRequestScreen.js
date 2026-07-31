@@ -159,7 +159,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
   };
 
   const stars      = Math.round(parseFloat(worker?.avg_rating) || 0);
-  const visitPrice = worker?.min_price || 30000;
+  const visitPrice = worker?.min_price ?? 30000;
 
   const handleConfirm = async () => {
     if (notes.trim().length < 10) {
@@ -285,7 +285,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
           return notificationService.sendToUser(w.user_id, {
             title: '⚡ Nueva solicitud de trabajo',
             body:  chargesInApp()
-              ? `${profession?.name || 'Servicio'} — $${(w.min_price || 30000).toLocaleString('es-AR')} visita. Tenés 3 minutos para responder.`
+              ? `${profession?.name || 'Servicio'} — $${(w.min_price ?? 30000).toLocaleString('es-AR')} visita. Tenés 3 minutos para responder.`
               : `${profession?.name || 'Servicio'} cerca tuyo. Tenés 3 minutos para responder.`,
             data:  { jobId: job.id, screen: 'worker_incoming' },
           });
