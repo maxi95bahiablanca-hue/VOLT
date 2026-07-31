@@ -116,6 +116,11 @@
 
 <!-- DASHBOARD -->
 <div id="app"><div class="wrap">
+  <div id="trabadosBox" style="display:none">
+    <div class="section-ttl">🚨 Trabajos trabados <span style="color:var(--muted);font-weight:400;font-size:.82rem">(se quedaron quietos y nadie hizo nada)</span></div>
+    <div id="trabados"></div>
+  </div>
+
   <div class="stats" id="stats"></div>
 
   <div class="section-ttl">📊 Progreso por profesión <span style="color:var(--muted);font-weight:400;font-size:.82rem">(meta: 25 por oficio)</span></div>
@@ -221,6 +226,7 @@
     LEADS = data || [];
     await cargarProfesionales();   // para el chip de "puede recibir trabajos"
     if (!CATALOGO.length) await cargarCatalogo();
+    cargarTrabados();
     // llenar filtro de profesiones (un oficio por opción, no la cadena completa)
     const profs = [...new Set(LEADS.flatMap(oficiosDe))].sort();
     const sel = document.getElementById('fProf');
@@ -625,6 +631,65 @@ Cualquier duda escribime por acá. ¡Gracias!`;
     } catch (e) {
       return 'No se pudo activar en la app: ' + e.message;
     }
+  }
+
+  // ── VIGILANTE ────────────────────────────────────────────────────────────
+  //  Regla de Maxi: ninguna accion puede quedar trabada esperando que alguien
+  //  se acuerde de apretar un boton. La funcion trabajos_trabados() (migracion
+  //  040) devuelve los que se quedaron; aca se ven y se resuelven.
+  const MOTIVOS = {
+    sin_respuesta:         { txt: 'Nadie lo acepto',            pregunta: null },
+    no_fue:                { txt: 'Acepto y no fue',            pregunta: '¿Fuiste al domicilio? Si no vas a poder, avisanos asi le conseguimos otro profesional al cliente.' },
+    no_empezo:             { txt: 'Llego y no empezo',          pregunta: '¿Arrancaste el trabajo? Tocá "Iniciar" en la app asi el cliente ve que estas trabajando.' },
+    jornada_abierta:       { txt: 'Jornada sin cerrar',         pregunta: '¿Terminaste por hoy? Cerrá la jornada en la app para que queden bien tus horas.' },
+    mensaje_sin_respuesta: { txt: 'Mensaje sin contestar',      pregunta: 'El cliente te escribio y esta esperando respuesta.' },
+  };
+
+  async function cargarTrabados(){
+    try {
+      const { data, error } = await sb.rpc('trabajos_trabados');
+      if (error) throw error;
+      const lista = data || [];
+      document.getElementById('trabadosBox').style.display = lista.length ? 'block' : 'none';
+      document.getElementById('trabados').innerHTML = lista.map(t => {
+        const m = MOTIVOS[t.motivo] || { txt: t.motivo, pregunta: null };
+        const desde = t.desde ? new Date(t.desde).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+        return `<div class="lead">
+          <div class="lead-main">
+            <div class="lead-name">${esc(m.txt)}</div>
+            <div class="lead-meta">${esc(t.detalle)} · desde el <b>${esc(desde)}</b><br>
+              <span style="color:var(--muted2);font-size:.75rem">${esc(t.job_id)}</span></div>
+          </div>
+          <div class="lead-actions">
+            ${m.pregunta && t.worker_user ? `<button class="wa" onclick="preguntarAlTrabajador('${t.job_id}','${t.worker_user}','${t.motivo}')">📲 Preguntarle</button>` : ''}
+            <button class="estado-sel" style="cursor:pointer" onclick="cerrarTrabado('${t.job_id}')">Cerrar este trabajo</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('trabadosBox').style.display = 'none';
+      console.warn('vigilante:', e.message);
+    }
+  }
+
+  /** Le pregunta al trabajador. Si no contesta, el trabajo sigue apareciendo
+   *  aca: no se pierde de vista hasta que alguien lo resuelve. */
+  async function preguntarAlTrabajador(jobId, userId, motivo){
+    const m = MOTIVOS[motivo] || {};
+    try {
+      await sb.functions.invoke('send-push', {
+        body: { userId, title: '⚡ BOLT te pregunta', body: m.pregunta, data: { jobId, screen: 'tracking' } },
+      });
+      alert('Listo, le preguntamos. Si no contesta, el trabajo sigue apareciendo en esta lista.');
+    } catch (e) { alert('No se pudo avisar: ' + e.message); }
+  }
+
+  async function cerrarTrabado(jobId){
+    if (!confirm('¿Dar por terminado este trabajo? Deja de figurar como activo.')) return;
+    const { error } = await sb.from('jobs')
+      .update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId);
+    if (error){ alert('No se pudo: ' + error.message); return; }
+    cargarTrabados();
   }
 
   // Estado real de cada prestador en la app, para no aprobar a ciegas.
