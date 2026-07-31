@@ -725,6 +725,9 @@ let MAPA = null, MARCA_YO = null, MARCA_PRO = null;
 
 async function mostrarListo(job){
   S.job = job;
+  // Si recarga, cierra la pestaña o vuelve más tarde, tiene que caer de nuevo
+  // en SU pedido y no en un formulario vacío.
+  try { localStorage.setItem('bolt_job', job.id); } catch (e) {}
   S.profesional = (job && job.professionals) || {};
   const nom = [S.profesional.first_name, S.profesional.last_name].filter(Boolean).join(' ') || 'El profesional';
   const ini = (S.profesional.first_name || 'P')[0].toUpperCase();
@@ -899,10 +902,36 @@ function sinNadie(){
   $('btnRescate').href = `https://wa.me/${WA_SOPORTE}?text=${encodeURIComponent(txt)}`;
 }
 
-// Si se va de la página con un pedido abierto, avisarle (no hay push que lo rescate).
+// Si se va de la página mientras BUSCA, avisarle: ahí sí se pierde (no hay push).
+// Una vez elegido el profesional ya no hace falta, porque el pedido se retoma solo.
 window.addEventListener('beforeunload', (e) => {
   if (S.quoteGroupId && actual === 4){ e.preventDefault(); e.returnValue = ''; }
 });
+
+// ── Volver a un pedido en curso ─────────────────────────────────────────
+//  El cliente cierra la pestaña, atiende al profesional, vuelve más tarde a
+//  ver el estado o a escribirle. Sin esto se encontraría con el formulario
+//  vacío y creería que su pedido se perdió.
+(async () => {
+  let jobId = null;
+  try { jobId = localStorage.getItem('bolt_job'); } catch (e) {}
+  if (!jobId) return;
+  const u = await usuarioActual();
+  if (!u) return;
+  const { data } = await sb.from('jobs')
+    .select('id,status,address,notes,client_lat,client_lng,professions(name),professionals(id,first_name,last_name,phone,avg_rating,completed_jobs,avatar_url)')
+    .eq('id', jobId).eq('client_id', u.id).single();
+  if (!data || ['completed','cancelled'].includes(data.status)){
+    try { localStorage.removeItem('bolt_job'); } catch (e) {}
+    return;
+  }
+  S.userId = u.id;
+  S.lat = data.client_lat; S.lng = data.client_lng;
+  S.direccion = data.address || '';
+  S.oficio = data.professions?.name || '';
+  S.nombre = (u.user_metadata || {}).nombre || '';
+  mostrarListo(data);
+})();
 </script>
 </body>
 </html>
