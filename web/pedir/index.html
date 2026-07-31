@@ -157,8 +157,32 @@
   </div>
 
   <main>
+    <!-- 0. ENTRAR ─────────────────────────────────────────────────────
+         Va PRIMERO por dos motivos: el asistente (analyze-problem) exige
+         usuario autenticado —sin sesión devuelve "No autorizado" y el
+         cliente se queda sin las preguntas—, y pedir la cuenta después de
+         que hizo todo el trabajo es la peor forma de frenarlo. -->
+    <section class="pantalla on" id="p-login">
+      <h1>Entrá y <em>pedí</em> en un minuto</h1>
+      <p class="sub">Necesitamos tu cuenta para tomar el pedido y que puedas seguirlo. Es una vez sola.</p>
+      <button class="btn" style="margin:0" onclick="entrarConGoogle()">
+        <span style="display:inline-flex;align-items:center;gap:9px;justify-content:center">
+          <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#4285F4" d="M45 24c0-1.6-.1-2.7-.4-3.9H24v7.1h12c-.2 1.9-1.5 4.7-4.4 6.6l6.7 5.2C42.2 35.3 45 30.1 45 24z"/><path fill="#34A853" d="M24 46c5.9 0 10.8-1.9 14.4-5.3l-6.7-5.2c-1.8 1.3-4.3 2.2-7.7 2.2-5.9 0-10.9-3.9-12.7-9.2l-7 5.4C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.3 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.7-4.5l-7-5.4C1.9 17.1 1 20.4 1 24s.9 6.9 2.3 9.9l8-5.4z"/><path fill="#EA4335" d="M24 9.5c4.2 0 7 1.8 8.6 3.3l6.3-6.1C35 3.3 30 1 24 1 15.4 1 7.9 5.9 4.3 13.1l7 5.4C13.1 13.4 18.1 9.5 24 9.5z"/></svg>
+          Continuar con Google
+        </span>
+      </button>
+      <div class="sep">o con tu correo</div>
+      <input class="campo" id="txtMail" inputmode="email" autocomplete="email" placeholder="tu@correo.com">
+      <input class="campo" id="txtPass" type="password" autocomplete="current-password" placeholder="Elegí una contraseña (6 o más)" style="margin-top:9px">
+      <button class="btn sec" id="btnMail" style="margin-top:10px" onclick="entrarConMail()">Entrar</button>
+      <div class="err" id="errLogin"></div>
+      <div class="aviso" style="margin-top:16px">
+        <b>¿Primera vez?</b> Escribí tu correo y elegí una contraseña: con ese mismo botón te creamos la cuenta al instante. No mandamos mails de confirmación ni publicidad.
+      </div>
+    </section>
+
     <!-- 1. QUÉ NECESITÁS ─────────────────────────────────────────────── -->
-    <section class="pantalla on" id="p-inicio">
+    <section class="pantalla" id="p-inicio">
       <h1>¿Qué necesitás <em>resolver</em>?</h1>
       <p class="sub">Contanos el problema como se lo contarías a un amigo. En minutos te contactan profesionales de tu zona.</p>
       <textarea class="campo" id="txtProblema" rows="4" placeholder="Ej: se me tapó el baño y el agua no baja"></textarea>
@@ -207,26 +231,7 @@
 
     <!-- 4. CUENTA + CONTACTO ──────────────────────────────────────────── -->
     <section class="pantalla" id="p-datos">
-      <!-- 4a. Entrar (si todavía no hay sesión) -->
-      <div id="cajaLogin">
-        <h1>Entrá para <em>confirmar</em> tu pedido</h1>
-        <p class="sub">Con tu cuenta seguís el pedido, guardás tu historial y el profesional sabe con quién habla.</p>
-        <button class="btn" style="margin:0" onclick="entrarConGoogle()">
-          <span style="display:inline-flex;align-items:center;gap:9px;justify-content:center">
-            <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#4285F4" d="M45 24c0-1.6-.1-2.7-.4-3.9H24v7.1h12c-.2 1.9-1.5 4.7-4.4 6.6l6.7 5.2C42.2 35.3 45 30.1 45 24z"/><path fill="#34A853" d="M24 46c5.9 0 10.8-1.9 14.4-5.3l-6.7-5.2c-1.8 1.3-4.3 2.2-7.7 2.2-5.9 0-10.9-3.9-12.7-9.2l-7 5.4C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.3 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.7-4.5l-7-5.4C1.9 17.1 1 20.4 1 24s.9 6.9 2.3 9.9l8-5.4z"/><path fill="#EA4335" d="M24 9.5c4.2 0 7 1.8 8.6 3.3l6.3-6.1C35 3.3 30 1 24 1 15.4 1 7.9 5.9 4.3 13.1l7 5.4C13.1 13.4 18.1 9.5 24 9.5z"/></svg>
-            Continuar con Google
-          </span>
-        </button>
-        <div class="sep">o con tu correo</div>
-        <input class="campo" id="txtMail" inputmode="email" autocomplete="email" placeholder="tu@correo.com">
-        <input class="campo" id="txtPass" type="password" autocomplete="current-password" placeholder="Contraseña" style="margin-top:9px">
-        <button class="btn sec" id="btnMail" style="margin-top:10px" onclick="entrarConMail()">Entrar o crear mi cuenta</button>
-        <div class="err" id="errLogin"></div>
-        <p class="sub" style="font-size:.78rem;margin-top:14px">Si es tu primera vez, con esos datos te creamos la cuenta al toque. No mandamos mails de confirmación ni publicidad.</p>
-      </div>
-
-      <!-- 4b. Confirmar el pedido (con sesión) -->
-      <div id="cajaDatos" style="display:none;flex-direction:column;flex:1">
+      <div id="cajaDatos" style="display:flex;flex-direction:column;flex:1">
         <h1>¿Cómo te <em>contactamos</em>?</h1>
         <p class="sub" id="subCuenta"></p>
         <label class="lbl">Tu nombre</label>
@@ -349,16 +354,15 @@ const S = {
 };
 
 // ── Navegación ──────────────────────────────────────────────────────────
-const PANTALLAS = ['p-inicio','p-chat','p-ubic','p-datos','p-buscando','p-seguir'];
-const TITULOS   = ['', 'CONTANOS MÁS', 'DÓNDE', 'CONTACTO', 'BUSCANDO', ''];
+const PANTALLAS = ['p-login','p-inicio','p-chat','p-ubic','p-datos','p-buscando','p-seguir'];
+const TITULOS   = ['', '', 'CONTANOS MÁS', 'DÓNDE', 'CONTACTO', 'BUSCANDO', ''];
 let actual = 0;
 function ir(i){
   actual = i;
   PANTALLAS.forEach((p, k) => $(p).classList.toggle('on', k === i));
   $('paso').textContent = TITULOS[i];
-  $('btnBack').style.display = (i > 0 && i < 4) ? 'block' : 'none';
+  $('btnBack').style.display = (i > 1 && i < 5) ? 'block' : 'none';
   window.scrollTo(0, 0);
-  if (i === 3) pintarSesion();   // login o formulario, según tenga cuenta abierta
 }
 function atras(){ if (actual > 0) ir(actual - 1); }
 
@@ -397,7 +401,7 @@ let PREGUNTAS = [], IDX = 0, RESPUESTAS = {}, FOTOS = [];
 function arrancar(){
   const txt = $('txtProblema').value.trim();
   if (!txt && !S.profesionId){ $('txtProblema').focus(); return; }
-  ir(1);
+  ir(2);
   $('cajaPensando').style.display = 'block';
   $('cajaPreg').style.display = 'none';
   analizar(txt || `Necesito un ${S.oficio}`);
@@ -423,9 +427,17 @@ async function analizar(mensaje){
     $('cajaPreg').style.display = 'flex';
     pintarPregunta();
   } catch (e) {
-    // Si la IA no contesta, NO se corta el pedido: se sigue con lo que dijo
-    // el cliente y el profesional lo lee en las notas.
-    terminarPreguntas();
+    // Si la IA no contesta, el pedido NO se corta: se sigue con lo que dijo el
+    // cliente y el profesional lo lee en las notas. Pero se avisa, porque
+    // saltar en silencio a la dirección parece que la web se comió el paso
+    // (31-jul-2026: pasó con "PINTAR PIEZA" y no se entendía por qué).
+    $('cajaPensando').style.display = 'none';
+    $('cajaPreg').style.display = 'flex';
+    $('entendi').style.display = 'none';
+    $('prog').innerHTML = ''; $('progTxt').textContent = '';
+    $('preguntaTxt').textContent = 'No pudimos armar las preguntas en este momento.';
+    $('opciones').innerHTML = '<button class="opcion" onclick="terminarPreguntas()">Seguir igual con lo que escribí →</button>';
+    $('errChat').textContent = 'El profesional va a ver igual lo que contaste.';
   }
 }
 
@@ -476,7 +488,7 @@ function terminarPreguntas(){
     .map(p => { const r = RESPUESTAS[p.id]; return r ? `• ${p.pregunta} ${r.valor}` : null; })
     .filter(Boolean);
   S.resumen = [S.resumen || S.oficio || 'Solicitud', ...lineas].join('\n');
-  ir(2);
+  ir(3);
 }
 
 // ── Fotos del problema ──────────────────────────────────────────────────
@@ -525,7 +537,7 @@ function usarGPS(){
       if (calle) $('txtDir').value = calle + (a.city || a.town ? ', ' + (a.city || a.town) : '');
     } catch (e) {}
     S.direccion = $('txtDir').value;
-    ir(3); pintarResumen();
+    ir(4); pintarResumen();
   }, () => {
     $('errUbic').textContent = 'No pudimos tomar tu ubicación. Escribí la dirección abajo.';
   }, { enableHighAccuracy: true, timeout: 8000 });
@@ -534,7 +546,7 @@ function usarGPS(){
 async function confirmarUbic(){
   const dir = $('txtDir').value.trim();
   $('errUbic').textContent = '';
-  if (S.lat && S.lng){ S.direccion = dir || S.direccion; ir(3); pintarResumen(); return; }
+  if (S.lat && S.lng){ S.direccion = dir || S.direccion; ir(4); pintarResumen(); return; }
   if (dir.length < 5){ $('errUbic').textContent = 'Escribí la calle y la altura.'; return; }
   // Geocodificado acotado a Bahía Blanca, como en el otro proyecto: una
   // dirección sin altura cae en cualquier lado si no se limita.
@@ -544,7 +556,7 @@ async function confirmarUbic(){
     const j = await r.json();
     if (!j.length){ $('errUbic').textContent = 'No encontramos esa dirección. Probá con calle y número.'; return; }
     S.lat = Number(j[0].lat); S.lng = Number(j[0].lon); S.direccion = dir;
-    ir(3); pintarResumen();
+    ir(4); pintarResumen();
   } catch (e) {
     $('errUbic').textContent = 'No pudimos ubicar la dirección. Probá de nuevo.';
   }
@@ -578,16 +590,20 @@ async function usuarioActual(){
 /** Muestra el login o el formulario del pedido, según haya sesión. */
 async function pintarSesion(){
   const u = await usuarioActual();
-  $('cajaLogin').style.display = u ? 'none' : 'block';
-  $('cajaDatos').style.display = u ? 'flex' : 'none';
   if (!u) return null;
+  S.userId = u.id;
   const meta = u.user_metadata || {};
   $('subCuenta').textContent = 'Entraste como ' + (u.email || 'tu cuenta') + '. Estos datos los ve sólo el profesional que elijas.';
   if (!$('txtNombre').value) $('txtNombre').value = S.nombre || meta.nombre || meta.full_name || meta.name || '';
   if (!$('txtTel').value)    $('txtTel').value    = S.tel || meta.telefono || '';
-  pintarResumen();
   return u;
 }
+
+/** Arranque: con sesión abierta se saltea el login y va derecho al pedido. */
+(async () => {
+  const u = await pintarSesion();
+  if (u) ir(1);
+})();
 
 /** Entrar o registrarse con correo. Un solo botón: si la cuenta no existe, se
  *  crea. Pedirle a alguien que elija entre "entrar" y "registrarse" antes de
@@ -613,6 +629,7 @@ async function entrarConMail(){
       }
     }
     await pintarSesion();
+    ir(1);                       // ya adentro: a contar el problema
   } catch (e) {
     $('errLogin').textContent = (e.message || '').includes('Invalid login')
       ? 'Esa contraseña no coincide con la cuenta.'
@@ -625,7 +642,8 @@ async function entrarConMail(){
 async function salir(){
   await sb.auth.signOut();
   $('txtNombre').value = ''; $('txtTel').value = '';
-  await pintarSesion();
+  S.userId = null;
+  ir(0);
 }
 
 const GUARDADO = 'bolt_pedido';
@@ -655,7 +673,7 @@ async function entrarConGoogle(){
   $('txtTel').value = S.tel || '';
   $('txtDir').value = S.direccion || '';
   pintarResumen();
-  ir(3);
+  ir(4);
   if (S.profesionId && S.lat && S.nombre && S.tel) pedir();   // retoma solo
 })();
 
@@ -671,7 +689,7 @@ async function pedir(){
   btn.disabled = true; btn.textContent = 'Buscando…';
   try {
     const user = await usuarioActual();
-    if (!user){ btn.disabled = false; btn.textContent = 'Buscar profesionales'; await pintarSesion(); return; }
+    if (!user){ btn.disabled = false; btn.textContent = 'Buscar profesionales'; ir(0); return; }
     S.userId = user.id;
     // El nombre y el WhatsApp quedan en la cuenta: la próxima vez ya vienen puestos.
     sb.auth.updateUser({ data: { nombre: S.nombre, telefono: S.tel } }).catch(() => {});
@@ -682,7 +700,7 @@ async function pedir(){
     });
     if (eW) throw eW;
 
-    ir(4);
+    ir(5);
     arrancarReloj();
     $('cuantos').textContent = (workers || []).length;
 
@@ -730,7 +748,7 @@ async function pedir(){
     escucharRespuestas();
   } catch (e) {
     btn.disabled = false; btn.textContent = 'Buscar profesionales';
-    ir(3);
+    ir(4);
     $('errDatos').textContent = 'No pudimos crear el pedido: ' + (e.message || 'error');
   }
 }
@@ -846,7 +864,7 @@ async function mostrarListo(job){
   $('btnSoporte').href = `https://wa.me/${WA_SOPORTE}?text=` +
     encodeURIComponent(`Hola, necesito ayuda con mi pedido de BOLT (${S.oficio || ''} en ${S.direccion || ''}).`);
 
-  ir(5);
+  ir(6);
   pintarPasos(job.status || 'accepted');
   armarMapa();
   seguirProfesional();
@@ -1012,7 +1030,7 @@ function sinNadie(){
 // Si se va de la página mientras BUSCA, avisarle: ahí sí se pierde (no hay push).
 // Una vez elegido el profesional ya no hace falta, porque el pedido se retoma solo.
 window.addEventListener('beforeunload', (e) => {
-  if (S.quoteGroupId && actual === 4){ e.preventDefault(); e.returnValue = ''; }
+  if (S.quoteGroupId && actual === 5){ e.preventDefault(); e.returnValue = ''; }
 });
 
 // ── Volver a un pedido en curso ─────────────────────────────────────────
