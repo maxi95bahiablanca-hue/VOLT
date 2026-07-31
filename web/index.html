@@ -132,6 +132,13 @@
 </head>
 <body>
 
+<!-- Barra de "tenés un pedido en curso". Sin esto, el cliente que cierra la
+     pestaña y vuelve a bolt.com.ar no tiene NINGUN camino de vuelta a su
+     trabajo: la landing lo trata como si nunca hubiera pedido (Maxi, 31-jul). -->
+<a href="/pedir/" id="barraPedido" style="display:none;background:linear-gradient(120deg,#FFD600,#FFB800);color:#0A0A0A;padding:12px 22px;font-weight:900;text-align:center;font-size:.92rem">
+  ⚡ Tenés un pedido en curso · <span style="text-decoration:underline">Ver cómo va</span>
+</a>
+
 <nav><div class="nav-in">
   <div class="logo">BO<span>LT</span> ⚡</div>
   <div class="nav-links">
@@ -264,5 +271,23 @@
   </div>
 </div></div></footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Solo mira si hay un trabajo activo del usuario. Si no hay sesion, no
+  // muestra nada y la pagina queda igual que siempre.
+  (async () => {
+    try {
+      const sb = supabase.createClient('https://lyeqnvldemcltlbujlnc.supabase.co',
+                                       'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0');
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session?.user) return;
+      const { data } = await sb.from('jobs').select('id')
+        .eq('client_id', session.user.id)
+        .in('status', ['accepted','arrived','in_progress'])
+        .is('quote_group_id', null).limit(1);
+      if (data && data.length) document.getElementById('barraPedido').style.display = 'block';
+    } catch (e) {}
+  })();
+</script>
 </body>
 </html>
