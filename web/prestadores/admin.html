@@ -138,7 +138,13 @@
          padding:11px 0;border-top:1px solid var(--line);margin-top:2px}
   .datos dt{color:var(--mut2);font-weight:500}
   .datos dd{color:var(--tx);overflow:hidden;text-overflow:ellipsis}
-  .datos dd.falta{color:var(--y-deep);font-style:italic}
+  /* Iba sólo en `dd.falta`, así que los avisos escritos como <span class="falta">
+     —"nunca lo prendió", "todavía no entró"— se veían igual que un dato normal
+     y no se distinguían de un valor cargado. */
+  .datos dd.falta, .datos .falta{color:var(--y-deep);font-style:italic}
+  /* El dato apareció, pero de otra carpeta: se avisa de dónde salió sin
+     ensuciar la lectura. */
+  .datos .orig{color:var(--mut2);font-size:.88em}
   .datos a{color:var(--y-soft);text-decoration:none;border-bottom:1px solid #55491f}
 
   .mapa-mini{height:110px;border-radius:11px;overflow:hidden;border:1px solid var(--line);
@@ -456,8 +462,25 @@ async function cargarProfesionales(){
     TOKENS = {};
     for (const t of tk || []) TOKENS[t.user_id] = t;
   } catch { TOKENS = {}; }
+
+  // La ficha unificada: cada dato ya resuelto desde donde esté (la ficha, el
+  // registro o la cuenta con la que entra). Sin esto el panel mostraba
+  // "Mail: no figura" a gente que tiene mail — lo tenía en auth.users, que el
+  // panel no puede leer, y lo buscaba sólo en el registro (Maxi, 1-ago:
+  // "los datos los pone una sola vez el usuario y con eso basta").
+  try {
+    const { data: fi } = await sb.rpc('ficha_prestadores');
+    FICHA = {};
+    for (const f of fi || []) if (f.user_id) FICHA[f.user_id] = f;
+  } catch { FICHA = {}; }
 }
 let TOKENS = {};
+let FICHA  = {};
+
+/** Los datos de una persona, ya resueltos. Nunca devuelve undefined. */
+function datosDe(x){
+  return FICHA[x?.prof?.user_id || x?.lead?.user_id] || {};
+}
 
 // 🔴 La lista NO puede salir sólo de los leads: los dos únicos profesionales
 // que hoy pueden trabajar —Maxi (Pintor + Durlock) y Leonardo (Fletes)— NO
@@ -535,11 +558,22 @@ async function cargarTrabados(){
 function pintarAlertas(){
   const aprobados = PROFS.filter(p => p.verification_status === 'approved');
   const sinOficio = aprobados.filter(p => !(p.professional_professions || []).length);
-  const sinRadar  = aprobados.filter(p => (p.professional_professions || []).length && !p.available);
+  // Prendido no alcanza: sin ubicación guardada no aparece en ninguna búsqueda.
+  const sinRadar  = aprobados.filter(p => (p.professional_professions || []).length && !enElMapa(p));
   const sinAvisos = aprobados.filter(p => !TOKENS[p.user_id]);
+  // Sin teléfono no hay forma de escribirle nada de lo de arriba. Es el dato
+  // que hay que conseguir primero, porque bloquea a todos los demás.
+  const sinTel    = aprobados.filter(p => !telefonoDe(p));
   const nombre = (p) => `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'sin nombre';
 
   const bloques = [];
+  if (sinTel.length) bloques.push({
+    tono: 'grave', motivo: 'telefono',
+    titulo: `${sinTel.length} sin teléfono en ningún lado`,
+    texto: 'No está ni en su ficha, ni en su registro, ni en su cuenta: nadie se lo pidió nunca. Sin teléfono no se le puede avisar de nada.',
+    gente: sinTel,
+    quehacer: 'Escribile por mail desde su tarjeta y pedile el WhatsApp.',
+  });
   if (sinOficio.length) bloques.push({
     tono: 'grave', motivo: 'oficio',
     titulo: `${sinOficio.length} aprobado${sinOficio.length > 1 ? 's' : ''} SIN OFICIO`,
@@ -572,10 +606,15 @@ function pintarAlertas(){
         ${b.gente.map(p => {
           const tel = telefonoDe(p);
           const nom = `${p.first_name || ''} ${p.last_name || ''}`.trim();
-          return tel
-            ? `<button class="b wa" style="font-size:.74rem;padding:5px 10px"
-                 onclick="avisar('${esc(tel)}','${esc(p.first_name || nom)}','${b.motivo}')">💬 ${esc(nom)}</button>`
-            : `<span class="chip gris">${esc(nom)} — sin teléfono</span>`;
+          if (tel) return `<button class="b wa" style="font-size:.74rem;padding:5px 10px"
+                 onclick="avisar('${esc(tel)}','${esc(p.first_name || nom)}','${b.motivo}')">💬 ${esc(nom)}</button>`;
+          // Sin teléfono queda el mail, que es justamente por donde hay que
+          // pedirle el teléfono. Dejarlo en un cartel gris era un callejón.
+          const mail = FICHA[p.user_id]?.email;
+          return mail
+            ? `<a class="b mail" style="font-size:.74rem;padding:5px 10px;text-decoration:none"
+                 href="mailto:${esc(mail)}?subject=${encodeURIComponent('Tu WhatsApp para BOLT')}&body=${encodeURIComponent(`Hola ${p.first_name || nom}! Soy Maxi de BOLT. Nos falta tu WhatsApp para poder avisarte cuando entre un trabajo. Me lo pasás respondiendo este mail?`)}">✉️ ${esc(nom)}</a>`
+            : `<span class="chip gris">${esc(nom)} — sin teléfono ni mail</span>`;
         }).join('')}
       </div>
       <div class="alerta-txt" style="margin-top:8px;opacity:.8">→ ${esc(b.quehacer)}</div>
@@ -585,7 +624,7 @@ function pintarAlertas(){
 function pintarKpis(){
   const total = personas().length;           // profesionales reales + leads sueltos
   const aprobados = PROFS.filter(p => p.verification_status === 'approved').length;
-  const disponibles = PROFS.filter(p => p.available).length;
+  const disponibles = PROFS.filter(p => enElMapa(p)).length;   // los que un cliente encuentra
   const pendientes = LEADS.filter(l => (l.estado || 'pendiente') === 'pendiente').length;
   const enApp = PROFS.length;                // los que llegaron a instalar la app
   const enCurso = TRABAJOS.filter(j => ['pending','accepted','arrived','in_progress'].includes(j.status)).length;
@@ -664,8 +703,12 @@ function render(){
     if (ciu && l?.ciudad !== ciu) return false;
     if (prof && !oficiosDePersona(x).includes(prof)) return false;
     if (q){
+      // Se busca también sobre la ficha unificada: si no, a Maxi o a Leonardo
+      // no se los encontraba por su mail, porque el suyo vive en la cuenta.
+      const f = datosDe(x);
       const blob = [l?.nombre, l?.apellido, l?.email, l?.telefono, l?.ciudad,
-                    p?.first_name, p?.last_name, p?.phone, ...oficiosDePersona(x)]
+                    p?.first_name, p?.last_name, p?.phone,
+                    f.email, f.telefono, ...oficiosDePersona(x)]
                    .filter(Boolean).join(' ').toLowerCase();
       if (!blob.includes(q)) return false;
     }
@@ -694,8 +737,12 @@ function tarjetaPrestador(x){
   const ofs = oficiosDePersona(x);
   const faltan = l ? FALTANTES.filter(([k]) => !l[k]).map(([, t]) => t) : [];
   const puede = p && p.verification_status === 'approved' && (p.professional_professions || []).length > 0;
-  const tel = (l?.telefono || p?.phone || '').replace(/\D/g, '');
-  const telMostrar = l?.telefono || p?.phone || '';
+  // Contacto: de la ficha unificada primero; si esa persona no tiene cuenta
+  // todavía (un registro suelto), de lo que dejó al anotarse.
+  const f = datosDe(x);
+  const mail = f.email || l?.email || '';
+  const telMostrar = f.telefono || l?.telefono || p?.phone || '';
+  const tel = String(telMostrar).replace(/\D/g, '');
   const id = idDe(x);
   return `
   <div class="card ${enElMapa(p) ? 'activo' : ''}">
@@ -716,8 +763,12 @@ function tarjetaPrestador(x){
     </div>
 
     <dl class="datos">
-      <dt>Mail</dt><dd>${l?.email ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : '<span class="falta">no figura</span>'}</dd>
-      <dt>WhatsApp</dt><dd>${telMostrar ? esc(telMostrar) : '<span class="falta">no figura</span>'}</dd>
+      <dt>Mail</dt><dd>${mail
+        ? `<a href="mailto:${esc(mail)}">${esc(mail)}</a>${f.email_origen === 'cuenta' ? ' <span class="orig">· de su cuenta</span>' : ''}`
+        : '<span class="falta">nadie lo cargó nunca — hay que pedírselo</span>'}</dd>
+      <dt>WhatsApp</dt><dd>${telMostrar
+        ? esc(telMostrar) + (f.telefono_origen === 'registro' ? ' <span class="orig">· del registro</span>' : '')
+        : '<span class="falta">nadie lo cargó nunca — hay que pedírselo</span>'}</dd>
       <dt>Avisos</dt><dd>${(() => {
         // ⚠️ El token de push NO prueba que tenga la app: prueba que aceptó las
         // NOTIFICACIONES. José la tiene instalada, la usa y es tester, y no
@@ -939,6 +990,9 @@ async function pintarMetricas(){
 // ── Acciones ─────────────────────────────────────────────────────────────
 /** El teléfono de un profesional: el de su ficha o el que dejó al anotarse. */
 function telefonoDe(p){
+  // Primero la ficha unificada, que ya lo resolvió mirando las tres tablas.
+  const f = FICHA[p?.user_id];
+  if (f?.telefono) return f.telefono;
   if (p?.phone) return p.phone;
   const l = LEADS.find(x => {
     const t = (x.telefono || '').replace(/\D/g, '').slice(-8);
