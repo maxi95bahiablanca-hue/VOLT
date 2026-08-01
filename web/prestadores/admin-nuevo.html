@@ -240,6 +240,7 @@
         <button class="tab" data-t="clientes"  onclick="irA('clientes')">Clientes</button>
         <button class="tab" data-t="trabajos"  onclick="irA('trabajos')">Trabajos</button>
         <button class="tab" data-t="mapa"      onclick="irA('mapa')">Mapa</button>
+        <button class="tab" data-t="fotos"     onclick="irA('fotos')">Fotos</button>
         <button class="tab" data-t="metricas"  onclick="irA('metricas')">Métricas</button>
       </nav>
       <button class="salir" onclick="logout()">Salir</button>
@@ -285,6 +286,13 @@
       <p style="color:var(--mut2);font-size:.8rem;margin-top:10px">
         La ubicación se guarda cuando el profesional prende el radar. Los que nunca lo prendieron no aparecen.
       </p>
+    </section>
+
+    <section id="v-fotos" class="oculto">
+      <div class="seccion">Fotos esperando revisión</div>
+      <div class="grid" id="fotosPendientes"></div>
+      <div class="seccion">Ya publicadas</div>
+      <div class="grid" id="fotosAprobadas"></div>
     </section>
 
     <section id="v-metricas" class="oculto">
@@ -351,9 +359,50 @@ function entrar(){ $('loginBox').style.display = 'none'; $('app').style.display 
 // ── Navegación ───────────────────────────────────────────────────────────
 function irA(vista){
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === vista));
-  ['prestadores','clientes','trabajos','mapa','metricas'].forEach(v =>
+  ['prestadores','clientes','trabajos','mapa','fotos','metricas'].forEach(v =>
     $('v-' + v).classList.toggle('oculto', v !== vista));
-  if (vista === 'mapa') setTimeout(pintarMapaGrande, 60);
+  if (vista === 'mapa')  setTimeout(pintarMapaGrande, 60);
+  if (vista === 'fotos') cargarFotos();
+}
+
+// ── Fotos de trabajos: moderación ────────────────────────────────────────
+// Estas fotos las ve un cliente decidiendo a quién llamar, así que alguien las
+// mira antes. Nacen pendientes (migración 045) y acá se aprueban o se bajan.
+let FOTOS = [];
+async function cargarFotos(){
+  const { data, error } = await sb.from('professional_photos')
+    .select('id,url,descripcion,estado,created_at,professional_id')
+    .order('created_at', { ascending: false });
+  if (error) return aviso('No se pudieron cargar las fotos: ' + error.message, 'bad');
+  FOTOS = data || [];
+  const nombre = (pid) => {
+    const p = PROFS.find(x => x.id === pid);
+    return p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : 'Profesional';
+  };
+  const tarjeta = (f) => `
+    <div class="card">
+      <img src="${esc(f.url)}" alt="" style="width:100%;border-radius:11px;display:block;max-height:230px;object-fit:cover">
+      <div style="margin-top:11px">
+        <div class="cnom">${esc(nombre(f.professional_id))}</div>
+        <div class="csub">subida ${desde(f.created_at)}${f.descripcion ? ' · ' + esc(f.descripcion) : ''}</div>
+      </div>
+      <div class="acciones">
+        ${f.estado !== 'aprobada' ? `<button class="b pri" onclick="moderarFoto('${f.id}','aprobada')">Publicar</button>` : ''}
+        ${f.estado !== 'rechazada' ? `<button class="b del" onclick="moderarFoto('${f.id}','rechazada')">Bajar</button>` : ''}
+      </div>
+    </div>`;
+  const pend = FOTOS.filter(f => f.estado === 'pendiente');
+  const apro = FOTOS.filter(f => f.estado === 'aprobada');
+  $('fotosPendientes').innerHTML = pend.length ? pend.map(tarjeta).join('')
+    : '<div class="vacio">No hay fotos esperando. 👌</div>';
+  $('fotosAprobadas').innerHTML = apro.length ? apro.map(tarjeta).join('')
+    : '<div class="vacio">Todavía nadie publicó fotos de sus trabajos.</div>';
+}
+async function moderarFoto(id, estado){
+  const { error } = await sb.from('professional_photos').update({ estado }).eq('id', id);
+  if (error) return aviso('No se pudo: ' + error.message, 'bad');
+  aviso(estado === 'aprobada' ? 'Publicada ✅' : 'Bajada');
+  cargarFotos();
 }
 
 // ── Carga ────────────────────────────────────────────────────────────────

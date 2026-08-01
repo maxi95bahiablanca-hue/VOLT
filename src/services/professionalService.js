@@ -119,6 +119,59 @@ const professionalService = {
     if (error) throw error;
     return data?.[0] ?? null;
   },
+
+  // ─── El perfil que ve el cliente antes de elegir (migración 045) ──────────
+  // 🔴 Las fotos son OPCIONALES y no se pide que sean propias. Maxi: "no pongas
+  // que las fotos sean de ellos. yo no tengo fotos porque jamás le di bola a
+  // esas cosas.. y te digo que pinté 200 casas". Exigirlas dejaría afuera justo
+  // a los que más saben, así que la experiencia ESCRITA vale igual.
+
+  /** Fotos de un profesional. Para el cliente: sólo las aprobadas. */
+  fotosDe: async (professionalId) => {
+    if (!professionalId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('professional_photos')
+        .select('id,url,descripcion,estado,orden')
+        .eq('professional_id', professionalId)
+        .order('orden', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    } catch { return []; }   // sin fotos nunca puede romper una pantalla
+  },
+
+  /** Sube una foto de trabajo. Queda PENDIENTE hasta que la revisen. */
+  subirFoto: async (professionalId, uri, descripcion = null) => {
+    const FileSystem = await import('expo-file-system/legacy');
+    const ext = (uri.split('.').pop() || 'jpg').toLowerCase();
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const path = `trabajos/${professionalId}/${Date.now()}.${ext}`;
+    const { error: e1 } = await supabase.storage.from('avatars')
+      .upload(path, bytes, { upsert: true, contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}` });
+    if (e1) throw e1;
+    const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+    const { data, error } = await supabase.from('professional_photos')
+      .insert({ professional_id: professionalId, url: pub.publicUrl, descripcion })
+      .select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  borrarFoto: async (fotoId) => {
+    const { error } = await supabase.from('professional_photos').delete().eq('id', fotoId);
+    if (error) throw error;
+  },
+
+  /** Años de oficio y presentación: lo que muestra el que no tiene fotos. */
+  guardarExperiencia: async (professionalId, { aniosOficio, presentacion }) => {
+    const campos = {};
+    if (aniosOficio !== undefined)  campos.anios_oficio = aniosOficio === null ? null : parseInt(aniosOficio, 10) || null;
+    if (presentacion !== undefined) campos.presentacion = (presentacion || '').trim() || null;
+    if (!Object.keys(campos).length) return;
+    const { error } = await supabase.from('professionals').update(campos).eq('id', professionalId);
+    if (error) throw error;
+  },
 };
 
 export default professionalService;

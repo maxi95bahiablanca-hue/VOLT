@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView, Alert, Platform, Image, ActivityIndicator, Linking,
+  Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,6 +16,7 @@ import cardService from '../services/cardService';
 import MPCardForm from '../components/MPCardForm';
 import WorkerDashboardScreen from './WorkerDashboardScreen';
 import PaymentDataModal from '../components/PaymentDataModal';
+import professionalService from '../services/professionalService';
 import AdminScreen from './AdminScreen';
 import { chargesInApp } from '../config/monetization';
 
@@ -53,6 +55,65 @@ const ProfileScreen = ({ session, professional, onClose }) => {
     finally { setLoadingCards(false); }
   };
   useEffect(() => { if (!professional) loadCards(); }, []);
+
+  // ─── Mi trabajo: fotos y experiencia (migración 045) ──────────────────────
+  const [misFotos, setMisFotos]           = useState([]);
+  const [subiendoFoto, setSubiendoFoto]   = useState(false);
+  const [showExperiencia, setShowExperiencia] = useState(false);
+  const [anios, setAnios]                 = useState(String(professional?.anios_oficio || ''));
+  const [presentacion, setPresentacion]   = useState(professional?.presentacion || '');
+
+  useEffect(() => {
+    if (!professional?.id) return;
+    professionalService.fotosDe(professional.id).then(setMisFotos).catch(() => {});
+  }, [professional?.id]);
+
+  const agregarFotoTrabajo = async () => {
+    if (subiendoFoto) return;
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos.'); return; }
+      const r = await ImagePicker.launchImageLibraryAsync({ quality: 0.6, allowsMultipleSelection: true, selectionLimit: 6 });
+      if (r.canceled || !r.assets?.length) return;
+      setSubiendoFoto(true);
+      const nuevas = [];
+      for (const a of r.assets) {
+        try { nuevas.push(await professionalService.subirFoto(professional.id, a.uri)); }
+        catch (e) { console.log('foto no subida:', e?.message); }
+      }
+      if (nuevas.length) {
+        setMisFotos(prev => [...prev, ...nuevas]);
+        Alert.alert('Listo', nuevas.length === 1
+          ? 'La foto queda en revisión y en un rato la ven tus clientes.'
+          : `${nuevas.length} fotos en revisión. En un rato las ven tus clientes.`);
+      } else {
+        Alert.alert('Ups', 'No pudimos subir las fotos. Probá de nuevo.');
+      }
+    } catch { Alert.alert('Ups', 'No pudimos abrir tus fotos.'); }
+    finally { setSubiendoFoto(false); }
+  };
+
+  const borrarFotoTrabajo = (f) => {
+    Alert.alert('Borrar foto', '¿Sacarla de tu perfil?', [
+      { text: 'No', style: 'cancel' },
+      { text: 'Borrar', style: 'destructive', onPress: async () => {
+          try {
+            await professionalService.borrarFoto(f.id);
+            setMisFotos(prev => prev.filter(x => x.id !== f.id));
+          } catch { Alert.alert('Ups', 'No se pudo borrar.'); }
+        } },
+    ]);
+  };
+
+  const guardarExperiencia = async () => {
+    try {
+      await professionalService.guardarExperiencia(professional.id, {
+        aniosOficio: anios, presentacion,
+      });
+      setShowExperiencia(false);
+      Alert.alert('Guardado', 'Tus clientes ya lo van a ver.');
+    } catch (e) { Alert.alert('Ups', 'No se pudo guardar: ' + (e?.message || '')); }
+  };
 
   const handleCardToken = async ({ token }) => {
     setShowAddCard(false);
@@ -317,6 +378,112 @@ const ProfileScreen = ({ session, professional, onClose }) => {
         )}
 
         {/* Datos de la cuenta */}
+        {/* ─── Mi trabajo: lo que ve el cliente antes de elegir (045) ───────
+            🔴 Las fotos son OPCIONALES y no se pide que sean propias. Maxi:
+            "no pongas que las fotos sean de ellos. yo no tengo fotos porque
+            jamás le di bola a esas cosas.. y te digo que pinté 200 casas".
+            Por eso los años de oficio pesan igual que la galería: el que
+            trabajó toda la vida sin documentar nada también tiene qué mostrar. */}
+        {professional && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Mi trabajo</Text>
+            <Text style={styles.miTrabajoSub}>
+              Esto es lo que ve el cliente cuando decide a quién llamar.
+            </Text>
+
+            <TouchableOpacity style={styles.row} onPress={() => setShowExperiencia(true)} activeOpacity={0.7}>
+              <Ionicons name="ribbon-outline" size={18} color={professional.anios_oficio ? '#555' : '#FFD600'} />
+              <Text style={[styles.rowText, { flex: 1 }]}>
+                {professional.anios_oficio
+                  ? `${professional.anios_oficio} años en el oficio`
+                  : 'Contá tu experiencia'}
+              </Text>
+              <Text style={{ fontSize: 11, color: '#FFD600' }}>
+                {professional.anios_oficio ? 'Editar' : 'Agregar'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.rowDivider} />
+
+            <View style={{ paddingVertical: 12 }}>
+              <View style={styles.fotosHead}>
+                <Text style={styles.fotosTitulo}>Fotos de trabajos</Text>
+                <TouchableOpacity onPress={agregarFotoTrabajo} disabled={subiendoFoto} activeOpacity={0.8}>
+                  <Text style={styles.fotosAgregar}>{subiendoFoto ? 'Subiendo…' : '+ Agregar'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {misFotos.length === 0 ? (
+                <Text style={styles.fotosVacio}>
+                  Si tenés fotos de trabajos, sumalas: al cliente le sirven para decidir.
+                  Si no tenés, no pasa nada — con contar tu experiencia alcanza.
+                </Text>
+              ) : (
+                <View style={styles.misFotosRow}>
+                  {misFotos.map(f => (
+                    <TouchableOpacity key={f.id} style={styles.miFotoWrap}
+                      onLongPress={() => borrarFotoTrabajo(f)} activeOpacity={0.85}>
+                      <Image source={{ uri: f.url }} style={styles.miFoto} />
+                      {f.estado === 'pendiente' && (
+                        <View style={styles.miFotoEstado}>
+                          <Text style={styles.miFotoEstadoTxt}>en revisión</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {misFotos.length > 0 && (
+                <Text style={styles.fotosPie}>Mantené apretada una foto para borrarla.</Text>
+              )}
+            </View>
+
+            {/* Contar la experiencia: la alternativa a las fotos, no un extra */}
+            <Modal visible={showExperiencia} transparent animationType="slide"
+                   onRequestClose={() => setShowExperiencia(false)}>
+              <KeyboardAvoidingView style={styles.expOverlay}
+                                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                <View style={styles.expBox}>
+                  <Text style={styles.expTitulo}>Tu experiencia</Text>
+                  <Text style={styles.expSub}>
+                    Esto es lo que lee el cliente antes de elegirte. Vale tanto como las fotos.
+                  </Text>
+
+                  <Text style={styles.expLabel}>¿Hace cuántos años trabajás en esto?</Text>
+                  <TextInput
+                    style={styles.expInput}
+                    value={anios}
+                    onChangeText={(t) => setAnios(t.replace(/\D/g, '').slice(0, 2))}
+                    keyboardType="numeric"
+                    placeholder="20"
+                    placeholderTextColor="#444"
+                  />
+
+                  <Text style={styles.expLabel}>Contá en una línea qué hacés</Text>
+                  <TextInput
+                    style={[styles.expInput, { minHeight: 76, textAlignVertical: 'top' }]}
+                    value={presentacion}
+                    onChangeText={setPresentacion}
+                    multiline
+                    maxLength={240}
+                    placeholder="Ej: Pinto casas y departamentos. Trabajo prolijo, dejo todo limpio."
+                    placeholderTextColor="#444"
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                    <TouchableOpacity style={styles.expCancel} onPress={() => setShowExperiencia(false)}>
+                      <Text style={styles.expCancelTxt}>Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.expGuardar} onPress={guardarExperiencia}>
+                      <Text style={styles.expGuardarTxt}>Guardar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </KeyboardAvoidingView>
+            </Modal>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cuenta</Text>
 
@@ -509,6 +676,31 @@ const ProfileScreen = ({ session, professional, onClose }) => {
 };
 
 const styles = StyleSheet.create({
+  // ─── Mi trabajo: fotos y experiencia ──────────────────────────────────────
+  miTrabajoSub:   { fontSize: 12, color: '#666', marginTop: -6, marginBottom: 10, lineHeight: 17 },
+  fotosHead:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  fotosTitulo:    { fontSize: 13, fontWeight: '700', color: '#F5F5F5' },
+  fotosAgregar:   { fontSize: 12, fontWeight: '800', color: '#FFD600' },
+  fotosVacio:     { fontSize: 12, color: '#666', lineHeight: 18 },
+  misFotosRow:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  miFotoWrap:     { width: 76, height: 76, borderRadius: 10, overflow: 'hidden', backgroundColor: '#111' },
+  miFoto:         { width: '100%', height: '100%' },
+  miFotoEstado:   { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#000000c0', paddingVertical: 2 },
+  miFotoEstadoTxt:{ fontSize: 9, color: '#FFD600', textAlign: 'center', fontWeight: '700' },
+  fotosPie:       { fontSize: 11, color: '#555', marginTop: 8 },
+
+  expOverlay:     { flex: 1, backgroundColor: '#000000cc', justifyContent: 'flex-end' },
+  expBox:         { backgroundColor: '#141414', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 32 },
+  expTitulo:      { fontSize: 18, fontWeight: '800', color: '#F5F5F5' },
+  expSub:         { fontSize: 12.5, color: '#888', marginTop: 4, marginBottom: 16, lineHeight: 18 },
+  expLabel:       { fontSize: 12, fontWeight: '700', color: '#999', marginBottom: 6, marginTop: 10 },
+  expInput:       { backgroundColor: '#0D0D0D', borderWidth: 1, borderColor: '#262626', borderRadius: 12,
+                    padding: 12, color: '#F5F5F5', fontSize: 15 },
+  expCancel:      { flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: '#1A1A1A', alignItems: 'center' },
+  expCancelTxt:   { color: '#888', fontWeight: '700', fontSize: 14 },
+  expGuardar:     { flex: 2, paddingVertical: 13, borderRadius: 12, backgroundColor: '#FFD600', alignItems: 'center' },
+  expGuardarTxt:  { color: '#0A0A0A', fontWeight: '800', fontSize: 14 },
+
   container: { flex: 1, backgroundColor: '#0A0A0A' },
 
   header: {

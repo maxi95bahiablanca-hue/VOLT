@@ -8,6 +8,7 @@ import * as Notifications from 'expo-notifications';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
 import rescueService from '../services/rescueService';
+import professionalService from '../services/professionalService';
 import paymentService from '../services/paymentService';
 import { chargesInApp, isFreeMode } from '../config/monetization';
 import ReputationCard from '../components/ReputationCard';
@@ -26,6 +27,18 @@ const fmtTiempo = (s) => (s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padS
 const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCompare, compareDisabled }) => {
   const prof         = job.professionals;
   const responded    = job.status === 'accepted';
+  // Fotos de trabajos del profesional (migración 045). El cliente elige entre
+  // tres desconocidos: ver CÓMO le quedó un trabajo decide más que un 4,8.
+  const [fotos, setFotos] = useState([]);
+  useEffect(() => {
+    let vivo = true;
+    if (responded && prof?.id) {
+      professionalService.fotosDe(prof.id)
+        .then(f => { if (vivo) setFotos((f || []).filter(x => x.estado === 'aprobada')); })
+        .catch(() => {});
+    }
+    return () => { vivo = false; };
+  }, [responded, prof?.id]);
   const rating       = parseFloat(prof?.effective_rating ?? prof?.avg_rating) || 0;
   const completed    = prof?.completed_jobs || 0;
   const profName     = responded ? `${prof?.first_name || ''} ${prof?.last_name || ''}`.trim() : null;
@@ -103,6 +116,29 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
 
       {/* Reputación */}
       <ReputationCard prof={prof} />
+
+      {/* Trabajos hechos. No tener fotos NO resta: hay oficios de toda la vida
+          que nunca documentaron nada (Maxi: "pinté 200 casas y no tengo una
+          foto"). Si no hay, simplemente no aparece la tira. */}
+      {fotos.length > 0 && (
+        <TouchableOpacity activeOpacity={0.9} onPress={() => onViewProfile(job)}>
+          <View style={styles.fotosRow}>
+            {fotos.slice(0, 4).map((f, i) => (
+              <View key={f.id} style={styles.fotoWrap}>
+                <Image source={{ uri: f.url }} style={styles.fotoThumb} resizeMode="cover" />
+                {i === 3 && fotos.length > 4 && (
+                  <View style={styles.fotoMas}>
+                    <Text style={styles.fotoMasTxt}>+{fotos.length - 4}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+          <Text style={styles.fotosPie}>
+            Trabajos de {prof?.first_name || 'este profesional'} — tocá para verlos
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Botones secundarios */}
       <View style={styles.secondaryBtns}>
@@ -1049,6 +1085,14 @@ const styles = StyleSheet.create({
   },
   quoteText: { flex: 1, fontSize: 13, color: '#ccc', lineHeight: 19, fontStyle: 'italic' },
   noDiag: { fontSize: 12, color: '#333' },
+
+  // Tira de trabajos hechos
+  fotosRow:   { flexDirection: 'row', gap: 6, marginTop: 12 },
+  fotoWrap:   { flex: 1, aspectRatio: 1, borderRadius: 10, overflow: 'hidden', backgroundColor: '#111' },
+  fotoThumb:  { width: '100%', height: '100%' },
+  fotoMas:    { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000b3', alignItems: 'center', justifyContent: 'center' },
+  fotoMasTxt: { color: '#FFD600', fontWeight: '800', fontSize: 15 },
+  fotosPie:   { fontSize: 11, color: '#777', marginTop: 6, marginBottom: 2 },
 
   secondaryBtns: { flexDirection: 'row', gap: 8 },
   secondaryBtn: {
