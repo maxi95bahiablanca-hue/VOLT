@@ -732,11 +732,30 @@ async function pintarMetricas(){
     `).join('') || '<div class="vacio">Sin datos del embudo.</div>';
   } catch { $('embudo').innerHTML = '<div class="vacio">No se pudo cargar el embudo.</div>'; }
 
+  // ⚠️ Contaba sólo los LEADS, así que los profesionales sin ficha de registro
+  // —Maxi con Durlock, Leonardo con Fletes— no figuraban en ningún oficio
+  // (Maxi, 1-ago: "no aparezco yo en durlock"). Ahora cuenta personas reales.
+  //
+  // Y muestra lo que de verdad importa: de cada oficio, cuántos pueden RECIBIR
+  // un trabajo ahora. Un oficio con 5 anotados y 0 con el radar prendido es un
+  // oficio que hoy no se puede vender.
   const porOf = {};
-  for (const l of LEADS) for (const o of oficiosDe(l)) porOf[o] = (porOf[o] || 0) + 1;
-  $('porOficio').innerHTML = Object.entries(porOf).sort((a, b) => b[1] - a[1]).map(([o, n]) => `
-    <div class="kpi"><b class="num">${n}</b><span>${esc(o)}</span></div>`).join('')
-    || '<div class="vacio">Todavía no hay oficios cargados.</div>';
+  for (const x of personas()){
+    for (const o of oficiosDePersona(x)){
+      const e = porOf[o] || (porOf[o] = { total: 0, listos: 0 });
+      e.total++;
+      if (x.prof?.available) e.listos++;
+    }
+  }
+  const filas = Object.entries(porOf).sort((a, b) => b[1].listos - a[1].listos || b[1].total - a[1].total);
+  $('porOficio').innerHTML = filas.length ? filas.map(([o, e]) => `
+    <div class="kpi ${e.listos ? 'destacado' : ''}">
+      <b class="num">${e.listos}<span style="font-size:.95rem;color:var(--mut)"> / ${e.total}</span></b>
+      <span>${esc(o)}</span>
+      <div style="font-size:.7rem;color:var(--mut2);margin-top:3px">
+        ${e.listos ? 'con el radar prendido' : 'nadie disponible ahora'}
+      </div>
+    </div>`).join('') : '<div class="vacio">Todavía no hay oficios cargados.</div>';
 }
 
 // ── Acciones ─────────────────────────────────────────────────────────────
