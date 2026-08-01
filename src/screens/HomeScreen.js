@@ -18,6 +18,7 @@ import { DEMO_PROFESSIONAL, DEMO_QUOTE_JOBS, DEMO_JOB } from '../demo/demoData';
 import professionService from '../services/professionService';
 import professionalService from '../services/professionalService';
 import RegisterProfessionalScreen from './RegisterProfessionalScreen';
+import ListoParaTrabajar from '../components/ListoParaTrabajar';
 import WorkerSignupScreen from './WorkerSignupScreen';
 import ProfileScreen from './ProfileScreen';
 import WorkerDashboardScreen from './WorkerDashboardScreen';
@@ -682,6 +683,12 @@ const HomeScreen = ({
   const [showPrivacy, setShowPrivacy]       = useState(false);
   const newJobChannelRef = useRef(null);
 
+  // "Estás listo para recibir trabajos" — se decide una sola vez por apertura de
+  // la app, no en cada render: si dependiera de `available` en vivo, volvería a
+  // saltar apenas alguien pausa su disponibilidad a propósito.
+  const [avisoDisponible, setAvisoDisponible] = useState(false);
+  const avisoYaEvaluado = useRef(false);
+
   // Tips rotativos
   const [tipIndex, setTipIndex] = useState(0);
 
@@ -743,7 +750,7 @@ const HomeScreen = ({
     if (professional?.id && userId) {
       supabase
         .from('professionals')
-        .select('available')
+        .select('available, verification_status, first_name')
         .eq('user_id', userId)
         .maybeSingle()
         .then(({ data }) => { if (data) setAvailable(!!data.available); })
@@ -774,6 +781,27 @@ const HomeScreen = ({
   useEffect(() => {
     setAvailable(professional?.available ?? false);
   }, [professional?.id]);
+
+  // Aprobado pero invisible en el mapa: el alta quedaba a un botón de terminar
+  // y ese botón nadie lo encontraba —8 de 10 profesionales estaban así—.
+  //
+  // Lo decide `debe_activar_radar()` y no una consulta de acá, porque no alcanza
+  // con mirar el radar: hay quien figura disponible y tampoco aparece, porque
+  // nunca guardó una ubicación. Esa ubicación sólo la puede tomar el teléfono.
+  //
+  // Va en su propio efecto y no en el de montaje porque `professional` llega
+  // desde App.js después de una consulta: al montar todavía es null.
+  useEffect(() => {
+    if (avisoYaEvaluado.current) return;          // una vez por apertura, no por render
+    if (!professional?.id || !userId) return;
+    avisoYaEvaluado.current = true;
+    if (isDemoMode()) return;
+
+    supabase
+      .rpc('debe_activar_radar')
+      .then(({ data }) => { if (data === true) setAvisoDisponible(true); })
+      .catch(() => {});
+  }, [professional?.id, userId]);
 
   // ─── Ubicación inicial y workers ─────────────────────
   const initLocation = async () => {
@@ -1033,10 +1061,15 @@ const HomeScreen = ({
     );
   });
 
-  const handleToggle = async () => {
+  // `forzarEncendido` existe porque la pantalla de "ponete disponible" también
+  // le sale a quien YA figura disponible pero nunca guardó su ubicación: para
+  // ése, alternar lo apagaría, que es exactamente lo contrario de lo que pide
+  // el botón que tocó. Ojo al llamarla desde un onPress: hay que envolverla,
+  // porque el evento del toque llegaría como primer argumento y sería truthy.
+  const handleToggle = async (forzarEncendido = false) => {
     if (toggling) return;
     setToggling(true);
-    const next = !available;
+    const next = forzarEncendido ? true : !available;
 
     // Antes de activarse: pedir consentimiento informado de ubicación en background
     if (next) {
@@ -1417,7 +1450,7 @@ const HomeScreen = ({
           {professional && (
             <TouchableOpacity
               style={[styles.workerToggleBtn, available && styles.workerToggleBtnOn]}
-              onPress={handleToggle}
+              onPress={() => handleToggle()}
               disabled={toggling}
               activeOpacity={0.8}
             >
@@ -1448,6 +1481,18 @@ const HomeScreen = ({
           isFavorite={favorites.some(f => f.id === selectedWorker.id)}
         />
       )}
+
+      {/* Último paso del alta: ponerse disponible */}
+      <ListoParaTrabajar
+        visible={avisoDisponible}
+        nombre={professional?.first_name}
+        activando={toggling}
+        onActivar={async () => {
+          await handleToggle(true);   // siempre encender, nunca alternar
+          setAvisoDisponible(false);
+        }}
+        onAhoraNo={() => setAvisoDisponible(false)}
+      />
 
       {/* DRAWER LATERAL */}
       <DrawerMenu

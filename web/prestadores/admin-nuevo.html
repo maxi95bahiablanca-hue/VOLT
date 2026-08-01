@@ -164,6 +164,12 @@
   .b.del:hover{background:#3A2F22;color:var(--tx)}
   .b:disabled{opacity:.45;cursor:default}
 
+  .alerta{background:linear-gradient(160deg,#2a2416,var(--surf));border:1px solid #6b5a1e;
+        border-left:4px solid var(--y);border-radius:14px;padding:14px 16px;margin-bottom:11px}
+  .alerta.grave{border-color:#8a6a1e;border-left-color:var(--y);box-shadow:0 0 30px #FFD60018}
+  .alerta-tit{font-weight:800;font-size:.95rem;color:var(--y-soft);margin-bottom:3px}
+  .alerta-txt{font-size:.83rem;color:var(--mut)}
+  .alerta-quienes{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
   .vacio{text-align:center;padding:50px 20px;color:var(--mut2)}
   .seccion{font-size:.78rem;font-weight:800;color:var(--y);text-transform:uppercase;
            letter-spacing:.07em;margin:26px 0 12px;display:flex;align-items:center;gap:11px}
@@ -248,6 +254,12 @@
   </header>
 
   <main>
+    <!-- 🔴 Lo que no puede pasar desapercibido: gente aprobada que NO puede
+         recibir un solo trabajo. Va arriba de todo y en rojo porque cada uno
+         de estos es un trabajador perdido en silencio (Maxi, 1-ago: "es algo
+         que no puede pasar, error grave que pierde trabajadores"). -->
+    <div id="alertas"></div>
+
     <div class="kpis" id="kpis"></div>
 
     <section id="v-prestadores">
@@ -413,7 +425,7 @@ async function cargarTodo(){
   await Promise.all([cargarCatalogo(), cargarLeads(), cargarProfesionales(), cargarTrabajos()]);
   await cargarClientes();
   cargarTrabados();
-  pintarKpis(); render(); renderClientes(); renderTrabajos(); pintarMetricas();
+  pintarAlertas(); pintarKpis(); render(); renderClientes(); renderTrabajos(); pintarMetricas();
 }
 async function cargarCatalogo(){
   const { data } = await sb.from('professions').select('id,name').order('name');
@@ -433,9 +445,19 @@ async function cargarLeads(){
 }
 async function cargarProfesionales(){
   const { data } = await sb.from('professionals')
-    .select('id,user_id,first_name,last_name,phone,avatar_url,verification_status,available,avg_rating,completed_jobs,location,professional_professions(profession_id)');
+    .select('id,user_id,first_name,last_name,phone,avatar_url,verification_status,available,avg_rating,completed_jobs,location,anios_oficio,professional_professions(profession_id)');
   PROFS = data || [];
+  // ¿Quién tiene la app instalada? El token de push sólo existe si abrió la app
+  // en un teléfono real y aceptó notificaciones: es la prueba más directa.
+  // Entrar por la web NO deja token, así que distingue a los que se anotaron de
+  // los que realmente bajaron la app (pregunta de Maxi, 1-ago).
+  try {
+    const { data: tk } = await sb.from('push_tokens').select('user_id,platform,updated_at');
+    TOKENS = {};
+    for (const t of tk || []) TOKENS[t.user_id] = t;
+  } catch { TOKENS = {}; }
 }
+let TOKENS = {};
 
 // 🔴 La lista NO puede salir sólo de los leads: los dos únicos profesionales
 // que hoy pueden trabajar —Maxi (Pintor + Durlock) y Leonardo (Fletes)— NO
@@ -505,6 +527,61 @@ async function cargarTrabados(){
 }
 
 // ── KPIs ─────────────────────────────────────────────────────────────────
+// ── Lo que hay que resolver hoy ──────────────────────────────────────────
+// Un profesional puede estar "aprobado" y aun asi no recibir NADA: sin oficio
+// el sistema no lo encuentra, sin radar no aparece, sin avisos no se entera.
+// Cada uno de esos casos es un trabajador que se anotó y quedó en la nada sin
+// que nadie lo note. Por eso va arriba de todo, antes que cualquier métrica.
+function pintarAlertas(){
+  const aprobados = PROFS.filter(p => p.verification_status === 'approved');
+  const sinOficio = aprobados.filter(p => !(p.professional_professions || []).length);
+  const sinRadar  = aprobados.filter(p => (p.professional_professions || []).length && !p.available);
+  const sinAvisos = aprobados.filter(p => !TOKENS[p.user_id]);
+  const nombre = (p) => `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'sin nombre';
+
+  const bloques = [];
+  if (sinOficio.length) bloques.push({
+    tono: 'grave', motivo: 'oficio',
+    titulo: `${sinOficio.length} aprobado${sinOficio.length > 1 ? 's' : ''} SIN OFICIO`,
+    texto: 'El sistema busca por oficio: sin eso no les llega ni un trabajo, por más que prendan el radar.',
+    gente: sinOficio,
+    quehacer: 'Cargale el oficio desde su tarjeta o preguntale cuál es.',
+  });
+  if (sinRadar.length) bloques.push({
+    tono: 'medio', motivo: 'radar',
+    titulo: `${sinRadar.length} con el radar apagado`,
+    texto: 'Tienen oficio y están aprobados, pero mientras no lo prendan son invisibles.',
+    gente: sinRadar,
+    quehacer: 'Sólo lo puede prender la persona, desde la app. Escribile.',
+  });
+  if (sinAvisos.length) bloques.push({
+    tono: 'medio', motivo: 'avisos',
+    titulo: `${sinAvisos.length} sin permiso de notificaciones`,
+    texto: 'Aunque estén disponibles, no se enteran de un trabajo salvo que tengan la app abierta.',
+    gente: sinAvisos,
+    quehacer: 'Que lo habiliten en la app.',
+  });
+
+  // Cada persona con su botón de WhatsApp y el mensaje ya escrito: la alerta
+  // sin la acción al lado es una alerta que no se resuelve (Maxi, 1-ago).
+  $('alertas').innerHTML = bloques.length ? bloques.map(b => `
+    <div class="alerta ${b.tono === 'grave' ? 'grave' : ''}">
+      <div class="alerta-tit">${b.tono === 'grave' ? '🔴' : '⚠️'} ${esc(b.titulo)}</div>
+      <div class="alerta-txt">${esc(b.texto)}</div>
+      <div class="alerta-quienes">
+        ${b.gente.map(p => {
+          const tel = telefonoDe(p);
+          const nom = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+          return tel
+            ? `<button class="b wa" style="font-size:.74rem;padding:5px 10px"
+                 onclick="avisar('${esc(tel)}','${esc(p.first_name || nom)}','${b.motivo}')">💬 ${esc(nom)}</button>`
+            : `<span class="chip gris">${esc(nom)} — sin teléfono</span>`;
+        }).join('')}
+      </div>
+      <div class="alerta-txt" style="margin-top:8px;opacity:.8">→ ${esc(b.quehacer)}</div>
+    </div>`).join('') : '';
+}
+
 function pintarKpis(){
   const total = personas().length;           // profesionales reales + leads sueltos
   const aprobados = PROFS.filter(p => p.verification_status === 'approved').length;
@@ -640,8 +717,18 @@ function tarjetaPrestador(x){
     <dl class="datos">
       <dt>Mail</dt><dd>${l?.email ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : '<span class="falta">no figura</span>'}</dd>
       <dt>WhatsApp</dt><dd>${telMostrar ? esc(telMostrar) : '<span class="falta">no figura</span>'}</dd>
-      <dt>En la app</dt><dd>${p ? `sí · ${p.completed_jobs || 0} trabajos · ⭐ ${p.avg_rating ? Number(p.avg_rating).toFixed(1) : '—'}` : '<span class="falta">todavía no entró</span>'}</dd>
-      <dt>Radar</dt><dd>${p ? (p.available ? '📡 prendido — puede recibir trabajos ahora' : 'apagado') : '—'}</dd>
+      <dt>Avisos</dt><dd>${(() => {
+        // ⚠️ El token de push NO prueba que tenga la app: prueba que aceptó las
+        // NOTIFICACIONES. José la tiene instalada, la usa y es tester, y no
+        // tiene token — se salteó ese permiso (Maxi, 1-ago). Decir "no la bajó"
+        // era afirmar algo falso sobre una persona.
+        const t = p?.user_id ? TOKENS[p.user_id] : null;
+        if (t) return `✅ le llegan — última vez ${desde(t.updated_at)}`;
+        if (p) return '<span class="falta">no le llegan avisos — falta el permiso de notificaciones</span>';
+        return '<span class="falta">todavía no entró</span>';
+      })()}</dd>
+      <dt>Trabajos</dt><dd>${p ? `${p.completed_jobs || 0} hechos · ⭐ ${p.avg_rating ? Number(p.avg_rating).toFixed(1) : '—'}${p.anios_oficio ? ` · ${p.anios_oficio} años de oficio` : ''}` : '—'}</dd>
+      <dt>Radar</dt><dd>${p ? (p.available ? '📡 prendido — puede recibir trabajos ahora' : (p.location ? 'apagado' : '<span class="falta">nunca lo prendió</span>')) : '—'}</dd>
       ${faltan.length ? `<dt>Le falta</dt><dd class="falta">${faltan.join(', ')}</dd>` : ''}
     </dl>
 
@@ -808,6 +895,34 @@ async function pintarMetricas(){
 }
 
 // ── Acciones ─────────────────────────────────────────────────────────────
+/** El teléfono de un profesional: el de su ficha o el que dejó al anotarse. */
+function telefonoDe(p){
+  if (p?.phone) return p.phone;
+  const l = LEADS.find(x => {
+    const t = (x.telefono || '').replace(/\D/g, '').slice(-8);
+    return (t && (p?.phone || '').replace(/\D/g, '').slice(-8) === t) ||
+           (x.nombre && p?.first_name && x.nombre.toLowerCase().trim() === p.first_name.toLowerCase().trim());
+  });
+  return l?.telefono || '';
+}
+
+// Mensajes por lo que le falta a cada uno. Escritos como se los diría una
+// persona, no como una notificación del sistema: son gente que se anotó, no
+// usuarios que hay que "activar".
+const MENSAJES = {
+  oficio: (n) => `Hola ${n}! Soy Maxi de BOLT ⚡ Te tengo aprobado pero me falta un dato para que te lleguen los trabajos: ¿qué oficio hacés? Con eso te dejo listo.`,
+  radar:  (n) => `Hola ${n}! Soy Maxi de BOLT ⚡ Ya estás aprobado y listo para recibir trabajos. Sólo falta un paso: abrí la app y prendé el radar (el botón grande de la pantalla principal). Mientras esté apagado no te llega nada, aunque haya pedidos de tu oficio cerca.`,
+  avisos: (n) => `Hola ${n}! Soy Maxi de BOLT ⚡ Una cosita: la app no tiene permiso para mandarte notificaciones, así que no te vas a enterar cuando entre un trabajo. Entrá a la app y aceptá los avisos cuando te lo pida (o desde Ajustes del teléfono).`,
+};
+
+/** Abre WhatsApp con el mensaje según lo que le falta a esa persona. */
+function avisar(tel, nombre, motivo){
+  const n = String(tel).replace(/\D/g, '');
+  const full = n.startsWith('54') ? n : ('549' + n.slice(-10));
+  const arma = MENSAJES[motivo] || MENSAJES.radar;
+  window.open('https://wa.me/' + full + '?text=' + encodeURIComponent(arma(nombre || '')), '_blank');
+}
+
 function wa(tel, nombre){
   const n = String(tel).replace(/\D/g, '');
   const full = n.startsWith('54') ? n : ('549' + n.slice(-10));

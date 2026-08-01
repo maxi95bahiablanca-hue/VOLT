@@ -1,6 +1,21 @@
 import { supabase } from '../supabase';
 
 const professionalService = {
+  // ¿Esta persona ya estaba anotada? Se la busca por mail y por teléfono.
+  // El teléfono importa porque muchos se anotaron con un correo y después
+  // entran con otro Google —Néstor tiene Hotmail, Ricardo Live— y quedaban
+  // como usuarios nuevos, teniendo que hacer todo el registro de nuevo.
+  // Devuelve el texto de la función: 'ACTIVADO: ...' o 'no es prestador cargado'.
+  activarSiYaEstabaAnotado: async (userId, email, telefono) => {
+    const { data, error } = await supabase.rpc('activar_prestador', {
+      p_user_id:  userId,
+      p_email:    email || null,
+      p_telefono: telefono || null,
+    });
+    if (error) return null;                       // nunca frena el registro normal
+    return typeof data === 'string' ? data : null;
+  },
+
   getByUserId: async (userId) => {
     const { data, error } = await supabase
       .from('professionals')

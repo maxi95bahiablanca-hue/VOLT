@@ -297,6 +297,13 @@
         <input id="m_telefono" type="tel" inputmode="numeric" placeholder="291 4XXXXXX">
         <label>Email <span style="color:var(--muted2);font-weight:400">— opcional, para mandarte el link</span></label>
         <input id="m_email" type="email" placeholder="tunombre@email.com">
+        <!-- 🔴 El oficio se pide ACÁ TAMBIÉN. Sin esto el registro entraba con
+             "A completar" y la persona quedaba invisible para siempre: el
+             sistema busca por oficio, no por nombre. Le pasó a Macarena el
+             29-jul (fuente web-google, antes de que ese camino lo exigiera) y
+             estuvo tres días aprobada sin poder recibir un solo trabajo. -->
+        <label style="margin-top:14px">¿Qué hacés? *</label>
+        <div id="m_chipsOficio" class="chips"></div>
         <button class="btn-submit" id="btnManual" onclick="registrarManual()">Registrarme ⚡</button>
         <div class="msg" id="mMsg"></div>
         <div class="g-alt"><a onclick="verGoogle()">← Mejor entro con Google</a></div>
@@ -405,7 +412,8 @@
   const FALLBACK_OFICIOS = ['Electricista','Plomero','Gasista','Pintor','Albañil','Carpintero','Cerrajero',
                             'Jardinero','Limpieza','Encomiendas / Fletes','Aire acondicionado',
                             'Heladeras y lavarropas','Alarmas / Cámaras','Durlock','Herrero'];
-  let elegidos = [];   // [{id, name}] — sólo los que tienen id sirven para la app
+  let elegidos = [];        // [{id, name}] — sólo los que tienen id sirven para la app
+  let elegidosManual = [];  // lo mismo para el formulario sin Google
 
   async function cargarOficios(){
     let oficios;
@@ -415,19 +423,26 @@
     } catch(e){
       oficios = FALLBACK_OFICIOS.map(n => ({ id:null, name:n }));
     }
-    const cont = $('chips');
-    cont.innerHTML = '';
-    oficios.forEach(o => {
-      const c = document.createElement('div');
-      c.className = 'chip';
-      c.textContent = o.name;
-      c.onclick = () => {
-        const i = elegidos.findIndex(e => e.name === o.name);
-        if (i >= 0){ elegidos.splice(i,1); c.classList.remove('on'); }
-        else if (elegidos.length < MAX_PROFS){ elegidos.push(o); c.classList.add('on'); }
-      };
-      cont.appendChild(c);
-    });
+    pintarChips($('chips'), elegidos);
+    // Mismos oficios en el formulario de abajo: el que no usa Google tambien
+    // tiene que decir que hace, si no entra con 'A completar' y queda invisible.
+    if ($('m_chipsOficio')) pintarChips($('m_chipsOficio'), elegidosManual);
+
+    function pintarChips(cont, lista){
+      if (!cont) return;
+      cont.innerHTML = '';
+      oficios.forEach(o => {
+        const c = document.createElement('div');
+        c.className = 'chip';
+        c.textContent = o.name;
+        c.onclick = () => {
+          const i = lista.findIndex(e => e.name === o.name);
+          if (i >= 0){ lista.splice(i,1); c.classList.remove('on'); }
+          else if (lista.length < MAX_PROFS){ lista.push(o); c.classList.add('on'); }
+        };
+        cont.appendChild(c);
+      });
+    }
   }
 
   // ── 1. Ir a Google ────────────────────────────────────────────────────
@@ -677,6 +692,7 @@
     const v = id => ($(id).value || '').trim();
     msg.style.color = 'var(--red)';
     if (!v('m_nombre')){ msg.textContent = 'Falta tu nombre.'; return; }
+    if (!elegidosManual.length){ msg.style.color = 'var(--red)'; msg.textContent = 'Tocá tu oficio arriba (uno alcanza).'; return; }
     if (!v('m_apellido')){ msg.textContent = 'Falta tu apellido.'; return; }
     const tel = v('m_telefono').replace(/\D/g, '');
     if (tel.length < 8){ msg.textContent = 'Falta tu WhatsApp (con característica, sin el 0 ni el 15).'; return; }
@@ -703,7 +719,7 @@
         apellido: v('m_apellido'),
         telefono: tel,
         email: email || null,
-        profesion: 'A completar',
+        profesion: elegidosManual.map(o => o.name).join(', '),
         fuente: 'web-whatsapp',
         completar_token: token,
       });

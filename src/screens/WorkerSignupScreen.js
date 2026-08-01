@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  ActivityIndicator, ScrollView, Linking, Alert, AppState,
+  ActivityIndicator, ScrollView, Linking, Alert, AppState, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
+import professionalService from '../services/professionalService';
 import { necesitaPermisoPantallaCompleta, abrirAjustesPantallaCompleta } from '../services/incomingCall';
 import { showInfo } from '../utils/toast';
 
@@ -27,6 +28,14 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
   const [status, setStatus] = useState('intro'); // intro | sending | done | error
   const [errorMsg, setErrorMsg] = useState(null);
   const [emailFallo, setEmailFallo] = useState(false);
+  // El WhatsApp se pide acá y no después. Sin él el registro nacía sin ningún
+  // teléfono: si a la persona le faltaba un dato —el oficio, por ejemplo— no
+  // había manera de preguntárselo y quedaba parada para siempre. Le pasó a
+  // Macarena. Además es lo que permite reconocer a quien ya estaba anotado con
+  // otro correo.
+  const [tel, setTel] = useState('');
+  const telDigitos = tel.replace(/\D/g, '');
+  const telOk = telDigitos.length >= 8;
 
   const email = session?.user?.email || '';
   const { nombre, apellido } = useMemo(() => {
@@ -80,13 +89,36 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
       setStatus('error');
       return;
     }
+    if (!telOk) {
+      setErrorMsg('Escribí tu WhatsApp para que podamos contactarte.');
+      setStatus('error');
+      return;
+    }
+
     setStatus('sending');
     setErrorMsg(null);
+
+    // ¿Ya estaba anotado y aceptado, aunque haya entrado con otro correo?
+    // Entonces no hay nada que registrar: queda activo en el momento. Esto es
+    // lo que rescata a los que se anotaron con un mail y entran con su Google.
+    try {
+      const res = await professionalService.activarSiYaEstabaAnotado(
+        session?.user?.id || userId, email, telDigitos
+      );
+      if (res && res.startsWith('ACTIVADO')) {
+        Alert.alert(
+          '¡Ya estabas registrado!',
+          'Te reconocimos por tu WhatsApp. Tu perfil quedó activo: ya podés recibir trabajos.',
+          [{ text: 'Genial', onPress: onBack }]
+        );
+        return;
+      }
+    } catch (_) { /* si falla, sigue el alta normal */ }
 
     // Anti-duplicado: si ya hay un registro con este email, no creamos otro.
     try {
       const { data: yaReg } = await supabase.rpc('prestador_ya_registrado', {
-        p_dni: '', p_email: email, p_tel: '',
+        p_dni: '', p_email: email, p_tel: telDigitos,
       });
       if (yaReg === true) {
         setStatus('done'); // ya estaba: igual mostramos la pantalla de "revisá tu mail"
@@ -100,6 +132,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
         nombre: nombre || (email.split('@')[0] || 'Profesional'),
         apellido: apellido || null,
         email,
+        telefono: telDigitos,
         user_id: userId || session?.user?.id || null,
         profesion: 'A completar',
         fuente: 'app',
@@ -205,8 +238,26 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
           </View>
         </View>
 
+        <View style={styles.telCard}>
+          <Text style={styles.telLabel}>Tu WhatsApp</Text>
+          <View style={styles.telRow}>
+            <Ionicons name="logo-whatsapp" size={19} color="#FFD600" />
+            <TextInput
+              style={styles.telInput}
+              value={tel}
+              onChangeText={setTel}
+              placeholder="291 15 4199938"
+              placeholderTextColor="#4A453D"
+              keyboardType="phone-pad"
+              maxLength={20}
+            />
+            {telOk && <Ionicons name="checkmark-circle" size={19} color="#FFD600" />}
+          </View>
+          <Text style={styles.telHint}>Es por donde te avisamos si falta algún dato.</Text>
+        </View>
+
         <Text style={styles.explain}>
-          Te registramos ahora con tu cuenta. El resto de los datos (WhatsApp, oficio, DNI y documentos) los completás por un link que te mandamos por mail. Te lleva 5 minutos.
+          Te registramos ahora con tu cuenta. El resto de los datos (oficio, DNI y documentos) los completás por un link que te mandamos por mail. Te lleva 5 minutos.
         </Text>
 
         {status === 'error' && !!errorMsg && (
@@ -217,9 +268,9 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
         )}
 
         <TouchableOpacity
-          style={[styles.primaryBtn, status === 'sending' && { opacity: 0.7 }]}
+          style={[styles.primaryBtn, (status === 'sending' || !telOk) && { opacity: 0.45 }]}
           onPress={registrar}
-          disabled={status === 'sending'}
+          disabled={status === 'sending' || !telOk}
           activeOpacity={0.85}
         >
           {status === 'sending'
@@ -280,6 +331,18 @@ const styles = StyleSheet.create({
   googleGText: { fontSize: 15, fontWeight: '900', color: '#FFD600' },
   acctLabel: { color: '#777', fontSize: 12, marginBottom: 2 },
   acctEmail: { color: '#F5F5F5', fontSize: 15, fontWeight: '700' },
+
+  telCard: {
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1E1E1E',
+    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16,
+  },
+  telLabel: { color: '#777', fontSize: 12, marginBottom: 6 },
+  telRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  telInput: {
+    flex: 1, color: '#F5F5F5', fontSize: 16, fontWeight: '700',
+    paddingVertical: 4, letterSpacing: 0.3,
+  },
+  telHint: { color: '#555', fontSize: 11.5, marginTop: 7 },
 
   explain: { color: '#888', fontSize: 13.5, lineHeight: 21, marginBottom: 12 },
 
