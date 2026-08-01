@@ -108,7 +108,15 @@ const HistoryScreen = ({ session, professional, onClose, onOpenJob }) => {
             </Text>
           </View>
         ) : jobs.map(j => {
-          const s = STATUS_INFO[j.status] || STATUS_INFO.cancelled;
+          // 🔴 Un presupuesto ACEPTADO por el profesional pero que el cliente
+          // todavía no eligió sigue en 'accepted' con quote_group_id puesto, y
+          // la lista lo mostraba como "En camino" — dando a entender que ya
+          // salió cuando en realidad está esperando que lo elijan (Maxi,
+          // 1-ago). Nadie tiene que salir a un domicilio por esto.
+          const esperandoEleccion = j.quote_group_id && ['pending', 'accepted'].includes(j.status);
+          const s = esperandoEleccion
+            ? { label: 'Esperando que te elijan', color: '#888', icon: 'hourglass-outline' }
+            : (STATUS_INFO[j.status] || STATUS_INFO.cancelled);
           const totalAmt = (j.visit_amount || 0) + (j.work_amount || 0);
           const earned   = isWorker && j.status === 'completed'
             ? Math.round((j.work_amount || 0) * (1 - (chargesInApp() ? (j.commission_pct || 20) : 0) / 100))

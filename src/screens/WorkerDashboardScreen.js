@@ -433,7 +433,12 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
                 <Text style={styles.emptyText}>Todavía no tenés trabajos</Text>
               </View>
             ) : jobs.map(j => {
-              const s = STATUS_LABEL[j.status] || STATUS_LABEL.cancelled;
+              // Mismo caso que en el historial: un presupuesto que el cliente
+              // todavía no eligió sigue en 'accepted' y decía "En camino".
+              const esperandoEleccion = j.quote_group_id && ['pending', 'accepted'].includes(j.status);
+              const s = esperandoEleccion
+                ? { label: 'Esperando que te elijan', color: '#888' }
+                : (STATUS_LABEL[j.status] || STATUS_LABEL.cancelled);
               const earned = j.status === 'completed' && j.work_amount
                 ? Math.round(j.work_amount * (1 - (j.commission_pct || 20) / 100))
                 : null;
