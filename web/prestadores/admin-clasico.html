@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOLT — Panel de prestadores</title>
+<meta name="robots" content="noindex">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0A0A0A;--surf:#111;--surf2:#161616;--bord:#1f1f1f;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#00d68f;--blue:#FFD600;--red:#ff4466}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding-bottom:40px}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 18px}
+  a{color:inherit;text-decoration:none}
+
+  nav{border-bottom:1px solid var(--bord);background:var(--surf);position:sticky;top:0;z-index:20}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;max-width:1100px;margin:0 auto}
+  .logo{font-size:1.25rem;font-weight:900;letter-spacing:1px}.logo span{color:var(--yellow)}
+  .logout{font-size:.8rem;color:var(--muted);cursor:pointer;border:1px solid var(--bord);padding:6px 12px;border-radius:10px}
+
+  /* LOGIN */
+  .login-box{max-width:380px;margin:90px auto;background:var(--surf);border:1px solid var(--bord);border-radius:20px;padding:30px 26px}
+  .login-box h1{font-size:1.4rem;font-weight:900;margin-bottom:4px;text-align:center}
+  .login-box p{color:var(--muted);font-size:.85rem;text-align:center;margin-bottom:22px}
+  label{display:block;font-size:.78rem;font-weight:700;color:var(--muted);margin:14px 0 5px}
+  input,select{width:100%;background:var(--surf2);border:1px solid var(--bord);color:var(--text);border-radius:11px;padding:12px 13px;font-family:inherit;font-size:.92rem;outline:none}
+  input:focus,select:focus{border-color:rgba(255,214,0,.5)}
+  .btn{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:12px;padding:14px;font-family:inherit;font-weight:800;font-size:1rem;cursor:pointer;margin-top:18px}
+  .btn:disabled{opacity:.6}
+  .err{color:var(--red);font-size:.84rem;text-align:center;margin-top:12px;min-height:18px}
+
+  /* DASHBOARD */
+  #app{display:none;padding-top:22px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+  @media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:16px}
+  .stat .n{font-size:1.8rem;font-weight:900}
+  .stat .l{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+  .section-ttl{font-size:1rem;font-weight:800;margin:20px 0 12px}
+  .prof-bars{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px}
+  @media(max-width:680px){.prof-bars{grid-template-columns:1fr}}
+  .pbar{background:var(--surf);border:1px solid var(--bord);border-radius:11px;padding:10px 12px}
+  .pbar-top{display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;margin-bottom:6px}
+  .pbar-track{height:6px;background:var(--surf2);border-radius:3px;overflow:hidden}
+  .pbar-fill{height:100%;background:var(--yellow);border-radius:3px;transition:width .4s}
+  .pbar-fill.done{background:var(--green)}
+
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+  .filters select{width:auto;min-width:150px}
+  .count-pill{font-size:.8rem;color:var(--muted);margin-left:auto}
+
+  .lead{background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:15px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .lead-main{flex:1;min-width:200px}
+  .lead-name{font-weight:800;font-size:1rem}
+  .lead-prof{display:inline-block;font-size:.72rem;font-weight:700;color:var(--yellow);background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.25);border-radius:8px;padding:2px 8px;margin-top:4px}
+  .lead-meta{font-size:.82rem;color:var(--muted);margin-top:6px;line-height:1.7}
+  .lead-meta b{color:var(--text);font-weight:600}
+  .lead-actions{display:flex;flex-direction:column;gap:7px;min-width:150px}
+  .wa{background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.3);color:#25D366;border-radius:10px;padding:9px;text-align:center;font-weight:700;font-size:.82rem;cursor:pointer}
+  .accept{background:var(--green);color:#062;border:none;border-radius:10px;padding:10px;text-align:center;font-weight:800;font-size:.84rem;cursor:pointer}
+  .accept.is-on{background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.4);cursor:default}
+  /* Editor de datos y oficios (admin) */
+  .editor{flex-basis:100%;margin-top:12px;padding:12px;border:1px solid var(--bord);border-radius:12px;background:rgba(255,255,255,.02)}
+  .ed-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+  .ed-lbl{display:flex;flex-direction:column;gap:4px;font-size:.72rem;font-weight:700;color:var(--muted)}
+  .ed-inp{background:rgba(0,0,0,.25);border:1px solid var(--bord);border-radius:9px;padding:8px;color:#fff;font-size:.85rem;font-family:inherit}
+  .ed-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .ed-chip{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:6px 12px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .ed-chip.on{background:rgba(255,214,0,.14);border-color:rgba(255,214,0,.5);color:var(--yellow)}
+  .ed-acts{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .ed-msg{font-size:.78rem;font-weight:700}
+  .docs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .doc{font-size:.72rem;font-weight:700;color:var(--blue);background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);border-radius:8px;padding:4px 9px}
+  .doc.none{color:var(--muted2);background:transparent;border-color:var(--bord)}
+  .ante{display:inline-block;font-size:.72rem;font-weight:700;border-radius:8px;padding:2px 8px;margin-top:6px}
+  .ante.ok{color:var(--green);background:rgba(0,214,143,.12)}
+  .ante.mid{color:var(--yellow);background:rgba(255,214,0,.12)}
+  .ante.no{color:var(--red);background:rgba(255,68,102,.12)}
+  .estado-sel{font-size:.82rem}
+  .badge{display:inline-block;font-size:.66rem;font-weight:800;border-radius:7px;padding:2px 8px;text-transform:uppercase;letter-spacing:.5px}
+  .b-nuevo{background:rgba(255,214,0,.15);color:var(--blue)}
+  .b-contactado{background:rgba(255,214,0,.15);color:var(--yellow)}
+  .b-aceptado{background:rgba(0,214,143,.15);color:var(--green)}
+  .b-rechazado{background:rgba(255,68,102,.12);color:var(--red)}
+  .empty{text-align:center;color:var(--muted2);padding:40px 0}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-in">
+  <div class="logo">BO<span>LT</span> · Prestadores</div>
+  <div class="logout" id="logoutBtn" style="display:none" onclick="logout()">Salir</div>
+</div></nav>
+
+<!-- LOGIN (código por email — funciona con cuenta Google o email) -->
+<div class="login-box" id="loginBox">
+  <h1>Panel de admin</h1>
+  <p>Te enviamos un código a tu email para entrar</p>
+
+  <div id="step1">
+    <label>Email de administrador</label>
+    <input id="email" type="email" placeholder="maxi95.bahiablanca@gmail.com" autocomplete="username" onkeydown="if(event.key==='Enter')enviarCodigo()">
+    <button class="btn" id="sendBtn" onclick="enviarCodigo()">Enviarme el código</button>
+  </div>
+
+  <div id="step2" style="display:none">
+    <p style="margin-bottom:6px">Revisá tu email y pegá el código que te enviamos:</p>
+    <label>Código</label>
+    <input id="codigo" type="text" inputmode="numeric" maxlength="10" placeholder="Pegá el código" onkeydown="if(event.key==='Enter')verificar()">
+    <button class="btn" id="verifyBtn" onclick="verificar()">Entrar</button>
+    <p style="text-align:center;margin-top:12px;font-size:.8rem;color:var(--muted2);cursor:pointer" onclick="document.getElementById('step1').style.display='block';document.getElementById('step2').style.display='none';">← Usar otro email</p>
+  </div>
+
+  <div class="err" id="loginErr"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="app"><div class="wrap">
+  <div id="trabadosBox" style="display:none">
+    <div class="section-ttl">🚨 Trabajos trabados <span style="color:var(--muted);font-weight:400;font-size:.82rem">(se quedaron quietos y nadie hizo nada)</span></div>
+    <div id="trabados"></div>
+  </div>
+
+  <div id="embudoBox" style="display:none">
+    <div class="section-ttl">📉 De cada pedido, cuántos terminan en trabajo <span style="color:var(--muted);font-weight:400;font-size:.82rem">(últimos 30 días)</span></div>
+    <div class="prof-bars" id="embudo" style="grid-template-columns:1fr"></div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="section-ttl">📊 Progreso por profesión <span style="color:var(--muted);font-weight:400;font-size:.82rem">(meta: 25 por oficio)</span></div>
+  <div class="prof-bars" id="profBars"></div>
+
+  <div class="section-ttl">📋 Registros</div>
+  <div class="filters">
+    <select id="fCiudad" onchange="render()"><option value="">Todas las ciudades</option></select>
+    <select id="fProf" onchange="render()"><option value="">Todas las profesiones</option></select>
+    <select id="fEstado" onchange="render()">
+      <option value="">Todos los estados</option>
+      <option value="nuevo">Nuevos</option>
+      <option value="contactado">Contactados</option>
+      <option value="aceptado">Aceptados</option>
+      <option value="rechazado">Rechazados</option>
+    </select>
+    <span class="count-pill" id="countPill"></span>
+  </div>
+  <div id="leads"></div>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
+  const ADMIN_EMAIL  = 'maxi95.bahiablanca@gmail.com';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let LEADS = [];
+
+  let _email = '';
+  async function enviarCodigo(){
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const err = document.getElementById('loginErr');
+    const btn = document.getElementById('sendBtn');
+    err.textContent = '';
+    if (email !== ADMIN_EMAIL){ err.textContent = 'Solo el email de administrador puede entrar.'; return; }
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    btn.disabled = false; btn.textContent = 'Enviarme el código';
+    if (error){ err.textContent = 'No se pudo enviar el código: ' + error.message; return; }
+    _email = email;
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+    err.textContent = '';
+  }
+
+  async function verificar(){
+    const token = document.getElementById('codigo').value.trim();
+    const err = document.getElementById('loginErr');
+    const btn = document.getElementById('verifyBtn');
+    err.textContent = '';
+    if (token.length < 6){ err.textContent = 'Ingresá el código que te enviamos por email.'; return; }
+    btn.disabled = true; btn.textContent = 'Entrando...';
+    const { data, error } = await sb.auth.verifyOtp({ email: _email, token, type: 'email' });
+    btn.disabled = false; btn.textContent = 'Entrar';
+    if (error){ err.textContent = 'Código incorrecto o vencido.'; return; }
+    if (data.user?.email !== ADMIN_EMAIL){ await sb.auth.signOut(); err.textContent = 'Cuenta no autorizada.'; return; }
+    enterApp();
+  }
+
+  async function logout(){ await sb.auth.signOut(); location.reload(); }
+
+  // El bucket prestador-docs es PRIVADO: los docs se abren con una signed URL
+  // generada con la sesión del admin. Soporta registros viejos que guardaron
+  // la URL pública completa (se les extrae el path).
+  async function openDoc(stored){
+    try {
+      let path = stored;
+      const marker = '/prestador-docs/';
+      if (stored.includes(marker)) path = decodeURIComponent(stored.split(marker).pop());
+      const { data, error } = await sb.storage.from('prestador-docs').createSignedUrl(path, 600);
+      if (error || !data?.signedUrl) throw error || new Error('sin URL');
+      window.open(data.signedUrl, '_blank');
+    } catch (e){
+      alert('No se pudo abrir el documento. ¿Estás logueado como admin?');
+      console.warn('openDoc', e);
+    }
+  }
+
+  function enterApp(){
+    document.getElementById('loginBox').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('logoutBtn').style.display = 'block';
+    cargar();
+  }
+
+  // Oficios del lead, uno por elemento. Lee la tabla normalizada y, si un lead
+  // viejo todavía no tiene filas, cae al texto separado por comas.
+  function oficiosDe(l){
+    const rel = l.prestador_lead_profesiones || [];
+    if (rel.length) return rel.map(r => r.profesion_nombre);
+    return String(l.profesion || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s && s.toLowerCase() !== 'a completar');
+  }
+
+  async function cargar(){
+    const { data, error } = await sb.from('prestador_leads')
+      .select('*, prestador_lead_profesiones(profesion_nombre, profesion_id)')
+      .order('created_at', { ascending: false });
+    if (error){ alert('Error cargando: ' + error.message); return; }
+    LEADS = data || [];
+    await cargarProfesionales();   // para el chip de "puede recibir trabajos"
+    if (!CATALOGO.length) await cargarCatalogo();
+    cargarTrabados();
+    cargarEmbudo();
+    // llenar filtro de profesiones (un oficio por opción, no la cadena completa)
+    const profs = [...new Set(LEADS.flatMap(oficiosDe))].sort();
+    const sel = document.getElementById('fProf');
+    sel.innerHTML = '<option value="">Todas las profesiones</option>' + profs.map(p => `<option>${esc(p)}</option>`).join('');
+    // llenar filtro de ciudades
+    const cities = [...new Set(LEADS.map(l => l.ciudad).filter(Boolean))].sort();
+    const selC = document.getElementById('fCiudad');
+    selC.innerHTML = '<option value="">Todas las ciudades</option>' + cities.map(c => `<option>${esc(c)}</option>`).join('');
+    pintarStats();
+    render();
+  }
+
+  function esc(t){ const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
+
+  // Mensaje de lanzamiento completo, listo para enviar (1-click)
+  //
+  // 🔴 30-jul-2026: este mensaje felicitaba a TODOS ("ya estás aceptado, sos de
+  // los primeros del cupo") sin mirar si la persona podía trabajar. A los que se
+  // anotaron por el formulario sin Google hubo que escribirles de nuevo al rato
+  // pidiéndoles que entraran otra vez por el mismo link — quedando como que nos
+  // habíamos equivocado. Ahora el texto depende del estado real: si falta un
+  // paso, se pide de entrada y como parte natural del alta.
+  const LINK_ALTA = 'https://bolt.com.ar/prestadores';
+  const CIERRE_WA = `La aplicación está prevista para lanzarse en 30/45 días aproximadamente, y te vamos a avisar por mail y WhatsApp.
+
+En principio todo va a ser gratuito, y vamos a lanzar una campaña de publicidad masiva una vez registrados todos los trabajadores.
+
+Cualquier consulta o duda, quedo a tu disposición. ¡Muchas gracias!`;
+
+  function waMensaje(l){
+    const nombre = (l.nombre||'').trim();
+    const saludo = nombre ? `Hola ${nombre}!` : 'Hola!';
+    const p = l.user_id ? PROFS[l.user_id] : null;
+    const tieneOficio = !!(p && (p.professional_professions || []).length);
+
+    // Todavía no abrió la app. NO se le pide que vuelva a registrarse: cuando
+    // entre con el mismo mail queda activo solo (trigger de la migración 036).
+    // Lo único que se le avisa es con qué cuenta tiene que entrar, que es el
+    // único punto donde se puede perder.
+    if (!l.user_id || !p){
+      const conQue = l.email ? `la cuenta de Google **${l.email}**` : 'la cuenta de Google del celular (la de Play Store)';
+      return `${saludo} Soy Maximiliano, del equipo de BOLT, y te contacto por tu registro como profesional. ¿Cómo estás?
+
+Ya estás aceptado y sos de los primeros del cupo. 🎉
+
+Un dato importante para cuando salga la app: cuando la instales, entrá con ${conQue.replace(/\*\*/g,'')} — es la que tenemos asociada a tu registro, así te reconoce y ya quedás activo.
+
+${CIERRE_WA}`;
+    }
+
+    // Existe, pero sin oficio no aparece en ninguna búsqueda.
+    if (!tieneOficio){
+      return `${saludo} Soy Maximiliano, del equipo de BOLT, y te contacto por tu registro como profesional. ¿Cómo estás?
+
+Ya estás aceptado y sos de los primeros del cupo. 🎉 Me falta un solo dato para que aparezcas en las búsquedas: tu oficio. Son 10 segundos:
+
+1) Entrá a ${LINK_ALTA}
+2) Entrá con la misma cuenta de Google con la que te registraste
+3) Elegí tu oficio (hasta 3) y guardá
+
+${CIERRE_WA}`;
+    }
+
+    // Listo para trabajar: lo único que falta es la app y el radar.
+    return `${saludo} Soy Maximiliano, del equipo de BOLT, y te contacto por tu registro como profesional. ¿Cómo estás?
+
+Te cuento que ya estás aceptado y sos de los primeros del cupo. 🎉
+
+${CIERRE_WA}`;
+  }
+  function waLink(l){ const n=(l.telefono||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10)); return 'https://wa.me/'+full+'?text='+encodeURIComponent(waMensaje(l)); }
+
+  // ── Mail para pedir el oficio (el único dato que no podemos cargar nosotros) ──
+  // pp_insert_own exige ser el dueño de la ficha, así que el oficio lo tiene que
+  // guardar la persona con su propia cuenta. El link la lleva justo a eso: entra
+  // con Google, toca su oficio y listo — la página detecta que ya está registrada
+  // y no le pide nada más.
+  function mailOficio(l){
+    const nombre = (l.nombre || '').trim();
+    const asunto = 'BOLT — falta un solo dato para activar tu perfil';
+    const cuerpo = `Hola ${nombre || ''}, soy Maximiliano de BOLT.
+
+Ya tenemos tu registro como profesional. Me falta un solo dato para activarte: qué oficio hacés.
+
+Son 10 segundos:
+
+1. Entrá a https://bolt.com.ar/prestadores
+2. Tocá "Continuar con Google" y usá la misma cuenta con la que te registraste
+3. Elegí tu oficio (hasta 3) y tocá "Guardar mi oficio"
+
+Con eso queda listo. Cuando te activemos te aviso, y desde ahí abrís BOLT, prendés el radar y empezás a recibir pedidos de clientes de tu zona.
+
+Cualquier duda respondeme este mail.
+
+Gracias!
+Maximiliano — BOLT
+https://bolt.com.ar`;
+    // Compositor web de Gmail, no mailto: en Chrome sin cliente de correo
+    // asociado el mailto no hace absolutamente nada al tocarlo (pasó el 29-jul).
+    // Esto abre una pestaña con el mail escrito, listo para apretar Enviar.
+    return 'https://mail.google.com/mail/?view=cm&fs=1' +
+           '&to=' + encodeURIComponent(l.email || '') +
+           '&su=' + encodeURIComponent(asunto) +
+           '&body=' + encodeURIComponent(cuerpo);
+  }
+
+  // ===== Datos faltantes (mismo checklist que el mail automático) =====
+  const CHECK_FALTA = [
+    ['dni','número de DNI'], ['fecha_nac','fecha de nacimiento'], ['profesion','oficio'], ['zona','zona o barrio'],
+    ['dni_frente_url','foto del DNI (frente)'], ['dni_dorso_url','foto del DNI (dorso)'], ['selfie_url','selfie con DNI'],
+    ['antecedentes_url','certificado de antecedentes'], ['monotributo_url','constancia de monotributo'],
+  ];
+  function faltantesDe(l){
+    return CHECK_FALTA.filter(([k]) => {
+      const v = String(l[k] ?? '').trim();
+      return !v || (k === 'profesion' && v.toLowerCase() === 'a completar');
+    }).map(([,label]) => label);
+  }
+  function waRecordatorio(l){
+    const faltan = faltantesDe(l);
+    const link = 'https://maxi95bahiablanca-hue.github.io/VOLT/web/prestadores/completar.html?t=' + encodeURIComponent(l.completar_token);
+    const nombre = (l.nombre||'').trim();
+    const msj = `¡Hola${nombre ? ' ' + nombre : ''}! Soy Maximiliano, del equipo de BOLT ⚡ Tu registro como profesional está guardado, pero para activar tu perfil todavía falta: ${faltan.join(', ')}.
+
+Lo completás en 5 minutos desde tu celular con tu link personal: ${link}
+
+Cualquier duda escribime por acá. ¡Gracias!`;
+    const n=(l.telefono||'').replace(/\D/g,''); const full=n.startsWith('54')?n:('549'+n.slice(-10));
+    return 'https://wa.me/'+full+'?text='+encodeURIComponent(msj);
+  }
+
+  function pintarStats(){
+    const total = LEADS.length;
+    const aceptados = LEADS.filter(l=>l.estado==='aceptado').length;
+    const nuevos = LEADS.filter(l=>l.estado==='nuevo').length;
+    const profs = new Set(LEADS.flatMap(oficiosDe)).size;
+    document.getElementById('stats').innerHTML = `
+      <div class="stat"><div class="n">${total}</div><div class="l">Registros</div></div>
+      <div class="stat"><div class="n" style="color:var(--blue)">${nuevos}</div><div class="l">Nuevos sin contactar</div></div>
+      <div class="stat"><div class="n" style="color:var(--green)">${aceptados}</div><div class="l">Aceptados</div></div>
+      <div class="stat"><div class="n" style="color:var(--yellow)">${profs}</div><div class="l">Oficios distintos</div></div>`;
+
+    // barras por profesión
+    const META = 25;
+    const byProf = {};
+    // un trabajador con 3 oficios suma 1 en cada uno de los 3
+    LEADS.forEach(l => oficiosDe(l).forEach(p => { byProf[p] = (byProf[p]||0)+1; }));
+    const bars = Object.entries(byProf).sort((a,b)=>b[1]-a[1]).map(([p,n])=>{
+      const pct = Math.min(100, Math.round(n/META*100));
+      return `<div class="pbar"><div class="pbar-top"><span>${esc(p)}</span><span>${n}/${META}</span></div>
+        <div class="pbar-track"><div class="pbar-fill ${n>=META?'done':''}" style="width:${pct}%"></div></div></div>`;
+    }).join('');
+    document.getElementById('profBars').innerHTML = bars || '<div class="empty">Todavía no hay registros.</div>';
+  }
+
+  function render(){
+    const fc = document.getElementById('fCiudad').value;
+    const fp = document.getElementById('fProf').value;
+    const fe = document.getElementById('fEstado').value;
+    let list = LEADS;
+    if (fc) list = list.filter(l => l.ciudad === fc);
+    if (fp) list = list.filter(l => oficiosDe(l).includes(fp));
+    if (fe) list = list.filter(l => (l.estado||'nuevo') === fe);
+    document.getElementById('countPill').textContent = list.length + ' registro' + (list.length!==1?'s':'');
+
+    if (!list.length){ document.getElementById('leads').innerHTML = '<div class="empty">No hay registros con esos filtros.</div>'; return; }
+
+    document.getElementById('leads').innerHTML = list.map(l => {
+      const est = l.estado || 'nuevo';
+      const fecha = new Date(l.created_at).toLocaleDateString('es-AR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      const ante = l.antecedentes || '';
+      const anteCls = /vigente/i.test(ante)?'ok':/tr[aá]mite/i.test(ante)?'mid':ante?'no':'';
+      const doc = (url,label)=> url
+        ? `<a class="doc" href="#" onclick="openDoc('${esc(url)}');return false">${label} ↗</a>`
+        : `<span class="doc none">${label} —</span>`;
+      const aceptado = est==='aceptado';
+      const faltan = faltantesDe(l);
+      const chipFalta = faltan.length
+        ? `<span class="ante mid" title="${esc(faltan.join(', '))}">⏳ Faltan ${faltan.length} dato${faltan.length>1?'s':''}${l.recordatorios_enviados?` · ⏰ ${l.recordatorios_enviados} recordatorio${l.recordatorios_enviados>1?'s':''}`:''}</span>`
+        : `<span class="ante ok">✔ Datos completos</span>`;
+      return `<div class="lead">
+        <div class="lead-main">
+          <span class="lead-name">${esc(l.nombre)} ${esc(l.apellido||'')}</span>
+          <span class="badge b-${est}" style="margin-left:8px">${est}</span>
+          <div>${(oficiosDe(l).length ? oficiosDe(l) : ['A completar']).map(p => `<span class="lead-prof">${esc(p)}</span>`).join(' ')}${l.matricula?` <span class="lead-prof" style="color:var(--blue);background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.25)">📋 ${esc(l.matricula)}</span>`:''}</div>
+          <div class="lead-meta">
+            ${l.ciudad?`🏙️ <b>${esc(l.ciudad)}</b> · `:''}${l.zona?`📍 ${esc(l.zona)} · `:''}📱 <b>${esc(l.telefono)}</b>
+            ${l.dni?`<br>🪪 DNI: <b>${esc(l.dni)}</b>`:''}${l.fecha_nac?` · 🎂 ${esc(l.fecha_nac)}`:''}
+            ${l.email?`<br>✉️ ${esc(l.email)}`:''}
+            ${l.domicilio?`<br>🏠 ${esc(l.domicilio)}`:''}
+            ${l.precio_visita?`<br>💳 Visita: <b>$${Number(l.precio_visita).toLocaleString('es-AR')}</b>`:''}
+            ${l.experiencia?` · 🔧 ${esc(l.experiencia)}`:''}
+            <br><span style="color:var(--muted2)">${esc(l.fuente||'landing')} · ${fecha}</span>
+          </div>
+          ${chipFalta}
+          ${(() => { const e = estadoEnApp(l); return `<span class="ante ${e.cls}">${esc(e.txt)}</span>`; })()}
+          ${ante?`<span class="ante ${anteCls}">🛡️ ${esc(ante)}</span>`:''}
+          <div class="docs">
+            ${doc(l.dni_frente_url,'DNI frente')}
+            ${doc(l.dni_dorso_url,'DNI dorso')}
+            ${doc(l.antecedentes_url,'Antecedentes')}
+            ${doc(l.monotributo_url,'Monotributo')}
+            ${doc(l.selfie_url,'Selfie')}
+          </div>
+        </div>
+        ${editorHTML(l)}
+        <div class="lead-actions">
+          <button class="wa" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#fff;cursor:pointer" onclick="editar('${l.id}')">✏️ Editar datos</button>
+          <a class="wa" href="${waLink(l)}" target="_blank">💬 WhatsApp</a>
+          ${estadoEnApp(l).cls === 'no' && l.email ? `<a class="wa" style="background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.35);color:var(--yellow)" href="${mailOficio(l)}">✉️ Pedirle el oficio</a>` : ''}
+          ${faltan.length && l.completar_token ? `<a class="wa" style="background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.35);color:var(--yellow)" href="${waRecordatorio(l)}" target="_blank">⏰ Recordar faltantes</a>` : ''}
+          ${aceptado
+            ? `<div class="accept is-on">✓ Aceptado</div>`
+            : `<button class="accept" onclick="aceptar('${l.id}')">✅ Aceptar y avisar</button>`}
+          <select class="estado-sel" onchange="setEstado('${l.id}', this.value)">
+            <option value="nuevo" ${est==='nuevo'?'selected':''}>🔵 Nuevo</option>
+            <option value="contactado" ${est==='contactado'?'selected':''}>🟡 Contactado</option>
+            <option value="aceptado" ${est==='aceptado'?'selected':''}>🟢 Aceptado</option>
+            <option value="rechazado" ${est==='rechazado'?'selected':''}>🔴 Rechazado</option>
+          </select>
+          <button class="estado-sel" style="background:rgba(255,68,68,.12);border:1px solid rgba(255,68,68,.35);color:#ff6b6b;cursor:pointer" onclick="eliminar('${l.id}', '${esc(l.nombre)}')">🗑️ Eliminar</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  EDITOR — cargarle los datos y el oficio a cualquiera desde acá
+  // ------------------------------------------------------------------------
+  //  Antes, si alguien te decía el oficio por WhatsApp, no había forma de
+  //  cargarlo: la base sólo dejaba guardarlo al dueño de la ficha, así que el
+  //  único camino era pedirle que entrara él. Con la migración 036 el admin
+  //  escribe en professional_professions, y esto es la pantalla para hacerlo.
+  //
+  //  Se guarda en dos lados y no es lo mismo:
+  //    · prestador_leads  → el registro del panel (un trigger arma los oficios
+  //      del lead a partir del texto de 'profesion')
+  //    · professional_professions → lo que mira la app para mostrarlo en las
+  //      búsquedas. Sólo existe si la persona ya tiene ficha (o sea, si entró
+  //      alguna vez con su cuenta).
+  // ════════════════════════════════════════════════════════════════════════
+  const CAMPOS_EDIT = [
+    ['nombre','Nombre'], ['apellido','Apellido'], ['telefono','WhatsApp'],
+    ['email','Email'], ['ciudad','Ciudad'], ['zona','Zona o barrio'],
+  ];
+
+  function editorHTML(l){
+    const elegidos = oficiosDe(l).map(s => s.toLowerCase());
+    const chips = CATALOGO.map(p => {
+      const on = elegidos.includes(String(p.name).toLowerCase());
+      return `<button type="button" class="ed-chip${on?' on':''}" data-prof="${p.id}" data-nom="${esc(p.name)}"
+                onclick="this.classList.toggle('on')">${esc(p.name)}</button>`;
+    }).join('');
+    const inputs = CAMPOS_EDIT.map(([k,label]) =>
+      `<label class="ed-lbl">${label}<input class="ed-inp" data-campo="${k}" value="${esc(l[k]||'')}"></label>`
+    ).join('');
+    return `<div class="editor" id="ed-${l.id}" style="display:none">
+      <div class="ed-grid">${inputs}</div>
+      <div class="ed-lbl" style="margin-top:10px">Oficios (tocá los que hace)</div>
+      <div class="ed-chips">${chips || '<span class="muted">No se pudo cargar el catálogo de oficios.</span>'}</div>
+      <div class="ed-acts">
+        <button class="accept" onclick="guardarEdicion('${l.id}')">💾 Guardar</button>
+        <button class="estado-sel" style="cursor:pointer" onclick="editar('${l.id}')">Cancelar</button>
+        <span class="ed-msg" id="edmsg-${l.id}"></span>
+      </div>
+    </div>`;
+  }
+
+  function editar(id){
+    const el = document.getElementById('ed-' + id);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function guardarEdicion(id){
+    const l = LEADS.find(x => x.id === id); if (!l) return;
+    const cont = document.getElementById('ed-' + id);
+    const msg  = document.getElementById('edmsg-' + id);
+    const dato = {};
+    cont.querySelectorAll('.ed-inp').forEach(i => {
+      const v = i.value.trim();
+      dato[i.dataset.campo] = v || null;
+    });
+    const chips = [...cont.querySelectorAll('.ed-chip.on')];
+    const ids     = chips.map(c => Number(c.dataset.prof));
+    const nombres = chips.map(c => c.dataset.nom);
+    // El texto es lo que lee el trigger de la 031 para armar los oficios del lead.
+    dato.profesion = nombres.length ? nombres.join(', ') : 'A completar';
+
+    msg.style.color = 'var(--muted)'; msg.textContent = 'Guardando…';
+    try {
+      const { error } = await sb.from('prestador_leads').update(dato).eq('id', id);
+      if (error) throw error;
+      const aviso = await guardarOficiosEnApp(l, ids);
+      await cargar();                       // relee todo: leads, fichas y oficios
+      if (aviso) alert(aviso);
+    } catch (e) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'No se pudo guardar: ' + e.message;
+    }
+  }
+
+  // Espejo de los oficios en la tabla que mira la app. Sin ficha no hay dónde
+  // guardarlos todavía: los va a cargar solo el trigger cuando la persona entre
+  // por primera vez con su cuenta.
+  async function guardarOficiosEnApp(l, ids){
+    const p = l.user_id ? PROFS[l.user_id] : null;
+    if (!p) {
+      return ids.length
+        ? 'Datos guardados. ' + (l.nombre || 'Esta persona') + ' todavía no abrió la app, ' +
+          'así que el oficio queda anotado acá y se le carga solo la primera vez que entre.'
+        : null;
+    }
+    const actuales = (p.professional_professions || []).map(x => x.profession_id);
+    const sumar  = ids.filter(i => !actuales.includes(i));
+    const restar = actuales.filter(i => !ids.includes(i));
+    if (restar.length){
+      const { error } = await sb.from('professional_professions')
+        .delete().eq('professional_id', p.id).in('profession_id', restar);
+      if (error) throw error;
+    }
+    if (sumar.length){
+      const { error } = await sb.from('professional_professions')
+        .insert(sumar.map(i => ({ professional_id: p.id, profession_id: i, min_price: 0 })));
+      if (error) throw error;
+    }
+    return null;
+  }
+
+  // Router del <select>: aceptar dispara mail + WhatsApp; el resto solo cambia estado
+  function setEstado(id, estado){
+    if (estado === 'aceptado') aceptar(id);
+    else cambiarEstado(id, estado);
+  }
+
+  // ACEPTAR = estado aceptado + mail automático + WhatsApp listo para enviar
+  function aceptar(id){
+    const l = LEADS.find(x=>x.id===id); if (!l) return;
+    // 1. WhatsApp 1-click — se abre YA, dentro del gesto del click (evita bloqueo de pop-up).
+    //    Solo si dejó teléfono; queda escrito el mensaje completo, vos tocás "Enviar".
+    if ((l.telefono||'').replace(/\D/g,'').length >= 8) window.open(waLink(l), '_blank');
+    // 2. Estado + mail automático (en paralelo)
+    cambiarEstado(id, 'aceptado');
+    enviarMailAceptado(l);
+  }
+
+  async function enviarMailAceptado(l){
+    if (!l.email){ return; } // sin email no hay nada que mandar (el WhatsApp ya se abrió)
+    try {
+      const { error } = await sb.functions.invoke('notify-lead-accepted', { body: { leadId: l.id } });
+      if (error) console.warn('Mail de aceptación no enviado:', error.message);
+    } catch (e) { console.warn('Mail de aceptación no enviado:', e); }
+  }
+
+  async function cambiarEstado(id, estado){
+    const { error } = await sb.from('prestador_leads').update({ estado }).eq('id', id);
+    if (error){ alert('Error: ' + error.message); return; }
+    const l = LEADS.find(x=>x.id===id); if (l) l.estado = estado;
+    // El estado del lead NO habilita a nadie: la app y nearby_workers miran
+    // professionals.verification_status. Antes esto no se tocaba, así que
+    // "Aceptar" dejaba a la persona en pending y no podía trabajar nunca.
+    const aviso = await sincronizarProfesional(l, estado);
+    await cargarProfesionales();
+    pintarStats(); render();
+    if (aviso) alert(aviso);
+  }
+
+  // ── Espejo del estado en la tabla que manda: professionals ────────────────
+  // La política professionals_admin_update (migración 002) permite este UPDATE
+  // solo con la sesión del email de admin.
+  async function sincronizarProfesional(l, estado){
+    const equivale = { aceptado: 'approved', rechazado: 'rejected' };
+    const vs = equivale[estado];
+    if (!vs || !l) return null;                       // nuevo/contactado no cambian la app
+    const quien = (l.nombre || 'este registro').trim();
+    // No hace falta pedirle nada: el trigger trg_activar_prestador (migración
+    // 036) lo activa solo la primera vez que entra con ese mismo mail. El texto
+    // viejo mandaba a pedirle que "vuelva a entrar por el link", que era
+    // innecesario y quedaba pésimo con alguien que ya se había registrado.
+    if (!l.user_id){
+      return 'ℹ️ ' + quien + ' todavía no abrió la app, así que este cambio no lo activa ahora.' +
+             '\n\nNo tenés que pedirle nada: cuando entre por primera vez con ' +
+             (l.email ? l.email : 'el mail que dejó') + ' queda activo solo, con los oficios ' +
+             'que tenga cargados acá.\n\n(Sólo hace falta el link de bolt.com.ar/prestadores ' +
+             'si entra con OTRA cuenta de Google distinta a ese mail.)';
+    }
+    try {
+      const { data, error } = await sb.from('professionals')
+        .update({ verification_status: vs })
+        .eq('user_id', l.user_id)
+        .select('id, professional_professions(profession_id)');
+      if (error) throw error;
+      if (!data || !data.length){
+        return '⚠️ ' + quien + ' tiene cuenta pero no existe su ficha de profesional. ' +
+               'Que entre una vez a bolt.com.ar/prestadores con su Google.';
+      }
+      if (vs === 'approved' && !(data[0].professional_professions || []).length){
+        return '⚠️ ' + quien + ' quedó aprobado, pero NO tiene oficio cargado: no va a ' +
+               'aparecer en ninguna búsqueda.\n\nQue entre a bolt.com.ar/prestadores con su ' +
+               'Google y lo elija — son 10 segundos y la página se lo pide sola.';
+      }
+      return null;
+    } catch (e) {
+      return 'No se pudo activar en la app: ' + e.message;
+    }
+  }
+
+  // ── VIGILANTE ────────────────────────────────────────────────────────────
+  //  Regla de Maxi: ninguna accion puede quedar trabada esperando que alguien
+  //  se acuerde de apretar un boton. La funcion trabajos_trabados() (migracion
+  //  040) devuelve los que se quedaron; aca se ven y se resuelven.
+  const MOTIVOS = {
+    sin_respuesta:         { txt: 'Nadie lo acepto',            pregunta: null },
+    no_fue:                { txt: 'Acepto y no fue',            pregunta: '¿Fuiste al domicilio? Si no vas a poder, avisanos asi le conseguimos otro profesional al cliente.' },
+    no_empezo:             { txt: 'Llego y no empezo',          pregunta: '¿Arrancaste el trabajo? Tocá "Iniciar" en la app asi el cliente ve que estas trabajando.' },
+    jornada_abierta:       { txt: 'Jornada sin cerrar',         pregunta: '¿Terminaste por hoy? Cerrá la jornada en la app para que queden bien tus horas.' },
+    mensaje_sin_respuesta: { txt: 'Mensaje sin contestar',      pregunta: 'El cliente te escribio y esta esperando respuesta.' },
+  };
+
+  /** El embudo: donde se pierden los pedidos. Sin esto se trabaja a ciegas —
+   *  en Big Pizza el mismo grafico mostro que se caia el 47% en un solo paso. */
+  async function cargarEmbudo(){
+    try {
+      const { data, error } = await sb.rpc('embudo_bolt', { p_dias: 30 });
+      if (error) throw error;
+      const filas = data || [];
+      const tope = Math.max(1, ...filas.map(f => Number(f.cuantos)));
+      document.getElementById('embudoBox').style.display = filas.length ? 'block' : 'none';
+      let previo = null;
+      document.getElementById('embudo').innerHTML = filas.map(f => {
+        const n = Number(f.cuantos);
+        const pct = Math.round(n / tope * 100);
+        const caida = (previo !== null && previo > n) ? (previo - n) : 0;
+        previo = n;
+        const clave = f.etapa === 'TRABAJO HECHO';
+        return `<div class="pbar">
+          <div class="pbar-top">
+            <span style="${clave ? 'color:var(--green)' : ''}">${esc(f.etapa)}</span>
+            <span>${n}${caida ? ` <span style="color:var(--red)">− ${caida}</span>` : ''}</span>
+          </div>
+          <div class="pbar-track"><div class="pbar-fill ${clave ? 'done' : ''}" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('embudoBox').style.display = 'none';
+      console.warn('embudo:', e.message);
+    }
+  }
+
+  async function cargarTrabados(){
+    try {
+      const { data, error } = await sb.rpc('trabajos_trabados');
+      if (error) throw error;
+      const lista = data || [];
+      document.getElementById('trabadosBox').style.display = lista.length ? 'block' : 'none';
+      document.getElementById('trabados').innerHTML = lista.map(t => {
+        const m = MOTIVOS[t.motivo] || { txt: t.motivo, pregunta: null };
+        const desde = t.desde ? new Date(t.desde).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+        return `<div class="lead">
+          <div class="lead-main">
+            <div class="lead-name">${esc(m.txt)}</div>
+            <div class="lead-meta">${esc(t.detalle)} · desde el <b>${esc(desde)}</b><br>
+              <span style="color:var(--muted2);font-size:.75rem">${esc(t.job_id)}</span></div>
+          </div>
+          <div class="lead-actions">
+            ${m.pregunta && t.worker_user ? `<button class="wa" onclick="preguntarAlTrabajador('${t.job_id}','${t.worker_user}','${t.motivo}')">📲 Preguntarle</button>` : ''}
+            <button class="accept" onclick="asignarOtro('${t.job_id}')">🔁 Asignar otro trabajador</button>
+            <button class="estado-sel" style="cursor:pointer" onclick="cerrarTrabado('${t.job_id}')">Cerrar este trabajo</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('trabadosBox').style.display = 'none';
+      console.warn('vigilante:', e.message);
+    }
+  }
+
+  /** Le pregunta al trabajador. Si no contesta, el trabajo sigue apareciendo
+   *  aca: no se pierde de vista hasta que alguien lo resuelve. */
+  async function preguntarAlTrabajador(jobId, userId, motivo){
+    const m = MOTIVOS[motivo] || {};
+    try {
+      await sb.functions.invoke('send-push', {
+        body: { userId, title: '⚡ BOLT te pregunta', body: m.pregunta, data: { jobId, screen: 'tracking' } },
+      });
+      alert('Listo, le preguntamos. Si no contesta, el trabajo sigue apareciendo en esta lista.');
+    } catch (e) { alert('No se pudo avisar: ' + e.message); }
+  }
+
+  /** Le saca el trabajo al que no respondio y se lo da a otro. El cliente NO se
+   *  entera: sigue con SU pedido, no tiene que volver a empezar. El aviso se lo
+   *  da Maxi a mano si hace falta. */
+  async function asignarOtro(jobId){
+    const { data: cand, error } = await sb.rpc('candidatos_para_trabajo', { p_job_id: jobId });
+    if (error){ alert('No se pudo buscar profesionales: ' + error.message); return; }
+    if (!cand || !cand.length){ alert('No hay otro profesional aprobado con ese oficio.'); return; }
+    const lista = cand.map((c, i) =>
+      `${i + 1}) ${c.nombre}${c.disponible ? ' (radar prendido)' : ' (sin radar)'} - ${c.trabajos} trabajos`).join(String.fromCharCode(10));
+    const salto = String.fromCharCode(10);
+    const elegido = prompt('A quien se lo paso?' + salto + salto + lista + salto + salto + 'Escribi el numero:');
+    const n = parseInt(elegido, 10);
+    if (!n || n < 1 || n > cand.length) return;
+    const nuevo = cand[n - 1];
+    if (!confirm('Pasarle el trabajo a ' + nuevo.nombre + '?' + salto + salto + 'Al anterior se le borra de su lista y deja de verlo.')) return;
+    const { data, error: e2 } = await sb.rpc('reasignar_trabajo', { p_job_id: jobId, p_prof_id: nuevo.id });
+    if (e2){ alert('No se pudo: ' + e2.message); return; }
+    if (data !== 'reasignado'){ alert(data); return; }
+    // Avisarle al que lo recibe, que si no no se entera de que tiene trabajo.
+    const nuevoUser = (await sb.from('professionals').select('user_id').eq('id', nuevo.id).single()).data;
+    if (nuevoUser?.user_id){
+      sb.functions.invoke('send-push', { body: {
+        userId: nuevoUser.user_id, title: '⚡ Te asignamos un trabajo',
+        body: 'Un trabajo paso a vos. Abrilo en BOLT para ver los detalles.',
+        data: { jobId, screen: 'tracking' } } }).catch(() => {});
+    }
+    alert('Listo: ahora es de ' + nuevo.nombre + '. Avisale vos al cliente si hace falta.');
+    cargarTrabados();
+    cargarEmbudo();
+  }
+
+  async function cerrarTrabado(jobId){
+    if (!confirm('¿Dar por terminado este trabajo? Deja de figurar como activo.')) return;
+    const { error } = await sb.from('jobs')
+      .update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId);
+    if (error){ alert('No se pudo: ' + error.message); return; }
+    cargarTrabados();
+    cargarEmbudo();
+  }
+
+  // Estado real de cada prestador en la app, para no aprobar a ciegas.
+  // professionals_read y pp_read son públicas: alcanza con la sesión del admin.
+  let PROFS = {};
+  async function cargarProfesionales(){
+    try {
+      // El id va en el select porque es lo que necesita professional_professions
+      // para que el admin pueda cargarle el oficio a cualquiera (migración 036).
+      const { data } = await sb.from('professionals')
+        .select('id,user_id,verification_status,available,location,professional_professions(profession_id,professions(name))');
+      PROFS = {};
+      (data || []).forEach(p => { if (p.user_id) PROFS[p.user_id] = p; });
+    } catch (e) { PROFS = {}; }
+  }
+
+  // Catálogo de oficios, para los chips del editor. professions es de lectura
+  // pública, así que alcanza con la sesión del admin.
+  let CATALOGO = [];
+  async function cargarCatalogo(){
+    try {
+      const { data } = await sb.from('professions').select('id,name').order('name');
+      CATALOGO = data || [];
+    } catch (e) { CATALOGO = []; }
+  }
+
+  // Las 3 condiciones de nearby_workers: approved + available + location.
+  // Los documentos no son una de ellas.
+  function estadoEnApp(l){
+    if (!l.user_id) return { cls:'no', txt:'✖ Sin cuenta de Google — no existe en la app' };
+    const p = PROFS[l.user_id];
+    if (!p) return { cls:'no', txt:'✖ Sin ficha de profesional en la app' };
+    const oficios = (p.professional_professions || []).map(x => x.professions && x.professions.name).filter(Boolean);
+    if (!oficios.length) return { cls:'no', txt:'⚠️ Sin oficio cargado — invisible en las búsquedas' };
+    if (p.verification_status !== 'approved') return { cls:'mid', txt:'⏳ ' + p.verification_status + ' en la app · ' + oficios.join(', ') };
+    if (!p.available || !p.location) return { cls:'mid', txt:'📴 Aprobado, falta que prenda el radar · ' + oficios.join(', ') };
+    return { cls:'ok', txt:'✅ Puede recibir trabajos · ' + oficios.join(', ') };
+  }
+
+  async function eliminar(id, nombre){
+    if (!confirm('¿Eliminar definitivamente el registro de ' + (nombre || 'este prestador') + '?\n\nEsta acción no se puede deshacer.')) return;
+    const { error } = await sb.rpc('admin_borrar_lead', { p_id: id });
+    if (error){ alert('No se pudo eliminar: ' + error.message); return; }
+    LEADS = LEADS.filter(l => l.id !== id);
+    pintarStats(); render();
+  }
+
+  // Auto-login si ya hay sesión
+  (async () => {
+    const { data } = await sb.auth.getSession();
+    if (data.session?.user?.email === ADMIN_EMAIL) enterApp();
+  })();
+</script>
+</body>
+</html>
