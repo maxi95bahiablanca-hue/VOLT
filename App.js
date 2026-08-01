@@ -177,10 +177,36 @@ export default function App() {
       }
       if (data.screen === 'worker_incoming' && data.jobId) {
         jobService.getById(data.jobId).then(job => {
-          if (job) { setIncomingJob(job); setScreen('workerIncoming'); }
+          if (!job) return;
+          // Todavía se puede tomar → la pantalla del trabajo entrante.
+          if (job.status === 'pending') { setIncomingJob(job); setScreen('workerIncoming'); return; }
+          // Ya lo respondió (o lo tomó otro): abrirle la pantalla de aceptar
+          // sería mentirle. Se lo lleva al seguimiento, que es donde está la
+          // verdad de ese trabajo, en vez de dejarlo en la pantalla de inicio
+          // sin entender qué pasó (Maxi, 1-ago).
+          if (['accepted', 'arrived', 'in_progress', 'awaiting_payment'].includes(job.status)) {
+            minimizedJobRef.current = false;
+            setActiveJob(job);
+            setScreen('jobTracking');
+          }
         }).catch(() => {});
       }
     };
+
+    // 🔴 LA APP ARRANCÓ PORQUE TOCARON UNA NOTIFICACIÓN.
+    // Los listeners de abajo sólo escuchan mientras la app está VIVA. Si estaba
+    // cerrada, Android la abre y ese toque se pierde: el profesional entraba a
+    // la pantalla de siempre y el trabajo no aparecía por ningún lado —tenía
+    // que ir a "Mis trabajos" a buscarlo, y nadie hace eso (Maxi, 1-ago:
+    // "la gente si no tiene el trabajo en el medio de la pantalla, la cierra y
+    // piensa que no tiene nada"). Esto le pregunta a Android por qué la
+    // abrieron y abre el trabajo derecho.
+    Notifications.getLastNotificationResponseAsync()
+      .then((res) => {
+        const data = res?.notification?.request?.content?.data;
+        if (data) handleNotifData(data);
+      })
+      .catch(() => {});
 
     const receivedSub = Notifications.addNotificationReceivedListener(n =>
       handleNotifData(n.request.content.data)

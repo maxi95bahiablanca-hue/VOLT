@@ -71,9 +71,15 @@ const jobService = {
   },
 
   getPendingForWorker: async (professionalId) => {
-    // Solo pedidos recientes: una solicitud tiene ~45 s de ventana, así que un
-    // "pending" de hace horas ya expiró y no debe reaparecer como entrante.
-    const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    // Solo pedidos recientes: un "pending" de hace horas ya expiró y no debe
+    // reaparecer como entrante.
+    // ⚠️ Este filtro decía 2 minutos porque la ventana era de 45 s. Desde el
+    // 29-jul la ventana para responder es de 3 MINUTOS, así que entre el minuto
+    // 2 y el 3 el trabajo seguía vivo pero la app ya no lo mostraba: el
+    // profesional abría y no veía nada (Maxi, 1-ago). Se va a 4 min para dejar
+    // margen: mejor que aparezca uno recién vencido —y que el contador lo
+    // muestre agotado— a que se pierda uno que todavía se podía tomar.
+    const since = new Date(Date.now() - 4 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('jobs')
       .select('*, professions(name)')
