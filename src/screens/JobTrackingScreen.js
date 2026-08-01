@@ -847,7 +847,9 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         chatService.sendSystemMessage(job.id, volt.chatSessionEnded(workerFirstName, label)).catch(() => {});
         await notificationService.sendToUser(clientId, {
           title: '📋 Jornada terminada',
-          body: `Sesión ${(job.completed_sessions || 0) + 1} de ${job.estimated_sessions || '?'} completada. El profesional regresa ${label}.`,
+          body: job.estimated_sessions
+            ? `Sesión ${(job.completed_sessions || 0) + 1} de ${job.estimated_sessions} completada. El profesional regresa ${label}.`
+            : `Jornada ${(job.completed_sessions || 0) + 1} terminada. El profesional regresa ${label}.`,
           data: { jobId: job.id, screen: 'tracking' },
         });
       } catch { Alert.alert('Error', 'No se pudo guardar la sesión.'); }
@@ -1786,8 +1788,12 @@ window.addEventListener('message', e => {
             <View style={styles.sessionCard}>
               <View style={styles.sessionCardRow}>
                 <Ionicons name="calendar" size={18} color="#FFD600" />
+                {/* Sin plan de días (el multi-día ahora es sólo una marca) se
+                    cuenta la jornada y listo: "Jornada 2" en vez de "2 de ?". */}
                 <Text style={styles.sessionCardTitle}>
-                  Sesión {(job.completed_sessions || 0) + (inSession ? 1 : 0)} de {job.estimated_sessions || '?'}
+                  {job.estimated_sessions
+                    ? `Sesión ${(job.completed_sessions || 0) + (inSession ? 1 : 0)} de ${job.estimated_sessions}`
+                    : `Jornada ${(job.completed_sessions || 0) + (inSession ? 1 : 0)}`}
                 </Text>
 
               </View>

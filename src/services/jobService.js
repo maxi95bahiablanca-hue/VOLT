@@ -160,12 +160,18 @@ const jobService = {
   confirmMultiday: async (jobId) => update(jobId, { multiday_confirmed: true }),
 
   // ─── Sesiones multi-día ──────────────────────────────────────────────────
-  setMultidayConfig: async (jobId, sessions, hrsPerSession) =>
-    update(jobId, {
-      is_multiday:           true,
-      estimated_sessions:    parseInt(sessions, 10),
-      estimated_hrs_session: hrsPerSession,
-    }),
+  // El multi-día es SOLO una marca: los días y las horas se acordaron por chat
+  // (Maxi, 1-ago-2026). Los parámetros quedan por compatibilidad, pero si no
+  // vienen no se escribe nada — ojo que `parseInt(null)` da NaN y el update
+  // fallaría entero, dejando el trabajo sin marcar.
+  setMultidayConfig: async (jobId, sessions = null, hrsPerSession = null) => {
+    const n = parseInt(sessions, 10);
+    return update(jobId, {
+      is_multiday: true,
+      ...(Number.isFinite(n)  ? { estimated_sessions: n }              : {}),
+      ...(hrsPerSession       ? { estimated_hrs_session: hrsPerSession } : {}),
+    });
+  },
 
   startSession: async (jobId) =>
     update(jobId, {

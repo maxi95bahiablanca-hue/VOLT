@@ -35,8 +35,6 @@ const DURATION_OPTIONS = ['~30 min', '~1 hora', '~2 horas', '~3 horas', '+3 hora
 // Verde de 4 para arriba, amarillo en el medio, rojo abajo de 3: el profesional
 // tiene que poder leerlo de un vistazo, con la alarma sonando.
 const colorEstrellas = (n) => (n >= 4 ? '#4CAF50' : n >= 3 ? '#FF9800' : '#ff4444');
-const SESSION_OPTIONS  = ['2', '3', '4', '5', '6', '7+'];
-const HRS_DAY_OPTIONS  = ['~2 hs', '~3 hs', '~4 hs', '~6 hs', '~8 hs'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FASE 1: Pantalla de alerta (alarma activa, mínima info)
@@ -133,8 +131,6 @@ const DetailsPhase = ({
   const [arrivalEst, setArrivalEst]       = useState('~30 min');
   const [workDuration, setWorkDuration]   = useState('~1 hora');
   const [isMultiday, setIsMultiday]       = useState(false);
-  const [estimatedSessions, setEstSessions] = useState('3');
-  const [hrsPerSession, setHrsPerSession] = useState('~4 hs');
   const [confidence, setConfidence]       = useState('Media');
   const [probableCause, setProbableCause] = useState('');
   const [selectedMaterials, setSelectedMaterials] = useState([]);
@@ -327,37 +323,26 @@ const DetailsPhase = ({
           </View>
         </View>
 
-        {/* Trabajo de varios días */}
+        {/* Trabajo de varios días — SOLO una marca.
+            Antes esto abría un cuestionario: cuántos días y cuántas horas por
+            día. El profesional lo contestaba ANTES de ver el trabajo, o sea
+            adivinando, y esos números no los usaba nadie después (Maxi,
+            1-ago-2026). Alcanza con dejar registrado que es de varios días:
+            el resto lo arreglan por chat, que para eso ya se conocen. */}
         <View style={styles.arrivalCard}>
           <View style={styles.multidayRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.arrivalTitle}>¿Es un trabajo de varios días?</Text>
-              <Text style={styles.arrivalHint}>Pintura, remodelación, instalaciones grandes.</Text>
+              <Text style={styles.arrivalHint}>
+                {isMultiday
+                  ? 'Queda anotado. Los días y horarios los arreglás con el cliente por el chat.'
+                  : 'Pintura, remodelación, instalaciones grandes.'}
+              </Text>
             </View>
             <TouchableOpacity style={[styles.multidayToggle, isMultiday && styles.multidayToggleOn]} onPress={() => setIsMultiday(v => !v)} activeOpacity={0.8}>
               <Text style={[styles.multidayToggleText, isMultiday && styles.multidayToggleTextOn]}>{isMultiday ? 'Sí' : 'No'}</Text>
             </TouchableOpacity>
           </View>
-          {isMultiday && (
-            <>
-              <Text style={[styles.arrivalTitle, { marginTop: 16 }]}>¿Cuántos días estimás?</Text>
-              <View style={styles.arrivalOptions}>
-                {SESSION_OPTIONS.map(opt => (
-                  <TouchableOpacity key={opt} style={[styles.arrivalOpt, estimatedSessions === opt && styles.arrivalOptActive]} onPress={() => setEstSessions(opt)} activeOpacity={0.8}>
-                    <Text style={[styles.arrivalOptText, estimatedSessions === opt && styles.arrivalOptTextActive]}>{opt}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={[styles.arrivalTitle, { marginTop: 12 }]}>¿Horas por día?</Text>
-              <View style={styles.arrivalOptions}>
-                {HRS_DAY_OPTIONS.map(opt => (
-                  <TouchableOpacity key={opt} style={[styles.arrivalOpt, hrsPerSession === opt && styles.arrivalOptActive]} onPress={() => setHrsPerSession(opt)} activeOpacity={0.8}>
-                    <Text style={[styles.arrivalOptText, hrsPerSession === opt && styles.arrivalOptTextActive]}>{opt}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
         </View>
 
         {/* Diagnóstico opcional (avanzado) */}
@@ -465,10 +450,10 @@ const DetailsPhase = ({
                 diagnosis: diagData?.summary || null,
                 arrivalEst,
                 materialsNeeded: showDiag && (selectedMaterials.length > 0),
-                workDuration: isMultiday ? `multi-día: ${estimatedSessions} días × ${hrsPerSession}` : workDuration,
+                // Sin números inventados: "varios días" y listo. Cuántos y en
+                // qué horario lo definen los dos por el chat.
+                workDuration: isMultiday ? 'Trabajo de varios días' : workDuration,
                 isMultiday,
-                estimatedSessions,
-                hrsPerSession,
                 diagData,
               })}
               disabled={loading}
@@ -627,14 +612,14 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
 
   const handleAccept = async ({
     diagnosis, arrivalEst, materialsNeeded, workDuration,
-    isMultiday, estimatedSessions, hrsPerSession, diagData,
+    isMultiday, diagData,
   }) => {
     if (loading) return;
     clearInterval(timerRef.current);
     // En demo: aceptamos sin tocar el backend y pasamos directo al seguimiento
     if (isDemoMode()) {
       onAccepted({ ...job, status: 'accepted', arrival_estimate: arrivalEst || '~12 min',
-        is_multiday: !!isMultiday, estimated_sessions: estimatedSessions,
+        is_multiday: !!isMultiday,
         pre_diagnosis: diagnosis || job.pre_diagnosis });
       return;
     }
@@ -643,7 +628,10 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
       const isQuote = !!job.quote_group_id; // es parte de un grupo de presupuestos
       await jobService.accept(job.id, diagnosis, arrivalEst, materialsNeeded, workDuration);
       if (isMultiday) {
-        await jobService.setMultidayConfig(job.id, estimatedSessions, hrsPerSession);
+        // Sólo la marca: is_multiday = true. Los días y las horas ya no se
+        // preguntan (eran una adivinanza y no las miraba nadie). Se manda null
+        // para no dejar números viejos dando vueltas en la base.
+        await jobService.setMultidayConfig(job.id, null, null).catch(() => {});
       }
       if (diagData && (diagData.summary || diagData.cause || (diagData.materials?.length > 0))) {
         await jobService.setStructuredDiagnosis(job.id, diagData).catch(() => {});
@@ -711,8 +699,6 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
           materialsNeeded: false,
           workDuration: defaults.workDuration,
           isMultiday: false,
-          estimatedSessions: '1',
-          hrsPerSession: '~1 hs',
           diagData: null,
         })}
       />
