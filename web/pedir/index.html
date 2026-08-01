@@ -322,7 +322,12 @@
       <div class="buscando" id="cajaBuscando">
         <div class="radar">⚡</div>
         <div class="reloj" id="reloj">3:00</div>
-        <p class="sub" style="margin:8px 0 0">Avisamos a <b id="cuantos">0</b> profesionales cerca tuyo.<br>Quedate en esta pantalla, van apareciendo acá.</p>
+        <!-- En cascada el pedido va de a uno, así que el texto no puede decir
+             "avisamos a N profesionales": se le cuenta a quién le está
+             preguntando ahora, que además hace la espera menos muda. -->
+        <p class="sub" style="margin:8px 0 0" id="buscandoTxt">Buscando al profesional más cercano…</p>
+        <p class="sub" style="margin:4px 0 0;font-size:.82rem">Quedate en esta pantalla, te avisamos acá mismo.</p>
+        <span id="cuantos" style="display:none">0</span>
       </div>
       <div id="listaProfs"></div>
       <!-- Nadie con el radar prendido NO es "no encontramos a nadie": el pedido
@@ -425,6 +430,13 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const WA_SOPORTE = '5492914199938';       // el mismo de rescueService
 const ESPERA_MS  = 3 * 60 * 1000;          // 3 minutos, como la app
+
+// 🔁 Cómo se reparte el pedido (ver src/config/asignacion.js en la app):
+//   'cascada' → va a UNO por vez; si no contesta en SEG_POR_TURNO, al siguiente
+//   'subasta' → a varios a la vez y el cliente elige (lo de antes del 1-ago)
+const MODO_ASIGNACION = 'cascada';
+const SEG_POR_TURNO   = 90;
+const MAX_INTENTOS    = 5;
 const RADIO_LIMITE = 10;                   // cuántos profesionales avisamos
 
 const $ = (id) => document.getElementById(id);
@@ -953,7 +965,16 @@ async function pedir(){
     S.quoteGroupId = crypto.randomUUID();
     const fotos = FOTOS.length ? await subirFotos(user.id) : [];
     const notas = `${S.resumen || ''}\n\n— Pedido desde la web —\nContacto: ${S.nombre} · ${S.tel}`.trim();
-    const filas = workers.map(w => ({
+
+    // 🔁 CASCADA (decisión de Maxi, 1-ago-2026): el pedido va a UNO SOLO, al
+    // más cercano. Si no contesta en SEG_POR_TURNO, se le pasa al siguiente.
+    // Antes se les mandaba a los tres a la vez y el cliente elegía: con dos
+    // profesionales activos eso era una ficción, y cada ronda dejaba dos
+    // perdedores — la forma más rápida de que apaguen el radar.
+    // Para volver atrás: MODO_ASIGNACION = 'subasta'.
+    const destinatarios = MODO_ASIGNACION === 'cascada' ? workers.slice(0, 1) : workers;
+
+    const filas = destinatarios.map(w => ({
       ...(fotos.length ? { problem_photo_url: fotos[0], problem_photos: fotos } : {}),
       client_id: user.id,
       professional_id: w.id,
@@ -1000,12 +1021,55 @@ async function pedir(){
 function arrancarReloj(){
   const fin = Date.now() + ESPERA_MS;
   clearInterval(S.timer);
+  S.turnoVence = Date.now() + SEG_POR_TURNO * 1000;   // turno del profesional actual
+  S.pasando = false;
+  S.intentos = 1;
   S.timer = setInterval(() => {
     const falta = Math.max(0, fin - Date.now());
     const m = Math.floor(falta / 60000), s = Math.floor((falta % 60000) / 1000);
     $('reloj').textContent = m + ':' + String(s).padStart(2, '0');
+
+    // 🔁 Se le acabó el turno al que lo tiene y nadie aceptó → al siguiente.
+    // El reloj vive acá, en la pantalla del cliente que está esperando: es el
+    // único que sabemos que está mirando. Si el cliente cierra, el rescate
+    // sigue siendo la red de abajo.
+    if (MODO_ASIGNACION === 'cascada' && !S.pasando
+        && Date.now() > S.turnoVence && falta > 0
+        && !document.querySelector('#listaProfs .prof')) {
+      pasarAlSiguiente();
+    }
+
     if (falta <= 0){ clearInterval(S.timer); if (!document.querySelector('#listaProfs .prof')) sinNadie(); }
   }, 500);
+}
+
+/** Le pasa el trabajo al siguiente de la fila y le avisa. */
+async function pasarAlSiguiente(){
+  const job = (S.jobs || [])[0];
+  if (!job?.id) return;
+  S.pasando = true;
+  try {
+    const { data, error } = await sb.rpc('pasar_al_siguiente', { p_job_id: job.id });
+    const fila = Array.isArray(data) ? data[0] : data;
+    if (error || !fila?.user_id){
+      // No queda nadie a quien ofrecerle: que el reloj termine y caiga en la
+      // pantalla de "no encontramos a nadie", que ya ofrece la salida a mano.
+      S.turnoVence = Date.now() + 999999;
+      return;
+    }
+    S.intentos++;
+    S.turnoVence = Date.now() + SEG_POR_TURNO * 1000;
+    $('buscandoTxt') && ($('buscandoTxt').textContent =
+      `Buscando… le estamos preguntando a ${fila.nombre || 'otro profesional'}.`);
+    sb.functions.invoke('send-push', {
+      body: { userId: fila.user_id, title: '⚡ Nueva solicitud de trabajo',
+              body: `${S.oficio || 'Servicio'} cerca tuyo. Tenés 3 minutos para responder.`,
+              data: { jobId: job.id, screen: 'worker_incoming' } },
+    }).catch(() => {});
+    if (S.intentos >= MAX_INTENTOS) S.turnoVence = Date.now() + 999999;   // no insistir para siempre
+  } finally {
+    S.pasando = false;
+  }
 }
 
 function escucharRespuestas(){

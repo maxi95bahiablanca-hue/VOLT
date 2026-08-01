@@ -307,6 +307,24 @@ const jobService = {
     if (error) throw error;
   },
 
+  // ─── Cascada: pasarle el trabajo al siguiente (migración 048) ─────────────
+  // Se llama cuando vence el turno del profesional actual. Es idempotente: si
+  // alguien ya aceptó, la función no hace nada. Devuelve a quién le tocó ahora,
+  // o null si no queda nadie — ahí el que llama decide (hoy: rescate).
+  pasarAlSiguiente: async (jobId) => {
+    try {
+      const { data, error } = await supabase.rpc('pasar_al_siguiente', { p_job_id: jobId });
+      if (error) throw error;
+      const fila = Array.isArray(data) ? data[0] : data;
+      return fila?.user_id ? fila : null;
+    } catch (e) {
+      // Que no explote la pantalla de espera del cliente: si el pase falla,
+      // el rescate sigue siendo la red de abajo.
+      console.log('[cascada] no se pudo pasar al siguiente:', e?.message);
+      return null;
+    }
+  },
+
   // ─── Calificación DEL CLIENTE, la escribe el profesional (migración 043) ───
   // Tabla aparte de `reviews` porque aquella tiene job_id UNIQUE.
   rateClient: async ({ jobId, clientId, professionalId, rating, motivo, comment }) => {
