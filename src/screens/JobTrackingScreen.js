@@ -182,6 +182,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [codeResult, setCodeResult]   = useState(null);
   const [completedModal, setCompletedModal] = useState(false);
   const [clientStars, setClientStars]       = useState(0);   // el profesional califica al cliente
+  const [seguimientoHecho, setSeguimientoHecho] = useState(false);  // ya contestó el "¿vino?"
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const [workElapsed, setWorkElapsed]       = useState(0);
   const [problemModal, setProblemModal]     = useState(false);
@@ -386,6 +387,35 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
       onComplete(job);
     }
   }, [job.status]);
+
+  // Qué pasa con cada respuesta del seguimiento del día siguiente:
+  //  - todo bien  → se agradece y no se molesta más
+  //  - vino pero… → se abre la puerta a que cuente qué pasó, por el chat
+  //  - no vino    → 🔴 esto es lo que hay que cazar: queda anotado y se le
+  //                 avisa al profesional, que puede haber tenido un problema
+  //                 real y el cliente estar esperando sin saber nada.
+  const responderSeguimiento = async (respuesta) => {
+    setSeguimientoHecho(true);       // se va de pantalla al toque, sin esperar
+    try {
+      await jobService.responderSeguimiento(job.id, respuesta);
+      if (respuesta === 'no_vino') {
+        await chatService.sendSystemMessage(job.id,
+          `El cliente avisó que hoy no hubo novedades del trabajo. ${workerFirstName}, ¿pudiste ir? Si te surgió algo, avisale por acá así se organiza.`).catch(() => {});
+        await notificationService.sendToUser(job.professionals?.user_id, {
+          title: '📋 Te están esperando',
+          body: `${job.address || 'El cliente'} avisó que hoy no hubo novedades. Si no vas a poder ir, avisale.`,
+          data: { jobId: job.id, screen: 'tracking' },
+        }).catch(() => {});
+      } else if (respuesta === 'vino_problema') {
+        await chatService.sendSystemMessage(job.id,
+          'El cliente marcó que hubo algo para mejorar. Contale por acá qué pasó así lo resuelven.').catch(() => {});
+      }
+    } catch (e) {
+      // Que no se trabe: si falla el guardado, la tarjeta ya se fue y el
+      // cliente no queda en un limbo. Vuelve a preguntar mañana.
+      console.log('seguimiento no guardado:', e?.message);
+    }
+  };
 
   const handleAvailabilityAndComplete = async (hoursFromNow) => {
     setCompletedModal(false);
@@ -1762,6 +1792,40 @@ window.addEventListener('message', e => {
                   ))}
                 </View>
               ) : null}
+            </View>
+          )}
+
+          {/* ¿Vino? ¿Todo bien? — el seguimiento del día siguiente (044).
+              Se le PREGUNTA al cliente en vez de adivinar por GPS: el GPS en
+              segundo plano lo mata Android, gasta batería, y si se equivoca
+              (sin señal, un sótano) terminás acusando a alguien que sí fue.
+              Preguntar no falla y además destapa problemas temprano. */}
+          {!isWorker && jobService.tocaPreguntar(job) && !seguimientoHecho && (
+            <View style={styles.confirmCard}>
+              <Ionicons name="help-circle-outline" size={20} color="#FFD600" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.confirmCardTitle}>¿Cómo viene el trabajo?</Text>
+                <Text style={styles.confirmCardSub}>
+                  Pasó un día desde la última jornada. ¿{workerFirstName} vino y está todo bien?
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                  {[
+                    { key: 'vino_ok',       txt: '👍 Sí, todo bien' },
+                    { key: 'vino_problema', txt: '😕 Vino, pero…' },
+                    { key: 'no_vino',       txt: '❌ No vino' },
+                  ].map(op => (
+                    <TouchableOpacity
+                      key={op.key}
+                      style={styles.confirmCardBtn}
+                      onPress={() => responderSeguimiento(op.key)}
+                      disabled={loading}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.confirmCardBtnText}>{op.txt}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </View>
           )}
 

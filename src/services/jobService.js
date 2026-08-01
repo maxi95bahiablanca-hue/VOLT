@@ -190,8 +190,29 @@ const jobService = {
       completed_sessions:    completedSessions + 1,
       total_minutes_worked:  totalMinutesBefore + minutes,
       scheduled_return:      null,
+      // De acá sale el "pasó un día y no hubo novedades" (migración 044).
+      ultima_jornada_at:     now.toISOString(),
     });
   },
+
+  // ─── Seguimiento del día siguiente (migración 044) ────────────────────────
+  // "¿Vino? ¿Todo bien?" — se le pregunta al cliente en vez de adivinar por
+  // GPS: el GPS en segundo plano lo mata Android, gasta batería, y si se
+  // equivoca (sin señal, un sótano) acusás a alguien que sí fue.
+  /** ¿Corresponde preguntarle hoy por este trabajo? */
+  tocaPreguntar: (job) => {
+    if (!job?.is_multiday || !job?.ultima_jornada_at) return false;
+    if (job.current_session_start) return false;              // está trabajando ahora
+    if (!['accepted', 'arrived', 'in_progress'].includes(job.status)) return false;
+    const HS20 = 20 * 60 * 60 * 1000;
+    const pasoUnDia = Date.now() - new Date(job.ultima_jornada_at).getTime() > HS20;
+    const yaPregunte = job.seguimiento_at && (Date.now() - new Date(job.seguimiento_at).getTime() < HS20);
+    return pasoUnDia && !yaPregunte;
+  },
+
+  /** Lo que contestó: 'vino_ok' | 'vino_problema' | 'no_vino' */
+  responderSeguimiento: async (jobId, respuesta) =>
+    update(jobId, { seguimiento_at: new Date().toISOString(), seguimiento_respuesta: respuesta }),
 
   endSessionWithReturn: async (jobId, sessionStartIso, completedSessions, totalMinutesBefore, returnIso) => {
     const started  = new Date(sessionStartIso);
