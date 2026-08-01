@@ -252,9 +252,15 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
           const { error: upErr } = await supabase.storage
             .from('avatars')
             .upload(path, bytes, { upsert: true, contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}` });
-          if (upErr) return null;
+          // 🔴 Este `return null` mudo escondió durante meses que la política
+          // del bucket rechazaba TODAS las fotos del problema: pedía que la
+          // primera carpeta fuera el id del usuario y acá es "problem-photos"
+          // (migración 046). El pedido salía sin fotos y el profesional
+          // llegaba a ciegas. La foto sigue sin frenar el pedido, pero ahora
+          // por lo menos queda escrito por qué falló.
+          if (upErr) { console.error('[foto del problema] no se pudo subir:', upErr.message, path); return null; }
           return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
-        } catch { return null; }
+        } catch (e) { console.error('[foto del problema] error inesperado:', e?.message); return null; }
       };
 
       const aSubir = [...fotosAsistente, ...(problemPhoto?.uri ? [problemPhoto] : [])];

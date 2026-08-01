@@ -667,8 +667,18 @@ async function subirFotos(userId){
     const path = `problem-photos/${userId}/${Date.now()}-${i}.${ext}`;
     try {
       const { error } = await sb.storage.from('avatars').upload(path, f, { upsert: true, contentType: f.type || 'image/jpeg' });
-      if (!error) urls.push(sb.storage.from('avatars').getPublicUrl(path).data.publicUrl);
-    } catch (e) {}
+      if (!error) { urls.push(sb.storage.from('avatars').getPublicUrl(path).data.publicUrl); continue; }
+      // 🔴 Este error se descartaba en silencio y por eso NUNCA nos enteramos de
+      // que la politica del bucket rechazaba todas las fotos del problema (ver
+      // migracion 046). El pedido salia sin fotos y el profesional llegaba a
+      // ciegas. Una foto no puede frenar un pedido, pero fallar callado tampoco.
+      console.error('[foto del problema] no se pudo subir:', error.message, path);
+    } catch (e) {
+      console.error('[foto del problema] error inesperado:', e?.message, path);
+    }
+  }
+  if (FOTOS.length && !urls.length){
+    console.error('[foto del problema] NINGUNA de las', FOTOS.length, 'fotos se pudo subir');
   }
   return urls;
 }
