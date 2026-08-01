@@ -158,9 +158,60 @@
   .sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--bord)}
   .pie{text-align:center;font-size:.75rem;color:var(--muted2);padding:18px}
   .pie a{color:var(--muted);text-decoration:none}
+
+  /* ── Indicador del pedido en curso (pedido de Maxi, 31-jul) ──────────────
+     El equivalente de la burbuja de la app: el cliente sale a mirar otra cosa
+     y no se entera de que el profesional le escribió. Va arriba de todo, se
+     puede minimizar, y CAMBIA DE COLOR cuando hay algo sin leer. */
+  .flot{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;
+        display:none;align-items:center;gap:11px;max-width:min(430px,92vw);
+        background:var(--surf2);border:1px solid var(--bord);border-radius:14px;
+        padding:9px 12px;box-shadow:0 8px 26px rgba(0,0,0,.55);cursor:pointer;
+        transition:background .25s,border-color .25s}
+  .flot.on{display:flex}
+  .flot:hover{border-color:#3a3a3a}
+  /* Con mensajes sin leer NO se pinta todo el cartel: sólo LATE el cuadrado
+     amarillo del rayo (Maxi, 1-ago). Se nota igual de reojo y no da el
+     manotazo de color en toda la pantalla. Mismo criterio para todos los
+     avisos del sitio: el que late es el rayo, no el fondo. */
+  .flot-ico{width:32px;height:32px;border-radius:9px;background:var(--yellow);color:#0A0A0A;
+            display:grid;place-items:center;font-size:16px;flex:none}
+  .flot.nuevo .flot-ico{animation:latir 1.15s ease-in-out infinite}
+  @keyframes latir{
+    0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,214,0,.55)}
+    50%    {transform:scale(1.12);box-shadow:0 0 0 7px rgba(255,214,0,0)}
+  }
+  .flot-txt{flex:1;min-width:0;line-height:1.3}
+  .flot-txt b{font-size:.87rem;display:block}
+  .flot-txt small{font-size:.75rem;color:var(--muted);display:block;overflow:hidden;
+                  text-overflow:ellipsis;white-space:nowrap}
+  .flot.nuevo .flot-txt small{color:var(--yellow)}   /* sólo el renglón chico */
+  .flot-n{background:var(--red);color:#fff;font-size:.7rem;font-weight:800;
+          min-width:19px;height:19px;border-radius:10px;display:none;place-items:center;padding:0 5px;flex:none}
+  .flot.nuevo .flot-n{display:grid}
+  .flot-min{background:transparent;border:0;color:var(--muted2);font-size:19px;
+            cursor:pointer;padding:2px 5px;line-height:1;flex:none}
+  .flot-min:hover{color:var(--text)}
+  /* Minimizado: queda sólo el rayo, corrido a un costado para no molestar */
+  .flot.mini{left:auto;right:12px;transform:none;padding:7px;gap:0}
+  .flot.mini .flot-txt,.flot.mini .flot-min{display:none}
+  @media(max-width:520px){ .flot{max-width:94vw;top:8px} .flot-txt b{font-size:.83rem} }
 </style>
 </head>
 <body>
+
+<!-- Indicador del pedido en curso. Aparece sólo cuando hay un trabajo andando
+     y el cliente NO está mirando la pantalla de seguimiento. -->
+<div class="flot" id="flot" onclick="volverAlPedido()">
+  <div class="flot-ico">⚡</div>
+  <div class="flot-txt">
+    <b id="flotTit">Seguí tu pedido</b>
+    <small id="flotSub">en curso</small>
+  </div>
+  <span class="flot-n" id="flotN">1</span>
+  <button class="flot-min" id="flotMin" onclick="minimizarFlot(event)" title="Minimizar">–</button>
+</div>
+
 <div class="app">
   <div class="top">
     <button class="back" id="btnBack" onclick="atras()" style="display:none">‹</button>
@@ -399,6 +450,8 @@ let actual = 0;
 function ir(i){
   actual = i;
   PANTALLAS.forEach((p, k) => $(p).classList.toggle('on', k === i));
+  if (i === 6) sinLeer = 0;            // entró a mirar: ya no hay nada pendiente
+  setTimeout(pintarFlot, 0);           // después de que se aplique el cambio
   $('paso').textContent = TITULOS[i];
   $('btnBack').style.display = (i > 1 && i < 5) ? 'block' : 'none';
   // Tener un trabajo en curso no puede impedirte pedir otro: la salida esta
@@ -408,6 +461,45 @@ function ir(i){
   window.scrollTo(0, 0);
 }
 function atras(){ if (actual > 0) ir(actual - 1); }
+
+// ── Indicador del pedido en curso ───────────────────────────────────────
+// El cliente arma el pedido, se va a hacer otra cosa y no se entera de que el
+// profesional le escribió (pedido de Maxi, 31-jul). Es el equivalente de la
+// burbuja de la app: aparece arriba, se puede minimizar y se pone amarillo
+// cuando hay algo sin leer. Se muestra SÓLO si hay trabajo en curso y no está
+// mirando la pantalla de seguimiento — ahí ya ve todo.
+let sinLeer = 0, flotMini = false;
+
+function pintarFlot(){
+  const f = $('flot');
+  if (!f) return;
+  const hay = !!(S.job && S.job.id) && actual !== 6;
+  f.classList.toggle('on', hay);
+  if (!hay) return;
+  f.classList.toggle('mini', flotMini);
+  f.classList.toggle('nuevo', sinLeer > 0);
+  $('flotN').textContent = sinLeer > 9 ? '9+' : String(sinLeer);
+  $('flotTit').textContent = sinLeer > 0
+    ? (sinLeer === 1 ? 'Tenés un mensaje' : `Tenés ${sinLeer} mensajes`)
+    : 'Seguí tu pedido';
+  const quien = S.job?.professionals?.first_name;
+  $('flotSub').textContent = sinLeer > 0
+    ? (quien ? `${quien} te escribió — tocá para leer` : 'tocá para leer')
+    : (quien ? `${quien} · tocá para ver cómo viene` : 'tocá para ver cómo viene');
+}
+
+function minimizarFlot(ev){
+  ev.stopPropagation();       // que no abra el pedido al minimizar
+  flotMini = true;
+  pintarFlot();
+}
+
+function volverAlPedido(){
+  flotMini = false;           // al entrar se despliega de nuevo para la próxima
+  sinLeer = 0;
+  ir(6);
+  pintarFlot();
+}
 
 // ── Oficios rápidos (catálogo real, no una lista inventada) ─────────────
 let CATALOGO = [];
@@ -1252,6 +1344,14 @@ function pintarMsg(m){
   d.textContent = m.content;
   $('chatMsgs').appendChild(d);
   $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight;
+
+  // Si el mensaje es del profesional y el cliente NO está mirando el chat, se
+  // cuenta para el indicador de arriba. Los propios y los del sistema no.
+  const esDelOtro = m.sender_id && m.sender_id !== S.userId;
+  if (esDelOtro && actual !== 6){
+    sinLeer++;
+    pintarFlot();
+  }
 }
 
 async function enviarMsg(texto){
