@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   Animated, Easing, Platform, Alert, TextInput, ScrollView,
-  BackHandler, Vibration, ActivityIndicator, Modal, Image,
+  BackHandler, Vibration, ActivityIndicator, Modal, Image, AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
@@ -538,6 +538,19 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
 
   const timerRef = useRef(null);
   const soundRef = useRef(null);
+  // 🔴 La hora exacta en que se vence, fijada una sola vez al abrir la pantalla.
+  //
+  // Antes el contador restaba 1 en cada tick de un setInterval de 1 segundo, o
+  // sea que daba por sentado que cada tick llega puntual. No siempre llega: si
+  // el hilo de JS se traba —descargando una actualización, cargando datos— o la
+  // app vuelve de segundo plano, Android dispara de golpe todos los ticks
+  // atrasados y el número se desploma de a saltos. Maxi lo vio el 1-ago:
+  // "bajaba rapidísimo... en segundos se quedó sin tiempo de responder".
+  //
+  // Contra un vencimiento real eso no puede pasar: los ticks sólo miran la
+  // hora, no la modifican. Aunque lleguen tarde, en ráfaga o ninguno, el número
+  // que se muestra siempre es el tiempo que de verdad queda.
+  const venceRef = useRef(Date.now() + TIMEOUT_SEC * 1000);
 
   const stopAlarm = async () => {
     Vibration.cancel();
@@ -574,19 +587,26 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     };
     startSound();
 
-    timerRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) {
-          clearInterval(timerRef.current);
-          setTimedOut(true);
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
+    const mirarReloj = () => {
+      const restante = Math.max(0, Math.round((venceRef.current - Date.now()) / 1000));
+      setTimeLeft(restante);
+      if (restante === 0) {
+        clearInterval(timerRef.current);
+        setTimedOut(true);
+      }
+    };
+    // Cada medio segundo: el número no depende de que el tick sea puntual, pero
+    // se ve fluido igual y el segundo cambia cuando tiene que cambiar.
+    timerRef.current = setInterval(mirarReloj, 500);
+
+    // Al volver de segundo plano se corrige en el acto, sin esperar un tick.
+    const appSub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') mirarReloj();
+    });
 
     return () => {
       backHandler.remove();
+      appSub.remove();
       clearInterval(timerRef.current);
       stopAlarm();
     };
