@@ -730,11 +730,18 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const handleCancel = () => {
     const awaitingPayment = job.status === 'awaiting_payment';
+    // Cancelar antes de que arranque no es lo mismo que cortar algo que ya está
+    // pasando. Se avisa lo que corresponde en vez de un texto único.
+    const enMarcha = ['arrived', 'in_progress'].includes(job.status);
     Alert.alert(
       awaitingPayment ? '¿Cancelar el cobro?' : '¿Cancelar trabajo?',
       awaitingPayment
         ? 'El trabajo ya fue realizado. Al cancelar no habrá cobro por esta visita.'
-        : 'Esta acción no se puede deshacer.',
+        : enMarcha
+          ? (isWorker
+              ? 'El trabajo ya está en marcha. Al cancelarlo se le avisa al cliente y no vas a poder cobrar por la app.'
+              : 'El trabajo ya está en marcha. Al cancelarlo se le avisa al profesional.\n\nSi ya terminó, arreglá el pago con él directamente.')
+          : 'Esta acción no se puede deshacer.',
       [
         { text: 'No, volver', style: 'cancel' },
         { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
@@ -1532,7 +1539,13 @@ window.addEventListener('message', e => {
         )}
         <Animated.View style={[styles.statusDot, { backgroundColor: statusInfo.color, transform: [{ scale: pulseAnim }] }]} />
         <Text style={styles.headerStatus}>{statusInfo.label}</Text>
-        {['pending', 'awaiting_payment'].includes(job.status) && (
+        {/* 🔴 Estaba sólo en 'pending' y 'awaiting_payment'. Entre medio —aceptado,
+            llegó, trabajando— no había forma de cancelar: ni acá ni en el menú de
+            ayuda, que en esos estados sólo deja reportar problemas. El cliente
+            quedaba encerrado en la pantalla. A Mariana le pasó en la web y le
+            quedaron tres trabajos abiertos dos meses (Maxi, 1-ago). Nunca se le
+            saca a alguien la salida de una pantalla. */}
+        {['pending', 'accepted', 'arrived', 'in_progress', 'awaiting_payment'].includes(job.status) && (
           <TouchableOpacity onPress={handleCancel} style={styles.cancelBtn}>
             <Text style={styles.cancelBtnText}>Cancelar</Text>
           </TouchableOpacity>
