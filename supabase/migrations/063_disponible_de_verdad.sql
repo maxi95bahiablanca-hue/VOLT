@@ -96,8 +96,12 @@ AS $$
    ORDER BY 3 DESC, p.created_at;
 $$;
 
-REVOKE ALL ON FUNCTION public.estado_operativo() FROM public, anon;
-GRANT EXECUTE ON FUNCTION public.estado_operativo() TO authenticated;
+-- 🔴 NO se le da a `authenticated`: devuelve la lista COMPLETA de profesionales
+--    con nombre y estado, y no filtra por quien pregunta. Con ese grant,
+--    cualquier usuario logueado se bajaba el padron entero. La usan el reporte
+--    diario y las consultas de mantenimiento, las dos con la clave de servicio.
+REVOKE ALL ON FUNCTION public.estado_operativo() FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.estado_operativo() TO service_role;
 
 COMMENT ON FUNCTION public.estado_operativo() IS
   'Quien puede recibir trabajos hoy y, si no puede, que le falta exactamente.';

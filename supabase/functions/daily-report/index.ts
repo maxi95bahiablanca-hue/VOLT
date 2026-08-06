@@ -1,9 +1,19 @@
-// GOVOLT — Reporte diario por email.
-// Se ejecuta una vez al día (cron) y manda un resumen a la administración.
-// Env necesarias (Supabase → Settings → Edge Functions → Secrets):
-//   RESEND_API_KEY  → tu API key de resend.com (gratis)
-//   REPORT_EMAIL    → a dónde mandar el reporte (ej: maxi95.bahiablanca@gmail.com)
-//   CRON_SECRET     → un texto secreto cualquiera (para que solo el cron la pueda llamar)
+// BOLT — Reporte diario por email.
+//
+// 🔴 ESTUVO MUERTO DESDE QUE SE ESCRIBIÓ (encontrado el 6-ago-2026). Tres cosas:
+//    1. Exigía `CRON_SECRET`, que nunca se cargó en los secretos → devolvía 401
+//       siempre, a cualquiera que la llamara.
+//    2. Leía `REPORT_EMAIL` y el secreto cargado se llama `REPORTS_EMAIL`, con
+//       ese, así que aunque hubiera pasado el 401 no tenía a dónde mandarlo.
+//    3. No tenía ningún cron. Nadie la despertaba nunca.
+//    Como además hablaba de "GOVOLT" y de ingresos por comisión —que en modo
+//    gratuito NO EXISTEN— habría mandado plata inventada. Se arregló entero.
+//
+// Env (Supabase → Settings → Edge Functions → Secrets):
+//   RESEND_API_KEY               → api key de resend.com
+//   REPORTS_EMAIL / REPORT_EMAIL → a dónde va el reporte
+//   FROM_EMAIL                   → remitente (opcional)
+//   CRON_SECRET                  → para que solo el cron la pueda llamar
 // SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY ya vienen incluidas por Supabase.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -50,16 +60,39 @@ Deno.serve(async (req) => {
   const completados = J.filter((j: any) => j.status === 'completed');
   const enCurso = J.filter((j: any) => ['accepted', 'arrived', 'in_progress', 'awaiting_payment'].includes(j.status)).length;
   const pedidosHoy = J.filter((j: any) => j.created_at >= todayISO).length;
-  const rev = (j: any) => (j.visit_amount || 0) + (j.work_amount || 0) * ((j.commission_pct || 20) / 100);
-  const ingresosHoy = completados.filter((j: any) => (j.completed_at || '') >= todayISO).reduce((a, j) => a + rev(j), 0);
-  const ingresosMes = completados.filter((j: any) => (j.completed_at || '') >= monthISO).reduce((a, j) => a + rev(j), 0);
+  // 🔴 Acá se calculaba la "comisión de GOVOLT" con un 20% por defecto. BOLT
+  //    está en modo GRATUITO: no cobra ni comisión ni visita, así que ese número
+  //    era plata que no existe — el mismo error de los precios fantasma. Lo que
+  //    sí es real, y lo que de verdad importa, es cuánto facturaron los
+  //    profesionales a través de BOLT: esa es la medida de si sirve.
+  const facturado = (j: any) => (j.work_amount || 0);
+  const facturadoHoy = completados.filter((j: any) => (j.completed_at || '') >= todayISO).reduce((a, j) => a + facturado(j), 0);
+  const facturadoMes = completados.filter((j: any) => (j.completed_at || '') >= monthISO).reduce((a, j) => a + facturado(j), 0);
   const completadosHoy = completados.filter((j: any) => (j.completed_at || '') >= todayISO).length;
+
+  // ── Quién puede recibir un trabajo HOY ────────────────────────────────────
+  //  Es el dato que decide si el sistema puede responder o no, y hasta ahora
+  //  había que ir a preguntarlo a mano. Un aprobado que no puede recibir no
+  //  aparece en ninguna búsqueda: ver la migración 063.
+  const { data: operativos } = await sb.rpc('estado_operativo');
+  const OP = (operativos || []) as { nombre: string; puede_recibir: boolean; le_falta: string | null }[];
+  const listos = OP.filter((p) => p.puede_recibir).length;
+  const trabados = OP.filter((p) => !p.puede_recibir);
+  const filasFaltan = trabados.slice(0, 8)
+    .map((p) => `<div style="color:#aaa;font-size:12.5px;margin-top:3px">${p.nombre} — <span style="color:#FF9800">${p.le_falta ?? 'algo'}</span></div>`)
+    .join('') || '<div style="color:#00d68f;font-size:12.5px;margin-top:3px">Están todos listos.</div>';
 
   // ── Email HTML ──────────────────────────────────────────────────────────────
   const html = `
   <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0A0A0A;color:#eee;padding:24px;border-radius:14px;max-width:560px;margin:auto">
-    <div style="font-size:22px;font-weight:900;letter-spacing:2px">GO<span style="color:#FFD600">VOLT</span> · Reporte diario</div>
+    <div style="font-size:22px;font-weight:900;letter-spacing:2px">BOLT<span style="color:#FFD600">⚡</span> · Reporte diario</div>
     <div style="color:#888;font-size:13px;text-transform:capitalize;margin-bottom:18px">${fechaTxt}</div>
+
+    <div style="background:#111;border:1px solid ${listos > 0 ? '#00d68f33' : '#ff444455'};border-radius:12px;padding:16px;margin-bottom:12px">
+      <div style="font-size:12px;color:${listos > 0 ? '#00d68f' : '#ff4444'};font-weight:800;text-transform:uppercase;letter-spacing:1px">📡 Pueden recibir trabajos ahora</div>
+      <div style="font-size:30px;font-weight:900;margin:6px 0">${listos} <span style="font-size:14px;color:#888;font-weight:600">de ${OP.length}</span></div>
+      ${trabados.length ? `<div style="color:#777;font-size:12px;margin-top:8px">A estos les falta un paso:</div>${filasFaltan}` : filasFaltan}
+    </div>
 
     <div style="background:#111;border:1px solid #FFD60033;border-radius:12px;padding:16px;margin-bottom:12px">
       <div style="font-size:12px;color:#FFD600;font-weight:800;text-transform:uppercase;letter-spacing:1px">📋 Registros de prestadores</div>
@@ -69,9 +102,10 @@ Deno.serve(async (req) => {
     </div>
 
     <div style="background:#111;border:1px solid #1f1f1f;border-radius:12px;padding:16px;margin-bottom:12px">
-      <div style="font-size:12px;color:#00d68f;font-weight:800;text-transform:uppercase;letter-spacing:1px">💰 Ingresos GOVOLT (comisión + visitas)</div>
-      <div style="font-size:30px;font-weight:900;color:#00d68f;margin:6px 0">${money(ingresosHoy)} <span style="font-size:14px;color:#888;font-weight:600">hoy</span></div>
-      <div style="color:#aaa;font-size:13px">Este mes: <b style="color:#fff">${money(ingresosMes)}</b></div>
+      <div style="font-size:12px;color:#00d68f;font-weight:800;text-transform:uppercase;letter-spacing:1px">💰 Facturado por los profesionales</div>
+      <div style="font-size:30px;font-weight:900;color:#00d68f;margin:6px 0">${money(facturadoHoy)} <span style="font-size:14px;color:#888;font-weight:600">hoy</span></div>
+      <div style="color:#aaa;font-size:13px">Este mes: <b style="color:#fff">${money(facturadoMes)}</b></div>
+      <div style="color:#555;font-size:11px;margin-top:6px">BOLT no cobra nada: esto es lo que se llevaron ellos.</div>
     </div>
 
     <div style="background:#111;border:1px solid #1f1f1f;border-radius:12px;padding:16px;margin-bottom:12px">
@@ -84,12 +118,18 @@ Deno.serve(async (req) => {
     </div>
 
     <div style="color:#555;font-size:11px;margin-top:8px">
-      Nota: los costos (comisiones de Mercado Pago, etc.) todavía no se trackean en la base.<br>
-      Reporte automático de GOVOLT ⚡
+      Reporte automático de BOLT ⚡
     </div>
   </div>`;
 
   // ── Enviar con Resend ─────────────────────────────────────────────────────
+  // El secreto cargado se llama REPORTS_EMAIL, con ese. Se aceptan los dos
+  // nombres para que no vuelva a fallar en silencio por una letra.
+  const destino = Deno.env.get('REPORTS_EMAIL') || Deno.env.get('REPORT_EMAIL');
+  if (!destino) {
+    return new Response(JSON.stringify({ error: 'falta REPORTS_EMAIL' }), { status: 500 });
+  }
+
   const resp = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -97,15 +137,17 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'GOVOLT <onboarding@resend.dev>',
-      to: [Deno.env.get('REPORT_EMAIL')],
-      subject: `⚡ GOVOLT — ${leadsHoy} registros hoy · ${money(ingresosHoy)}`,
+      from: Deno.env.get('FROM_EMAIL') || 'BOLT <onboarding@resend.dev>',
+      to: [destino],
+      // El asunto dice lo único que hay que saber sin abrir el mail.
+      subject: `⚡ BOLT — ${listos} listos para trabajar · ${pedidosHoy} pedidos hoy`,
       html,
     }),
   });
 
   const ok = resp.ok;
-  return new Response(JSON.stringify({ ok, leadsHoy, ingresosHoy }), {
+  const detalle = ok ? null : await resp.text().catch(() => null);
+  return new Response(JSON.stringify({ ok, listos, pedidosHoy, leadsHoy, detalle }), {
     status: ok ? 200 : 500,
     headers: { 'Content-Type': 'application/json' },
   });

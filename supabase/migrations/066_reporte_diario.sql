@@ -1,0 +1,43 @@
+-- 066 - Encender el reporte diario, que estaba escrito y muerto
+--
+-- La Edge Function `daily-report` existia desde hacia meses y NUNCA mando un
+-- solo mail. Tres motivos, cada uno suficiente:
+--
+--   1. Exigia el secreto CRON_SECRET, que nunca se habia cargado: devolvia 401
+--      a cualquiera que la llamara, incluido un cron.
+--   2. Leia REPORT_EMAIL y el secreto cargado se llama REPORTS_EMAIL, con ese.
+--      Aunque hubiera pasado el 401, no tenia a donde mandarlo.
+--   3. No tenia ningun cron. Nadie la despertaba.
+--
+-- Y encima hablaba de "GOVOLT" y mostraba "ingresos por comision + visitas"
+-- calculando un 20% por defecto. BOLT esta en modo GRATUITO: esa plata no
+-- existe. Habria mandado todos los dias un numero inventado. Se cambio por lo
+-- que si es real y es lo que importa: cuanto facturaron los profesionales.
+--
+-- Se le sumo ademas el bloque que hoy hay que preguntar a mano: CUANTOS PUEDEN
+-- RECIBIR UN TRABAJO y, de los que no, que le falta a cada uno.
+--
+-- ⚠️ EL CRON NO SE PROGRAMA EN ESTE ARCHIVO. El comando lleva el CRON_SECRET
+--    adentro, y este repositorio es PUBLICO. Se programa a mano, una sola vez,
+--    reemplazando <CRON_SECRET> por el valor real (Supabase → Edge Functions →
+--    Secrets). Queda escrito aca para saber que existe y como rehacerlo:
+--
+--    select cron.schedule(
+--      'reporte-diario-bolt',
+--      '10 23 * * *',                      -- 20:10 de Argentina (pg_cron va en UTC)
+--      $cmd$ select net.http_post(
+--          url := 'https://lyeqnvldemcltlbujlnc.supabase.co/functions/v1/daily-report',
+--          headers := '{"Content-Type":"application/json",
+--                       "Authorization":"Bearer <ANON_KEY>",
+--                       "x-cron-key":"<CRON_SECRET>"}'::jsonb,
+--          body := '{}'::jsonb
+--        ) $cmd$
+--    );
+--
+-- ✅ Programado y probado el 6-ago-2026: la corrida de prueba devolvio
+--    {"ok":true,"listos":3,"pedidosHoy":1} y el mail salio por Resend.
+--
+-- Este archivo no ejecuta nada: es la documentacion de un cambio que vive en la
+-- configuracion y no en el esquema.
+
+SELECT 'MIG066: el cron reporte-diario-bolt se programa a mano, ver comentario' AS nota;
