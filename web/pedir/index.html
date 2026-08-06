@@ -1036,6 +1036,15 @@ async function guardarClaveNueva(){
   if (error){ $('errNueva').textContent = 'No se pudo cambiar: ' + error.message; return; }
   await pintarSesion();
   ir(1);
+  // Acá también cae el que pidió recuperar la contraseña DESDE LA APP: el mail
+  // lo trae a esta página (6-ago-2026). Si no se lo decimos, cambia la
+  // contraseña y se queda en la web sin saber que ya puede volver a la app.
+  const aviso = document.createElement('div');
+  aviso.className = 'aviso';
+  aviso.style.marginBottom = '16px';
+  aviso.textContent = '✅ Contraseña cambiada. Ya podés entrar con ella, acá y en la app de BOLT.';
+  const p1 = $('p-inicio');
+  p1.insertBefore(aviso, p1.firstChild);
 }
 
 // ─── Cambiar la contraseña estando adentro ──────────────────────────────────

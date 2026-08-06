@@ -304,11 +304,34 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
   const handleSetAvailable = async () => {
     setSavingAvail(true);
     try {
-      const { error } = await supabase.from('professionals')
+      // 🔴 Se lee de vuelta el valor que QUEDÓ, no el que mandamos.
+      //
+      //    Desde la migración 063 la base baja `available` sola si no hay
+      //    ubicación guardada, porque sin ubicación `nearby_workers` no lo
+      //    devuelve y estar "disponible" es mentira. Este botón no toca el GPS
+      //    —el que lo carga es el radar del home—, así que es justo el camino
+      //    por el que alguien podía quedar convencido de que estaba trabajando
+      //    y no aparecer en ninguna búsqueda.
+      const { data, error } = await supabase.from('professionals')
         .update({ available: true, available_at: null })
-        .eq('id', professional.id);
-      if (!error) { setAvailable(true); setAvailableAt(null); onAvailabilityChange?.(true); }
-    } catch {}
+        .eq('id', professional.id)
+        .select('available')
+        .single();
+      if (error) throw error;
+
+      const quedo = data?.available === true;
+      setAvailable(quedo);
+      setAvailableAt(null);
+      onAvailabilityChange?.(quedo);
+      if (!quedo) {
+        showError(
+          'Volvé a la pantalla principal y prendé el radar: ahí se guarda tu ubicación, que es lo que hace que los clientes te encuentren.',
+          'Falta tu ubicación'
+        );
+      }
+    } catch {
+      showError('No se pudo cambiar. Probá de nuevo en un momento.');
+    }
     setSavingAvail(false);
   };
 

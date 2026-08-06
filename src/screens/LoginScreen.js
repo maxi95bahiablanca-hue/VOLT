@@ -113,9 +113,22 @@ const LoginScreen = () => {
     setSuccess(null);
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email: email.trim(), password });
+        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
         if (error) throw error;
-        setSuccess('¡Cuenta creada! Revisá tu email para confirmar tu registro antes de ingresar.');
+        // 🔴 ACÁ SE LE MENTÍA AL QUE SE REGISTRABA. Decía siempre "revisá tu
+        //    email para confirmar tu registro antes de ingresar", pero el
+        //    proyecto tiene `mailer_autoconfirm` PRENDIDO: no hay ningún mail
+        //    que confirmar y la cuenta ya queda usable. O sea que la persona se
+        //    registraba bien, leía que tenía que esperar un correo, cerraba la
+        //    app y se quedaba esperando algo que nunca iba a llegar.
+        //
+        //    La respuesta la da la propia llamada: si vino sesión, ya está
+        //    adentro (el listener de App.js lo lleva solo). Si no vino, ahí sí
+        //    hay un mail que confirmar. Escrito así sirve igual el día que se
+        //    prenda la confirmación, sin volver a tocar esto.
+        setSuccess(data?.session
+          ? '¡Listo! Ya estás adentro.'
+          : 'Te mandamos un correo para confirmar la cuenta. Abrilo y volvé.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
@@ -126,6 +139,41 @@ const LoginScreen = () => {
       else if (msg.includes('Email not confirmed')) setError('Debés confirmar tu email antes de ingresar. Revisá tu bandeja de entrada.');
       else if (msg.includes('User already registered')) setError('Ya existe una cuenta con ese email. Iniciá sesión.');
       else setError(msg || 'Error al autenticar. Intentá de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Olvidé mi contraseña ────────────────────────────────
+  //
+  // 🔴 Esto no existía en la app, y es la única salida del que se registró con
+  //    mail y se la olvidó: no puede entrar, así que tampoco puede usar
+  //    "cambiar mi contraseña" del perfil. Quedaba afuera de su cuenta para
+  //    siempre, sin nada que tocar. La web sí lo tenía.
+  //
+  // El enlace del mail lleva a bolt.com.ar/pedir, que ya sabe recibir el
+  // PASSWORD_RECOVERY y pedir la nueva ahí mismo. Se hace así y no con un deep
+  // link a la app a propósito: el que se la olvidó puede estar abriendo el mail
+  // en la computadora, y una pantalla web anda en cualquier lado.
+  const olvideLaClave = async () => {
+    const mail = email.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) {
+      setError('Escribí tu email arriba y volvé a tocar acá.');
+      return;
+    }
+    setLoading(true); setError(null); setSuccess(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(mail, {
+        redirectTo: 'https://bolt.com.ar/pedir/',
+      });
+      if (error) throw error;
+      setSuccess('Si ese correo tiene cuenta, te llega un mail con un enlace. Abrilo, poné la contraseña nueva y volvé acá con esa.');
+    } catch (e) {
+      // El límite de correos por hora es del servidor, no culpa de la persona:
+      // decirle "error" a secas la deja probando una y otra vez.
+      setError(/rate|limit|seconds/i.test(String(e?.message))
+        ? 'Ya se pidieron varios correos hace poco. Esperá unos minutos y probá de nuevo.'
+        : 'No se pudo enviar el correo. Probá de nuevo en un momento.');
     } finally {
       setLoading(false);
     }
@@ -320,6 +368,19 @@ const LoginScreen = () => {
             </Text>
           </TouchableOpacity>
 
+          {/* La salida del que se la olvidó. Sólo al iniciar sesión: en el
+              registro no tiene sentido y sería un botón más para equivocarse. */}
+          {!isSignUp && (
+            <TouchableOpacity
+              style={styles.olvideBtn}
+              onPress={olvideLaClave}
+              disabled={loading}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.olvideBtnText}>Olvidé mi contraseña</Text>
+            </TouchableOpacity>
+          )}
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -456,6 +517,8 @@ const styles = StyleSheet.create({
 
   toggleBtn: { paddingVertical: 16, alignItems: 'center' },
   toggleBtnText: { color: '#555', fontSize: 14 },
+  olvideBtn: { paddingVertical: 6, alignItems: 'center' },
+  olvideBtnText: { color: '#888', fontSize: 13.5, textDecorationLine: 'underline' },
 });
 
 export default LoginScreen;
