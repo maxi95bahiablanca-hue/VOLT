@@ -32,6 +32,39 @@
      van en 550-600, no en 900: el tamaño y el aire hacen la jerarquía.
      Los NOMBRES de las clases no se tocan — acá sólo cambia el vestido, la
      lógica de los pasos y del asistente queda igual. */
+  /* ── EL PASO DESDE LA HOME ───────────────────────────────────────────────
+     Maxi (6-ago-2026): "que el paso de Home a pedir sea copado, con
+     movimiento o algún efecto, no sólo un cambio de página".
+
+     Con esto el navegador anima la navegación ENTRE LAS DOS PÁGINAS: el
+     buscador de la home no desaparece para que aparezca otro campo — es el
+     MISMO elemento que crece y se convierte en el campo grande de acá. Lo
+     mismo con la foto del fondo, que se queda quieta mientras alrededor
+     cambia todo.
+
+     Los dos nombres (`buscador` y `fondo`) tienen que estar escritos igual en
+     web/index.html: es lo que le dice al navegador qué se convierte en qué.
+
+     Donde no esté soportado (Firefox hoy) no se rompe nada: navega normal y
+     quedan las animaciones de entrada de cada bloque. */
+  @view-transition{ navigation:auto }
+
+  #campon{ view-transition-name:buscador }
+  .tapa-fotos{ view-transition-name:fondo }
+
+  /* El cruce del resto de la página, un poco más lento que el default para que
+     se lea como un movimiento y no como un parpadeo. */
+  ::view-transition-old(root){ animation:.42s cubic-bezier(.16,.9,.3,1) both saleRoot }
+  ::view-transition-new(root){ animation:.52s .1s cubic-bezier(.16,.9,.3,1) both entraRoot }
+  @keyframes saleRoot{ to{opacity:0;transform:scale(.985)} }
+  @keyframes entraRoot{ from{opacity:0;transform:translateY(14px)} }
+  ::view-transition-group(buscador){ animation-duration:.62s;
+    animation-timing-function:cubic-bezier(.16,.9,.3,1) }
+
+  @media (prefers-reduced-motion:reduce){
+    ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){ animation:none !important }
+  }
+
   *{margin:0;padding:0;box-sizing:border-box}
   :root{
     --bg:#08090A;--surf:rgba(255,255,255,.035);--surf2:rgba(255,255,255,.06);
@@ -107,17 +140,125 @@
   .btn.wa:hover{box-shadow:0 12px 32px rgba(37,211,102,.28)}
   .btn-row{margin-top:auto;padding-top:20px}
 
-  /* Preguntas en tarjeta (igual que la app: de a una, con opciones para tocar) */
-  .entendi{background:var(--surf);border:1px solid var(--bord);border-radius:24px;padding:16px 18px;margin-bottom:18px}
-  .entendi h4{font-size:.66rem;font-weight:600;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:9px}
-  .entendi h4::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+  /* ── LA TAPA: la misma pieza que el banner de la home ────────────────────
+     La primera pantalla de /pedir era un formulario sobre fondo plano y se
+     notaba que era otra cosa. Ahora es el banner de la home: foto de fondo que
+     se acerca sola, velo para que el texto se lea, titulo armandose palabra
+     por palabra y el campo grande flotando. */
+  .tapa{position:relative;flex:1;display:flex;align-items:center;
+    margin:-26px -18px 0;padding:34px 18px 40px;overflow:hidden}
+  .tapa-fotos{position:absolute;inset:0;z-index:0}
+  .tapa-foto{position:absolute;inset:0;opacity:0;background-size:cover;background-position:center;
+    transition:opacity 1.6s ease}
+  .tapa-foto.viva{opacity:1;animation:acercar 9s ease-out both}
+  @keyframes acercar{from{transform:scale(1.06)}to{transform:scale(1.14)}}
+  /* Sin el velo la foto se come el texto. Mas oscuro arriba y abajo, como en
+     la home, para que el titulo y el campo apoyen sobre negro. */
+  .tapa-velo{position:absolute;inset:0;z-index:1;background:
+      linear-gradient(100deg,rgba(8,9,10,.96) 0%,rgba(8,9,10,.88) 38%,rgba(8,9,10,.45) 72%,rgba(8,9,10,.68) 100%),
+      linear-gradient(180deg,rgba(8,9,10,.86) 0%,transparent 30%,transparent 52%,rgba(8,9,10,.97) 100%)}
+  .tapa-cont{position:relative;z-index:2;width:100%}
+
+  .titulon{font-size:clamp(2.1rem,8.4vw,3.2rem);font-weight:600;letter-spacing:-1.6px;
+    line-height:1.06;max-width:14ch;margin-bottom:16px}
+  .titulon em{font-style:normal;color:var(--yellow)}
+  /* Cada palabra sube sola, una atras de la otra: es lo que hace la home. */
+  .titulon .pal{display:inline-block;overflow:hidden;vertical-align:bottom}
+  .titulon .pal > span{display:inline-block;transform:translateY(105%);
+    animation:subirPal .9s cubic-bezier(.16,.9,.3,1) forwards}
+  @keyframes subirPal{to{transform:none}}
+  .bajadon{color:var(--muted);font-size:1rem;max-width:44ch;margin-bottom:26px;
+    animation:entrarAb .9s .42s cubic-bezier(.16,.9,.3,1) both}
+  @keyframes entrarAb{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
+  /* El campo grande. Es el buscador de la home, con textarea en vez de input. */
+  .campon{display:flex;align-items:flex-end;gap:10px;
+    background:rgba(255,255,255,.06);border:1px solid var(--bord2);border-radius:28px;
+    padding:8px 8px 8px 20px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    transition:border-color .25s,background .25s;
+    animation:entrarAb .9s .56s cubic-bezier(.16,.9,.3,1) both}
+  .campon:focus-within{border-color:rgba(255,214,0,.55);background:rgba(255,255,255,.09)}
+  .campon textarea{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);
+    font-family:inherit;font-size:1.02rem;line-height:1.5;padding:14px 0;resize:none;max-height:140px}
+  .campon textarea::placeholder{color:#7d848b}
+  .btn-ir{margin:0;flex-shrink:0;padding:14px 22px;display:inline-flex;align-items:center;gap:9px}
+  .btn-ir svg{width:15px;height:15px}
+  @media(max-width:560px){
+    .campon{flex-direction:column;align-items:stretch;border-radius:26px;padding:16px}
+    .campon textarea{padding:2px 4px 12px}
+    .btn-ir{width:100%;justify-content:center}
+  }
+
+  .oquien{color:var(--muted2);font-size:.78rem;font-weight:600;letter-spacing:1.6px;
+    text-transform:uppercase;margin:26px 0 12px;
+    animation:entrarAb .9s .7s cubic-bezier(.16,.9,.3,1) both}
+  #p-inicio .chips{animation:entrarAb .9s .78s cubic-bezier(.16,.9,.3,1) both}
+
+  /* Los tres datos, iguales a los de la home: lo que si es cierto. */
+  .tres{display:flex;flex-wrap:wrap;gap:9px 22px;margin-top:30px;
+    animation:entrarAb .9s .88s cubic-bezier(.16,.9,.3,1) both}
+  .uno{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:.86rem}
+  .uno svg{width:17px;height:17px;flex-shrink:0;color:var(--yellow)}
+  .uno b{color:var(--text);font-weight:600}
+
+  /* Con "reducir movimiento" el titulo NO puede quedarse invisible: su estado
+     inicial es translateY(105%) dentro de un overflow:hidden. Ya paso dos
+     veces en este proyecto — apagar la animacion no alcanza, hay que devolver
+     el transform a mano. */
+  @media (prefers-reduced-motion:reduce){
+    .titulon .pal > span,.bajadon,.campon,.oquien,#p-inicio .chips,.tres,.tapa-foto.viva{
+      animation:none !important;transform:none !important;opacity:1 !important}
+  }
+
+  /* ── EL ASISTENTE ────────────────────────────────────────────────────────
+     Esta es la parte que mas se ve del pedido y la que quedo atras del resto
+     de la pagina (Maxi, 6-ago-2026: "tiene que estar a la altura de toda la
+     pagina"). Se rehizo con las reglas de la casa: dibujos propios en vez de
+     emojis, formas redondas, y todo entra en movimiento. */
+
+  /* La espera. Antes era un circulo con el emoji del rayo, quieto. Ahora es el
+     rayo dibujado con anillos que salen: la espera se siente corta si algo se
+     mueve, y el dibujo es de la marca en cualquier telefono. */
+  .esperando{display:grid;place-items:center;flex:1;padding:56px 0;text-align:center}
+  .pulso{position:relative;width:132px;height:132px;display:grid;place-items:center;margin-bottom:30px}
+  .pulso i{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(255,214,0,.45);animation:onda 2.6s cubic-bezier(.2,.7,.3,1) infinite}
+  .pulso i:nth-child(2){animation-delay:.85s}
+  .pulso i:nth-child(3){animation-delay:1.7s}
+  @keyframes onda{from{transform:scale(.42);opacity:0}25%{opacity:.85}to{transform:scale(1);opacity:0}}
+  .pulso .nucleo{width:66px;height:66px;border-radius:50%;background:rgba(255,214,0,.09);
+    border:1px solid rgba(255,214,0,.5);display:grid;place-items:center;position:relative;z-index:1}
+  .pulso .nucleo svg{width:21px;height:28px;animation:latir 2.6s ease-in-out infinite}
+  @keyframes latir{0%,100%{opacity:.65;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+  .esperando h2{font-size:1.5rem;font-weight:600;letter-spacing:-.9px;line-height:1.2}
+  .esperando h2 em{font-style:normal;color:var(--yellow)}
+  /* El renglon de abajo va cambiando: cuenta que esta pasando algo, en vez de
+     dejar un "cargando" fijo que hace sentir que se colgo. */
+  .esperando p{color:var(--muted);font-size:.94rem;margin-top:12px;min-height:1.4em;
+    transition:opacity .45s}
+  .esperando p.oculto{opacity:0}
+
+  /* Lo que ya entendio: sin emoji, con el tilde dibujado. */
+  .entendi{background:var(--surf);border:1px solid var(--bord);border-radius:26px;padding:17px 19px;margin-bottom:20px}
+  .entendi h4{font-size:.66rem;font-weight:600;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center;gap:9px}
+  .entendi h4 svg{width:15px;height:15px;color:var(--yellow);flex-shrink:0}
   .entendi .ch{display:inline-block;background:var(--surf2);border:1px solid var(--bord);border-radius:999px;padding:6px 14px;font-size:.78rem;margin:0 5px 5px 0;color:var(--text)}
-  .prog{display:flex;gap:6px;margin-bottom:10px}
-  .prog i{flex:1;height:3px;border-radius:999px;background:var(--bord);transition:background .4s}
+
+  /* El progreso, en pildoras. */
+  .prog{display:flex;gap:6px;margin-bottom:11px}
+  .prog i{flex:1;height:3px;border-radius:999px;background:var(--bord);transition:background .45s cubic-bezier(.16,.9,.3,1)}
   .prog i.on{background:var(--yellow)}
   .prog-txt{font-size:.68rem;font-weight:600;color:var(--muted2);letter-spacing:2px;text-transform:uppercase}
-  /* Las opciones: píldora ancha con el círculo a la izquierda, como las
-     tarjetas de la home. El tilde va dibujado, no como carácter suelto. */
+
+  /* La pregunta: tamanio y aire, no negrita. */
+  #preguntaTxt{font-size:1.62rem;font-weight:600;letter-spacing:-1px;line-height:1.16;margin:8px 0 20px}
+
+  /* Cada pregunta ENTRA, no aparece de golpe: sin eso la pantalla parpadea y
+     no se entiende que se avanzo un paso. */
+  .entra{animation:entrar .5s cubic-bezier(.16,.9,.3,1) both}
+  @keyframes entrar{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+  /* Las opciones: pildora ancha con el circulo a la izquierda, como las
+     tarjetas de la home. El tilde va dibujado, no como caracter suelto. */
   .opcion{width:100%;background:var(--surf);border:1px solid var(--bord);color:var(--text);border-radius:22px;padding:16px 20px 16px 54px;font-size:.98rem;font-weight:450;text-align:left;cursor:pointer;font-family:inherit;margin-bottom:10px;position:relative;transition:transform .2s cubic-bezier(.16,.9,.3,1),border-color .2s,background .2s}
   .opcion::before{
     content:'';position:absolute;left:19px;top:50%;margin-top:-9px;
@@ -127,7 +268,13 @@
   .opcion:hover{border-color:var(--bord2);background:var(--surf2);transform:translateY(-2px)}
   .opcion.on{border-color:rgba(255,214,0,.55);background:rgba(255,214,0,.07)}
   .opcion.on::before{background:var(--yellow);border-color:var(--yellow);box-shadow:0 0 14px rgba(255,214,0,.5)}
-  .opcion.otra{color:var(--muted);font-weight:400}
+  /* Las dos salidas de abajo (sacar foto / escribirlo) NO son una opcion mas
+     para marcar: no llevan circulo, llevan su dibujo. */
+  .opcion.accion{padding-left:54px;color:var(--muted);font-weight:400}
+  .opcion.accion::before{border:none;background:none;box-shadow:none}
+  .opcion.accion svg{position:absolute;left:19px;top:50%;margin-top:-9px;width:18px;height:18px;color:var(--muted2);transition:color .2s}
+  .opcion.accion:hover{color:var(--text)}
+  .opcion.accion:hover svg{color:var(--yellow)}
   .thumbs{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
   .thumbs img{width:74px;height:74px;object-fit:cover;border-radius:18px;border:1px solid var(--bord)}
   /* Charla con el asistente */
@@ -323,26 +470,75 @@
       </div>
     </section>
 
-    <!-- 1. QUÉ NECESITÁS ─────────────────────────────────────────────── -->
+    <!-- 1. QUÉ NECESITÁS ───────────────────────────────────────────────
+         🔴 REHECHA ENTERA el 6-ago-2026. Maxi: "no quiero el vestido, quiero
+         que la apariencia cambie realmente y quede actualizada a la Home".
+         Antes era un titulito, un recuadro de texto y unos chips sueltos sobre
+         fondo plano — un formulario. Ahora es la MISMA pieza que el banner de
+         la home: foto de fondo con velo, titulo que se arma palabra por
+         palabra, y el campo grande flotando con blur. El que viene de la home
+         no siente que cambio de sitio, siente que la pagina siguio. -->
     <section class="pantalla" id="p-inicio">
-      <h1>¿Qué necesitás <em>resolver</em>?</h1>
-      <p class="sub">Contanos el problema como se lo contarías a un amigo. En minutos te contactan profesionales de tu zona.</p>
-      <textarea class="campo" id="txtProblema" rows="4" placeholder="Ej: se me tapó el baño y el agua no baja"></textarea>
-      <div class="chips" id="chipsOficio"></div>
-      <div class="btn-row">
-        <button class="btn" onclick="arrancar()">Continuar</button>
-      </div>
-      <!-- Mi cuenta, sin tener que empezar un pedido para llegar. -->
-      <div style="text-align:center;margin-top:18px">
-        <button class="link" id="btnClave" onclick="abrirClave()">Cambiar mi contraseña</button>
+      <div class="tapa">
+        <div class="tapa-fotos" id="tapaFotos" aria-hidden="true"></div>
+        <div class="tapa-velo"></div>
+        <div class="tapa-cont">
+          <h1 class="titulon">
+            <span class="pal"><span style="animation-delay:.05s">¿Qué</span></span>
+            <span class="pal"><span style="animation-delay:.13s">necesitás</span></span>
+            <span class="pal"><span style="animation-delay:.21s"><em>resolver</em>?</span></span>
+          </h1>
+          <p class="bajadon">Contalo como se lo contarías a un amigo. En minutos te responden
+             profesionales verificados de tu zona.</p>
+
+          <!-- El campo hereda del buscador de la home: misma pildora, mismo
+               blur, mismo borde que se enciende. Y lleva view-transition-name,
+               que es lo que hace que UNO SE CONVIERTA EN EL OTRO al pasar. -->
+          <div class="campon" id="campon">
+            <textarea id="txtProblema" rows="2" placeholder="Ej: se me tapó el baño y el agua no baja"></textarea>
+            <button class="btn btn-ir" onclick="arrancar()" aria-label="Continuar">
+              <span>Continuar</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+
+          <p class="oquien">O elegí el oficio, si ya sabés a quién necesitás</p>
+          <div class="chips" id="chipsOficio"></div>
+
+          <div class="tres">
+            <div class="uno">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+              <span><b>Verificados</b> uno por uno</span>
+            </div>
+            <div class="uno">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <span>Te responden <b>en minutos</b></span>
+            </div>
+            <div class="uno">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M17 7H9.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H6"/></svg>
+              <span><b>Sin comisiones</b>: arreglás con él</span>
+            </div>
+          </div>
+
+          <!-- Mi cuenta, sin tener que empezar un pedido para llegar. -->
+          <div style="text-align:center;margin-top:26px">
+            <button class="link" id="btnClave" onclick="abrirClave()">Cambiar mi contraseña</button>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- 2. LAS PREGUNTAS, DE A UNA, EN TARJETA ───────────────────────── -->
     <section class="pantalla" id="p-chat">
-      <div id="cajaPensando" style="text-align:center;padding:40px 0">
-        <div class="radar" style="width:70px;height:70px;font-size:1.5rem">⚡</div>
-        <p class="sub" style="margin-top:16px">Estamos viendo qué necesitás…</p>
+      <div id="cajaPensando" class="esperando">
+        <div class="pulso">
+          <i></i><i></i><i></i>
+          <span class="nucleo">
+            <svg viewBox="0 0 24 32" fill="#FFD600" aria-hidden="true"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>
+          </span>
+        </div>
+        <h2>Estamos viendo <em>qué necesitás</em></h2>
+        <p id="pensandoTxt">Leyendo lo que nos contaste…</p>
       </div>
       <div id="cajaPreg" style="display:none;flex-direction:column;flex:1">
         <div class="entendi" id="entendi"></div>
@@ -368,7 +564,8 @@
       <p class="sub">Lo usamos para buscar profesionales cerca tuyo.</p>
       <!-- Si ya pidió antes, su dirección queda guardada y es un solo toque -->
       <button class="btn" id="btnDirGuardada" style="margin:0 0 10px;display:none" onclick="usarDirGuardada()"></button>
-      <button class="btn" style="margin:0" onclick="usarGPS()">📍 Usar mi ubicación</button>
+      <button class="btn" style="margin:0" onclick="usarGPS()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:-3px;margin-right:8px"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>Usar mi ubicación</button>
       <label class="lbl">O escribí la dirección</label>
       <input class="campo" id="txtDir" placeholder="Ej: Alsina 65, Bahía Blanca">
       <div class="err" id="errUbic"></div>
@@ -634,6 +831,31 @@ if (HOME_TEXTO) $('txtProblema').value = HOME_TEXTO;
 // cliente eligió en la home. El nombre se completa más abajo si carga.
 if (/^\d+$/.test(HOME_OFICIO)) S.profesionId = Number(HOME_OFICIO);
 
+// ── Las fotos del fondo, las mismas del banner de la home ───────────────
+//  Que la primera pantalla de /pedir tenga la misma foto que acaba de ver en
+//  la home es lo que hace que no sienta que cambió de sitio. Se precarga sólo
+//  la primera: las otras entran después y no frenan nada.
+(function fondoTapa(){
+  const FOTOS = ['b1.jpg','b2.jpg','b3.jpg','b4.jpg','b5.jpg'].map(f => '/fotos/banner/' + f);
+  const caja = document.getElementById('tapaFotos');
+  if (!caja) return;
+  const capas = FOTOS.map((src, i) => {
+    const d = document.createElement('div');
+    d.className = 'tapa-foto' + (i === 0 ? ' viva' : '');
+    d.style.backgroundImage = `url("${src}")`;
+    caja.appendChild(d);
+    return d;
+  });
+  if (capas.length < 2) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let i = 0;
+  setInterval(() => {
+    capas[i].classList.remove('viva');
+    i = (i + 1) % capas.length;
+    capas[i].classList.add('viva');
+  }, 7000);
+})();
+
 // ── Oficios rápidos (catálogo real, no una lista inventada) ─────────────
 let CATALOGO = [];
 (async () => {
@@ -686,9 +908,48 @@ function arrancar(){
   const txt = $('txtProblema').value.trim();
   if (!txt && !S.profesionId){ $('txtProblema').focus(); return; }
   ir(2);
-  $('cajaPensando').style.display = 'block';
+  arrancarEspera();
   $('cajaPreg').style.display = 'none';
   analizar(txt || `Necesito un ${S.oficio}`);
+}
+
+// ── La espera del asistente ───────────────────────────────────────────────
+//  El renglon de abajo va cambiando mientras la IA piensa. No es decoracion:
+//  una pantalla quieta a los 4 segundos parece colgada y la gente recarga (y
+//  al recargar pierde lo que escribio). Contando lo que esta pasando, la misma
+//  espera se siente la mitad.
+const PASOS_ESPERA = [
+  'Leyendo lo que nos contaste…',
+  'Viendo qué oficio resuelve esto…',
+  'Pensando qué falta preguntarte…',
+  'Casi listo…',
+];
+let esperaTimer = null;
+
+function arrancarEspera(){
+  const caja = $('cajaPensando');
+  caja.style.display = 'grid';
+  const p = $('pensandoTxt');
+  let i = 0;
+  p.textContent = PASOS_ESPERA[0];
+  p.classList.remove('oculto');
+  clearInterval(esperaTimer);
+  esperaTimer = setInterval(() => {
+    // Se apaga, se cambia, se enciende: sin el fundido el texto salta y se lee
+    // como un error.
+    p.classList.add('oculto');
+    setTimeout(() => {
+      i = Math.min(i + 1, PASOS_ESPERA.length - 1);
+      p.textContent = PASOS_ESPERA[i];
+      p.classList.remove('oculto');
+    }, 450);
+  }, 2100);
+}
+
+function pararEspera(){
+  clearInterval(esperaTimer);
+  esperaTimer = null;
+  pararEspera();
 }
 
 async function analizar(mensaje){
@@ -707,7 +968,7 @@ async function analizar(mensaje){
     PREGUNTAS = (Array.isArray(data.preguntas) ? data.preguntas : []).filter(p => p?.id && p?.pregunta);
     IDX = 0; RESPUESTAS = {};
     if (!PREGUNTAS.length){ terminarPreguntas(); return; }
-    $('cajaPensando').style.display = 'none';
+    pararEspera();
     $('cajaPreg').style.display = 'flex';
     pintarPregunta();
   } catch (e) {
@@ -715,7 +976,7 @@ async function analizar(mensaje){
     // cliente y el profesional lo lee en las notas. Pero se avisa, porque
     // saltar en silencio a la dirección parece que la web se comió el paso
     // (31-jul-2026: pasó con "PINTAR PIEZA" y no se entendía por qué).
-    $('cajaPensando').style.display = 'none';
+    pararEspera();
     $('cajaPreg').style.display = 'flex';
     $('entendi').style.display = 'none';
     $('prog').innerHTML = ''; $('progTxt').textContent = '';
@@ -725,10 +986,19 @@ async function analizar(mensaje){
   }
 }
 
+// Los dibujos del asistente. Van acá y no como emoji porque un emoji lo dibuja
+// el sistema operativo: es distinto en cada teléfono y no es de la marca.
+const ICONO = {
+  tilde:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  camara: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.7l1.3-2h7l1.3 2h1.7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.6"/></svg>',
+  lapiz:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M14.5 5.5l4 4"/></svg>',
+  pin:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+};
+
 function pintarPregunta(){
   const p = PREGUNTAS[IDX];
   $('entendi').innerHTML = (S.yaEntendi || []).length
-    ? `<h4>⚡ YA ENTENDÍ ESTO</h4>` + S.yaEntendi.map(x => `<span class="ch">${esc(x)}</span>`).join('')
+    ? `<h4>${ICONO.tilde} YA ENTENDÍ ESTO</h4>` + S.yaEntendi.map(x => `<span class="ch">${esc(x)}</span>`).join('')
     : '';
   $('entendi').style.display = (S.yaEntendi || []).length ? 'block' : 'none';
   $('prog').innerHTML = PREGUNTAS.map((_, i) => `<i class="${i <= IDX ? 'on' : ''}"></i>`).join('');
@@ -743,7 +1013,7 @@ function pintarPregunta(){
   let html = '';
   if (esFoto){
     const tope = Math.min(Math.max(Number(p.max_fotos) || 1, 1), 3);
-    html += `<button class="opcion" onclick="$('inputFoto').click()">📷 Sacar o elegir ${tope > 1 ? 'fotos' : 'una foto'}</button>`;
+    html += `<button class="opcion accion" onclick="$('inputFoto').click()">${ICONO.camara}Sacar o elegir ${tope > 1 ? 'fotos' : 'una foto'}</button>`;
   }
   // Se pueden marcar VARIAS: "paredes y techo" es una respuesta mucho mas util
   // para el que va a cotizar que obligarlo a elegir una sola (Maxi, 31-jul).
@@ -751,9 +1021,16 @@ function pintarPregunta(){
   if (opciones.length > 1) html += `<p class="sub" style="font-size:.8rem;margin:2px 0 12px">Podés marcar más de una.</p>`;
   html += `<button class="btn" id="btnListo" style="display:none;margin-top:2px" onclick="confirmarMarcadas()">Listo</button>`;
   // La app siempre suma esta salida sola: sirve cuando ninguna opción encaja.
-  html += `<button class="opcion otra" onclick="abrirOtro()">✏️ Otro / lo escribo</button>`;
+  html += `<button class="opcion accion" onclick="abrirOtro()">${ICONO.lapiz}Ninguna: lo escribo yo</button>`;
   $('opciones').innerHTML = html;
   $('thumbs').innerHTML = '';
+
+  // Que se note que se paso a la pregunta siguiente. Sin esto sólo cambia el
+  // texto y parece que no avanzó nada.
+  const caja = $('cajaPreg');
+  caja.classList.remove('entra');
+  void caja.offsetWidth;          // reinicia la animación
+  caja.classList.add('entra');
 }
 
 function marcarOpcion(el){

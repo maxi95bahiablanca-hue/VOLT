@@ -46,6 +46,37 @@
     src:url("fuentes/InterVariable.woff2") format("woff2");
   }
 
+  /* ── EL PASO A /pedir ────────────────────────────────────────────────────
+     Maxi (6-ago-2026): "que el paso de Home a pedir sea copado, con
+     movimiento o algún efecto, no sólo un cambio de página".
+
+     El navegador anima la navegación entre las dos páginas: el buscador de
+     acá abajo no desaparece para que aparezca otro campo del otro lado — es
+     el MISMO elemento que crece y se convierte en el campo grande de /pedir.
+     La foto del fondo se queda quieta mientras alrededor cambia todo.
+
+     🔴 Los dos nombres (`buscador` y `fondo`) tienen que estar escritos igual
+     en web/pedir/index.html: es lo que le dice al navegador qué se convierte
+     en qué. Si se cambia uno hay que cambiar el otro, o el efecto se pierde
+     sin ningún error.
+
+     Donde no esté soportado (Firefox hoy) no se rompe nada: navega normal. */
+  @view-transition{ navigation:auto }
+
+  .buscador{ view-transition-name:buscador }
+  .diapos{ view-transition-name:fondo }
+
+  ::view-transition-old(root){ animation:.42s cubic-bezier(.16,.9,.3,1) both saleRoot }
+  ::view-transition-new(root){ animation:.52s .1s cubic-bezier(.16,.9,.3,1) both entraRoot }
+  @keyframes saleRoot{ to{opacity:0;transform:scale(.985)} }
+  @keyframes entraRoot{ from{opacity:0;transform:translateY(14px)} }
+  ::view-transition-group(buscador){ animation-duration:.62s;
+    animation-timing-function:cubic-bezier(.16,.9,.3,1) }
+
+  @media (prefers-reduced-motion:reduce){
+    ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){ animation:none !important }
+  }
+
   *{margin:0;padding:0;box-sizing:border-box}
   :root{
     --neg:#08090A;        /* el fondo */
