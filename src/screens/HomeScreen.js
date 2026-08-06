@@ -8,7 +8,7 @@ import VoltMap from '../components/VoltMap';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import locationService from '../services/locationService';
-import { necesitaPermisoPantallaCompleta, abrirAjustesPantallaCompleta } from '../services/incomingCall';
+import { tocaOfrecerPantallaCompleta, abrirAjustesPantallaCompleta } from '../services/incomingCall';
 import * as Location from 'expo-location';
 import favoriteService from '../services/favoriteService';
 import ReputationCard from '../components/ReputationCard';
@@ -21,14 +21,15 @@ import RegisterProfessionalScreen from './RegisterProfessionalScreen';
 import ListoParaTrabajar from '../components/ListoParaTrabajar';
 import WorkerSignupScreen from './WorkerSignupScreen';
 import ProfileScreen from './ProfileScreen';
-import WorkerDashboardScreen from './WorkerDashboardScreen';
 import { chargesInApp } from '../config/monetization';
 import AdminScreen from './AdminScreen';
 import HowItWorksScreen from './HowItWorksScreen';
 import HistoryScreen from './HistoryScreen';
+import MiNegocioScreen from './MiNegocioScreen';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
 import DrawerMenu from '../components/DrawerMenu';
 import DraggableBubble from '../components/DraggableBubble';
+import { abrirAyudaUbicacion } from '../utils/ayuda';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const BUTTON_SIZE = 64;
@@ -42,11 +43,40 @@ const PANEL_HIDDEN = PANEL_FULL - PANEL_PEEK;
 const BAHIA_CENTER = { latitude: -38.7183, longitude: -62.2663 };
 
 // Lista de respaldo de oficios: si la base no responde, igual mostramos chips
+// Los 15 oficios REALES, con el id que tienen en la base (6-ago-2026).
+//
+// 🔴 ACÁ HABÍA UN BUG QUE MANDABA PEDIDOS AL OFICIO EQUIVOCADO.
+//
+//    La lista anterior tenía oficios inventados que no existen en `professions`
+//    (Fumigador, Chapista, Mecánico a domicilio, Mudanzas, Técnico en
+//    electrodomésticos) y le faltaban cinco que sí existen (Carpintero,
+//    Herrero, Jardinero, Heladeras y lavarropas, Encomiendas / Fletes).
+//
+//    Pero lo grave era el `.map((name, i) => ({ id: i + 1 }))`: **los ids se
+//    fabricaban por el orden de esta lista**. "Cerrajero" quedaba con id 6, que
+//    en la base es CARPINTERO. O sea que si esta lista llegaba a usarse —pasa
+//    cuando falla getProfessions()— el cliente pedía un cerrajero y el pedido se
+//    creaba como carpintero, sin error y sin que nadie se enterara.
+//
+//    Ahora los ids son los de la base. Si se agrega un oficio allá, hay que
+//    agregarlo acá: es una copia de respaldo, no una fuente de verdad.
 const FALLBACK_PROFS = [
-  'Electricista','Plomero','Gasista','Pintor','Albañil','Cerrajero',
-  'Técnico en electrodomésticos','Limpieza del hogar','Mudanzas','Fumigador',
-  'Chapista','Mecánico a domicilio','Aire acondicionado','Alarmas / Cámaras','Durlock',
-].map((name, i) => ({ id: i + 1, name }));
+  { id: 1,  name: 'Electricista' },
+  { id: 2,  name: 'Plomero' },
+  { id: 3,  name: 'Gasista' },
+  { id: 4,  name: 'Pintor' },
+  { id: 5,  name: 'Albañil' },
+  { id: 6,  name: 'Carpintero' },
+  { id: 7,  name: 'Cerrajero' },
+  { id: 8,  name: 'Heladeras y lavarropas' },
+  { id: 9,  name: 'Jardinero' },
+  { id: 10, name: 'Limpieza' },
+  { id: 11, name: 'Encomiendas / Fletes' },
+  { id: 16, name: 'Aire acondicionado' },
+  { id: 17, name: 'Alarmas / Cámaras' },
+  { id: 18, name: 'Durlock' },
+  { id: 19, name: 'Herrero' },
+];
 
 // Oficios para los pines ambientales del mapa (percepción de actividad)
 const AMBIENT_PROFS = [
@@ -653,6 +683,7 @@ const HomeScreen = ({
   session, professional, onRequestJob, onOpenAssistant, onActiveJob, onIncomingJob,
   activeJob, onResumeJob,
   quoteWaiting, quoteDeadline, quoteResponded = 0, onResumeQuote,
+  atajo, onAtajoUsado,
 }) => {
   const userId = session?.user?.id;
 
@@ -677,7 +708,12 @@ const HomeScreen = ({
   const [showRegister, setShowRegister]     = useState(false);
   const [showProfile, setShowProfile]       = useState(false);
   const [showHistory, setShowHistory]       = useState(false);
-  const [showWorkerPanel, setShowWorkerPanel] = useState(false);
+  // Un solo panel: "Mi negocio" absorbió al viejo panel de trabajador
+  // (WorkerDashboardScreen), que ya no lo abre nadie.
+  const [showNegocio, setShowNegocio]       = useState(false);
+  // El acceso directo entra derecho a cargar el presupuesto, sin pasar por la
+  // lista. Es todo el punto del atajo: sacar el celular y escribir.
+  const [negocioEnNuevo, setNegocioEnNuevo] = useState(false);
   const [showAdmin, setShowAdmin]           = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [showPrivacy, setShowPrivacy]       = useState(false);
@@ -1083,7 +1119,7 @@ const HomeScreen = ({
     // estaban registrados nunca lo vieron y no se enteraban de los trabajos
     // (Android 14+ degrada la notificacion a banner comun). 31-jul-2026.
     if (next) {
-      necesitaPermisoPantallaCompleta().then((hace_falta) => {
+      tocaOfrecerPantallaCompleta().then((hace_falta) => {
         if (!hace_falta) return;
         Alert.alert(
           'Que te suene aunque tengas el celu bloqueado',
@@ -1097,14 +1133,37 @@ const HomeScreen = ({
     }
     try {
       if (next) {
-        // Guardar ubicación ANTES de aparecer como disponible
+        // Guardar ubicación ANTES de aparecer como disponible.
+        //
+        // 🔴 Si NO se pudo guardar, no nos marcamos disponibles. Antes se
+        // salteaba la ubicación y se seguía igual, y quedaba `available = true`
+        // sin punto en el mapa: el prestador lee "Estás disponible" y
+        // `nearby_workers` no lo devuelve NUNCA, así que es invisible y no se
+        // entera. Como quedó escrito en la migración 051 (1-ago-2026), ese
+        // estado "es peor que estar apagado, porque parece que está todo bien"
+        // — y es el motivo por el que 8 de 11 aprobados no le llegaban a nadie.
         const granted = await locationService.requestPermission();
-        if (granted) {
-          const pos = await locationService.getCurrentLocation().catch(() => null);
-          if (pos) {
-            await professionalService.updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
-          }
+        const pos = granted
+          ? await locationService.getCurrentLocation().catch(() => null)
+          : null;
+        if (!pos) {
+          setAvailable(false);
+          // Acá es donde más se traba la gente: sin ubicación no aparece en el
+          // mapa y no se entera. El botón a la guía sale del paso sin depender
+          // de que haya alguien del otro lado para explicárselo.
+          Alert.alert(
+            'No pudimos tomar tu ubicación',
+            granted
+              ? 'La necesitamos para mostrarte a los clientes de tu zona. Fijate que el GPS esté encendido y probá de nuevo.'
+              : 'Activá el permiso de ubicación para BOLT en los ajustes del teléfono y probá de nuevo.',
+            [
+              { text: 'Cómo activarlo', onPress: () => abrirAyudaUbicacion() },
+              { text: 'Entendido', style: 'cancel' },
+            ]
+          );
+          return; // el finally libera el botón igual
         }
+        await professionalService.updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
       }
       await professionalService.setAvailability(userId, next);
       if (next) {
@@ -1168,13 +1227,25 @@ const HomeScreen = ({
     onOpenAssistant?.(loc || userLocation, mode);
   };
 
+  // ─── Acceso directo: bolt://nuevo-presupuesto ────────
+  //  Llega desde App.js. Sólo tiene sentido para un profesional aprobado: si
+  //  lo toca cualquier otro, la app abre normal y no pasa nada raro.
+  useEffect(() => {
+    if (atajo !== 'nuevoPresupuesto') return;
+    if (professional?.verification_status === 'approved') {
+      setShowNegocio(true);
+      setNegocioEnNuevo(true);
+    }
+    onAtajoUsado?.();
+  }, [atajo, professional?.verification_status]);
+
   // ─── Drawer navigation ───────────────────────────────
   const handleDrawerNavigate = (dest) => {
     switch (dest) {
       case 'profile':     setShowProfile(true);     break;
       case 'history':     setShowHistory(true);     break;
       case 'register':    setShowRegister(true);    break;
-      case 'workerPanel': setShowWorkerPanel(true); break;
+      case 'miNegocio':   setShowNegocio(true);     break;
       case 'admin':       setShowAdmin(true);       break;
       case 'howItWorks':  setShowHowItWorks(true);  break;
       case 'privacy':     setShowPrivacy(true);     break;
@@ -1191,8 +1262,16 @@ const HomeScreen = ({
   if (showHistory) {
     return <HistoryScreen session={session} professional={professional} onClose={() => setShowHistory(false)} onOpenJob={(job) => { setShowHistory(false); onActiveJob?.(job); }} />;
   }
-  if (showWorkerPanel && professional) {
-    return <WorkerDashboardScreen professional={professional} session={session} onClose={() => setShowWorkerPanel(false)} onAvailabilityChange={setAvailable} />;
+  if (showNegocio && professional) {
+    return (
+      <MiNegocioScreen
+        professional={professional}
+        session={session}
+        abrirNuevo={negocioEnNuevo}
+        onClose={() => { setShowNegocio(false); setNegocioEnNuevo(false); }}
+        onAvailabilityChange={setAvailable}
+      />
+    );
   }
   if (showAdmin) {
     return <AdminScreen session={session} onClose={() => setShowAdmin(false)} />;
@@ -1462,10 +1541,30 @@ const HomeScreen = ({
               <Text style={[styles.workerToggleText, available && styles.workerToggleTextOn]}>
                 {toggling ? 'Actualizando...' : available ? 'Estás disponible · Tocá para pausar' : 'Activar disponibilidad'}
               </Text>
-              <TouchableOpacity onPress={() => setShowWorkerPanel(true)} style={styles.dashboardLink} hitSlop={{ top:8, bottom:8, left:8, right:8 }}>
-                <Text style={styles.dashboardLinkText}>Panel</Text>
+              {/* 🔴 Acá había un CRASH. Este botón llamaba a `setShowWorkerPanel`,
+                  que dejó de existir cuando se fusionaron los dos paneles en
+                  "Mi negocio" (6-ago-2026): tocarlo tiraba un ReferenceError y
+                  se caía la app. No lo agarró ningún chequeo porque los dos
+                  archivos parsean bien por separado — el que se rompe es el
+                  contrato entre ellos. */}
+              <TouchableOpacity onPress={() => setShowNegocio(true)} style={styles.dashboardLink} hitSlop={{ top:8, bottom:8, left:8, right:8 }}>
+                <Text style={styles.dashboardLinkText}>Mi negocio</Text>
                 <Ionicons name="chevron-forward" size={13} color={available ? '#0A0A0A' : '#FFD600'} />
               </TouchableOpacity>
+            </TouchableOpacity>
+          )}
+
+          {/* La duda número uno del profesional, justo al lado del control que la
+              causa. Discreto: informa sin competir con el botón de arriba. */}
+          {professional && (
+            <TouchableOpacity
+              style={styles.ayudaLink}
+              onPress={() => abrirAyudaUbicacion()}
+              activeOpacity={0.7}
+              hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+            >
+              <Ionicons name="help-buoy-outline" size={13} color="#888" />
+              <Text style={styles.ayudaLinkText}>¿No te llega ningún trabajo?</Text>
             </TouchableOpacity>
           )}
         </Animated.View>
@@ -1653,6 +1752,13 @@ const styles = StyleSheet.create({
   workerToggleTextOn: { color: '#0A0A0A' },
   dashboardLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   dashboardLinkText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
+
+  // Link a la ayuda: gris y chico, se lee sólo si lo estás buscando.
+  ayudaLink: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 2,
+  },
+  ayudaLinkText: { fontSize: 12.5, color: '#888', textDecorationLine: 'underline' },
 
   // Botón solicitud directa
   directRequestBtn: {

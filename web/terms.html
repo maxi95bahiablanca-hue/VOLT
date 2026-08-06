@@ -5,22 +5,48 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Términos y Condiciones — BOLT</title>
 <meta name="description" content="Términos y condiciones de uso de la plataforma BOLT.">
+<link rel="preload" href="fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* ── Inter: la tipografía de BOLT ────────────────────────────────────
+     Hospedada acá mismo (web/fuentes/), NO en un CDN: si el servidor de
+     Google tarda o falla, el texto se ve mal, y eso es justo lo que no
+     queremos. Un solo archivo variable cubre todos los grosores.
+     Inter — Rasmus Andersson — SIL Open Font License 1.1. */
+  @font-face{
+    font-family:"Inter";
+    font-style:normal;
+    font-weight:100 900;
+    font-display:swap;
+    src:url("fuentes/InterVariable.woff2") format("woff2");
+    unicode-range:U+0000-00FF, U+0100-024F, U+0259, U+0131, U+0152-0153,
+                  U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+                  U+0329, U+1E00-1EFF, U+2000-206F, U+2074, U+20A0-20CF,
+                  U+2122, U+2190-2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0A0A0A;color:#E8E8E8;line-height:1.6;padding:0 0 60px}
+  body{font-family:"Inter",-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-feature-settings:"cv05" 1,"ss03" 1;background:#0A0A0A;color:#E8E8E8;line-height:1.65;padding:0 0 60px}
   .wrap{max-width:760px;margin:0 auto;padding:0 22px}
   header{border-bottom:1px solid #1a1a1a;padding:22px 0;position:sticky;top:0;background:rgba(10,10,10,.95);backdrop-filter:blur(10px);z-index:10}
   .logo{font-size:1.5rem;font-weight:900;letter-spacing:1px}
   .logo span{color:#FFD600}
   .badge{display:inline-flex;align-items:center;gap:6px;background:#FFD600;color:#0A0A0A;font-weight:800;font-size:.72rem;letter-spacing:1px;border-radius:20px;padding:6px 14px;margin:28px 0 14px}
   h1{font-size:1.9rem;font-weight:900;margin-bottom:6px}
-  .updated{color:#555;font-size:.82rem;margin-bottom:22px}
-  .intro{color:#999;font-size:1rem;margin-bottom:34px;line-height:1.7}
-  h2{font-size:1.1rem;font-weight:800;color:#F5F5F5;margin:30px 0 10px}
-  p{color:#888;font-size:.95rem;margin-bottom:10px}
+  .updated{color:#666;font-size:.82rem;margin-bottom:22px}
+  .intro{color:#B0B0B0;font-size:1rem;margin-bottom:34px;line-height:1.75}
+  h2{font-size:1.15rem;font-weight:800;color:#F5F5F5;margin:34px 0 10px}
+  p{color:#9E9E9E;font-size:.97rem;margin-bottom:10px}
+  b{color:#DDD}
   a{color:#FFD600;text-decoration:none}a:hover{text-decoration:underline}
   footer{margin-top:44px;padding-top:22px;border-top:1px solid #1a1a1a;color:#555;font-size:.82rem}
   .nav{margin-top:10px}.nav a{margin-right:18px;font-weight:600}
+
+  /* Sección destacada (relación entre las partes) */
+  .key{background:#121212;border:1px solid rgba(255,214,0,.28);border-left:4px solid #FFD600;border-radius:12px;padding:18px 20px;margin:14px 0 20px}
+  .key p{color:#E0E0E0;font-size:1.02rem;margin:0;line-height:1.7}
+  .pt{margin-top:20px}
+  .pt .t{display:block;color:#FFFFFF;font-size:1rem;font-weight:800;margin-bottom:5px;line-height:1.45}
+  .pt p{margin-bottom:0}
 </style>
 </head>
 <body>
@@ -28,46 +54,93 @@
 <div class="wrap">
   <div class="badge">⚡ TÉRMINOS DE USO</div>
   <h1>Términos y Condiciones</h1>
-  <div class="updated">Última actualización: Junio 2026</div>
-  <p class="intro">Al usar BOLT aceptás estos términos. Leelos con atención. Si no estás de acuerdo, no uses la plataforma.</p>
+  <div class="updated">Última actualización: 6 de agosto de 2026</div>
+  <p class="intro">Al usar BOLT aceptás estos términos. Leelos con atención. Si no estás de acuerdo, no uses la plataforma. Están escritos en lenguaje simple a propósito: queremos que se entiendan.</p>
 
   <h2>1. Qué es BOLT</h2>
   <p>BOLT es una plataforma tecnológica que conecta a clientes con profesionales de oficios (electricistas, plomeros, gasistas, etc.) en su zona. BOLT actúa como intermediario tecnológico: no presta directamente los servicios técnicos, que son realizados por profesionales independientes registrados en la plataforma.</p>
 
-  <h2>2. Registro y cuenta</h2>
-  <p>Para usar BOLT debés crear una cuenta con datos reales y mantenerlos actualizados. Sos responsable de la seguridad de tu cuenta y de toda la actividad realizada desde ella. Debés ser mayor de 18 años.</p>
+  <h2>2. BOLT no es empleador — relación entre las partes</h2>
+  <div class="key">
+    <p><b>En una línea:</b> BOLT es el lugar donde un cliente y un profesional se encuentran. El trabajo lo hace el profesional, por su cuenta y bajo su propia responsabilidad. BOLT no lo emplea, no lo dirige y no responde por el trabajo.</p>
+  </div>
 
-  <h2>3. Obligaciones de los profesionales</h2>
-  <p>Los profesionales deben: proporcionar documentación verídica para la verificación (identidad, antecedentes, matrícula cuando corresponda), prestar los servicios con idoneidad y de acuerdo a las normas de seguridad aplicables, respetar el precio acordado, y mostrar su código de verificación al cliente. BOLT puede suspender a profesionales que reciban reclamos reiterados o incumplan estas obligaciones.</p>
+  <div class="pt">
+    <span class="t">BOLT es sólo un punto de contacto.</span>
+    <p>BOLT pone a disposición una herramienta tecnológica para que quien necesita un trabajo y quien puede hacerlo se encuentren. BOLT no presta el servicio, no lo ejecuta, no lo dirige, no lo supervisa, no lo controla técnicamente y no lo garantiza. No da instrucciones sobre cómo realizar la tarea ni impone procedimientos de trabajo.</p>
+  </div>
 
-  <h2>4. Obligaciones de los clientes</h2>
+  <div class="pt">
+    <span class="t">Ningún profesional es empleado de BOLT.</span>
+    <p>Entre BOLT y los profesionales registrados no existe relación laboral, de dependencia, societaria, de agencia, de franquicia, de mandato ni de representación, en ningún sentido ni bajo ninguna forma. Los profesionales no son empleados, dependientes, socios, agentes ni representantes de BOLT; no actúan en nombre de BOLT ni pueden presentarse como parte de BOLT frente a clientes o terceros, ni obligar a BOLT de ninguna manera. Lo mismo vale para los clientes: usar la plataforma no genera ningún vínculo laboral con BOLT.</p>
+  </div>
+
+  <div class="pt">
+    <span class="t">El profesional trabaja por cuenta y riesgo propio.</span>
+    <p>Cada profesional es un trabajador independiente y autónomo. Decide libremente si acepta o no cada trabajo, en qué horarios está disponible, cómo organiza y ejecuta su tarea y qué precio cobra. Aporta sus propias herramientas, materiales, vehículo y elementos de protección personal. Asume los riesgos y los costos de su actividad, y es el único responsable de su situación fiscal, previsional y de seguros: inscripciones y pagos impositivos, aportes jubilatorios y de obra social, cobertura de accidentes y todo seguro que su actividad requiera. BOLT no retiene ni aporta ninguna suma por esos conceptos.</p>
+  </div>
+
+  <div class="pt">
+    <span class="t">BOLT no fija precios ni obliga a tomar trabajos.</span>
+    <p>BOLT no establece tarifas ni precios mínimos o máximos, no asigna trabajos de forma obligatoria, no exige exclusividad y no aplica sanciones por rechazar una solicitud o por no estar disponible. El profesional puede trabajar al mismo tiempo por su cuenta, para otros clientes o en otras plataformas. La disponibilidad en la app se activa y desactiva cuando el profesional quiere.</p>
+  </div>
+
+  <div class="pt">
+    <span class="t">El acuerdo por el trabajo y por el pago es entre el profesional y el cliente.</span>
+    <p>El precio, el alcance de la tarea, los plazos y la forma de pago se acuerdan directamente entre el profesional y el cliente. BOLT no es parte de ese acuerdo: no cobra, no retiene, no intermedia el dinero y no garantiza el pago al profesional ni la ejecución del trabajo al cliente. Ver también la sección 6.</p>
+  </div>
+
+  <div class="pt">
+    <span class="t">Lo que pase durante el trabajo es responsabilidad de quien lo hizo.</span>
+    <p>Cualquier daño, defecto, demora, pérdida, accidente o reclamo derivado de la ejecución del trabajo —al cliente, a terceros o al propio profesional— es de exclusiva responsabilidad del profesional que lo realizó. BOLT no responde por esos hechos ni asume obligación de indemnizar. El profesional mantiene indemne a BOLT frente a cualquier reclamo de terceros originado en su actividad.</p>
+  </div>
+
+  <div class="pt">
+    <span class="t">El profesional declara estar habilitado para su oficio.</span>
+    <p>Al registrarse, el profesional declara bajo su responsabilidad que cuenta con la idoneidad, la matrícula, las habilitaciones y las autorizaciones que su actividad exija según la normativa vigente (por ejemplo, matrícula de gasista o electricista donde corresponda), y que las mantendrá vigentes mientras use la plataforma. BOLT verifica identidad y antecedentes, pero esa verificación no reemplaza ni certifica la habilitación profesional.</p>
+  </div>
+
+  <div class="pt">
+    <span class="t">Aceptación expresa.</span>
+    <p>Al crear una cuenta como profesional se acepta expresamente esta sección: que el trabajo se presta de forma independiente y que BOLT no es empleador. Esa aceptación queda registrada con fecha y hora.</p>
+  </div>
+
+  <h2>3. Registro y cuenta</h2>
+  <p>Para usar BOLT debés crear una cuenta con datos reales y mantenerlos actualizados. Sos responsable de la seguridad de tu cuenta y de toda la actividad realizada desde ella. Debés ser mayor de 18 años. Al crear la cuenta se registra la aceptación de estos términos y de la <a href="privacy.html">Política de Privacidad</a>, con fecha y hora.</p>
+
+  <h2>4. Obligaciones de los profesionales</h2>
+  <p>Los profesionales deben: proporcionar documentación verídica para la verificación (identidad, antecedentes, matrícula cuando corresponda), prestar los servicios con idoneidad y de acuerdo a las normas de seguridad aplicables, respetar el precio acordado con el cliente, y mostrar su código de verificación al cliente. BOLT puede suspender el acceso a la plataforma de profesionales que reciban reclamos reiterados o incumplan estas obligaciones; esa suspensión es una medida de seguridad de la plataforma y no implica poder disciplinario laboral alguno (ver sección 2).</p>
+
+  <h2>5. Obligaciones de los clientes</h2>
   <p>Los clientes deben: describir el trabajo con honestidad, brindar un entorno seguro para el profesional, verificar el código de identidad antes de permitir el ingreso, y abonar al profesional el servicio acordado de forma directa.</p>
 
-  <h2>5. Precio y pagos</h2>
+  <h2>6. Precio y pagos</h2>
   <p>BOLT no procesa pagos ni interviene en el cobro del trabajo. El precio y la forma de pago se acuerdan y se realizan directamente entre el cliente y el profesional. BOLT no retiene dinero de las partes. Actualmente el uso de la app es gratuito; si en el futuro se incorporan planes pagos para profesionales, se informará con antelación y se actualizarán estos términos.</p>
 
-  <h2>6. Cancelaciones</h2>
+  <h2>7. Cancelaciones</h2>
   <p>El cliente puede cancelar sin cargo mientras ningún profesional haya aceptado. Una vez que el profesional fue elegido y está en camino o en el domicilio, te pedimos avisar con la mayor antelación posible por respeto al tiempo del profesional.</p>
 
-  <h2>7. Verificación de identidad</h2>
+  <h2>8. Verificación de identidad</h2>
   <p>Cada profesional posee un código de verificación de 4 dígitos. El cliente debe pedirlo y confirmarlo antes de permitir el ingreso al domicilio. BOLT no se responsabiliza por permitir el ingreso a personas sin verificar el código.</p>
 
-  <h2>8. Conducta prohibida</h2>
+  <h2>9. Conducta prohibida</h2>
   <p>Está prohibido: usar la plataforma para fines ilegales, suplantar identidades, manipular calificaciones o reseñas, y cualquier conducta que ponga en riesgo a otros usuarios. El incumplimiento puede derivar en la suspensión inmediata de la cuenta.</p>
 
-  <h2>9. Responsabilidad</h2>
-  <p>BOLT es un intermediario tecnológico. La relación de servicio se da entre el cliente y el profesional independiente. BOLT no garantiza la calidad de los trabajos realizados por terceros, aunque implementa mecanismos de verificación, calificación y reporte para mejorar la confianza. Ante cualquier inconveniente, usá la opción "Tengo un problema" dentro de la app.</p>
+  <h2>10. Responsabilidad</h2>
+  <p>La relación de servicio se da entre el cliente y el profesional independiente, en los términos de la sección 2. BOLT no garantiza la calidad, la oportunidad ni el resultado de los trabajos realizados por terceros, aunque implementa mecanismos de verificación, calificación y reporte para mejorar la confianza entre las partes.</p>
+  <p>La plataforma se ofrece tal como está: BOLT no garantiza que el servicio esté disponible sin interrupciones ni libre de errores, y no responde por daños indirectos derivados de fallas técnicas, de la falta de disponibilidad de profesionales o de la información que los usuarios cargan. Nada de esto limita los derechos que la normativa de defensa del consumidor reconozca a los usuarios frente a BOLT por el uso de la plataforma en sí.</p>
+  <p>Ante cualquier inconveniente, usá la opción "Tengo un problema" dentro de la app.</p>
 
-  <h2>10. Reseñas y reputación</h2>
+  <h2>11. Reseñas y reputación</h2>
   <p>Las calificaciones solo pueden dejarse luego de un trabajo efectivamente completado. Las reseñas falsas o manipuladas serán removidas y pueden derivar en sanciones.</p>
 
-  <h2>11. Suspensión y baja</h2>
+  <h2>12. Suspensión y baja</h2>
   <p>Podés solicitar la baja de tu cuenta en cualquier momento escribiendo a <a href="mailto:soporte@bolt.com.ar">soporte@bolt.com.ar</a>. BOLT puede suspender cuentas que incumplan estos términos.</p>
 
-  <h2>12. Ley aplicable</h2>
+  <h2>13. Ley aplicable</h2>
   <p>Estos términos se rigen por las leyes de la República Argentina. Cualquier controversia se someterá a los tribunales ordinarios competentes de Bahía Blanca, Provincia de Buenos Aires.</p>
 
-  <h2>13. Contacto</h2>
+  <h2>14. Contacto</h2>
   <p>Para consultas sobre estos términos, escribinos a <a href="mailto:soporte@bolt.com.ar">soporte@bolt.com.ar</a>.</p>
 
   <footer>

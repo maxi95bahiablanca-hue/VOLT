@@ -127,12 +127,56 @@ const jobService = {
       ...(category ? { rejection_category: category } : {}),
       ...(note     ? { rejection_note: note }         : {}),
     });
-    if (professionalId) {
-      await supabase.rpc('penalize_worker_rejection', { p_professional_id: professionalId });
-    }
+    // 🔴 ACÁ SE PENALIZABA POR RECHAZAR, Y SE SACÓ (6-ago-2026).
+    //
+    //  `penalize_worker_rejection` le restaba 0,05 al avg_rating cada vez que un
+    //  profesional decía que no. Se quitó por dos razones, y la segunda es la
+    //  seria:
+    //
+    //  1. Es injusto. Rechazar un trabajo que queda lejos, que no es tu oficio o
+    //     que no podés hacer hoy no es una falta — es criterio. Bajarle la nota
+    //     por eso lo empuja a aceptar cosas que va a hacer mal.
+    //
+    //  2. 🔴 Es prueba de subordinación. Los Términos dicen que BOLT "no aplica
+    //     sanciones por rechazar una solicitud" y que el profesional elige si
+    //     acepta cada trabajo. Una penalización automática por decir que no es
+    //     justamente lo que se usa para demostrar que hay relación de
+    //     dependencia. Con esto adentro, la cláusula era falsa.
+    //
+    //  La función sigue existiendo en la base (migración 002) pero ya no la
+    //  llama nadie. Ver [[bolt-facturacion-arca]] y los Términos, sección 2.
   },
 
-  arrive:  async (jobId) => update(jobId, { status: 'arrived',     arrived_at:      new Date().toISOString() }),
+  // ── La ventana de ubicación (migración 054) ──────────────────────────────
+  //  El cliente ve dónde está el profesional SÓLO entre estas dos llamadas.
+  //  Fuera de esa ventana no recibe nada: ni al día siguiente, ni mientras
+  //  trabaja adentro de la casa.
+
+  // Sale hacia el domicilio: abre la ventana, genera un código NUEVO de 4
+  // dígitos y devuelve { codigo, viaje }. El código se regenera en cada viaje
+  // porque en un trabajo de varios días el mismo número servía semanas.
+  salirAlDomicilio: async (jobId) => {
+    const { data, error } = await supabase.rpc('salir_al_domicilio', { p_job_id: jobId });
+    if (error) throw error;
+    const fila = Array.isArray(data) ? data[0] : data;
+    return { codigo: fila?.codigo ?? null, viaje: fila?.viaje ?? 1 };
+  },
+
+  // Llegó: cierra la ventana. Reemplaza a arrive() para que la ubicación deje
+  // de verse en el mismo momento en que toca el timbre.
+  //
+  // 🔴 El fallback NO es paranoia: si este OTA llega a un celular antes de que
+  //    la migración 054 esté corrida, la RPC no existe y el profesional se
+  //    queda sin poder marcar que llegó — con un cliente esperando en la
+  //    puerta. Ante la duda, se hace el update de siempre y el trabajo avanza.
+  arrive: async (jobId) => {
+    const { error } = await supabase.rpc('llegue_al_domicilio', { p_job_id: jobId });
+    if (!error) return;
+    const faltaLaFuncion = error.code === 'PGRST202' ||
+      /could not find the function|does not exist/i.test(error.message || '');
+    if (!faltaLaFuncion) throw error;
+    await update(jobId, { status: 'arrived', arrived_at: new Date().toISOString() });
+  },
   start:   async (jobId) => update(jobId, { status: 'in_progress', work_started_at: new Date().toISOString() }),
   // Cuando el profesional dice cuando va (o que ya salio). Campos de la
   // migracion 040: scheduled_for / scheduled_ok / on_the_way_at.
@@ -321,6 +365,29 @@ const jobService = {
       // Que no explote la pantalla de espera del cliente: si el pase falla,
       // el rescate sigue siendo la red de abajo.
       console.log('[cascada] no se pudo pasar al siguiente:', e?.message);
+      return null;
+    }
+  },
+
+  // ─── El registro de todo lo que le llegó (migración 061) ──────────────────
+  //
+  //  Maxi (6-ago): "fui a MI NEGOCIO y no me aparece nada. Yo necesito como
+  //  trabajador tener registro de qué pasó ahí... en todo momento".
+  //
+  //  No se puede leer de `jobs`: cuando la cascada le pasa el trabajo al
+  //  siguiente, el professional_id cambia y el pedido deja de ser visible para
+  //  el que lo recibió primero — justo el caso que hay que poder mirar.
+  //
+  //  🔴 Devuelve null (y no [] ni una excepción) si la RPC todavía no existe:
+  //     un OTA puede llegar antes que la migración, y ahí la pestaña muestra la
+  //     lista vieja en vez de quedar vacía diciendo que nunca pasó nada.
+  getActividad: async (limite = 60) => {
+    try {
+      const { data, error } = await supabase.rpc('mi_actividad', { p_limit: limite });
+      if (error) throw error;
+      return data ?? [];
+    } catch (e) {
+      console.log('[actividad] no disponible:', e?.message);
       return null;
     }
   },

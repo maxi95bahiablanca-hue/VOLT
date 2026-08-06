@@ -17,7 +17,7 @@ const OFICIOS = `
 reparacion (van al domicilio a arreglar algo, 1 dirección):
   1 Electricista, 2 Plomero, 3 Gasista, 7 Cerrajero, 8 Heladeras y lavarropas, 16 Aire acondicionado, 19 Herrero
 obra (proyecto/servicio programado, 1 dirección, puede llevar días):
-  4 Pintor, 5 Albañil, 9 Jardinero, 10 Limpieza, 17 Alarmas / Cámaras, 18 Durlock
+  4 Pintor, 5 Albañil, 6 Carpintero, 9 Jardinero, 10 Limpieza, 17 Alarmas / Cámaras, 18 Durlock
 logistica (transporte, necesita ORIGEN y DESTINO):
   11 Encomiendas / Fletes`;
 

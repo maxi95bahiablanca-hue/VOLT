@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator, AppState } from 'react-native';
+import { View, ActivityIndicator, AppState, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import * as Notifications from 'expo-notifications';
@@ -27,12 +27,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RatingScreen from './src/screens/RatingScreen';
 import {
   useFonts,
-  Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold,
-  Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black,
-} from '@expo-google-fonts/nunito';
+  Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
+} from '@expo-google-fonts/inter';
 import { applyGlobalFont } from './src/globalFont';
 
-// Aplica la fuente Nunito (redondeada, estilo del logo) a toda la app.
+// Aplica la fuente Inter a toda la app. El mapeo peso → archivo vive en
+// src/globalFont.js: ahí se cambia la tipografía de toda la app de una vez.
 applyGlobalFont();
 
 // Ventana que tiene el cliente esperando propuestas. Los profesionales tienen 3
@@ -74,12 +74,36 @@ notifee.onBackgroundEvent(async () => {});
 export default function App() {
   const [session, setSession]           = useState(null);
   const [loading, setLoading]           = useState(true);
+  // Sólo los 4 cortes que usa el mapeo de globalFont.js. Cada uno pesa ~335 kB
+  // y viaja en el OTA, así que cargar de más se paga en datos del usuario.
   const [fontsLoaded] = useFonts({
-    Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold,
-    Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black,
+    Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
   });
   const [screen, setScreen]             = useState('home');
   const [professional, setProfessional] = useState(null);
+
+  // ── Accesos directos (deep links) ────────────────────────────────────────
+  //  El acceso directo del escritorio y el atajo del ícono son configuración
+  //  NATIVA: entran recién en el próximo build. Pero lo único que hacen es
+  //  abrir una URL, y eso —recibirla y llevar al usuario a la pantalla que
+  //  corresponde— es JavaScript puro. Así que la plomería se deja hecha y
+  //  probada ahora, y cuando llegue el build el atajo sólo tiene que disparar
+  //  la URL. Se prueba hoy escribiendo bolt://nuevo-presupuesto en el navegador
+  //  del celular, o con:
+  //    adb shell am start -a android.intent.action.VIEW -d "bolt://nuevo-presupuesto"
+  const [atajo, setAtajo] = useState(null);   // 'nuevoPresupuesto' | null
+
+  useEffect(() => {
+    // El login de Google vuelve por bolt://login-callback y lo maneja
+    // LoginScreen: acá sólo miramos los atajos y nos hacemos a un lado.
+    const leer = (url) => {
+      if (!url || url.includes('login-callback')) return;
+      if (/nuevo-presupuesto|nuevo_presupuesto/i.test(url)) setAtajo('nuevoPresupuesto');
+    };
+    Linking.getInitialURL().then(leer).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => leer(url));
+    return () => sub?.remove?.();
+  }, []);
 
   const [jobRequestData, setJobRequestData] = useState(null);
   const [assistantLoc, setAssistantLoc]     = useState(null);
@@ -301,6 +325,15 @@ export default function App() {
 
       if (prof) {
         ensureFullScreenPermission(); // pedir permiso de pantalla completa (Android 14+)
+
+        // 🔴 La suscripción arranca SIEMPRE, antes de cualquier salida temprana.
+        // Estaba al final y los `return` de abajo la salteaban: si el profesional
+        // abría la app justo con un trabajo en curso o un pedido pendiente, se
+        // quedaba toda esa sesión sin Realtime y sólo se enteraba de los pedidos
+        // siguientes por push o por el sondeo (que además sólo corre en el home).
+        // Es idempotente: se da de baja el canal anterior antes de crear el nuevo.
+        startWorkerJobSubscription(prof.id);
+
         const [active, pending] = await Promise.all([
           jobService.getActiveForWorker(prof.id),
           jobService.getPendingForWorker(prof.id),
@@ -315,8 +348,6 @@ export default function App() {
           setScreen('workerIncoming');
           return;
         }
-
-        startWorkerJobSubscription(prof.id);
       } else {
         const quoteData = await jobService.getActiveQuoteForClient(userId);
         if (quoteData) {
@@ -549,6 +580,8 @@ export default function App() {
       <HomeScreen
         session={session}
         professional={professional}
+        atajo={atajo}
+        onAtajoUsado={() => setAtajo(null)}
         onRequestJob={handleRequestJob}
         onOpenAssistant={handleOpenAssistant}
         onActiveJob={handleActiveJob}

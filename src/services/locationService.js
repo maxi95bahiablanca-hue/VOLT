@@ -59,7 +59,19 @@ const locationService = {
     // 3) Último intento con precisión baja (más rápido de fijar)
     //    Si esto también falla, dejamos que el error se propague para que el
     //    llamador decida qué hacer (no devolvemos undefined en silencio).
-    return Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+    //    🔴 Este intento TAMBIÉN lleva tiempo límite. Sin él era el único await
+    //    de toda la cadena que podía no volver nunca: en un teléfono que no
+    //    logra fijar posición, `getCurrentPositionAsync` se queda esperando sin
+    //    fin y el llamador queda colgado — a Esteban se le quedó el botón del
+    //    radar en "Actualizando..." para siempre (5-ago-2026). Ojo: el `.catch()`
+    //    del llamador atrapa errores, pero no atrapa un colgado; por eso hace
+    //    falta el vencimiento acá.
+    return Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 10000)
+      ),
+    ]);
   },
 
   // Tracking en foreground (mientras la app está abierta)
@@ -100,9 +112,15 @@ const locationService = {
         accuracy: Location.Accuracy.Balanced,
         distanceInterval: DISTANCE_THRESHOLD_M,
         timeInterval: TIME_INTERVAL_MS,
+        // El mismo rastreo lo usan dos cosas: el radar (estar disponible para
+        // recibir pedidos) y el viaje hacia un domicilio. Decía "Estás
+        // disponible", que es mentira cuando el profesional tiene el radar
+        // apagado y sólo está yendo a un trabajo propio. El texto tiene que
+        // valer para los dos casos y decir la verdad: se está compartiendo la
+        // ubicación, y por qué.
         foregroundService: {
-          notificationTitle: 'BOLT — Estás disponible',
-          notificationBody: 'Tu ubicación se actualiza en tiempo real.',
+          notificationTitle: 'BOLT está usando tu ubicación',
+          notificationBody: 'Para que te lleguen trabajos cerca y el cliente te vea llegar.',
           notificationColor: '#FFD600',
         },
         pausesUpdatesAutomatically: false,

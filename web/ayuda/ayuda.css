@@ -1,0 +1,1110 @@
+/* ──────────────────────────────────────────────────────────────
+   BOLT — Centro de ayuda
+
+   Mismo sistema que el resto de la web (6-ago-2026): negro parejo,
+   blanco, y el amarillo SÓLO en detalles. Nada con esquina viva:
+   círculos, píldoras y radios grandes. Los pesos van en 550-600,
+   nunca en 900: la jerarquía la hacen el tamaño y el aire.
+
+   Tipografía: Inter, hospedada en este mismo sitio (web/fuentes/).
+   NO se pide a Google ni a ningún CDN: si ese servidor tarda o
+   falla, el texto se ve mal, y eso es justo lo que no queremos.
+   Inter — Rasmus Andersson — SIL Open Font License 1.1.
+
+   🔴 EL PAPEL SIGUE SIENDO BLANCO. Todo lo de acá es para pantalla;
+   el bloque @media print del final devuelve negro sobre blanco, que
+   es como tiene que salir un PDF que alguien va a imprimir.
+   ────────────────────────────────────────────────────────────── */
+
+@font-face{
+  font-family:"Inter";
+  font-style:normal;
+  font-weight:100 900;          /* variable: un archivo, todos los pesos */
+  font-display:swap;            /* el texto se ve desde el primer momento */
+  src:url("../fuentes/InterVariable.woff2") format("woff2");
+  /* Latino: lo único que escribimos. Lo de afuera (emojis, símbolos
+     raros) lo sigue dibujando el sistema, que para eso está mejor. */
+  unicode-range:U+0000-00FF, U+0100-024F, U+0259, U+0131, U+0152-0153,
+                U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+                U+0329, U+1E00-1EFF, U+2000-206F, U+2074, U+20A0-20CF,
+                U+2122, U+2190-2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root{
+  --fondo:   #08090A;
+  --sup:     rgba(255,255,255,.035);
+  --sup2:    rgba(255,255,255,.06);
+  --linea:   rgba(255,255,255,.09);
+  --linea2:  rgba(255,255,255,.16);
+  --tinta:   #FFFFFF;
+  --amarillo:#FFD600;
+  --gris:    #9BA1A8;
+  --tenue:   #6B7278;
+  --rojo:    #FF6B6B;
+
+  /* Los nombres viejos siguen existiendo porque el marcado de las diez
+     páginas los usa. Ojo: --blanco es el FONDO y --negro es la TINTA,
+     que en oscuro quedaron dados vuelta. Donde algo usaba --negro como
+     fondo (el cuadrito del logo, la barra de la pantalla de la app) está
+     puesto a mano más abajo. */
+  --blanco:  var(--fondo);
+  --papel:   var(--sup);
+  --negro:   var(--tinta);
+  --borde:   var(--linea);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html{
+  -webkit-text-size-adjust:100%;
+  scroll-behavior:smooth;
+}
+
+body{
+  margin:0;
+  background:var(--fondo);
+  color:var(--tinta);
+  font-family:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+              sans-serif;
+  /* Dos cosas que trae Inter y el sistema no: cv05 = la ele con cola
+     (para que "l" no se confunda con "I" ni con "1"), ss03 = comillas
+     y apóstrofos rectos. Es parte de por qué Linear se ve así. */
+  font-feature-settings:"cv05" 1, "ss03" 1;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+  font-size:17px;
+  line-height:1.65;
+  overflow-x:hidden;
+}
+
+/* El halo que gira, como en toda la web */
+body::before{
+  content:"";
+  position:fixed;
+  top:-460px; left:50%;
+  width:1000px; height:1000px;
+  margin-left:-500px;
+  pointer-events:none;
+  z-index:0;
+  border-radius:50%;
+  background:conic-gradient(from 0deg,
+    rgba(255,214,0,.13), rgba(255,214,0,0) 30%,
+    rgba(255,255,255,.05) 55%, rgba(255,214,0,0) 76%, rgba(255,214,0,.13));
+  filter:blur(100px);
+  animation:girar 30s linear infinite;
+}
+@keyframes girar{ to{ transform:rotate(360deg); } }
+
+/* Cifras siempre alineadas y legibles.
+   OJO: font-feature-settings NO se suma a lo heredado, lo reemplaza.
+   Por eso acá hay que repetir cv05 y ss03 además de tnum. */
+.num, .codigo, .paso::before, .tabla, time{
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"cv05" 1, "ss03" 1, "tnum" 1;
+}
+
+img,svg{ max-width:100%; height:auto; }
+
+a{ color:var(--tinta); }
+
+.hoja{
+  max-width:660px;
+  margin:0 auto;
+  padding:0 20px;
+  position:relative;
+  z-index:1;
+}
+
+/* ── Barra de arriba ─────────────────────────────────────────── */
+.barra{
+  position:sticky;
+  top:0;
+  z-index:30;
+  background:rgba(8,9,10,.72);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--linea);
+}
+.barra-in{
+  max-width:660px;
+  margin:0 auto;
+  padding:13px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+.volver{
+  font-size:15px;
+  font-weight:450;
+  color:var(--gris);
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 0;
+  transition:color .2s;
+}
+.volver:hover{ color:var(--tinta); }
+
+/* La marca: el rayo amarillo adentro de un círculo, y la palabra al lado. */
+.marca{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-decoration:none;
+  color:var(--tinta);
+  white-space:nowrap;
+}
+.marca em{
+  font-style:normal;
+  width:28px; height:28px;
+  flex:0 0 28px;
+  background:transparent;
+  border:1px solid var(--linea2);
+  color:var(--amarillo);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  font-weight:600;
+  letter-spacing:0;
+}
+
+/* ── Encabezado de página ────────────────────────────────────── */
+.cabecera{ padding:44px 0 6px; }
+
+.tema-icono{
+  font-size:40px;
+  line-height:1;
+  display:block;
+  margin-bottom:18px;
+}
+
+h1{
+  font-size:2.2rem;
+  line-height:1.08;
+  letter-spacing:-.035em;
+  font-weight:600;
+  margin:0 0 16px;
+}
+
+.bajada{
+  font-size:1.16rem;
+  line-height:1.55;
+  color:var(--gris);
+  font-weight:400;
+  margin:0 0 12px;
+}
+
+.minutos{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  background:transparent;
+  border:1px solid var(--linea2);
+  border-radius:999px;
+  padding:7px 17px;
+  font-size:.85rem;
+  font-weight:450;
+  color:var(--gris);
+  margin-bottom:8px;
+}
+.minutos::before{
+  content:"";
+  width:7px; height:7px;
+  border-radius:50%;
+  background:var(--amarillo);
+  flex-shrink:0;
+}
+
+h2{
+  font-size:1.5rem;
+  line-height:1.2;
+  letter-spacing:-.03em;
+  font-weight:600;
+  margin:52px 0 16px;
+}
+
+h3{
+  font-size:1.12rem;
+  line-height:1.35;
+  letter-spacing:-.02em;
+  font-weight:550;
+  margin:30px 0 10px;
+}
+
+p{ margin:0 0 18px; }
+
+p.apoyo{ color:var(--gris); }
+
+strong,b{ font-weight:600; }
+
+/* Cuando el texto nombra un botón de la app */
+.boton-app{
+  display:inline-block;
+  background:var(--sup2);
+  border:1px solid var(--linea2);
+  color:var(--tinta);
+  border-radius:999px;
+  padding:2px 12px;
+  font-size:.9em;
+  font-weight:500;
+  white-space:nowrap;
+}
+.boton-app.amarillo{
+  background:var(--amarillo);
+  border-color:var(--amarillo);
+  color:#08090A;
+}
+
+/* ── Pasos numerados ─────────────────────────────────────────── */
+ol.pasos{
+  list-style:none;
+  counter-reset:paso;
+  margin:30px 0 34px;
+  padding:0;
+}
+ol.pasos > li{
+  counter-increment:paso;
+  position:relative;
+  padding:0 0 26px 58px;
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+ol.pasos > li::before{
+  content:counter(paso);
+  position:absolute;
+  left:0; top:0;
+  width:38px; height:38px;
+  background:transparent;
+  border:1px solid var(--linea2);
+  color:var(--amarillo);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1rem;
+  font-weight:550;
+  font-variant-numeric:tabular-nums;
+}
+ol.pasos > li::after{
+  content:"";
+  position:absolute;
+  left:19px; top:46px; bottom:2px;
+  width:1px;
+  background:var(--linea);
+}
+ol.pasos > li:last-child{ padding-bottom:4px; }
+ol.pasos > li:last-child::after{ display:none; }
+
+ol.pasos .titulo-paso{
+  display:block;
+  font-weight:550;
+  font-size:1.06rem;
+  line-height:1.45;
+  margin:6px 0 4px;
+  letter-spacing:-.01em;
+}
+ol.pasos p{ margin:0 0 8px; color:var(--gris); }
+ol.pasos p:last-child{ margin-bottom:0; }
+
+/* ── Listas normales ─────────────────────────────────────────── */
+ul.lista{
+  list-style:none;
+  margin:0 0 24px;
+  padding:0;
+}
+ul.lista li{
+  position:relative;
+  padding:0 0 13px 26px;
+  break-inside:avoid;
+}
+ul.lista li::before{
+  content:"";
+  position:absolute;
+  left:2px; top:11px;
+  width:8px; height:8px;
+  background:var(--amarillo);
+  border-radius:50%;
+}
+
+/* ── Recuadros ───────────────────────────────────────────────── */
+.caja{
+  background:var(--sup);
+  border:1px solid var(--linea);
+  border-radius:26px;
+  padding:22px 24px;
+  margin:0 0 28px;
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+.caja > :last-child{ margin-bottom:0; }
+.caja .rotulo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--tenue);
+  margin-bottom:11px;
+}
+.caja .rotulo::before{
+  content:"";
+  width:7px; height:7px;
+  border-radius:50%;
+  background:var(--amarillo);
+  flex-shrink:0;
+}
+
+/* "Ojo con esto": lo único que se pinta de rojo en todo el sitio */
+.caja.ojo{
+  background:rgba(255,107,107,.07);
+  border:1px solid rgba(255,107,107,.3);
+}
+.caja.ojo .rotulo{ color:var(--rojo); }
+.caja.ojo .rotulo::before{ background:var(--rojo); }
+
+/* El destaque sí va en amarillo pleno: es uno por página */
+.caja.destaque{
+  background:var(--amarillo);
+  border-color:var(--amarillo);
+  color:#08090A;
+}
+.caja.destaque .rotulo,
+.caja.destaque .rotulo::before{ color:#08090A; }
+.caja.destaque .rotulo::before{ background:#08090A; }
+.caja.destaque a{ color:#08090A; }
+
+/* Bloque de "esto es lo importante" */
+.clave{
+  border:1px solid var(--linea);
+  border-left:3px solid var(--amarillo);
+  background:var(--sup);
+  border-radius:6px 26px 26px 6px;
+  padding:20px 24px;
+  margin:0 0 28px;
+  break-inside:avoid;
+}
+.clave > :last-child{ margin-bottom:0; }
+
+/* Cita de pantalla de la app */
+.pantalla{
+  border:1px solid var(--linea);
+  border-radius:26px;
+  overflow:hidden;
+  margin:0 0 28px;
+  break-inside:avoid;
+}
+.pantalla-top{
+  background:var(--sup2);
+  color:var(--gris);
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  padding:11px 20px;
+  border-bottom:1px solid var(--linea);
+}
+.pantalla-cuerpo{ padding:20px 20px 6px; background:var(--sup); }
+.pantalla-cuerpo p{ margin-bottom:14px; }
+
+/* El código de la puerta, como en la página del cliente */
+.codigo-demo{
+  font-size:2.6rem;
+  font-weight:600;
+  letter-spacing:.3em;
+  text-align:center;
+  color:var(--amarillo);
+  font-variant-numeric:tabular-nums;
+  margin:8px 0 6px;
+  padding-left:.3em;
+}
+
+/* ── Desplegable (iPhone / preguntas) ────────────────────────── */
+details.desplegable{
+  border:1px solid var(--linea2);
+  border-radius:26px;
+  margin:0 0 14px;
+  background:var(--sup);
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+details.desplegable > summary{
+  list-style:none;
+  cursor:pointer;
+  padding:18px 22px;
+  font-weight:550;
+  font-size:1.05rem;
+  line-height:1.4;
+  letter-spacing:-.01em;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+details.desplegable > summary::-webkit-details-marker{ display:none; }
+details.desplegable > summary::after{
+  content:"+";
+  flex:0 0 28px;
+  width:28px; height:28px;
+  background:transparent;
+  border:1px solid var(--linea2);
+  color:var(--amarillo);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.15rem;
+  font-weight:500;
+  line-height:1;
+  transition:border-color .2s;
+}
+details.desplegable > summary:hover::after{ border-color:var(--amarillo); }
+details.desplegable[open] > summary::after{ content:"\2013"; }
+details.desplegable[open] > summary{ border-bottom:1px solid var(--linea); }
+.desplegable-cuerpo{ padding:18px 22px 4px; }
+.desplegable-cuerpo p{ color:var(--gris); }
+
+/* Variante liviana para las preguntas frecuentes */
+details.pregunta{
+  border:0;
+  border-bottom:1px solid var(--linea);
+  border-radius:0;
+  margin:0;
+  background:none;
+}
+details.pregunta > summary{ padding:17px 2px; font-size:1.03rem; }
+details.pregunta[open] > summary{ border-bottom:0; padding-bottom:4px; }
+details.pregunta .desplegable-cuerpo{ padding:0 2px 16px; }
+
+.grupo-preguntas{ margin:0 0 36px; }
+
+/* ── Índice: tarjetas ────────────────────────────────────────── */
+.tarjetas{
+  display:grid;
+  gap:14px;
+  margin:0 0 44px;
+  padding:0;
+  list-style:none;
+}
+.tarjeta{
+  display:flex;
+  align-items:flex-start;
+  gap:17px;
+  border:1px solid var(--linea);
+  border-radius:28px;
+  padding:22px;
+  text-decoration:none;
+  color:var(--tinta);
+  background:var(--sup);
+  break-inside:avoid;
+  transition:transform .25s cubic-bezier(.16,.9,.3,1), border-color .25s;
+}
+.tarjeta:hover{ border-color:var(--linea2); transform:translateY(-3px); }
+.tarjeta .ico{
+  flex:0 0 52px;
+  width:52px; height:52px;
+  background:transparent;
+  border:1px solid var(--linea2);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  line-height:1;
+  transition:border-color .25s;
+}
+.tarjeta .ico svg{ width:24px; height:24px; }
+.tarjeta:hover .ico{ border-color:var(--amarillo); }
+.tarjeta .txt strong{
+  display:block;
+  font-size:1.1rem;
+  font-weight:550;
+  letter-spacing:-.02em;
+  line-height:1.3;
+  margin-bottom:4px;
+}
+.tarjeta .txt span{
+  display:block;
+  color:var(--gris);
+  font-size:.97rem;
+  line-height:1.5;
+  font-weight:400;
+}
+.tarjeta.principal{
+  border-color:rgba(255,214,0,.45);
+}
+/* 🔴 `inline-block` no alcanza: dentro de un contenedor de bloque la
+   etiqueta se estiraba de punta a punta y quedaba una barra amarilla
+   cruzando la tarjeta. Con `width:fit-content` mide lo que dice. */
+.etiqueta{
+  display:inline-block;
+  width:fit-content;
+  background:var(--amarillo);
+  color:#08090A;
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  border-radius:999px;
+  padding:3px 11px;
+  margin-bottom:8px;
+}
+
+/* ── Botón de PDF ────────────────────────────────────────────── */
+.pdf-zona{
+  margin:42px 0 10px;
+  padding:26px 0 0;
+  border-top:1px solid var(--linea);
+  break-inside:avoid;
+}
+.btn-pdf{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  background:transparent;
+  color:var(--tinta);
+  border:1px solid var(--linea2);
+  border-radius:999px;
+  padding:14px 24px;
+  font-size:1rem;
+  font-weight:500;
+  font-family:inherit;
+  line-height:1.2;
+  cursor:pointer;
+  transition:border-color .2s, transform .22s cubic-bezier(.16,.9,.3,1);
+}
+.btn-pdf:hover{ border-color:var(--tinta); transform:translateY(-2px); }
+.pdf-como{
+  font-size:.9rem;
+  line-height:1.55;
+  color:var(--tenue);
+  margin:14px 0 0;
+}
+
+/* ── Soporte ─────────────────────────────────────────────────── */
+.soporte{
+  border-top:1px solid var(--linea);
+  margin-top:38px;
+  padding-top:32px;
+  break-inside:avoid;
+}
+.soporte h2{ margin-top:0; }
+.btn-wa{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  background:#25D366;
+  color:#fff;
+  text-decoration:none;
+  border-radius:999px;
+  padding:15px 26px;
+  font-size:1.02rem;
+  font-weight:600;
+  line-height:1.2;
+  transition:transform .22s cubic-bezier(.16,.9,.3,1), box-shadow .22s;
+}
+.btn-wa:hover{ transform:translateY(-2px); box-shadow:0 12px 32px rgba(37,211,102,.28); }
+.tel-papel{
+  display:none;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ── Relacionados y pie ──────────────────────────────────────── */
+.relacionados{
+  margin:42px 0 0;
+  padding-top:28px;
+  border-top:1px solid var(--linea);
+}
+.relacionados .rotulo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--tenue);
+  margin-bottom:14px;
+}
+.relacionados .rotulo::before{
+  content:"";
+  width:7px; height:7px;
+  border-radius:50%;
+  background:var(--amarillo);
+  flex-shrink:0;
+}
+.relacionados a{
+  display:block;
+  padding:15px 0;
+  border-bottom:1px solid var(--linea);
+  text-decoration:none;
+  font-weight:500;
+  color:var(--tinta);
+  transition:color .2s;
+}
+.relacionados a:hover{ color:var(--amarillo); }
+.relacionados a span{
+  display:block;
+  font-weight:400;
+  font-size:.94rem;
+  color:var(--gris);
+}
+.relacionados a:first-of-type{ border-top:1px solid var(--linea); }
+
+.pie{
+  margin:50px 0 0;
+  padding:28px 0 50px;
+  border-top:1px solid var(--linea);
+  color:var(--tenue);
+  font-size:.9rem;
+  line-height:1.6;
+}
+.pie a{ color:var(--gris); }
+.pie a:hover{ color:var(--tinta); }
+
+/* Sólo para el papel */
+.solo-papel{ display:none; }
+
+/* ── Pantallas anchas ────────────────────────────────────────── */
+@media (min-width:720px){
+  body{ font-size:17.5px; }
+  h1{ font-size:2.7rem; }
+  .cabecera{ padding:58px 0 6px; }
+  .tarjetas{ grid-template-columns:1fr 1fr; }
+  .tarjeta.ancha{ grid-column:1 / -1; }
+}
+
+/* ── El índice usa más ancho que las páginas de lectura ──────────
+   660px es el ancho correcto para LEER —unos 65 caracteres por
+   renglón— pero es angosto para una grilla de tarjetas. Las páginas
+   de texto siguen en 660; el índice se ensancha. */
+@media (min-width:880px){
+  body.indice .hoja,
+  body.indice .barra-in{ max-width:1000px; }
+  body.indice h1{ font-size:3.4rem; }
+  body.indice .cabecera{ padding:76px 0 14px; }
+  body.indice .bajada{ font-size:1.22rem; max-width:52ch; }
+  body.indice .tarjetas{ grid-template-columns:1fr 1fr 1fr; gap:18px; }
+  body.indice .tarjeta.ancha{ grid-column:1 / -1; }
+}
+
+/* En oscuro, la portada del índice ya no necesita franja negra: el fondo
+   ES negro. Lo que le da peso es el amarillo en una palabra del título. */
+body.indice .cabecera h1 em{
+  font-style:normal;
+  color:var(--amarillo);
+}
+
+/* ── Movimiento ──────────────────────────────────────────────── */
+.tarjeta, .caja, .clave, .pantalla, ol.pasos > li{
+  animation:aparecer .7s cubic-bezier(.16,.9,.3,1) both;
+}
+@keyframes aparecer{
+  from{ opacity:0; transform:translateY(18px); }
+  to{ opacity:1; transform:none; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{ animation:none !important; }
+  html{ scroll-behavior:auto; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PAPEL / PDF
+   🔴 Acá vuelve todo a NEGRO SOBRE BLANCO. Un PDF que alguien
+   imprime no puede salir con fondo negro: gasta un cartucho y se
+   lee peor. Un tema = un PDF, autosuficiente.
+   ══════════════════════════════════════════════════════════════ */
+@page{
+  margin:16mm 14mm 15mm;
+}
+
+@media print{
+  html,body{
+    background:#FFFFFF !important;
+    color:#000000 !important;
+    font-size:11.5pt;
+    line-height:1.5;
+  }
+  body::before{ display:none !important; }   /* el halo no va al papel */
+
+  /* Fuera del papel */
+  .barra,
+  .pdf-zona,
+  .relacionados,
+  .btn-wa,
+  .volver,
+  .no-papel{
+    display:none !important;
+  }
+
+  .solo-papel{ display:block !important; }
+  .tel-papel{ display:inline !important; font-weight:700; }
+
+  .hoja{ max-width:100%; padding:0; }
+
+  a{ color:#000 !important; text-decoration:none; }
+
+  .cabecera{ padding:0 0 4px; }
+  .tema-icono{ display:none; }
+
+  h1{ font-size:20pt; margin:0 0 8px; font-weight:700; }
+  h2{ font-size:13.5pt; margin:20px 0 8px; font-weight:700; page-break-after:avoid; break-after:avoid; }
+  h3{ font-size:11.8pt; margin:14px 0 6px; font-weight:700; page-break-after:avoid; break-after:avoid; }
+  .bajada{ font-size:12pt; color:#000 !important; }
+  .minutos{
+    background:none !important;
+    border:0;
+    padding:0;
+    color:#000 !important;
+    font-size:10pt;
+  }
+  .minutos::before{ display:none; }
+
+  /* Cabecera del documento impreso */
+  .papel-cabecera{
+    display:block !important;
+    border-bottom:1.5pt solid #000;
+    padding-bottom:6px;
+    margin-bottom:16px;
+    font-size:9.5pt;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    font-weight:700;
+  }
+
+  /* Pie del documento impreso: de dónde salió este PDF */
+  .papel-pie{
+    display:block !important;
+    margin-top:22px;
+    padding-top:8px;
+    border-top:1pt solid #000;
+    font-size:9pt;
+    line-height:1.45;
+    page-break-inside:avoid;
+  }
+  .papel-pie .url{ font-weight:700; word-break:break-all; }
+
+  /* Nada se corta entre dos hojas */
+  ol.pasos > li,
+  ul.lista li,
+  .caja,
+  .clave,
+  .pantalla,
+  details.desplegable,
+  .tarjeta,
+  .soporte,
+  p, h2, h3{
+    page-break-inside:avoid;
+    break-inside:avoid;
+  }
+
+  /* Los desplegables se imprimen abiertos: en papel no se tocan */
+  details.desplegable,
+  details.pregunta{
+    border:0 !important;
+    border-bottom:.5pt solid #999 !important;
+    border-radius:0 !important;
+    margin-bottom:6px;
+    background:none !important;
+  }
+  details.desplegable > summary,
+  details.pregunta > summary{
+    padding:6px 0 2px;
+    font-size:11.5pt;
+    font-weight:700;
+    border:0 !important;
+  }
+  details.desplegable > summary::after{ display:none !important; }
+  .desplegable-cuerpo{ padding:0 0 8px; }
+  .desplegable-cuerpo p{ color:#000 !important; }
+  details:not([open]) > .desplegable-cuerpo{ display:block !important; }
+
+  /* Todo en negro sobre blanco, sin fondos que gasten tinta */
+  .caja, .clave, .pantalla, .pantalla-cuerpo, .tarjeta, .minutos, .boton-app{
+    background:#FFFFFF !important;
+    color:#000 !important;
+  }
+  .caja, .pantalla, .tarjeta{
+    border:.75pt solid #000 !important;
+    border-radius:0;
+    padding:10px 12px;
+  }
+  .clave{
+    border:0 !important;
+    border-left:3pt solid #000 !important;
+    border-radius:0;
+    padding:4px 0 4px 12px;
+  }
+  .pantalla-top{
+    background:#FFF !important;
+    color:#000 !important;
+    border-bottom:.5pt solid #000;
+    padding:4px 0;
+  }
+  .pantalla-cuerpo{ padding:8px 0 0; }
+  .caja.ojo, .caja.destaque{
+    border:1.5pt solid #000 !important;
+    background:#FFF !important;
+    color:#000 !important;
+  }
+  .caja .rotulo, .relacionados .rotulo{ color:#000 !important; }
+  .caja .rotulo::before, .relacionados .rotulo::before{ display:none; }
+  p.apoyo, .tarjeta .txt span, ol.pasos p{ color:#000 !important; }
+  .codigo-demo{ color:#000 !important; }
+
+  .boton-app{
+    border:.5pt solid #000 !important;
+    padding:0 5px;
+    border-radius:3px;
+  }
+
+  ol.pasos > li{ padding-left:34px; padding-bottom:12px; }
+  ol.pasos > li::before{
+    width:24px; height:24px;
+    background:#FFF !important;
+    color:#000 !important;
+    border:1pt solid #000;
+    font-size:11pt;
+    font-weight:700;
+  }
+  ol.pasos > li::after{ display:none; }
+  ul.lista li::before{ background:#000 !important; width:5px; height:5px; top:9px; }
+
+  .etiqueta{
+    background:#FFF !important;
+    color:#000 !important;
+    border:.5pt solid #000;
+  }
+
+  .pie{
+    border:0;
+    margin:0;
+    padding:0;
+    display:none;
+  }
+  .soporte{ border-top:1pt solid #000; margin-top:20px; padding-top:12px; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CARTEL CON EL QR — al pie del índice
+   Para las altas en la calle: se imprime, se pega en el local, o
+   se muestra desde el celular. El código está dibujado en SVG
+   adentro del HTML: no se descarga nada de ningún lado.
+   🔴 Este cartel se imprime: va en BLANCO aunque la página sea
+   negra, porque su destino es una hoja A4.
+   ══════════════════════════════════════════════════════════════ */
+.cartel{
+  border-top:1px solid var(--linea);
+  margin-top:38px;
+  padding-top:32px;
+  break-inside:avoid;
+}
+.cartel h2{ margin-top:0; }
+.cartel .rotulo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--tenue);
+  margin-bottom:12px;
+}
+.cartel .rotulo::before{
+  content:"";
+  width:7px; height:7px;
+  border-radius:50%;
+  background:var(--amarillo);
+  flex-shrink:0;
+}
+
+.cartel-hoja{
+  border:1px solid var(--linea2);
+  border-radius:28px;
+  background:#FFFFFF;
+  color:#08090A;
+  padding:30px 26px 26px;
+  margin:0 0 22px;
+  max-width:440px;
+  text-align:center;
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+
+.cartel-marca{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  font-size:1.05rem;
+  font-weight:700;
+  letter-spacing:.04em;
+  color:#08090A;
+}
+.cartel-marca em{
+  font-style:normal;
+  width:28px; height:28px;
+  flex:0 0 28px;
+  background:#08090A;
+  color:var(--amarillo);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:15px;
+  font-weight:700;
+  /* El círculo negro es la marca: que se imprima aunque el navegador
+     venga con los fondos apagados para ahorrar tinta. */
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
+
+.cartel-titulo{
+  font-size:1.2rem;
+  font-weight:600;
+  line-height:1.25;
+  letter-spacing:-.02em;
+  margin:18px 0 0;
+}
+
+.cartel-qr{
+  width:190px;
+  margin:20px auto 14px;
+}
+.cartel-qr svg{ display:block; width:100%; height:auto; }
+
+.cartel-url{
+  font-size:1.12rem;
+  font-weight:600;
+  letter-spacing:-.01em;
+  margin:0 0 10px;
+}
+.cartel-pie{
+  font-size:.88rem;
+  line-height:1.5;
+  color:#4A4A52;
+  margin:0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BUSCADOR DE LAS PREGUNTAS FRECUENTES
+   ══════════════════════════════════════════════════════════════ */
+.buscador{ margin:28px 0 32px; }
+
+.buscador-campo{
+  width:100%;
+  font-family:inherit;
+  /* 1.02rem ≈ 17px: por debajo de 16px, iOS hace zoom solo al tocar el
+     campo y descoloca toda la página. */
+  font-size:1.02rem;
+  line-height:1.3;
+  color:var(--tinta);
+  background:var(--sup);
+  border:1px solid var(--linea2);
+  border-radius:999px;
+  padding:15px 22px;
+  -webkit-appearance:none;
+  appearance:none;
+  transition:border-color .2s, background .2s;
+}
+.buscador-campo::placeholder{ color:var(--tenue); opacity:1; }
+.buscador-campo:focus{
+  outline:none;
+  border-color:rgba(255,214,0,.55);
+  background:var(--sup2);
+}
+/* La crucecita que Chrome le pone a los input de tipo search */
+.buscador-campo::-webkit-search-cancel-button{ cursor:pointer; }
+
+.buscador-cuenta{
+  font-size:.88rem;
+  font-weight:450;
+  color:var(--gris);
+  margin:12px 0 0;
+}
+
+.sin-resultados{
+  border:1px solid var(--linea2);
+  border-radius:26px;
+  padding:26px 24px;
+  margin:0 0 32px;
+  background:var(--sup);
+}
+.sin-resultados h2{ margin:0 0 8px; font-size:1.2rem; }
+.sin-resultados p{ margin:0 0 18px; }
+.sin-resultados > :last-child{ margin-bottom:0; }
+
+.visualmente-oculto{
+  position:absolute;
+  width:1px; height:1px;
+  padding:0; margin:-1px;
+  overflow:hidden;
+  clip:rect(0 0 0 0);
+  clip-path:inset(50%);
+  white-space:nowrap;
+  border:0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PAPEL — el cartel y el buscador
+   ══════════════════════════════════════════════════════════════ */
+@media print{
+
+  /* ── El índice, impreso, es el cartel y nada más ──────────────
+     Es lo único que tiene sentido llevar al papel de esa página:
+     una hoja para pegar en el local. El listado de temas en papel
+     no le sirve a nadie. */
+  body.indice .cabecera,
+  body.indice .clave,
+  body.indice .tarjetas,
+  body.indice > .hoja > h2,
+  body.indice .soporte,
+  body.indice .pie,
+  .cartel > .rotulo,
+  .cartel > h2{
+    display:none !important;
+  }
+
+  .cartel{
+    border:0;
+    margin:0;
+    padding:0;
+    text-align:center;
+  }
+  .cartel-hoja{
+    border:2.5pt solid #000 !important;
+    border-radius:0;
+    max-width:100%;
+    padding:14mm 10mm 12mm;
+    margin:0 auto;
+  }
+  .cartel-marca{ font-size:15pt; }
+  .cartel-marca em{
+    width:30pt; height:30pt; flex:0 0 30pt;
+    font-size:17pt;
+  }
+  .cartel-titulo{ font-size:21pt; line-height:1.25; margin-top:9mm; }
+  .cartel-qr{ width:92mm; margin:9mm auto 7mm; }
+  .cartel-url{ font-size:19pt; margin-bottom:6mm; }
+  .cartel-pie{ font-size:11.5pt; color:#000 !important; }
+
+  /* ── Preguntas frecuentes ─────────────────────────────────────
+     El buscador es de pantalla. En papel salen TODAS las preguntas,
+     aunque el filtro haya dejado tres a la vista: lo que se imprime
+     no depende de lo que alguien haya tipeado hace un rato. */
+  .buscador,
+  .sin-resultados{ display:none !important; }
+
+  details.pregunta[hidden],
+  .grupo-preguntas[hidden]{ display:block !important; }
+}

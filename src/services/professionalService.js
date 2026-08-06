@@ -107,10 +107,17 @@ const professionalService = {
     if (error) throw error;
   },
 
+  // `location_at` (migración 057) no es un adorno: sin la hora no hay forma de
+  // distinguir una posición en vivo de la última que quedó guardada hace dos
+  // días. La página del cliente sólo muestra el mapa si es de los últimos 10
+  // minutos — mostrarle un pin viejo sería peor que no mostrarle nada.
   updateLocation: async (userId, lat, lng) => {
     const { error } = await supabase
       .from('professionals')
-      .update({ location: `SRID=4326;POINT(${lng} ${lat})` })
+      .update({
+        location:    `SRID=4326;POINT(${lng} ${lat})`,
+        location_at: new Date().toISOString(),
+      })
       .eq('user_id', userId);
     if (error) throw error;
   },

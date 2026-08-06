@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centro de ayuda de BOLT</title>
+<meta name="description" content="Guías cortas para trabajar con BOLT: activar la disponibilidad, recibir trabajos, hacer presupuestos y manejar tu negocio.">
+<meta name="theme-color" content="#0A0A0A">
+<meta name="robots" content="noindex">
+
+<!-- ══════════════════════════════════════════════════════════════
+     PROPUESTA DE DISEÑO — no reemplaza a index.html todavía.
+     Todo el estilo vive acá adentro: no toca ayuda.css.
+
+     La idea: el centro de ayuda tiene que parecer de gente que
+     trabaja con las manos, no de una prepaga. El lenguaje visual
+     sale del taller —la chapa de un tablero, el plano acotado, la
+     cinta de peligro, el cartel estampado— pero sugerido, nunca
+     gritado. La cinta aparece 3 veces en toda la página, los
+     tornillos son grises y de 11 px, y la grilla del fondo casi
+     no se ve.
+     Blanco, negro y amarillo #FFD600. Tipografía del sistema.
+     Cero webfonts, cero librerías, cero imágenes: los 5 dibujos
+     son SVG hechos a mano acá adentro.
+     ══════════════════════════════════════════════════════════ -->
+
+<style>
+/* ── Paleta ─────────────────────────────────────────────────── */
+:root{
+  --tinta:    #0A0A0A;   /* negro */
+  --amarillo: #FFD600;
+  --papel:    #FBFBF9;
+  --linea:    #E8E8E4;   /* la grilla del plano */
+  --gris:     #4A4A44;   /* texto secundario */
+  --tenue:    #82827A;   /* rótulos chicos */
+  --ambar:    #A35C00;   /* el único "amarillo" que puede ser texto */
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html{ -webkit-text-size-adjust:100%; }
+
+/* Fondo de plano técnico: líneas cada 24 px, apenas visibles.
+   Nunca blanco liso. */
+body{
+  margin:0;
+  color:var(--tinta);
+  background-color:var(--papel);
+  background-image:
+    linear-gradient(var(--linea) 1px, transparent 1px),
+    linear-gradient(90deg, var(--linea) 1px, transparent 1px);
+  background-size:24px 24px;
+  background-position:-1px -1px;
+  font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+              "Helvetica Neue", Arial, sans-serif;
+  font-size:17px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+
+img,svg{ max-width:100%; }
+a{ color:var(--tinta); }
+:focus-visible{ outline:3px solid var(--tinta); outline-offset:3px; }
+
+/* Todos los títulos son estampados: mayúscula, apretados, pesados. */
+h1,h2,h3{
+  margin:0;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  font-stretch:condensed;
+  line-height:1.04;
+  text-wrap:balance;
+}
+
+.hoja{ max-width:1240px; margin:0 auto; padding:0 22px; }
+
+/* ── Cinta de peligro ───────────────────────────────────────
+   Se usa 3 veces en toda la página: el borde de arriba, un
+   separador en el medio y el filo del cartel para imprimir.
+
+   Y se mueve, muy despacio, como una cinta transportadora.
+   Se anima SÓLO el background-position (nunca width/left/transform
+   de algo ancho: eso repinta media pantalla y en un celular barato
+   se traba). El área que se repinta son 15 px de alto y nada más.
+
+   La cuenta del 39.6: las franjas van a -45°, con un período de
+   28 px medido sobre el eje del degradé. Correr el fondo en
+   horizontal 28 / cos(45°) = 39.598 px devuelve exactamente el
+   mismo dibujo, así que el ciclo cierra sin salto. El mosaico se
+   fija en 39.6 × 39.6 por el mismo motivo: así no se ve la costura
+   entre repeticiones. */
+.cinta{
+  height:15px;
+  background-image:repeating-linear-gradient(-45deg,
+    var(--tinta) 0 14px, var(--amarillo) 14px 28px);
+  background-size:39.6px 39.6px;
+  border-bottom:3px solid var(--tinta);
+  animation:cinta-corre 12s linear infinite;
+}
+@keyframes cinta-corre{
+  from{ background-position:0 0; }
+  to{   background-position:39.6px 0; }
+}
+.cinta.corta{
+  border-top:3px solid var(--tinta);
+  margin:64px 0 60px;
+}
+
+/* ── Barra de arriba ────────────────────────────────────────── */
+.barra{ background:var(--tinta); }
+.barra-in{
+  max-width:1240px; margin:0 auto; padding:13px 22px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+}
+.marca{
+  display:inline-flex; align-items:center; gap:11px;
+  color:#fff; text-decoration:none;
+  font-size:20px; font-weight:900; letter-spacing:0.14em;
+  font-stretch:condensed;
+}
+.marca svg{ width:19px; height:26px; display:block; }
+.ir{
+  color:#fff; text-decoration:none; font-size:15px; font-weight:700;
+  padding-bottom:2px; border-bottom:2px solid transparent;
+}
+.ir:hover{ border-bottom-color:var(--amarillo); }
+
+/* ── Rótulo: el bloque de título de un plano ─────────────────
+   En el celular las casillas de datos van abajo, en fila. Al lado
+   del título sólo entran de 860 px para arriba: si no, empujan y
+   el ancho de la página se va de mambo. */
+.rotulo{
+  display:grid; grid-template-columns:minmax(0,1fr);
+  border:3px solid var(--tinta); background:#fff;
+  margin:38px 0 52px;
+}
+.rot-cuerpo{ padding:26px 28px 28px; }
+.rot-ojo{
+  margin:0 0 12px; font-size:12px; font-weight:800;
+  letter-spacing:0.2em; text-transform:uppercase; color:var(--tenue);
+}
+.rotulo h1{ font-size:clamp(36px,6.4vw,66px); letter-spacing:0.045em; }
+/* El amarillo como marcador, no como recuadro. */
+.rotulo h1 em{
+  font-style:normal;
+  background:linear-gradient(to top, var(--amarillo) 0 32%, transparent 32%);
+  padding:0 2px;
+}
+.rot-bajada{
+  margin:16px 0 0; max-width:44ch; font-size:18px; color:var(--gris);
+}
+.rot-datos{
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  margin:0; border-top:3px solid var(--tinta);
+}
+.rot-datos div{
+  border-left:3px solid var(--tinta); padding:14px 12px;
+  display:flex; flex-direction:column; justify-content:center;
+}
+.rot-datos div:first-child{ border-left:0; }
+.rot-datos dt{
+  font-size:11px; font-weight:800; letter-spacing:0.18em;
+  text-transform:uppercase; color:var(--tenue);
+}
+.rot-datos dd{
+  margin:4px 0 0; font-size:17px; font-weight:900;
+  letter-spacing:0.04em; font-variant-numeric:tabular-nums;
+}
+
+/* ── Chapa: un rectángulo de metal apoyado, no una tarjeta ──── */
+.chapa{
+  position:relative;
+  background:#fff;
+  border:3px solid var(--tinta);
+  border-radius:3px;
+  box-shadow:6px 6px 0 var(--tinta);   /* sombra dura, nunca difusa */
+}
+/* Al pasar el mouse la chapa se hunde 2 px y la sombra pasa de 6 a 4:
+   la silueta de afuera queda clavada en el mismo lugar (2+4 = 6) y lo
+   único que cambia es la profundidad. Es lo que hace que se sienta
+   apoyada y no flotando. Al apretar, se hunde del todo. */
+a.chapa{
+  display:flex; flex-direction:column; text-decoration:none; color:inherit;
+  transition:transform .12s ease-out, box-shadow .12s ease-out;
+}
+a.chapa:hover{ transform:translate(2px,2px); box-shadow:4px 4px 0 var(--tinta); }
+a.chapa:active{ transform:translate(5px,5px); box-shadow:1px 1px 0 var(--tinta); }
+a.chapa:focus-visible{ outline:4px solid var(--tinta); outline-offset:5px; }
+
+/* Los tornillos: 11 px, grises, apenas se notan. */
+.tors{ position:absolute; inset:0; pointer-events:none; }
+.tors > svg{ position:absolute; width:11px; height:11px; }
+.tors > svg:nth-child(1){ top:7px; left:7px;  transform:rotate(14deg); }
+.tors > svg:nth-child(2){ top:7px; right:7px; transform:rotate(-42deg); }
+.tors > svg:nth-child(3){ bottom:7px; left:7px;  transform:rotate(63deg); }
+.tors > svg:nth-child(4){ bottom:7px; right:7px; transform:rotate(-11deg); }
+
+/* La etiqueta negra colgada del borde de arriba */
+.cod{
+  position:absolute; top:-3px; left:22px;
+  background:var(--tinta); color:#fff;
+  font-size:11px; font-weight:900; letter-spacing:0.16em;
+  text-transform:uppercase; padding:4px 9px;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ── Botones ────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex; align-items:center; gap:11px;
+  background:var(--tinta); color:var(--amarillo);
+  font-size:17px; font-weight:800; letter-spacing:0.03em;
+  text-decoration:none; padding:15px 22px;
+  border:3px solid var(--tinta); border-radius:3px;
+  box-shadow:5px 5px 0 var(--amarillo);
+  transition:transform .08s ease-out, box-shadow .08s ease-out;
+}
+.btn:hover{ transform:translate(2px,2px); box-shadow:3px 3px 0 var(--amarillo); }
+.btn .fl{ font-size:19px; line-height:1; }
+
+/* ── Notas al margen (acotaciones del plano) ─────────────────── */
+.acotado{ display:grid; gap:18px; grid-template-columns:minmax(0,1fr); }
+.acotado > .med{ order:1; }
+.acotado > .nota{ order:2; }
+.nota{
+  margin:0; font-size:16px; line-height:1.45; color:var(--gris);
+  border-left:3px solid var(--tinta); padding-left:14px;
+}
+.nota b{
+  display:block; font-size:11px; font-weight:900; letter-spacing:0.18em;
+  text-transform:uppercase; color:var(--tinta); margin-bottom:5px;
+}
+
+/* ── Los 9 temas ────────────────────────────────────────────── */
+.tit-seccion{
+  display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;
+  border-bottom:5px solid var(--tinta); padding-bottom:9px; margin-bottom:30px;
+}
+.tit-seccion h2{ font-size:clamp(21px,2.6vw,28px); }
+.tit-seccion span{
+  margin-left:auto; font-size:12px; font-weight:800; letter-spacing:0.18em;
+  text-transform:uppercase; color:var(--tenue);
+}
+
+.temas{ display:grid; gap:26px 24px; grid-template-columns:minmax(0,1fr); }
+.tema{ padding:28px 24px 22px; }
+.tema strong{
+  display:block; font-size:20px; font-weight:800; line-height:1.25;
+  letter-spacing:0.005em;
+}
+.tema p{ margin:9px 0 0; font-size:17px; color:var(--gris); }
+/* La flecha se va al fondo de la chapa: así todas las chapas de una
+   fila terminan igual y no queda aire suelto abajo. */
+.tema .fl{
+  margin-top:auto; padding-top:20px; font-size:22px; font-weight:900;
+  line-height:1; align-self:flex-end;
+}
+/* La destacada se invierte: chapa negra con la sombra amarilla.
+   El amarillo hace de luz, no de recuadro. */
+.tema.dest{ background:var(--tinta); color:#fff; box-shadow:6px 6px 0 var(--amarillo); }
+.tema.dest:hover{ box-shadow:4px 4px 0 var(--amarillo); }
+.tema.dest:active{ box-shadow:1px 1px 0 var(--amarillo); }
+.tema.dest p{ color:#D5D5CC; }
+.tema.dest .cod{ background:var(--amarillo); color:var(--tinta); }
+.tema.dest .fl{ color:var(--amarillo); }
+
+/* ── El bloque de arranque ──────────────────────────────────── */
+.arranque{ padding:30px 28px 28px; display:block; }
+/* Va colgada del borde de arriba, corrida 24 px: si la pongo en la
+   esquina se le monta al tornillo. */
+.etiqueta{
+  position:absolute; top:-3px; left:24px;
+  background:var(--amarillo); color:var(--tinta);
+  border:3px solid var(--tinta);
+  font-size:12px; font-weight:900; letter-spacing:0.16em;
+  text-transform:uppercase; padding:6px 13px;
+}
+.arranque-in{ display:grid; gap:24px; grid-template-columns:minmax(0,1fr); }
+.arranque h2{ font-size:clamp(22px,3vw,30px); }
+.arranque .regla{ height:5px; background:var(--tinta); width:64px; margin:14px 0 16px; }
+.arranque p{ margin:0 0 22px; font-size:18px; max-width:52ch; }
+
+/* ── Figuras ────────────────────────────────────────────────── */
+.figuras{ display:grid; gap:26px 24px; grid-template-columns:minmax(0,1fr); }
+.fig{ padding:0; display:block; }
+.fig-caja{
+  border-bottom:3px solid var(--tinta);
+  padding:22px 18px 14px;
+  display:flex; flex-direction:column; align-items:center;
+  background-color:#fff;
+  background-image:
+    linear-gradient(var(--linea) 1px, transparent 1px),
+    linear-gradient(90deg, var(--linea) 1px, transparent 1px);
+  background-size:24px 24px;
+}
+.fig-num{
+  margin-top:12px; font-size:11px; font-weight:900; letter-spacing:0.18em;
+  text-transform:uppercase; color:var(--tenue);
+}
+.fig-txt{ padding:24px 24px 26px; }
+.fig-txt h3{ font-size:19px; }
+.fig-txt p{ margin:12px 0 0; font-size:17px; color:var(--gris); }
+.fig-txt .fl{ display:inline-block; margin-top:16px; font-weight:800; }
+.dib{ display:block; width:100%; max-width:168px; height:auto; margin-inline:auto; }
+
+/* El único dibujo que se mueve: la flecha que señala el botón de
+   disponibilidad da un empujoncito cada 5 segundos. Uno solo. Si se
+   movieran los cuatro dibujos sería un carnaval. */
+.flecha{
+  transform-box:view-box; transform-origin:0 0;
+  animation:flecha-late 5s ease-in-out infinite;
+}
+@keyframes flecha-late{
+  0%, 64%, 100%{ transform:translate(0,0); }
+  76%{ transform:translate(6px,-3.6px); }
+  88%{ transform:translate(1px,-0.6px); }
+}
+
+/* ── Soporte ────────────────────────────────────────────────── */
+.soporte{
+  background:var(--amarillo);
+  border:3px solid var(--tinta);
+  border-radius:3px;
+  box-shadow:8px 8px 0 var(--tinta);
+  padding:30px 28px;
+  display:grid; gap:24px; grid-template-columns:minmax(0,1fr);
+  align-items:center;
+}
+.soporte h2{ font-size:clamp(22px,3vw,30px); }
+.soporte p{ margin:14px 0 0; font-size:18px; max-width:46ch; }
+/* Sobre el amarillo la sombra negra no se vería contra el botón negro:
+   acá la luz es blanca. */
+.soporte .btn{ color:#fff; box-shadow:5px 5px 0 #fff; justify-self:start; }
+.soporte .btn:hover{ box-shadow:3px 3px 0 #fff; }
+.dib-llave{ width:100%; max-width:230px; height:auto; }
+
+/* ── Cartel para imprimir ───────────────────────────────────── */
+.cartel{ margin-top:60px; }
+.cartel-hoja{ padding:0 0 30px; text-align:center; }
+.cartel-hoja .cinta{ margin-bottom:30px; border-bottom-width:3px; }
+.cartel-marca{
+  display:inline-flex; align-items:center; gap:10px;
+  font-size:19px; font-weight:900; letter-spacing:0.14em; font-stretch:condensed;
+}
+.cartel-marca svg{ width:17px; height:24px; }
+.cartel-titulo{
+  margin:16px auto 22px; max-width:15ch;
+  font-size:clamp(24px,3.4vw,34px); font-weight:900; line-height:1.1;
+  text-transform:uppercase; letter-spacing:0.04em; font-stretch:condensed;
+}
+.cartel-qr{
+  width:186px; height:186px; margin:0 auto;
+  border:3px solid var(--tinta); padding:8px; background:#fff;
+}
+.cartel-qr svg{ display:block; width:100%; height:100%; }
+.cartel-url{
+  margin:18px 0 0; font-size:19px; font-weight:900; letter-spacing:0.05em;
+}
+.cartel-pie{ margin:10px auto 0; max-width:40ch; font-size:15px; color:var(--gris); }
+.btn-imp{
+  margin-top:20px; background:#fff; color:var(--tinta);
+  border:3px solid var(--tinta); border-radius:3px;
+  font-size:16px; font-weight:800; padding:13px 20px;
+  box-shadow:5px 5px 0 var(--tinta); cursor:pointer;
+  font-family:inherit;
+}
+.btn-imp:hover{ transform:translate(2px,2px); box-shadow:3px 3px 0 var(--tinta); }
+
+/* ── Pie ────────────────────────────────────────────────────── */
+.pie{ background:var(--tinta); color:#fff; margin-top:66px; }
+.pie-in{
+  max-width:1240px; margin:0 auto; padding:26px 22px;
+  font-size:15px; letter-spacing:0.02em;
+}
+.pie a{ color:#fff; text-decoration:none; border-bottom:1px solid #55554F; }
+.pie a:hover{ border-bottom-color:var(--amarillo); }
+
+section{ margin:60px 0; }
+
+/* ── De 640 px para arriba ──────────────────────────────────── */
+@media (min-width:640px){
+  .temas{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .figuras{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .arranque-in{ grid-template-columns:170px minmax(0,1fr); align-items:center; gap:30px; }
+  /* El dibujo a la izquierda ocupa las dos filas; el texto arriba y el
+     botón abajo, los dos en la segunda columna. */
+  .soporte{ grid-template-columns:auto minmax(0,1fr); gap:22px 32px; padding:34px 32px; }
+  .soporte .dib-llave{ grid-row:span 2; align-self:center; }
+}
+
+/* De 1000 px la banda se estira de punta a punta: dibujo, texto y
+   botón en una sola línea, sin que sobre medio ancho vacío. */
+@media (min-width:1000px){
+  .soporte{ grid-template-columns:auto minmax(0,1fr) auto; gap:38px; }
+  .soporte .dib-llave{ grid-row:auto; }
+}
+
+/* ── De 860 px: el rótulo se arma como el de un plano de verdad ── */
+@media (min-width:860px){
+  .rotulo{ grid-template-columns:minmax(0,1fr) auto; }
+  .rot-datos{
+    grid-template-columns:repeat(3,minmax(96px,auto));
+    border-top:0;
+  }
+  .rot-datos div{ padding:16px 14px; }
+  .rot-datos div:first-child{ border-left:3px solid var(--tinta); }
+}
+
+/* ── De 1040 px: aparecen las acotaciones al margen ──────────── */
+@media (min-width:1040px){
+  .temas{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .acotado{ grid-template-columns:210px minmax(0,1fr) 210px; column-gap:38px; align-items:start; }
+  .acotado > .nota.izq{ order:0; grid-column:1; text-align:right; }
+  .acotado > .med{ order:1; grid-column:2; }
+  .acotado > .nota.der{ order:2; grid-column:3; }
+  /* La línea de referencia que apunta a lo que explica */
+  .acotado > .nota{
+    position:relative; margin-top:52px; border-left:0; padding-left:0;
+    font-size:16px;
+  }
+  .acotado > .nota.izq{ padding-right:0; }
+  .acotado > .nota::before{
+    content:""; position:absolute; top:11px; height:2px; background:var(--tinta);
+  }
+  .acotado > .nota::after{
+    content:""; position:absolute; top:6px;
+    width:11px; height:11px; border-radius:50%;
+    background:var(--amarillo); border:2px solid var(--tinta);
+  }
+  .acotado > .nota.izq::before{ right:-38px; width:38px; }
+  .acotado > .nota.izq::after{ right:-43px; }
+  .acotado > .nota.der::before{ left:-38px; width:38px; }
+  .acotado > .nota.der::after{ left:-43px; }
+  .arranque-in{ grid-template-columns:190px minmax(0,1fr); gap:36px; }
+}
+
+/* ── Si el sistema pide menos movimiento, se apaga todo ──────
+   No es opcional: hay gente a la que el movimiento le marea. La
+   página tiene que quedar igual de bien quieta. */
+@media (prefers-reduced-motion: reduce){
+  .cinta, .flecha{ animation:none !important; }
+  a.chapa{ transition:none; }
+}
+
+/* ── Papel ──────────────────────────────────────────────────── */
+@media print{
+  body{ background:#fff; }
+  .cinta, .flecha{ animation:none !important; }
+  .barra,.pie,.no-papel{ display:none !important; }
+  body > .cinta{ display:none !important; }   /* la cinta del filo de arriba cuelga del body, no de main */
+  main > *{ display:none !important; }
+  main > .cartel{ display:block !important; margin:0; }
+  .cartel .chapa{ box-shadow:none; }
+  *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+</style>
+</head>
+<body>
+
+<!-- Piezas que se repiten: el rayo de la marca y el tornillo.
+     Se dibujan una sola vez y se reusan con <use>. -->
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+  <symbol id="rayo" viewBox="0 0 48 64">
+    <path d="M28 2 L8 36 L22 36 L18 62 L41 24 L26 24 Z" fill="currentColor"/>
+  </symbol>
+  <symbol id="tor" viewBox="0 0 14 14">
+    <circle cx="7" cy="7" r="5.6" fill="#DEDED8" stroke="#8E8E86" stroke-width="1.2"/>
+    <path d="M4.2 8.6 L9.8 5.4" stroke="#6B6B63" stroke-width="1.7" stroke-linecap="round"/>
+  </symbol>
+</svg>
+
+<header class="barra">
+  <div class="barra-in">
+    <a class="marca" href="/"><svg viewBox="0 0 48 64" style="color:#FFD600" aria-hidden="true"><use href="#rayo"/></svg>BOLT</a>
+    <a class="ir" href="/">Ir a bolt.com.ar</a>
+  </div>
+</header>
+
+<!-- Cinta 1 de 3: el filo de arriba de la hoja -->
+<div class="cinta" aria-hidden="true"></div>
+
+<main class="hoja">
+
+  <!-- ══ El rótulo, como el de un plano ══ -->
+  <section class="rotulo">
+    <div class="rot-cuerpo">
+      <p class="rot-ojo">BOLT · Bahía Blanca</p>
+      <h1>Centro de <em>ayuda</em></h1>
+      <p class="rot-bajada">Guías cortas, una por situación. Buscá la tuya y seguí los pasos. Están escritas para leerlas en el celular, en plena calle.</p>
+    </div>
+    <dl class="rot-datos">
+      <div><dt>Hoja</dt><dd>01/10</dd></div>
+      <div><dt>Revisión</dt><dd>08·2026</dd></div>
+      <div><dt>Para</dt><dd>El oficio</dd></div>
+    </dl>
+  </section>
+
+  <!-- ══ Lo primero: la disponibilidad ══ -->
+  <section class="acotado">
+
+    <p class="nota izq">
+      <b>También desde acá</b>
+      Lo tenés en <strong>Mi negocio</strong>, donde dice “Disponible para trabajos”. Es el mismo interruptor.
+    </p>
+
+    <div class="med chapa arranque">
+      <span class="etiqueta">Empezá por acá</span>
+      <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+
+      <div class="arranque-in">
+        <!-- ── DIBUJO 1: el celular y el botón de disponibilidad ── -->
+        <svg class="dib" viewBox="0 0 180 210" role="img" aria-label="Dibujo de un celular con una flecha que señala el botón de disponibilidad">
+          <rect x="44" y="6" width="104" height="192" rx="10" fill="#fff" stroke="#0A0A0A" stroke-width="5"/>
+          <rect x="54" y="26" width="84" height="152" rx="3" fill="#fff" stroke="#0A0A0A" stroke-width="3.5"/>
+          <rect x="84" y="14" width="24" height="4" rx="2" fill="#0A0A0A"/>
+          <!-- las ondas del radar -->
+          <path d="M74 96 A26 26 0 0 1 118 96" fill="none" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round"/>
+          <path d="M64 88 A38 38 0 0 1 128 88" fill="none" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round"/>
+          <!-- el botón -->
+          <circle cx="96" cy="128" r="24" fill="#FFD600" stroke="#0A0A0A" stroke-width="5"/>
+          <path d="M99 114 L88 132 L96 132 L94 146 L106 128 L98 128 Z" fill="#0A0A0A"/>
+          <rect x="66" y="164" width="60" height="6" rx="3" fill="#0A0A0A" opacity="0.18"/>
+          <!-- la flecha, con halo blanco para que no se ensucie contra el teléfono -->
+          <g class="flecha">
+            <path d="M4 194 C4 156 14 128 46 121" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round"/>
+            <path d="M4 194 C4 156 14 128 46 121" fill="none" stroke="#0A0A0A" stroke-width="5" stroke-linecap="round"/>
+            <path d="M70 121 L46 112 L49 131 Z" fill="#0A0A0A"/>
+          </g>
+        </svg>
+
+        <div>
+          <h2>Si no te llega ningún trabajo</h2>
+          <div class="regla" aria-hidden="true"></div>
+          <p>Casi siempre es una sola cosa: <strong>la disponibilidad apagada</strong>. Aunque estés aprobado, aunque tengas todos los papeles, aunque estés a media cuadra del cliente.</p>
+          <a class="btn" href="disponibilidad/">Ver cómo se activa <span class="fl" aria-hidden="true">&rarr;</span></a>
+        </div>
+      </div>
+    </div>
+
+    <p class="nota der">
+      <b>Cómo sabés que quedó bien</b>
+      El botón pasa a decir <strong>“Estás disponible · Tocá para pausar”</strong>. Recién ahí te pueden entrar pedidos.
+    </p>
+
+  </section>
+
+  <!-- ══ Los 9 temas ══ -->
+  <section>
+    <div class="tit-seccion">
+      <h2>Elegí tu tema</h2>
+      <span>9 guías · 2 minutos cada una</span>
+    </div>
+
+    <div class="temas">
+
+      <a class="chapa tema dest" href="disponibilidad/">
+        <span class="cod">01 · Lo más consultado</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Que te lleguen trabajos</strong>
+        <p>Activar tu disponibilidad y dejar los permisos de ubicación bien puestos. Si esto está apagado, no te entra nada.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a class="chapa tema" href="empezar/">
+        <span class="cod">02</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Qué es BOLT</strong>
+        <p>Cómo funciona, en un minuto.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a class="chapa tema" href="registrarte/">
+        <span class="cod">03</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Darte de alta</strong>
+        <p>Anotarte como profesional y cargar tu oficio.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a class="chapa tema" href="recibir-trabajo/">
+        <span class="cod">04</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Te llega un trabajo</strong>
+        <p>Cómo aceptarlo y cuánto tiempo tenés.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a class="chapa tema" href="ir-al-domicilio/">
+        <span class="cod">05</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Ir al domicilio</strong>
+        <p>“Voy en camino”, el código y el mapa.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a class="chapa tema" href="presupuesto/">
+        <span class="cod">06</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Hacer un presupuesto</strong>
+        <p>Dos datos y lo mandás por WhatsApp.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a class="chapa tema" href="mi-negocio/">
+        <span class="cod">07</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Tu panel</strong>
+        <p>Presupuestos, clientes, trabajos e ingresos.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a class="chapa tema" href="mi-empresa/">
+        <span class="cod">08</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Tu logo y tus colores</strong>
+        <p>Que el presupuesto salga con tu marca. Gratis.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a class="chapa tema" href="preguntas/">
+        <span class="cod">09</span>
+        <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+        <strong>Preguntas frecuentes</strong>
+        <p>Las dudas que más se repiten, con la respuesta corta.</p>
+        <span class="fl" aria-hidden="true">&rarr;</span>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- Cinta 2 de 3: separador -->
+  <div class="cinta corta" aria-hidden="true"></div>
+
+  <!-- ══ Dos cosas antes de salir ══ -->
+  <section class="acotado">
+
+    <p class="nota izq">
+      <b>El código</b>
+      Es distinto en cada trabajo: no es una clave tuya. Si volvés otro día, se genera uno nuevo.
+    </p>
+
+    <div class="med">
+      <div class="tit-seccion">
+        <h2>Dos cosas antes de salir</h2>
+        <span>Fig. 2 y 3</span>
+      </div>
+
+      <div class="figuras">
+
+        <a class="chapa fig" href="ir-al-domicilio/">
+          <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+          <span class="fig-caja">
+            <!-- ── DIBUJO 2: la puerta y el cartelito de 4 dígitos ── -->
+            <svg class="dib" viewBox="0 0 180 210" role="img" aria-label="Dibujo de una puerta con un cartel de cuatro dígitos">
+              <path d="M8 198 L172 198" stroke="#0A0A0A" stroke-width="6" stroke-linecap="round"/>
+              <rect x="30" y="10" width="120" height="188" fill="#fff" stroke="#0A0A0A" stroke-width="6" stroke-linejoin="round"/>
+              <rect x="44" y="24" width="92" height="160" fill="none" stroke="#0A0A0A" stroke-width="3.5"/>
+              <circle cx="124" cy="112" r="6" fill="#0A0A0A"/>
+              <!-- el cartelito -->
+              <rect x="52" y="76" width="76" height="52" rx="3" fill="#FFD600" stroke="#0A0A0A" stroke-width="5"/>
+              <circle cx="60" cy="84" r="3.2" fill="#0A0A0A"/>
+              <circle cx="120" cy="84" r="3.2" fill="#0A0A0A"/>
+              <text x="90" y="118" text-anchor="middle" fill="#0A0A0A" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" font-size="26" font-weight="900" letter-spacing="2">4821</text>
+            </svg>
+            <span class="fig-num">Fig. 2 — el código en la puerta</span>
+          </span>
+          <span class="fig-txt">
+            <h3>El código de 4 dígitos</h3>
+            <p>Cuando salís, la app te muestra un número de 4 cifras. Se lo mostrás al cliente antes de que te abra: así sabe que el que está en la puerta sos vos.</p>
+            <span class="fl">Ir al domicilio &rarr;</span>
+          </span>
+        </a>
+
+        <a class="chapa fig" href="presupuesto/">
+          <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+          <span class="fig-caja">
+            <!-- ── DIBUJO 3: la hoja de presupuesto con el total abajo ── -->
+            <svg class="dib" viewBox="0 0 180 210" role="img" aria-label="Dibujo de una hoja de presupuesto con el total marcado abajo">
+              <path d="M28 12 L126 12 L152 38 L152 198 L28 198 Z" fill="#fff" stroke="#0A0A0A" stroke-width="5" stroke-linejoin="round"/>
+              <path d="M126 12 L126 38 L152 38 Z" fill="#FFD600" stroke="#0A0A0A" stroke-width="4" stroke-linejoin="round"/>
+              <rect x="44" y="30" width="30" height="22" fill="#0A0A0A"/>
+              <path d="M84 36 L124 36" stroke="#0A0A0A" stroke-width="3.5" stroke-linecap="round"/>
+              <path d="M84 48 L112 48" stroke="#0A0A0A" stroke-width="3.5" stroke-linecap="round"/>
+              <path d="M44 66 L136 66" stroke="#0A0A0A" stroke-width="3"/>
+              <path d="M44 82 L106 82" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round"/>
+              <path d="M118 82 L136 82" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round"/>
+              <path d="M44 100 L106 100" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round"/>
+              <path d="M118 100 L136 100" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round"/>
+              <path d="M44 118 L96 118" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round"/>
+              <path d="M118 118 L136 118" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round"/>
+              <!-- el total -->
+              <rect x="44" y="136" width="92" height="32" fill="#FFD600" stroke="#0A0A0A" stroke-width="5"/>
+              <text x="56" y="160" fill="#0A0A0A" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" font-size="23" font-weight="900">$</text>
+              <rect x="76" y="146" width="52" height="11" rx="2" fill="#0A0A0A"/>
+              <!-- la firma -->
+              <path d="M46 184 C54 174 60 192 68 182 C76 172 82 190 90 180" fill="none" stroke="#0A0A0A" stroke-width="3.5" stroke-linecap="round"/>
+            </svg>
+            <span class="fig-num">Fig. 3 — el presupuesto</span>
+          </span>
+          <span class="fig-txt">
+            <h3>El presupuesto, en un minuto</h3>
+            <p>Dos datos —qué trabajo es y cuánto sale— y sale por WhatsApp con tu nombre, tu logo y tus colores. No hace falta el número del cliente.</p>
+            <span class="fl">Hacer un presupuesto &rarr;</span>
+          </span>
+        </a>
+
+      </div>
+    </div>
+
+    <p class="nota der">
+      <b>Tu marca, gratis</b>
+      El logo y los colores se cargan una vez en <strong>Mi empresa</strong> y salen en todos los presupuestos.
+    </p>
+
+  </section>
+
+  <!-- ══ Soporte ══ -->
+  <section class="soporte">
+    <!-- ── DIBUJO 4: la llave ── -->
+    <!-- El cabo se dibuja primero y las dos cabezas encima: así el
+         relleno de las cabezas se come las puntas del cabo y no
+         quedan líneas cruzadas adentro del metal. La boca abierta
+         es un solo trazo cerrado (nada de recortes ni máscaras). -->
+    <svg class="dib-llave" viewBox="0 0 220 96" role="img" aria-label="Dibujo de una llave fija">
+      <rect x="64" y="38" width="122" height="20" fill="#fff" stroke="#0A0A0A" stroke-width="5"/>
+      <path d="M24.7 37 A24 24 0 1 1 24.7 59 L53 59 A11 11 0 0 0 53 37 Z" fill="#fff" stroke="#0A0A0A" stroke-width="5" stroke-linejoin="round"/>
+      <circle cx="186" cy="48" r="21" fill="#fff" stroke="#0A0A0A" stroke-width="5"/>
+      <path d="M195.5 48 L190.75 56.2 L181.25 56.2 L176.5 48 L181.25 39.8 L190.75 39.8 Z" fill="#FFD600" stroke="#0A0A0A" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <h2>¿No encontrás lo tuyo?</h2>
+      <p>Escribinos y te lo resolvemos. Contesta una persona, por WhatsApp.</p>
+    </div>
+    <a class="btn" href="https://wa.me/5492914199938?text=Hola%2C%20necesito%20ayuda%20con%20BOLT.">Escribir al soporte <span class="fl" aria-hidden="true">&rarr;</span></a>
+  </section>
+
+  <!-- ══ Cartel con el QR ═════════════════════════════════════
+       Para las altas en la calle: se imprime y se pega en el local,
+       o se muestra desde el celular. El QR es un SVG dibujado a mano
+       —cero librerías, cero CDN— y apunta a https://bolt.com.ar/ayuda/
+       (QR versión 2, corrección de errores M, 25x25 módulos).
+       Si algún día cambia la dirección hay que generarlo de nuevo:
+       editar el <path> a mano no sirve. -->
+  <section class="cartel">
+    <div class="tit-seccion no-papel">
+      <h2>Para imprimir o mostrar</h2>
+      <span>Se pega en el local</span>
+    </div>
+
+    <div class="chapa cartel-hoja">
+      <span class="tors" aria-hidden="true"><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg><svg viewBox="0 0 14 14"><use href="#tor"/></svg></span>
+      <!-- Cinta 3 de 3: el filo del cartel -->
+      <div class="cinta" aria-hidden="true"></div>
+      <span class="cartel-marca"><svg viewBox="0 0 48 64" aria-hidden="true"><use href="#rayo"/></svg>BOLT</span>
+      <p class="cartel-titulo">¿Trabajás en un oficio? Acá está todo explicado</p>
+      <div class="cartel-qr">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" shape-rendering="crispEdges" role="img" aria-label="Código QR que abre bolt.com.ar/ayuda"><rect width="33" height="33" fill="#fff"/><g transform="translate(4 4)"><path d="M0 0h7v1h-7zM8 0h1v1h-1zM11 0h1v1h-1zM13 0h2v1h-2zM18 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM9 1h1v1h-1zM18 1h1v1h-1zM24 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM8 2h2v1h-2zM12 2h2v1h-2zM18 2h1v1h-1zM20 2h3v1h-3zM24 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM9 3h2v1h-2zM13 3h3v1h-3zM18 3h1v1h-1zM20 3h3v1h-3zM24 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM9 4h2v1h-2zM13 4h1v1h-1zM16 4h1v1h-1zM18 4h1v1h-1zM20 4h3v1h-3zM24 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM11 5h3v1h-3zM16 5h1v1h-1zM18 5h1v1h-1zM24 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h7v1h-7zM9 7h1v1h-1zM12 7h1v1h-1zM16 7h1v1h-1zM0 8h1v1h-1zM2 8h1v1h-1zM6 8h2v1h-2zM9 8h1v1h-1zM14 8h1v1h-1zM16 8h1v1h-1zM19 8h1v1h-1zM22 8h1v1h-1zM24 8h1v1h-1zM0 9h2v1h-2zM4 9h2v1h-2zM7 9h1v1h-1zM9 9h1v1h-1zM13 9h1v1h-1zM15 9h2v1h-2zM18 9h2v1h-2zM21 9h1v1h-1zM23 9h2v1h-2zM1 10h4v1h-4zM6 10h1v1h-1zM8 10h1v1h-1zM15 10h1v1h-1zM19 10h1v1h-1zM21 10h2v1h-2zM24 10h1v1h-1zM1 11h1v1h-1zM3 11h1v1h-1zM7 11h1v1h-1zM9 11h2v1h-2zM12 11h1v1h-1zM14 11h5v1h-5zM21 11h1v1h-1zM0 12h2v1h-2zM6 12h1v1h-1zM9 12h4v1h-4zM16 12h1v1h-1zM18 12h2v1h-2zM24 12h1v1h-1zM1 13h1v1h-1zM3 13h2v1h-2zM7 13h2v1h-2zM10 13h1v1h-1zM15 13h2v1h-2zM18 13h2v1h-2zM23 13h2v1h-2zM0 14h5v1h-5zM6 14h1v1h-1zM8 14h2v1h-2zM11 14h1v1h-1zM13 14h3v1h-3zM21 14h2v1h-2zM24 14h1v1h-1zM4 15h1v1h-1zM7 15h1v1h-1zM11 15h2v1h-2zM14 15h2v1h-2zM19 15h3v1h-3zM0 16h4v1h-4zM5 16h3v1h-3zM9 16h1v1h-1zM12 16h1v1h-1zM15 16h6v1h-6zM23 16h1v1h-1zM8 17h4v1h-4zM13 17h2v1h-2zM16 17h1v1h-1zM20 17h1v1h-1zM24 17h1v1h-1zM0 18h7v1h-7zM8 18h2v1h-2zM11 18h1v1h-1zM13 18h2v1h-2zM16 18h1v1h-1zM18 18h1v1h-1zM20 18h1v1h-1zM24 18h1v1h-1zM0 19h1v1h-1zM6 19h1v1h-1zM10 19h1v1h-1zM14 19h3v1h-3zM20 19h1v1h-1zM24 19h1v1h-1zM0 20h1v1h-1zM2 20h3v1h-3zM6 20h1v1h-1zM10 20h3v1h-3zM15 20h6v1h-6zM23 20h1v1h-1zM0 21h1v1h-1zM2 21h3v1h-3zM6 21h1v1h-1zM9 21h1v1h-1zM11 21h2v1h-2zM14 21h1v1h-1zM16 21h2v1h-2zM20 21h1v1h-1zM22 21h2v1h-2zM0 22h1v1h-1zM2 22h3v1h-3zM6 22h1v1h-1zM8 22h6v1h-6zM19 22h3v1h-3zM23 22h2v1h-2zM0 23h1v1h-1zM6 23h1v1h-1zM9 23h1v1h-1zM12 23h1v1h-1zM14 23h1v1h-1zM16 23h2v1h-2zM19 23h2v1h-2zM0 24h7v1h-7zM8 24h1v1h-1zM11 24h2v1h-2zM15 24h4v1h-4zM21 24h1v1h-1zM24 24h1v1h-1z" fill="#000"/></g></svg>
+      </div>
+      <p class="cartel-url">bolt.com.ar/ayuda</p>
+      <p class="cartel-pie">Apuntá la cámara del celular al código. Gratis, sin comisiones. Dudas por WhatsApp: <strong>2914199938</strong></p>
+    </div>
+
+    <p class="no-papel">
+      <button class="btn-imp" type="button" onclick="window.print()">Imprimir el cartel</button>
+    </p>
+  </section>
+
+</main>
+
+<footer class="pie">
+  <div class="pie-in">
+    BOLT · Bahía Blanca, Argentina · <a href="/">bolt.com.ar</a> · <a href="/privacy.html">Privacidad</a> · <a href="/terms.html">Términos</a>
+  </div>
+</footer>
+
+</body>
+</html>

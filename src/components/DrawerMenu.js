@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
+import { abrirAyuda } from '../utils/ayuda';
 
 const ADMIN_EMAILS = ['maxi95.bahiablanca@gmail.com'];
 const DRAWER_W = 280;
@@ -106,7 +107,14 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
 
           {/* Items principales */}
           <Item icon="person-outline"   label="Mi perfil"    onPress={() => go('profile')} />
-          <Item icon="time-outline"     label="Mis trabajos" onPress={() => go('history')} />
+
+          {/* "Mis trabajos" es del CLIENTE. El profesional aprobado tiene lo
+              mismo —y mejor— en la pestaña Trabajos de Mi negocio: repetirlo
+              acá era tener dos puertas a la misma pieza, que es justo lo que
+              estamos sacando. */}
+          {!isApproved && (
+            <Item icon="time-outline" label="Mis trabajos" onPress={() => go('history')} />
+          )}
 
           {/* Solo para no-trabajadores */}
           {!isWorker && (
@@ -123,9 +131,12 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
             <Item icon="refresh-outline" label="Reintentar solicitud" badge="Rechazada" onPress={() => go('register')} />
           )}
 
-          {/* Panel trabajador aprobado */}
+          {/* UN SOLO panel para el trabajador. Antes había dos entradas para la
+              misma persona ("Mi panel de trabajador" y "Mi negocio") y la app se
+              sentía pesada: ahora "Mi negocio" es todo — disponibilidad,
+              presupuestos, clientes, trabajos, ingresos y guía. */}
           {isApproved && (
-            <Item icon="briefcase-outline" label="Mi panel de trabajador" onPress={() => go('workerPanel')} />
+            <Item icon="briefcase-outline" label="Mi negocio" onPress={() => go('miNegocio')} />
           )}
 
           {/* Ya aprobado: única entrada para cambiar oficios/datos, porque
@@ -142,6 +153,11 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
           <View style={styles.divider} />
 
           <Item icon="help-circle-outline" label="Cómo funciona BOLT" onPress={() => go('howItWorks')} />
+
+          {/* La ayuda existía en la web y no había UN link a ella en toda la app:
+              el único camino era escribirle a Maxi. Acá está la puerta. */}
+          <Item icon="help-buoy-outline" label="Ayuda" onPress={() => abrirAyuda()} />
+
           <Item icon="shield-outline" label="Política de privacidad" onPress={() => go('privacy')} />
           <Item icon="chatbubble-ellipses-outline" label="Soporte"
             onPress={() => Linking.openURL('mailto:soporte@bolt.com.ar')} />

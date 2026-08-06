@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ═══════════════════════════════════════════════════════════════════════
+     CENTRO DE AYUDA — bolt.com.ar/ayuda/
+
+     Rehecho con la misma estructura que /asesoramiento/: banner con
+     buscador, cinta, tarjetas con foto y movimiento. La versión anterior
+     era una lista de tarjetitas de texto y Maxi la rechazó.
+
+     El listado vive en TEMAS, abajo: sumar una guía es agregar una fila.
+     El buscador mira título, resumen Y `busca`, que son las palabras con
+     las que la gente pregunta aunque no estén en el texto: el que escribe
+     "no me entra nada" tiene que caer en la de disponibilidad.
+
+     ⚠️ FALTA: el cartel con el QR para imprimir y pegar en el local, que
+     tenía la versión anterior. Está guardado en
+     _cap/ayuda-index-ANTERIOR.html y hay que volver a montarlo acá.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<title>Centro de ayuda de BOLT</title>
+<meta name="description" content="Guías cortas para trabajar con BOLT: activar la disponibilidad, recibir trabajos, hacer presupuestos y manejar tu negocio.">
+<meta name="theme-color" content="#08090A">
+<link rel="icon" href="../logo.png">
+<link rel="preload" href="../fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face{
+    font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;
+    src:url("../fuentes/InterVariable.woff2") format("woff2");
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#08090A;--sup:rgba(255,255,255,.035);--sup2:rgba(255,255,255,.06);
+    --bord:rgba(255,255,255,.09);--bord2:rgba(255,255,255,.16);
+    --y:#FFD600;--tx:#FFFFFF;--tx2:#9BA1A8;--tx3:#6B7278;
+  }
+  html{scroll-behavior:smooth}
+  body{
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    font-feature-settings:"cv05" 1,"ss03" 1;
+    background:var(--bg);color:var(--tx);line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 22px;position:relative;z-index:1}
+  h1,h2,h3{font-weight:600;letter-spacing:-.03em;line-height:1.08}
+
+  nav{
+    position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;
+    width:calc(100% - 28px);max-width:1080px;display:flex;align-items:center;gap:20px;
+    padding:9px 9px 9px 22px;border-radius:999px;border:1px solid var(--bord);
+    background:rgba(12,13,15,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    transition:background .3s,border-color .3s;
+  }
+  nav.solido{background:rgba(8,9,10,.9);border-color:var(--bord2)}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:1px}
+  .logo svg{width:13px;height:18px}
+  nav .links{display:flex;gap:26px;margin-left:auto;font-size:.9rem;color:var(--tx2);font-weight:450}
+  nav .links a:hover{color:var(--tx)}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    font-family:inherit;font-size:.94rem;font-weight:550;padding:11px 22px;border-radius:999px;
+    border:1px solid transparent;cursor:pointer;white-space:nowrap;
+    transition:transform .22s cubic-bezier(.16,.9,.3,1),box-shadow .22s,border-color .22s;
+  }
+  .btn-blanco{background:var(--tx);color:#08090A}
+  .btn-blanco:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(255,255,255,.16)}
+  .btn-linea{border-color:var(--bord2);color:var(--tx)}
+  .btn-linea:hover{border-color:var(--tx);transform:translateY(-2px)}
+  .btn-wa{background:#25D366;color:#fff;font-weight:600}
+  .btn-wa:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(37,211,102,.28)}
+  @media(max-width:880px){ nav .links{display:none} }
+
+  body::before{
+    content:'';position:fixed;top:-460px;left:50%;width:1000px;height:1000px;
+    margin-left:-500px;pointer-events:none;z-index:0;border-radius:50%;
+    background:conic-gradient(from 0deg,
+      rgba(255,214,0,.15),rgba(255,214,0,0) 30%,
+      rgba(255,255,255,.06) 55%,rgba(255,214,0,0) 76%,rgba(255,214,0,.15));
+    filter:blur(100px);animation:girar 30s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
+
+  header{padding:150px 0 40px;text-align:center}
+  .tag{
+    display:inline-flex;align-items:center;gap:9px;border:1px solid var(--bord2);
+    border-radius:999px;padding:8px 18px;font-size:.8rem;color:var(--tx2);
+    animation:entrar .8s .05s both;
+  }
+  .tag::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--y)}
+  h1{font-size:clamp(2.1rem,5.6vw,3.6rem);margin:22px auto 0;max-width:16ch}
+  h1 .pal{display:inline-block;overflow:hidden;vertical-align:bottom}
+  h1 .pal > span{display:inline-block;transform:translateY(105%);animation:subir .9s cubic-bezier(.16,.9,.3,1) forwards}
+  @keyframes subir{to{transform:none}}
+  h1 em{font-style:normal;color:var(--y)}
+  header p{color:var(--tx2);font-size:1.05rem;max-width:600px;margin:18px auto 0;animation:entrar .8s .5s both}
+  @keyframes entrar{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+
+  .buscador{
+    display:flex;align-items:center;gap:10px;max-width:660px;margin:34px auto 0;
+    background:var(--sup2);border:1px solid var(--bord2);border-radius:999px;
+    padding:8px 8px 8px 24px;animation:entrar .8s .62s both;transition:border-color .25s;
+  }
+  .buscador:focus-within{border-color:rgba(255,214,0,.55)}
+  .buscador svg{width:19px;height:19px;color:var(--tx3);flex-shrink:0}
+  .buscador input{
+    flex:1;min-width:0;background:none;border:0;outline:0;color:var(--tx);
+    font-family:inherit;font-size:1.02rem;padding:12px 0;
+  }
+  .buscador input::placeholder{color:var(--tx3)}
+
+  /* El aviso que más importa: la mayoría de los que no reciben trabajos
+     tienen la disponibilidad apagada. */
+  .aviso{
+    max-width:760px;margin:34px auto 0;border:1px solid rgba(255,214,0,.35);
+    background:rgba(255,214,0,.06);border-radius:26px;padding:20px 24px;
+    text-align:left;display:flex;gap:14px;align-items:flex-start;
+    animation:entrar .8s .7s both;
+  }
+  .aviso .punto{width:9px;height:9px;border-radius:50%;background:var(--y);flex-shrink:0;margin-top:9px;position:relative}
+  .aviso .punto::after{
+    content:'';position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--y);
+    animation:latir 2.4s ease-out infinite;
+  }
+  @keyframes latir{0%{transform:scale(.8);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+  .aviso p{font-size:.98rem;color:#E7EAEC}
+  .aviso a{color:var(--y);border-bottom:1px solid rgba(255,214,0,.4)}
+
+  .cinta{
+    margin-top:48px;border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);
+    padding:20px 0;overflow:hidden;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+            mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+  }
+  .cinta .fila{display:flex;gap:46px;width:max-content;animation:correr 38s linear infinite}
+  .cinta b{
+    font-size:.88rem;letter-spacing:2.4px;text-transform:uppercase;color:#5d646b;
+    white-space:nowrap;font-weight:500;display:flex;align-items:center;gap:46px;
+  }
+  .cinta b::after{content:'';width:5px;height:5px;border-radius:50%;background:var(--y);opacity:.5}
+  @keyframes correr{to{transform:translateX(-50%)}}
+
+  .titulo-lista{margin:56px 0 26px;display:flex;align-items:center;gap:16px}
+  .titulo-lista h2{font-size:1.5rem;white-space:nowrap}
+  .titulo-lista::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--bord),transparent)}
+
+  .temas{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding-bottom:20px}
+  .tema{
+    background:var(--sup);border:1px solid var(--bord);border-radius:28px;overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:transform .25s cubic-bezier(.16,.9,.3,1),border-color .25s;
+  }
+  .tema:hover{transform:translateY(-3px);border-color:var(--bord2)}
+  .tema.destacado{border-color:rgba(255,214,0,.45);grid-column:1/-1}
+  @media(min-width:900px){ .tema.destacado{display:grid;grid-template-columns:340px 1fr} }
+  .tema .foto{height:150px;overflow:hidden;position:relative;flex-shrink:0}
+  .tema.destacado .foto{height:100%;min-height:190px}
+  .tema .foto img{width:100%;height:100%;object-fit:cover;filter:grayscale(.45) contrast(1.05);transition:transform .8s cubic-bezier(.16,.9,.3,1),filter .5s}
+  .tema:hover .foto img{transform:scale(1.06);filter:none}
+  .tema .foto::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(8,9,10,.85))}
+  .tema .etiqueta{
+    position:absolute;left:16px;top:14px;z-index:2;background:var(--y);color:#08090A;
+    font-size:.66rem;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;
+    border-radius:999px;padding:5px 13px;
+  }
+  .tema .cuerpo{padding:22px}
+  .tema h3{font-size:1.12rem;font-weight:550;letter-spacing:-.4px;line-height:1.25}
+  .tema.destacado h3{font-size:1.35rem}
+  .tema p{color:var(--tx2);font-size:.93rem;font-weight:400;margin-top:8px}
+  .tema .minutos{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;color:var(--tx3);margin-top:10px}
+  .tema .minutos::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--tx3)}
+  .tema .mas{margin-top:14px;font-size:.85rem;color:var(--y);font-weight:500;display:flex;align-items:center;gap:8px}
+  .tema .mas svg{width:14px;height:14px;transition:transform .25s}
+  .tema:hover .mas svg{transform:translateX(4px)}
+
+  .vacio{text-align:center;color:var(--tx2);padding:60px 20px;grid-column:1/-1}
+  .vacio b{display:block;color:var(--tx);font-weight:550;font-size:1.1rem;margin-bottom:8px}
+
+  section{padding:70px 0}
+  .cierre{
+    border:1px solid var(--bord);border-radius:40px;padding:56px 40px;text-align:center;
+    background:radial-gradient(120% 140% at 50% 0%,rgba(255,214,0,.07),transparent 60%);
+  }
+  @media(max-width:700px){ .cierre{padding:38px 22px;border-radius:30px} }
+  .cierre h2{font-size:clamp(1.6rem,4vw,2.4rem)}
+  .cierre p{color:var(--tx2);margin:14px auto 0;max-width:520px}
+  .cierre .botones{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+
+  footer{border-top:1px solid var(--bord);padding:44px 0 56px;color:var(--tx3);font-size:.88rem}
+  footer .cols{display:flex;flex-wrap:wrap;gap:24px 60px;justify-content:space-between;align-items:center}
+  footer .links{display:flex;flex-wrap:wrap;gap:8px 26px}
+  footer a:hover{color:var(--tx)}
+
+  .rev{opacity:0;transform:translateY(30px);transition:opacity .8s cubic-bezier(.16,.9,.3,1),transform .8s cubic-bezier(.16,.9,.3,1)}
+  .rev.ok{opacity:1;transform:none}
+
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none !important}
+    .rev{opacity:1 !important;transform:none !important}
+    /* Sin esto el título NO SE VE: las palabras arrancan corridas hacia
+       abajo y es la animación la que las sube. */
+    h1 .pal > span{transform:none !important}
+    .tag,header p,.buscador,.aviso{opacity:1 !important;transform:none !important}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <svg viewBox="0 0 24 32" fill="#FFD600" aria-hidden="true"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>
+    BOLT
+  </a>
+  <div class="links">
+    <a href="/">Inicio</a>
+    <a href="/asesoramiento/">Asesoramiento</a>
+    <a href="#temas">Guías</a>
+    <a href="/prestadores/">Sumarse</a>
+  </div>
+  <a class="btn btn-blanco" href="https://wa.me/5492915921976" target="_blank" rel="noopener">Escribinos</a>
+</nav>
+
+<header>
+  <div class="wrap">
+    <div class="tag">Para los profesionales de BOLT</div>
+    <h1>
+      <span class="pal"><span style="animation-delay:.06s">Todo</span></span>
+      <span class="pal"><span style="animation-delay:.13s">lo</span></span>
+      <span class="pal"><span style="animation-delay:.2s">que</span></span>
+      <span class="pal"><span style="animation-delay:.27s">necesitás,</span></span>
+      <span class="pal"><span style="animation-delay:.36s"><em>en un minuto</em>.</span></span>
+    </h1>
+    <p>Guías cortas, una por situación. Buscá la tuya y seguí los pasos.</p>
+
+    <div class="buscador">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="busca" type="search" placeholder="¿Qué necesitás? Ej: no me llega trabajo, presupuesto…"
+             aria-label="Buscar una guía" autocomplete="off">
+    </div>
+
+    <div class="aviso">
+      <span class="punto"></span>
+      <p><b>¿No te llega ningún trabajo?</b> Casi siempre es una sola cosa: la disponibilidad
+         apagada. Empezá por <a href="disponibilidad/">Que te lleguen trabajos</a>.</p>
+    </div>
+  </div>
+
+  <div class="cinta" aria-hidden="true"><div class="fila" id="cinta"></div></div>
+</header>
+
+<div class="wrap" id="temas">
+  <div class="titulo-lista"><h2>Elegí tu tema</h2></div>
+  <div class="temas" id="lista"></div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="cierre rev">
+      <h2>¿No encontrás lo tuyo?</h2>
+      <p>Escribinos y te lo resolvemos. Contestamos por WhatsApp, de persona a persona.</p>
+      <div class="botones">
+        <a class="btn btn-wa" href="https://wa.me/5492915921976" target="_blank" rel="noopener">Escribir al soporte</a>
+        <a class="btn btn-linea" href="/asesoramiento/">Ver el asesoramiento</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap cols">
+    <a class="logo" href="/" style="color:#fff">
+      <svg viewBox="0 0 24 32" fill="#FFD600" aria-hidden="true"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>
+      BOLT
+    </a>
+    <div class="links">
+      <a href="/">Inicio</a>
+      <a href="/asesoramiento/">Asesoramiento</a>
+      <a href="/prestadores/">Sumate</a>
+      <a href="/terms.html">Términos</a>
+      <a href="/privacy.html">Privacidad</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+
+  // Sumar una guía = agregar una fila. `busca` son las palabras con las que
+  // la gente pregunta por el tema aunque no estén en el título.
+  var TEMAS = [
+    { url:'disponibilidad/', foto:'electricista', destacado:true, etiqueta:'Lo más consultado',
+      t:'Que te lleguen trabajos', min:'3 min',
+      d:'Activar tu disponibilidad y dejar los permisos de ubicación bien puestos. Si esto está apagado, no te entra nada.',
+      busca:'radar disponible ubicacion gps permisos no me llega nada trabajo invisible mapa' },
+    { url:'empezar/', foto:'herrero', t:'Qué es BOLT', min:'1 min',
+      d:'Cómo funciona, en un minuto.', busca:'que es como funciona empezar arrancar' },
+    { url:'registrarte/', foto:'durlock', t:'Darte de alta', min:'4 min',
+      d:'Anotarte como profesional y cargar tu oficio y la documentación.',
+      busca:'registro alta dni antecedentes documentacion oficio verificacion aprobado' },
+    { url:'recibir-trabajo/', foto:'plomero', t:'Te llega un trabajo', min:'2 min',
+      d:'Cómo aceptarlo y cuánto tiempo tenés para contestar.',
+      busca:'aceptar rechazar pedido notificacion aviso minutos' },
+    { url:'ir-al-domicilio/', foto:'fletes', t:'Ir al domicilio', min:'3 min',
+      d:'"Voy en camino", el código de la puerta y el mapa que ve el cliente.',
+      busca:'camino llegue codigo puerta mapa seguimiento direccion' },
+    { url:'presupuesto/', foto:'carpintero', t:'Hacer un presupuesto', min:'3 min',
+      d:'Dos datos y lo mandás por WhatsApp. El cliente no instala nada.',
+      busca:'presupuesto cotizar precio mandar whatsapp link aceptar' },
+    { url:'mi-negocio/', foto:'aire-acondicionado', t:'Tu panel', min:'3 min',
+      d:'Presupuestos, clientes, trabajos e ingresos, todo en un lugar.',
+      busca:'mi negocio panel clientes ingresos historial trabajos' },
+    { url:'mi-empresa/', foto:'pintor', t:'Tu logo y tus colores', min:'2 min',
+      d:'Que el presupuesto salga con tu marca. Gratis.',
+      busca:'logo color marca empresa personalizar datos fiscales' },
+    { url:'preguntas/', foto:'cerrajero', t:'Preguntas frecuentes', min:'5 min',
+      d:'Las dudas que más se repiten, con la respuesta corta.',
+      busca:'dudas preguntas frecuentes cobro comision cuanto cuesta' }
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ var d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; }
+  function limpio(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+  var FLECHA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+               'stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+  var CINTA = ['Activar el radar','Aceptar un trabajo','El código de la puerta','Hacer un presupuesto',
+               'Cobrar el trabajo','Tus clientes','Tu logo','Las calificaciones','La verificación'];
+  var cinta = $('cinta');
+  for (var v = 0; v < 2; v++){
+    CINTA.forEach(function(c){ var b = document.createElement('b'); b.textContent = c; cinta.appendChild(b); });
+  }
+
+  var io = new IntersectionObserver(function(filas){
+    filas.forEach(function(f){
+      if (!f.isIntersecting) return;
+      f.target.classList.add('ok'); io.unobserve(f.target);
+    });
+  }, { threshold:.12, rootMargin:'0px 0px -50px 0px' });
+
+  var lista = $('lista');
+  function pintar(texto){
+    var t = limpio(texto || '');
+    var hay = TEMAS.filter(function(x){
+      if (!t) return true;
+      var todo = limpio([x.t, x.d, x.busca].join(' '));
+      return t.split(/\s+/).every(function(p){ return todo.indexOf(p) >= 0; });
+    });
+    lista.innerHTML = '';
+    if (!hay.length){
+      lista.innerHTML = '<div class="vacio"><b>No encontramos esa guía</b>' +
+        'Probá con una palabra sola, o escribinos por WhatsApp y te lo resolvemos.</div>';
+      return;
+    }
+    hay.forEach(function(x, i){
+      var a = document.createElement('a');
+      a.className = 'tema rev' + (x.destacado && !t ? ' destacado' : '');
+      a.href = x.url;
+      a.style.transitionDelay = ((i % 9) * 45) + 'ms';
+      a.innerHTML =
+        '<span class="foto">' + (x.etiqueta ? '<span class="etiqueta">' + esc(x.etiqueta) + '</span>' : '') +
+        '<img src="../fotos/oficios/' + esc(x.foto) + '.jpg" alt="" loading="lazy"></span>' +
+        '<span class="cuerpo"><h3>' + esc(x.t) + '</h3>' +
+        '<p>' + esc(x.d) + '</p>' +
+        '<span class="minutos">' + esc(x.min) + ' de lectura</span>' +
+        '<span class="mas">Ver la guía ' + FLECHA + '</span></span>';
+      lista.appendChild(a);
+      io.observe(a);
+    });
+  }
+
+  $('busca').addEventListener('input', function(){ pintar(this.value); });
+  document.querySelectorAll('.rev').forEach(function(el){ io.observe(el); });
+
+  var nav = $('nav');
+  addEventListener('scroll', function(){
+    nav.classList.toggle('solido', scrollY > 40);
+  }, { passive:true });
+
+  pintar('');
+})();
+</script>
+</body>
+</html>

@@ -12,6 +12,7 @@ import chatService from '../services/chatService';
 import volt from '../utils/voltVoice';
 import { isDemoMode } from '../demo/demoMode';
 import { isFreeMode } from '../config/monetization';
+import { showInfo } from '../utils/toast';
 
 const REJECTION_REASONS = [
   { key: 'too_far',      icon: 'navigate-outline',    label: 'Queda muy lejos',         note: 'La distancia supera mi zona de trabajo.' },
@@ -417,11 +418,11 @@ const DetailsPhase = ({
           </View>
         )}
 
-        {/* Nota penalización */}
-        <View style={styles.penaltyNote}>
-          <Ionicons name="information-circle-outline" size={14} color="#444" />
-          <Text style={styles.penaltyText}>Rechazar o ignorar trabajos reduce tu calificación.</Text>
-        </View>
+        {/* Acá había un cartel que decía "Rechazar o ignorar trabajos reduce tu
+            calificación". La penalización se sacó del código el 6-ago (B16 en
+            CORRECCIONES.md) porque contradice los Términos. El cartel se saca
+            entero, por decisión de Maxi: no hace falta aclarar que rechazar no
+            castiga, porque nadie se lo pregunta si no se lo sugerimos. */}
 
         {/* Botones */}
         {timedOut ? (
@@ -530,10 +531,33 @@ const preguntarCuandoVoy = (jobId) => {
   );
 };
 
+// 🔴 Cuándo se vence ESTE pedido, contado desde que el cliente lo hizo.
+//
+// Antes acá decía `Date.now() + TIMEOUT_SEC*1000`: el reloj arrancaba cuando se
+// abría la pantalla. Si el trabajador no tocaba la notificación y entraba por el
+// push más tarde, veía los 3 minutos ENTEROS, quietos, de un pedido que ya
+// estaba vencido — y sin forma de salir. Le pasó a Maxi el 6-ago-2026:
+// "me apareció el contador de 3 minutos quieto, trabado, no podía cancelar
+// hasta que no cerré la app".
+//
+// El vencimiento es del PEDIDO, no de la pantalla: sale de created_at. Si por
+// lo que sea no viene la fecha, se cae al comportamiento viejo, que es mejor
+// que mostrar un contador vacío.
+const calcularVencimiento = (job) => {
+  const creado = job?.created_at ? new Date(job.created_at).getTime() : NaN;
+  const base = Number.isFinite(creado) ? creado : Date.now();
+  return base + TIMEOUT_SEC * 1000;
+};
+
 const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onRejected }) => {
+  // El tiempo que queda DE VERDAD ya en el primer pintado: si se entró tarde,
+  // la pantalla no llega a mostrar 3:00 ni por un instante.
+  const vencimientoInicial = calcularVencimiento(job);
+  const restanteInicial = Math.max(0, Math.round((vencimientoInicial - Date.now()) / 1000));
+
   const [phase, setPhase]       = useState('alert'); // 'alert' | 'details'
-  const [timeLeft, setTimeLeft] = useState(TIMEOUT_SEC);
-  const [timedOut, setTimedOut] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(restanteInicial);
+  const [timedOut, setTimedOut] = useState(restanteInicial === 0);
   const [loading, setLoading]   = useState(false);
 
   const timerRef = useRef(null);
@@ -550,7 +574,10 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   // Contra un vencimiento real eso no puede pasar: los ticks sólo miran la
   // hora, no la modifican. Aunque lleguen tarde, en ráfaga o ninguno, el número
   // que se muestra siempre es el tiempo que de verdad queda.
-  const venceRef = useRef(Date.now() + TIMEOUT_SEC * 1000);
+  const venceRef = useRef(vencimientoInicial);
+  // El "atrás" se lee desde adentro del efecto, que corre una sola vez: por eso
+  // el estado de vencido tiene que estar en un ref y no sólo en useState.
+  const timedOutRef = useRef(restanteInicial === 0);
 
   const stopAlarm = async () => {
     Vibration.cancel();
@@ -564,7 +591,14 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     // En demo: sin alarma, sin cuenta regresiva ni auto-rechazo (el trabajador decide tranquilo)
     if (isDemoMode()) return;
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
+    // 🔴 El botón "atrás" se bloquea SÓLO mientras el pedido sigue vivo: es para
+    // que no se salga sin querer con un trabajo esperando respuesta. Antes lo
+    // bloqueaba siempre, así que con el pedido vencido la pantalla quedaba sin
+    // ninguna salida y había que matar la app (Maxi, 6-ago-2026).
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (timedOutRef.current) { onRejected && onRejected(); return true; }
+      return true;
+    });
 
     // Alarma solo en fase 'alert'
     const VIBRATE = [0, 400, 200, 400, 200, 400, 600];
@@ -592,6 +626,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
       setTimeLeft(restante);
       if (restante === 0) {
         clearInterval(timerRef.current);
+        timedOutRef.current = true;
         setTimedOut(true);
       }
     };
@@ -620,6 +655,14 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
       try {
         await jobService.reject(job.id, professional?.id, 'timeout', 'No respondió a tiempo');
       } catch {}
+      // Que no desaparezca en silencio. Entrar por el push, ver la pantalla
+      // cerrarse sola y volver al home sin ninguna explicación es lo que hizo
+      // que Maxi sintiera que el pedido no había existido nunca (6-ago-2026).
+      // Ahora se le dice qué pasó y dónde queda anotado.
+      showInfo(
+        'Quedó anotado en Mi negocio → Trabajos, con el día y la hora.',
+        'Se te pasó el tiempo de este pedido'
+      );
       onRejected();
     };
     doReject();

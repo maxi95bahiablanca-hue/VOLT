@@ -14,8 +14,9 @@ import authService from '../services/authService';
 import { showSuccess, showError } from '../utils/toast';
 import cardService from '../services/cardService';
 import MPCardForm from '../components/MPCardForm';
-import WorkerDashboardScreen from './WorkerDashboardScreen';
 import PaymentDataModal from '../components/PaymentDataModal';
+import CambiarPasswordModal from '../components/CambiarPasswordModal';
+import MiNegocioScreen from './MiNegocioScreen';
 import professionalService from '../services/professionalService';
 import AdminScreen from './AdminScreen';
 import { chargesInApp } from '../config/monetization';
@@ -32,7 +33,8 @@ const LEVEL_MAP = (jobs, rating) => {
 const ProfileScreen = ({ session, professional, onClose }) => {
   const [signingOut, setSigningOut]       = useState(false);
   const [deleting, setDeleting]           = useState(false);
-  const [showWorkerPanel, setWorkerPanel] = useState(false);
+  // El panel del trabajador es uno solo y se llama "Mi negocio".
+  const [showNegocio, setShowNegocio]     = useState(false);
   const [showAdmin, setShowAdmin]         = useState(false);
   const [photoUrl, setPhotoUrl]           = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -40,6 +42,7 @@ const ProfileScreen = ({ session, professional, onClose }) => {
   const [loadingPayment, setLoadingPayment]       = useState(false);
   const [localPaymentMethod, setLocalPaymentMethod] = useState(professional?.payment_method || 'cbu');
   const [showPayData, setShowPayData] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [payData, setPayData] = useState({ cuit: professional?.cuit || '', cbu: professional?.cbu || '' });
   // Tarjetas guardadas (solo clientes)
   const [cards, setCards]           = useState([]);
@@ -48,6 +51,12 @@ const ProfileScreen = ({ session, professional, onClose }) => {
 
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email);
   const user    = session?.user;
+
+  // El que entró con Google no tiene contraseña propia: el botón le ofrece
+  // ponerle una, no cambiarla. Si no viene la lista de identidades asumimos que
+  // sí tiene — pedirle la actual es el camino que no rompe nada.
+  const tienePassword = !user?.identities?.length
+    || user.identities.some(i => i.provider === 'email');
 
   const loadCards = async () => {
     setLoadingCards(true);
@@ -152,8 +161,8 @@ const ProfileScreen = ({ session, professional, onClose }) => {
       .finally(() => setLoadingPayment(false));
   }, []);
 
-  if (showWorkerPanel && professional) {
-    return <WorkerDashboardScreen professional={professional} session={session} onClose={() => setWorkerPanel(false)} />;
+  if (showNegocio && professional) {
+    return <MiNegocioScreen professional={professional} session={session} onClose={() => setShowNegocio(false)} />;
   }
   if (showAdmin) {
     return <AdminScreen session={session} onClose={() => setShowAdmin(false)} />;
@@ -532,6 +541,25 @@ const ProfileScreen = ({ session, professional, onClose }) => {
             <Ionicons name="mail-outline" size={18} color="#555" />
             <Text style={styles.rowText}>{email}</Text>
           </View>
+
+          {/* Cambiar la contraseña — vale para las dos puntas (cliente y
+              profesional) porque la cuenta es una sola. Antes no existía en
+              ningún lado: el único camino era desloguearse y usar "olvidé mi
+              contraseña" (Maxi, 6-ago-2026). */}
+          <View style={styles.rowDivider} />
+          <TouchableOpacity style={styles.row} onPress={() => setShowPassword(true)} activeOpacity={0.7}>
+            <Ionicons name="lock-closed-outline" size={18} color="#555" />
+            <Text style={[styles.rowText, { flex: 1 }]}>
+              {tienePassword ? 'Cambiar mi contraseña' : 'Poner una contraseña'}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#444" />
+          </TouchableOpacity>
+
+          <CambiarPasswordModal
+            visible={showPassword}
+            session={session}
+            onClose={() => setShowPassword(false)}
+          />
         </View>
 
         {/* Método de pago — solo para clientes (y solo si la app cobra) */}
@@ -612,11 +640,11 @@ const ProfileScreen = ({ session, professional, onClose }) => {
           </View>
         </View>
 
-        {/* Panel del trabajador */}
+        {/* El panel del trabajador: uno solo, con todo adentro */}
         {professional?.verification_status === 'approved' && (
-          <TouchableOpacity style={styles.panelBtn} onPress={() => setWorkerPanel(true)} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.panelBtn} onPress={() => setShowNegocio(true)} activeOpacity={0.8}>
             <Ionicons name="briefcase-outline" size={20} color="#FFD600" />
-            <Text style={styles.panelBtnText}>Mi panel de trabajador</Text>
+            <Text style={styles.panelBtnText}>Mi negocio</Text>
             <Ionicons name="chevron-forward" size={18} color="#444" />
           </TouchableOpacity>
         )}

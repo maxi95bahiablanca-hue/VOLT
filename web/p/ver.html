@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Página de prueba. NO se publica: es para abrir el presupuesto con doble
+     clic desde la carpeta, sin escribir ?demo=... a mano. Sin esa parte final
+     la página no tiene ningún presupuesto que mostrar y avisa que no existe,
+     que es correcto pero confunde cuando se está mirando el diseño. -->
+<title>BOLT · ver el presupuesto</title>
+<link rel="preload" href="../fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face{
+    font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;
+    src:url("../fuentes/InterVariable.woff2") format("woff2");
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:"Inter",system-ui,sans-serif;background:#08090A;color:#fff;
+    line-height:1.6;padding:0 20px 80px;overflow-x:hidden;
+    font-feature-settings:"cv05" 1,"ss03" 1;
+  }
+  .caja{max-width:900px;margin:0 auto;position:relative;z-index:1}
+
+  /* El halo que gira despacio detrás del título. Es lo único de color de la
+     página y no se apaga nunca: da la sensación de que algo está vivo. */
+  .halo{
+    position:fixed;top:-380px;left:50%;width:1000px;height:1000px;
+    margin-left:-500px;pointer-events:none;z-index:0;
+    background:conic-gradient(from 0deg,
+      rgba(255,214,0,.22), rgba(255,214,0,0) 30%,
+      rgba(255,255,255,.10) 55%, rgba(255,214,0,0) 75%, rgba(255,214,0,.22));
+    filter:blur(90px);border-radius:50%;
+    animation:girar 26s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
+
+  header{padding:70px 0 0;text-align:center}
+  .marca{
+    display:inline-flex;align-items:center;gap:9px;
+    border:1px solid rgba(255,255,255,.14);border-radius:999px;
+    padding:7px 18px 7px 14px;font-size:.8rem;font-weight:600;color:#b9bfc6;
+    backdrop-filter:blur(6px);
+  }
+  .marca svg{width:12px;height:16px}
+  h1{
+    font-size:clamp(2rem,6vw,3.1rem);font-weight:600;letter-spacing:-2px;
+    margin:22px 0 0;line-height:1.05;
+  }
+  h1 em{font-style:normal;color:#FFD600}
+  .sub{color:#8b9198;font-weight:400;margin:14px auto 0;max-width:520px;font-size:1.02rem}
+
+  h2{
+    display:flex;align-items:center;gap:14px;
+    font-size:.72rem;font-weight:600;letter-spacing:2.6px;text-transform:uppercase;
+    color:#6b7278;margin:56px 0 18px;
+  }
+  h2::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.14),transparent)}
+
+  .grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+
+  a.op{
+    display:flex;align-items:center;gap:14px;
+    background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;padding:16px 20px 16px 16px;
+    text-decoration:none;color:#fff;
+    transition:transform .25s cubic-bezier(.16,.9,.3,1),background .25s,border-color .25s;
+  }
+  a.op:hover{background:rgba(255,255,255,.07);border-color:rgba(255,214,0,.45);transform:translateY(-3px)}
+
+  /* El círculo. Es la forma de toda la página: nada tiene esquina viva. */
+  .punto{
+    width:42px;height:42px;border-radius:50%;flex-shrink:0;position:relative;
+    border:1px solid rgba(255,255,255,.16);
+    display:flex;align-items:center;justify-content:center;
+    transition:border-color .25s;
+  }
+  .punto i{
+    width:9px;height:9px;border-radius:50%;background:#4a5057;display:block;
+    transition:background .25s,box-shadow .25s;
+  }
+  a.op:hover .punto{border-color:rgba(255,214,0,.5)}
+  a.op:hover .punto i{background:#FFD600;box-shadow:0 0 14px rgba(255,214,0,.8)}
+  .punto.vivo i{background:#FFD600;box-shadow:0 0 12px rgba(255,214,0,.7)}
+  /* El anillo que late, sólo en el estado que importa */
+  .punto.vivo::after{
+    content:'';position:absolute;inset:-1px;border-radius:50%;
+    border:1px solid rgba(255,214,0,.55);animation:latir 2.4s ease-out infinite;
+  }
+  @keyframes latir{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.35);opacity:0}}
+
+  .tx b{display:block;font-size:1rem;font-weight:600;letter-spacing:-.3px}
+  .tx span{display:block;font-size:.85rem;color:#8b9198;font-weight:400;margin-top:1px}
+
+  a.viejo{opacity:.55}
+  a.viejo:hover{opacity:1;border-color:rgba(255,255,255,.22)}
+
+  .nota{
+    margin-top:44px;border:1px solid rgba(255,255,255,.08);border-radius:24px;
+    padding:22px 26px;font-size:.92rem;color:#8b9198;
+    background:rgba(255,255,255,.02);
+  }
+  .nota b{color:#fff;font-weight:600}
+  .nota p + p{margin-top:8px}
+
+  /* Todo entra: los bloques suben al aparecer, escalonados. */
+  .entra{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.16,.9,.3,1),transform .7s cubic-bezier(.16,.9,.3,1)}
+  .entra.ok{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){
+    .entra{opacity:1;transform:none;transition:none}
+    .halo,.punto.vivo::after{animation:none}
+  }
+</style>
+</head>
+<body>
+<div class="halo"></div>
+<div class="caja">
+
+  <header>
+    <div class="marca entra">
+      <svg viewBox="0 0 24 32" fill="#FFD600" aria-hidden="true"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>
+      BOLT · prueba de diseño
+    </div>
+    <h1 class="entra">La página que ve <em>el cliente</em></h1>
+    <p class="sub entra">Es lo único que abre alguien que no conoce BOLT.
+       Elegí un momento del trabajo y se abre tal cual lo ve él.</p>
+  </header>
+
+  <h2 class="entra">El diseño nuevo</h2>
+  <div class="grilla">
+    <a class="op entra" href="nuevo.html?demo=desglose"><span class="punto"><i></i></span><span class="tx"><b>Recién llegado</b><span>Con materiales y mano de obra</span></span></a>
+    <a class="op entra" href="nuevo.html?demo=1"><span class="punto"><i></i></span><span class="tx"><b>Recién llegado, simple</b><span>Sin desglose, como el viejo</span></span></a>
+    <a class="op entra" href="nuevo.html?demo=aceptado"><span class="punto"><i></i></span><span class="tx"><b>Lo aceptó</b><span>Ya avisado, falta coordinar</span></span></a>
+    <a class="op entra" href="nuevo.html?demo=agendado"><span class="punto"><i></i></span><span class="tx"><b>Con fecha</b><span>Quedó el día y la hora</span></span></a>
+    <a class="op entra" href="nuevo.html?demo=camino"><span class="punto vivo"><i></i></span><span class="tx"><b>Va en camino</b><span>Código de la puerta y mapa en vivo</span></span></a>
+    <a class="op entra" href="nuevo.html?demo=camino,singps"><span class="punto"><i></i></span><span class="tx"><b>En camino sin GPS</b><span>Cuando el teléfono no manda nada</span></span></a>
+    <a class="op entra" href="nuevo.html?demo=hecho"><span class="punto"><i></i></span><span class="tx"><b>Trabajo terminado</b><span>Y el pedido de que lo recomiende</span></span></a>
+    <a class="op entra" href="nuevo.html?demo=rechazado"><span class="punto"><i></i></span><span class="tx"><b>No lo tomó</b><span>Cartel neutro, sin drama</span></span></a>
+    <a class="op entra" href="nuevo.html?demo=pro,camino"><span class="punto"><i></i></span><span class="tx"><b>Con el color de la empresa</b><span>Azul marino en vez del amarillo</span></span></a>
+  </div>
+
+  <h2 class="entra">Como está hoy, para comparar</h2>
+  <div class="grilla">
+    <a class="op viejo entra" href="index.html?demo=desglose"><span class="punto"><i></i></span><span class="tx"><b>Recién llegado</b><span>El diseño actual</span></span></a>
+    <a class="op viejo entra" href="index.html?demo=camino"><span class="punto"><i></i></span><span class="tx"><b>Va en camino</b><span>El diseño actual</span></span></a>
+  </div>
+
+  <div class="nota entra">
+    <p><b>Para verlo como en un celular:</b> F12 y después el íconito de teléfono, arriba a la izquierda del panel que se abre.</p>
+    <p><b>Para ver cómo sale impreso:</b> Ctrl+P adentro de cualquiera de las páginas.</p>
+  </div>
+
+</div>
+
+<script>
+// Los bloques entran escalonados al aparecer. Sin librerías.
+(function(){
+  var items = document.querySelectorAll('.entra');
+  var io = new IntersectionObserver(function(filas){
+    filas.forEach(function(f){
+      if (!f.isIntersecting) return;
+      var i = [].indexOf.call(items, f.target);
+      f.target.style.transitionDelay = ((i % 9) * 55) + 'ms';
+      f.target.classList.add('ok');
+      io.unobserve(f.target);
+    });
+  }, { threshold: .12 });
+  items.forEach(function(el){ io.observe(el); });
+})();
+</script>
+</body>
+</html>

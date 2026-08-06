@@ -1,0 +1,65 @@
+FOTOS DE BOLT — dónde va cada una
+=================================
+
+Bajalas de unsplash.com o pexels.com (gratis, se pueden usar comercialmente).
+Al bajar elegí el tamaño GRANDE.
+
+Guardalas con ESTE nombre exacto, en minúscula y sin espacios.
+
+
+CARPETA  banner/     (las 4 que rotan en la home)
+--------------------------------------------------
+1-casa.jpg        living o cocina de casa comun, recien arreglada
+2-pintor.jpg      alguien pintando una pared
+3-manos.jpg       primer plano de manos trabajando (tablero, canilla, soldadura)
+4-frente.jpg      frente o patio de una casa
+
+  Tienen que ser HORIZONTALES (mas anchas que altas) y grandes:
+  al menos 2000 pixeles de ancho.
+  Que tengan un lado tranquilo (pared, cielo, pasto) donde entre el texto.
+
+
+CARPETA  oficios/    (una por oficio, cuadradas o casi)
+--------------------------------------------------
+electricista.jpg          manos en un tablero, cables, pinza
+plomero.jpg               debajo de una pileta, llave de cano
+gasista.jpg               instalacion de calefon o termotanque
+pintor.jpg                rodillo sobre pared
+albanil.jpg               cuchara y mezcla, pared a medio levantar
+aire-acondicionado.jpg    split en la pared, manometros
+carpintero.jpg            sierra sobre madera, viruta
+durlock.jpg               perfileria a la vista, placa atornillandose
+herrero.jpg               SOLDADURA CON CHISPAS (la mas vistosa)
+cerrajero.jpg             manos en una cerradura, juego de llaves
+jardinero.jpg             bordeadora o poda, verde
+limpieza.jpg              trapo y superficie brillando, guantes
+electrodomesticos.jpg     heladera o lavarropas abierto, manos adentro
+alarmas.jpg               camara montandose o panel de alarma
+fletes.jpg                caja subiendo a una camioneta
+
+
+LAS TRES REGLAS
+--------------------------------------------------
+1. QUE NO PAREZCA DE ESTADOS UNIDOS.
+   Casas de ladrillo, revoque y rejas. No porche de madera.
+
+2. NADA DE FOTO DE BANCO OBVIA.
+   El del casco sonriendo con el pulgar arriba se reconoce a la legua
+   y hace parecer mas chico, no mas grande.
+
+3. GENTE TRABAJANDO, NO POSANDO.
+   Mirando el trabajo, no a la camara.
+
+
+QUE BUSCAR (en INGLES, hay muchisimo mas material)
+--------------------------------------------------
+electrician working          welding sparks
+plumber repair               locksmith hands
+painting wall roller         gardener trimming
+bricklayer                   cleaning service hands
+air conditioner installation moving boxes van
+carpenter sawing wood        security camera installation
+drywall installation         appliance repair
+home renovation              cozy living room
+
+Con las 4 del banner ya alcanza para empezar.

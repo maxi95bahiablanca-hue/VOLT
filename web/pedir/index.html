@@ -5,100 +5,166 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>BOLT — Pedí un profesional ahora</title>
 <meta name="description" content="Contá qué necesitás y en minutos te contactan profesionales verificados de tu zona. Sin instalar nada.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <!-- Mapa: Leaflet + tiles de CARTO (no necesita clave ni cuenta) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preload" href="../fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  /* ── Mismo lenguaje visual que bolt.com.ar: negro + amarillo ───────────── */
+  /* ── Inter: la tipografía de BOLT ────────────────────────────────────
+     Hospedada acá mismo (web/fuentes/), NO en un CDN: si el servidor de
+     Google tarda o falla, el texto se ve mal, y eso es justo lo que no
+     queremos. Un solo archivo variable cubre todos los grosores.
+     Inter — Rasmus Andersson — SIL Open Font License 1.1. */
+  @font-face{
+    font-family:"Inter";
+    font-style:normal;
+    font-weight:100 900;
+    font-display:swap;
+    src:url("../fuentes/InterVariable.woff2") format("woff2");
+    unicode-range:U+0000-00FF, U+0100-024F, U+0259, U+0131, U+0152-0153,
+                  U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+                  U+0329, U+1E00-1EFF, U+2000-206F, U+2074, U+20A0-20CF,
+                  U+2122, U+2190-2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
+  /* ── El mismo lenguaje que la home ──────────────────────────────────────
+     Negro y blanco, el amarillo sólo en detalles y en la acción principal.
+     Nada con esquina viva: círculos, píldoras y radios grandes. Los pesos
+     van en 550-600, no en 900: el tamaño y el aire hacen la jerarquía.
+     Los NOMBRES de las clases no se tocan — acá sólo cambia el vestido, la
+     lógica de los pasos y del asistente queda igual. */
   *{margin:0;padding:0;box-sizing:border-box}
-  :root{--bg:#0A0A0A;--surf:#141414;--surf2:#1a1a1a;--bord:#262626;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--ok:#00D68F;--red:#FF5252}
-  body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
-  .app{max-width:520px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+  :root{
+    --bg:#08090A;--surf:rgba(255,255,255,.035);--surf2:rgba(255,255,255,.06);
+    --bord:rgba(255,255,255,.09);--bord2:rgba(255,255,255,.16);
+    --yellow:#FFD600;--text:#FFFFFF;--muted:#9BA1A8;--muted2:#6B7278;
+    --ok:#00D68F;--red:#FF6B6B;
+  }
+  body{font-family:"Inter",-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       /* cv05 = ele con cola, ss03 = comillas rectas: dos cosas
+          que Inter trae y la del sistema no. */
+       font-feature-settings:"cv05" 1,"ss03" 1;background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased;
+       /* el halo es más ancho que la pantalla: sin esto, en el celular
+          aparece scroll para el costado */
+       overflow-x:hidden}
+  .app{max-width:520px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;position:relative;z-index:1}
+
+  /* El halo que gira, igual que en la home. Es lo único de color del fondo
+     y hace que la pantalla no parezca un formulario apagado. */
+  body::before{
+    content:'';position:fixed;top:-420px;left:50%;width:900px;height:900px;
+    margin-left:-450px;pointer-events:none;z-index:0;border-radius:50%;
+    background:conic-gradient(from 0deg,
+      rgba(255,214,0,.14),rgba(255,214,0,0) 30%,
+      rgba(255,255,255,.06) 55%,rgba(255,214,0,0) 76%,rgba(255,214,0,.14));
+    filter:blur(90px);animation:girar 28s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
 
   /* Barra de arriba */
-  .top{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--bord);position:sticky;top:0;background:rgba(10,10,10,.92);backdrop-filter:blur(8px);z-index:20}
-  .logo{font-weight:900;font-size:1.15rem;letter-spacing:-.5px}
+  .top{display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid var(--bord);position:sticky;top:0;background:rgba(8,9,10,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:20}
+  .logo{font-weight:700;font-size:1.05rem;letter-spacing:1px}
   .logo span{color:var(--yellow)}
-  .back{background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;line-height:1;padding:0 4px;font-family:inherit}
-  .nuevo{margin-left:auto;background:rgba(255,214,0,.12);border:1px solid rgba(255,214,0,.4);color:var(--yellow);border-radius:10px;padding:7px 13px;font-size:.8rem;font-weight:800;cursor:pointer;font-family:inherit}
-  .paso{margin-left:auto;font-size:.72rem;font-weight:800;color:var(--muted2);letter-spacing:.5px}
+  .back{background:none;border:1px solid var(--bord);color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;width:34px;height:34px;border-radius:50%;font-family:inherit;display:grid;place-items:center;transition:.2s}
+  .back:hover{border-color:var(--bord2);color:var(--text)}
+  .nuevo{margin-left:auto;background:transparent;border:1px solid var(--bord2);color:var(--text);border-radius:999px;padding:8px 16px;font-size:.82rem;font-weight:550;cursor:pointer;font-family:inherit;transition:.2s}
+  .nuevo:hover{border-color:var(--yellow);color:var(--yellow)}
+  .paso{margin-left:auto;font-size:.68rem;font-weight:600;color:var(--muted2);letter-spacing:2px;text-transform:uppercase}
 
-  main{flex:1;padding:20px 18px 32px;display:flex;flex-direction:column}
-  .pantalla{display:none;flex-direction:column;flex:1;animation:sube .25s ease}
+  /* Panel de "tu contraseña" — el único modal de la página */
+  .fondoModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);z-index:60;align-items:center;justify-content:center;padding:18px}
+  .fondoModal.on{display:flex}
+  .cajaModal{width:100%;max-width:400px;background:#101214;border:1px solid var(--bord);border-radius:20px;padding:22px;max-height:92vh;overflow:auto;animation:sube .3s cubic-bezier(.16,.9,.3,1)}
+
+  main{flex:1;padding:26px 18px 32px;display:flex;flex-direction:column}
+  .pantalla{display:none;flex-direction:column;flex:1;animation:sube .45s cubic-bezier(.16,.9,.3,1)}
   .pantalla.on{display:flex}
-  @keyframes sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes sube{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 
-  h1{font-size:1.65rem;font-weight:900;line-height:1.2;letter-spacing:-.5px;margin-bottom:8px}
+  h1{font-size:1.75rem;font-weight:600;line-height:1.14;letter-spacing:-1px;margin-bottom:10px}
   h1 em{font-style:normal;color:var(--yellow)}
-  .sub{color:var(--muted);font-size:.95rem;margin-bottom:20px}
+  .sub{color:var(--muted);font-size:.97rem;font-weight:400;margin-bottom:22px}
 
   /* Campos */
-  .campo{width:100%;background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:15px;color:var(--text);font-size:1rem;font-family:inherit;resize:none}
-  .campo:focus{outline:none;border-color:var(--yellow)}
+  .campo{width:100%;background:var(--surf);border:1px solid var(--bord);border-radius:22px;padding:16px 18px;color:var(--text);font-size:1rem;font-family:inherit;resize:none;transition:border-color .2s,background .2s}
+  .campo:focus{outline:none;border-color:rgba(255,214,0,.55);background:var(--surf2)}
   .campo::placeholder{color:var(--muted2)}
-  label.lbl{font-size:.78rem;font-weight:800;color:var(--muted);margin:14px 0 6px;display:block;letter-spacing:.3px}
+  label.lbl{font-size:.68rem;font-weight:600;color:var(--muted2);margin:18px 0 8px;display:block;letter-spacing:2px;text-transform:uppercase}
 
   /* Chips de oficio */
-  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-  .chip{background:var(--surf);border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:9px 15px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
-  .chip:hover{border-color:var(--muted2);color:var(--text)}
-  .chip.on{background:rgba(255,214,0,.13);border-color:var(--yellow);color:var(--yellow)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .chip{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:10px 18px;font-size:.86rem;font-weight:450;cursor:pointer;font-family:inherit;transition:.2s}
+  .chip:hover{border-color:var(--bord2);color:var(--text)}
+  .chip.on{background:var(--text);border-color:var(--text);color:#08090A;font-weight:550}
 
   /* Botones */
-  .btn{width:100%;background:var(--yellow);color:#000;border:none;border-radius:14px;padding:16px;font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit;margin-top:auto;transition:.15s}
-  .btn:active{transform:scale(.985)}
-  .btn:disabled{opacity:.45;cursor:default}
-  .btn.sec{background:transparent;color:var(--text);border:1px solid var(--bord);margin-top:10px}
-  .btn.wa{background:#25D366;color:#04310f}
-  .btn-row{margin-top:auto;padding-top:18px}
+  .btn{width:100%;background:var(--yellow);color:#08090A;border:none;border-radius:999px;padding:17px;font-size:1rem;font-weight:600;cursor:pointer;font-family:inherit;margin-top:auto;transition:transform .22s cubic-bezier(.16,.9,.3,1),box-shadow .22s}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(255,214,0,.26)}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
+  .btn.sec{background:transparent;color:var(--text);border:1px solid var(--bord2);margin-top:10px}
+  .btn.sec:hover{border-color:var(--text);box-shadow:none}
+  .btn.wa{background:#25D366;color:#fff}
+  .btn.wa:hover{box-shadow:0 12px 32px rgba(37,211,102,.28)}
+  .btn-row{margin-top:auto;padding-top:20px}
 
   /* Preguntas en tarjeta (igual que la app: de a una, con opciones para tocar) */
-  .entendi{background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:13px 15px;margin-bottom:16px}
-  .entendi h4{font-size:.72rem;font-weight:900;color:var(--yellow);letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
-  .entendi .ch{display:inline-block;background:var(--surf2);border:1px solid var(--bord);border-radius:999px;padding:5px 11px;font-size:.78rem;margin:0 5px 5px 0;color:var(--muted)}
-  .prog{display:flex;gap:5px;margin-bottom:8px}
-  .prog i{flex:1;height:4px;border-radius:2px;background:var(--bord)}
+  .entendi{background:var(--surf);border:1px solid var(--bord);border-radius:24px;padding:16px 18px;margin-bottom:18px}
+  .entendi h4{font-size:.66rem;font-weight:600;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+  .entendi h4::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+  .entendi .ch{display:inline-block;background:var(--surf2);border:1px solid var(--bord);border-radius:999px;padding:6px 14px;font-size:.78rem;margin:0 5px 5px 0;color:var(--text)}
+  .prog{display:flex;gap:6px;margin-bottom:10px}
+  .prog i{flex:1;height:3px;border-radius:999px;background:var(--bord);transition:background .4s}
   .prog i.on{background:var(--yellow)}
-  .prog-txt{font-size:.75rem;font-weight:800;color:var(--muted2);letter-spacing:.4px}
-  .opcion{width:100%;background:var(--surf);border:1px solid var(--bord);color:var(--text);border-radius:14px;padding:16px;font-size:.98rem;font-weight:700;text-align:left;cursor:pointer;font-family:inherit;margin-bottom:9px;transition:.14s}
-  .opcion:hover{border-color:var(--yellow);background:var(--surf2)}
-  .opcion.on{border-color:var(--yellow);background:rgba(255,214,0,.1);color:var(--yellow)}
-  .opcion.on::before{content:'✓ '}
-  .opcion.otra{color:var(--muted);font-weight:600}
-  .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-  .thumbs img{width:74px;height:74px;object-fit:cover;border-radius:11px;border:1px solid var(--bord)}
+  .prog-txt{font-size:.68rem;font-weight:600;color:var(--muted2);letter-spacing:2px;text-transform:uppercase}
+  /* Las opciones: píldora ancha con el círculo a la izquierda, como las
+     tarjetas de la home. El tilde va dibujado, no como carácter suelto. */
+  .opcion{width:100%;background:var(--surf);border:1px solid var(--bord);color:var(--text);border-radius:22px;padding:16px 20px 16px 54px;font-size:.98rem;font-weight:450;text-align:left;cursor:pointer;font-family:inherit;margin-bottom:10px;position:relative;transition:transform .2s cubic-bezier(.16,.9,.3,1),border-color .2s,background .2s}
+  .opcion::before{
+    content:'';position:absolute;left:19px;top:50%;margin-top:-9px;
+    width:18px;height:18px;border-radius:50%;border:1px solid var(--bord2);
+    transition:.2s;
+  }
+  .opcion:hover{border-color:var(--bord2);background:var(--surf2);transform:translateY(-2px)}
+  .opcion.on{border-color:rgba(255,214,0,.55);background:rgba(255,214,0,.07)}
+  .opcion.on::before{background:var(--yellow);border-color:var(--yellow);box-shadow:0 0 14px rgba(255,214,0,.5)}
+  .opcion.otra{color:var(--muted);font-weight:400}
+  .thumbs{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .thumbs img{width:74px;height:74px;object-fit:cover;border-radius:18px;border:1px solid var(--bord)}
   /* Charla con el asistente */
-  .bub{max-width:86%;padding:12px 15px;border-radius:16px;font-size:.94rem;white-space:pre-wrap;word-break:break-word}
-  .bub.bot{background:var(--surf);border:1px solid var(--bord);border-bottom-left-radius:5px;align-self:flex-start}
-  .bub.yo{background:var(--yellow);color:#000;font-weight:700;border-bottom-right-radius:5px;align-self:flex-end}
+  .bub{max-width:86%;padding:13px 18px;border-radius:22px;font-size:.94rem;white-space:pre-wrap;word-break:break-word}
+  .bub.bot{background:var(--surf);border:1px solid var(--bord);border-bottom-left-radius:8px;align-self:flex-start}
+  .bub.yo{background:var(--yellow);color:#08090A;font-weight:500;border-bottom-right-radius:8px;align-self:flex-end}
   .bub.esc{color:var(--muted2)}
-  .fila{display:flex;gap:8px;align-items:flex-end;margin-top:8px}
-  .fila .campo{flex:1}
-  .env{background:var(--yellow);border:none;border-radius:12px;width:48px;height:48px;font-size:1.2rem;cursor:pointer;flex-shrink:0}
+  .fila{display:flex;gap:9px;align-items:flex-end;margin-top:10px}
+  .fila .campo{flex:1;border-radius:999px}
+  .env{background:var(--yellow);color:#08090A;border:none;border-radius:50%;width:50px;height:50px;font-size:1.15rem;cursor:pointer;flex-shrink:0;transition:transform .2s}
+  .env:hover{transform:scale(1.06)}
 
   /* Buscando */
-  .buscando{text-align:center;padding:36px 0 26px}
-  .radar{width:96px;height:96px;margin:0 auto 22px;border-radius:50%;border:2px solid var(--yellow);position:relative;display:grid;place-items:center;font-size:2.1rem}
-  .radar::after{content:'';position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--yellow);animation:pulso 1.8s ease-out infinite}
-  @keyframes pulso{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.6);opacity:0}}
-  .reloj{font-size:2rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+  .buscando{text-align:center;padding:40px 0 28px}
+  .radar{width:108px;height:108px;margin:0 auto 24px;border-radius:50%;border:1px solid rgba(255,214,0,.5);position:relative;display:grid;place-items:center;font-size:2.1rem;background:rgba(255,214,0,.05)}
+  .radar::after{content:'';position:absolute;inset:-1px;border-radius:50%;border:1px solid var(--yellow);animation:pulso 2.2s ease-out infinite}
+  @keyframes pulso{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.7);opacity:0}}
+  .reloj{font-size:2.4rem;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-1.5px}
 
   /* Tarjetas de profesional */
-  .prof{background:var(--surf);border:1px solid var(--bord);border-radius:16px;padding:15px;display:flex;gap:13px;align-items:center;margin-bottom:10px;animation:sube .3s ease}
-  .prof .ava{width:52px;height:52px;border-radius:50%;background:var(--surf2);display:grid;place-items:center;font-size:1.35rem;font-weight:900;color:var(--yellow);flex-shrink:0;overflow:hidden}
+  .prof{background:var(--surf);border:1px solid var(--bord);border-radius:26px;padding:16px 18px;display:flex;gap:14px;align-items:center;margin-bottom:11px;animation:sube .4s cubic-bezier(.16,.9,.3,1);transition:border-color .2s}
+  .prof:hover{border-color:var(--bord2)}
+  .prof .ava{width:54px;height:54px;border-radius:50%;background:var(--surf2);display:grid;place-items:center;font-size:1.3rem;font-weight:600;color:var(--yellow);flex-shrink:0;overflow:hidden;border:1px solid var(--bord)}
   .prof .ava img{width:100%;height:100%;object-fit:cover}
   .prof .info{flex:1;min-width:0}
-  .prof .nom{font-weight:800;font-size:1rem}
-  .prof .meta{font-size:.79rem;color:var(--muted)}
-  .prof .elegir{background:var(--yellow);color:#000;border:none;border-radius:11px;padding:11px 16px;font-weight:900;font-size:.85rem;cursor:pointer;font-family:inherit;flex-shrink:0}
+  .prof .nom{font-weight:550;font-size:1.02rem;letter-spacing:-.3px}
+  .prof .meta{font-size:.8rem;color:var(--muted)}
+  .prof .elegir{background:var(--yellow);color:#08090A;border:none;border-radius:999px;padding:12px 22px;font-weight:600;font-size:.86rem;cursor:pointer;font-family:inherit;flex-shrink:0;transition:transform .2s}
+  .prof .elegir:hover{transform:translateY(-2px)}
 
-  .aviso{background:var(--surf);border:1px solid var(--bord);border-left:3px solid var(--yellow);border-radius:12px;padding:13px 15px;font-size:.87rem;color:var(--muted);margin-top:14px}
-  .err{color:var(--red);font-size:.87rem;font-weight:700;margin-top:12px;min-height:20px}
+  /* El aviso: el punto amarillo en vez de la barrita del costado */
+  .aviso{background:var(--surf);border:1px solid var(--bord);border-radius:22px;padding:15px 18px 15px 40px;font-size:.88rem;color:var(--muted);margin-top:16px;position:relative}
+  .aviso::before{content:'';position:absolute;left:18px;top:21px;width:7px;height:7px;border-radius:50%;background:var(--yellow)}
+  .err{color:var(--red);font-size:.87rem;font-weight:500;margin-top:12px;min-height:20px}
   .ok-ico{font-size:3rem;text-align:center;margin-bottom:14px}
-  .dato{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--bord);font-size:.92rem}
-  .dato b{font-weight:800}
+  .dato{display:flex;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--bord);font-size:.92rem}
+  .dato b{font-weight:550}
   .muted{color:var(--muted)}
   /* ── Seguimiento: todo en una pantalla ──────────────────────────────────
      El cliente NO tiene que cambiar de pestaña ni de pantalla: el mapa, el
@@ -106,42 +172,45 @@
      desde 900px el chat se va al costado y queda siempre visible. */
   .seguir{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
   .col-izq{display:flex;flex-direction:column;gap:14px}
-  #mapa{height:230px;border-radius:16px;border:1px solid var(--bord);background:var(--surf);z-index:1}
-  .panel{background:var(--surf);border:1px solid var(--bord);border-radius:16px;padding:15px}
-  .prof-top{display:flex;gap:12px;align-items:center;margin-bottom:14px}
-  .prof-top .ava{width:48px;height:48px;border-radius:50%;background:var(--surf2);display:grid;place-items:center;font-size:1.25rem;font-weight:900;color:var(--yellow);flex-shrink:0;overflow:hidden}
+  #mapa{height:240px;border-radius:26px;border:1px solid var(--bord);background:var(--surf);z-index:1}
+  .panel{background:var(--surf);border:1px solid var(--bord);border-radius:26px;padding:18px}
+  .prof-top{display:flex;gap:13px;align-items:center;margin-bottom:16px}
+  .prof-top .ava{width:50px;height:50px;border-radius:50%;background:var(--surf2);display:grid;place-items:center;font-size:1.2rem;font-weight:600;color:var(--yellow);flex-shrink:0;overflow:hidden;border:1px solid var(--bord)}
   .prof-top .ava img{width:100%;height:100%;object-fit:cover}
   .prof-top .info{flex:1;min-width:0}
-  .prof-top .nom{font-weight:800}
-  .prof-top .meta{font-size:.78rem;color:var(--muted)}
-  .eta{font-size:.78rem;font-weight:800;color:var(--yellow);text-align:right}
-  .obra{background:var(--surf2);border:1px solid var(--bord);border-radius:12px;padding:12px 14px;margin-bottom:12px}
-  .obra h5{font-size:.72rem;font-weight:900;color:var(--yellow);letter-spacing:.4px;margin-bottom:8px}
-  .obra .barra{display:flex;gap:4px;margin:8px 0}
-  .obra .barra i{flex:1;height:6px;border-radius:3px;background:var(--bord)}
+  .prof-top .nom{font-weight:550;letter-spacing:-.3px}
+  .prof-top .meta{font-size:.79rem;color:var(--muted)}
+  .eta{font-size:.79rem;font-weight:550;color:var(--yellow);text-align:right}
+  .obra{background:var(--surf2);border:1px solid var(--bord);border-radius:20px;padding:14px 16px;margin-bottom:14px}
+  .obra h5{font-size:.66rem;font-weight:600;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+  .obra h5::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+  .obra .barra{display:flex;gap:5px;margin:10px 0}
+  .obra .barra i{flex:1;height:3px;border-radius:999px;background:var(--bord);transition:background .4s}
   .obra .barra i.on{background:var(--ok)}
-  .obra .det{font-size:.8rem;color:var(--muted)}
-  .estado-txt{font-size:.95rem;font-weight:900;color:var(--yellow);margin-bottom:12px}
-  .pasos{display:flex;flex-direction:column;gap:9px}
-  .paso-item{display:flex;gap:10px;align-items:center;font-size:.88rem;color:var(--muted2)}
-  .paso-item .pt{width:20px;height:20px;border-radius:50%;border:2px solid var(--bord);display:grid;place-items:center;font-size:.7rem;flex-shrink:0}
+  .obra .det{font-size:.81rem;color:var(--muted)}
+  .estado-txt{font-size:1rem;font-weight:550;color:var(--yellow);margin-bottom:14px;letter-spacing:-.3px}
+  .pasos{display:flex;flex-direction:column;gap:11px}
+  .paso-item{display:flex;gap:12px;align-items:center;font-size:.89rem;color:var(--muted2)}
+  .paso-item .pt{width:22px;height:22px;border-radius:50%;border:1px solid var(--bord2);display:grid;place-items:center;font-size:.7rem;flex-shrink:0}
   .paso-item.hecho{color:var(--text)}
-  .paso-item.hecho .pt{background:var(--ok);border-color:var(--ok);color:#04310f;font-weight:900}
-  .paso-item.ahora{color:var(--yellow);font-weight:800}
-  .paso-item.ahora .pt{border-color:var(--yellow);animation:pulso2 1.4s ease-in-out infinite}
-  @keyframes pulso2{50%{box-shadow:0 0 0 5px rgba(255,214,0,.14)}}
-  .acciones{display:flex;gap:8px;margin-top:15px}
-  .mini{flex:1;background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:10px;padding:10px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;text-align:center;text-decoration:none}
+  .paso-item.hecho .pt{background:var(--ok);border-color:var(--ok);color:#04310f;font-weight:700}
+  .paso-item.ahora{color:var(--yellow);font-weight:550}
+  .paso-item.ahora .pt{border-color:var(--yellow);animation:pulso2 1.8s ease-in-out infinite}
+  @keyframes pulso2{50%{box-shadow:0 0 0 6px rgba(255,214,0,.13)}}
+  .acciones{display:flex;gap:9px;margin-top:17px}
+  .mini{flex:1;background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:11px;font-size:.81rem;font-weight:450;cursor:pointer;font-family:inherit;text-align:center;text-decoration:none;transition:.2s}
+  .mini:hover{border-color:var(--bord2);color:var(--text)}
 
-  .col-der{background:var(--surf);border:1px solid var(--bord);border-radius:16px;display:flex;flex-direction:column;min-height:300px;overflow:hidden}
-  .chat-top{padding:12px 15px;border-bottom:1px solid var(--bord);font-size:.85rem;color:var(--muted)}
-  .chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;min-height:140px}
-  .msg{max-width:82%;padding:9px 13px;border-radius:14px;font-size:.9rem;white-space:pre-wrap;word-break:break-word}
-  .msg.otro{background:var(--surf2);border:1px solid var(--bord);align-self:flex-start;border-bottom-left-radius:4px}
-  .msg.mio{background:var(--yellow);color:#000;font-weight:600;align-self:flex-end;border-bottom-right-radius:4px}
-  .msg.sistema{align-self:center;background:transparent;color:var(--muted2);font-size:.78rem;text-align:center;font-weight:700}
-  .chat-rapidas{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 8px}
-  .rapida{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .col-der{background:var(--surf);border:1px solid var(--bord);border-radius:26px;display:flex;flex-direction:column;min-height:300px;overflow:hidden}
+  .chat-top{padding:14px 18px;border-bottom:1px solid var(--bord);font-size:.85rem;color:var(--muted)}
+  .chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:9px;min-height:140px}
+  .msg{max-width:82%;padding:10px 16px;border-radius:20px;font-size:.9rem;white-space:pre-wrap;word-break:break-word}
+  .msg.otro{background:var(--surf2);border:1px solid var(--bord);align-self:flex-start;border-bottom-left-radius:7px}
+  .msg.mio{background:var(--yellow);color:#08090A;font-weight:500;align-self:flex-end;border-bottom-right-radius:7px}
+  .msg.sistema{align-self:center;background:transparent;color:var(--muted2);font-size:.78rem;text-align:center;font-weight:450}
+  .chat-rapidas{display:flex;gap:7px;flex-wrap:wrap;padding:0 14px 10px}
+  .rapida{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:7px 15px;font-size:.76rem;font-weight:450;cursor:pointer;font-family:inherit;transition:.2s}
+  .rapida:hover{border-color:var(--bord2);color:var(--text)}
   .estrellas{display:flex;gap:8px;justify-content:center;margin:14px 0}
   .est{font-size:2rem;cursor:pointer;filter:grayscale(1);opacity:.4}
   .est.on{filter:none;opacity:1}
@@ -152,21 +221,26 @@
     .col-der{flex:1;min-width:0}
     #mapa{height:320px}
   }
-  .link{background:none;border:none;color:var(--muted);font-size:.87rem;cursor:pointer;font-family:inherit;text-decoration:none}
-  .link b{color:var(--yellow)}
-  .sep{display:flex;align-items:center;gap:12px;color:var(--muted2);font-size:.78rem;font-weight:700;margin:18px 0 12px}
+  .link{background:none;border:none;color:var(--muted);font-size:.88rem;cursor:pointer;font-family:inherit;text-decoration:none;transition:color .2s}
+  .link:hover{color:var(--text)}
+  .link b{color:var(--yellow);font-weight:550}
+  .sep{display:flex;align-items:center;gap:14px;color:var(--muted2);font-size:.7rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin:22px 0 14px}
   .sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--bord)}
-  .pie{text-align:center;font-size:.75rem;color:var(--muted2);padding:18px}
+  .pie{text-align:center;font-size:.76rem;color:var(--muted2);padding:22px}
   .pie a{color:var(--muted);text-decoration:none}
+  .pie a:hover{color:var(--text)}
+  .estrellas .est{transition:transform .2s}
+  .est:hover{transform:scale(1.15)}
 
   /* ── Indicador del pedido en curso (pedido de Maxi, 31-jul) ──────────────
      El equivalente de la burbuja de la app: el cliente sale a mirar otra cosa
      y no se entera de que el profesional le escribió. Va arriba de todo, se
      puede minimizar, y CAMBIA DE COLOR cuando hay algo sin leer. */
   .flot{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;
-        display:none;align-items:center;gap:11px;max-width:min(430px,92vw);
-        background:var(--surf2);border:1px solid var(--bord);border-radius:14px;
-        padding:9px 12px;box-shadow:0 8px 26px rgba(0,0,0,.55);cursor:pointer;
+        display:none;align-items:center;gap:12px;max-width:min(430px,92vw);
+        background:rgba(16,17,19,.88);border:1px solid var(--bord2);border-radius:999px;
+        padding:9px 16px 9px 9px;box-shadow:0 14px 36px rgba(0,0,0,.6);cursor:pointer;
+        backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
         transition:background .25s,border-color .25s}
   .flot.on{display:flex}
   .flot:hover{border-color:#3a3a3a}
@@ -174,7 +248,7 @@
      amarillo del rayo (Maxi, 1-ago). Se nota igual de reojo y no da el
      manotazo de color en toda la pantalla. Mismo criterio para todos los
      avisos del sitio: el que late es el rayo, no el fondo. */
-  .flot-ico{width:32px;height:32px;border-radius:9px;background:var(--yellow);color:#0A0A0A;
+  .flot-ico{width:34px;height:34px;border-radius:50%;background:var(--yellow);color:#08090A;
             display:grid;place-items:center;font-size:16px;flex:none}
   .flot.nuevo .flot-ico{animation:latir 1.15s ease-in-out infinite}
   @keyframes latir{
@@ -182,7 +256,7 @@
     50%    {transform:scale(1.12);box-shadow:0 0 0 7px rgba(255,214,0,0)}
   }
   .flot-txt{flex:1;min-width:0;line-height:1.3}
-  .flot-txt b{font-size:.87rem;display:block}
+  .flot-txt b{font-size:.87rem;display:block;font-weight:550}
   .flot-txt small{font-size:.75rem;color:var(--muted);display:block;overflow:hidden;
                   text-overflow:ellipsis;white-space:nowrap}
   .flot.nuevo .flot-txt small{color:var(--yellow)}   /* sólo el renglón chico */
@@ -258,6 +332,10 @@
       <div class="btn-row">
         <button class="btn" onclick="arrancar()">Continuar</button>
       </div>
+      <!-- Mi cuenta, sin tener que empezar un pedido para llegar. -->
+      <div style="text-align:center;margin-top:18px">
+        <button class="link" id="btnClave" onclick="abrirClave()">Cambiar mi contraseña</button>
+      </div>
     </section>
 
     <!-- 2. LAS PREGUNTAS, DE A UNA, EN TARJETA ───────────────────────── -->
@@ -312,6 +390,7 @@
         <div class="err" id="errDatos"></div>
         <div class="btn-row">
           <button class="btn" id="btnPedir" onclick="pedir()">Buscar profesionales</button>
+          <button class="btn sec" onclick="abrirClave()">Cambiar mi contraseña</button>
           <button class="btn sec" onclick="salir()">Salir de esta cuenta</button>
         </div>
       </div>
@@ -402,6 +481,34 @@
   </main>
 
   <div class="pie">BOLT ⚡ · <a href="/">Inicio</a> · <a href="/terms.html">Términos</a> · <a href="/privacy.html">Privacidad</a></div>
+</div>
+
+<!-- ── Cambiar la contraseña ───────────────────────────────────────────────
+     Existía "olvidé mi contraseña", que sirve para cuando NO podés entrar.
+     Estando adentro no había ninguna forma de cambiarla: el único camino era
+     desloguearse y fingir que te la olvidaste (Maxi, 6-ago-2026).
+
+     Va acá afuera, como panel propio y no adentro de un paso del pedido: si
+     estuviera en la pantalla de contacto, para cambiar la contraseña habría
+     que empezar un pedido. La cuenta es la misma de la app, así que cambiarla
+     acá la cambia en los dos lados. -->
+<div class="fondoModal" id="fondoClave" onclick="if(event.target===this) cerrarClave()">
+  <div class="cajaModal">
+    <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:6px">Tu contraseña</h2>
+    <div id="filaClaveActual">
+      <label class="lbl">Tu contraseña de ahora</label>
+      <input class="campo" id="txtClaveActual" type="password" autocomplete="current-password" placeholder="La que usás hoy">
+    </div>
+    <label class="lbl">Contraseña nueva</label>
+    <input class="campo" id="txtClave1" type="password" autocomplete="new-password" placeholder="6 caracteres o más">
+    <label class="lbl">Repetila</label>
+    <input class="campo" id="txtClave2" type="password" autocomplete="new-password" placeholder="La misma otra vez">
+    <div class="err" id="errClave"></div>
+    <div class="btn-row">
+      <button class="btn" id="btnGuardarClave" onclick="guardarClave()">Guardar</button>
+      <button class="btn sec" onclick="cerrarClave()">Cancelar</button>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -513,6 +620,20 @@ function volverAlPedido(){
   pintarFlot();
 }
 
+// ── Lo que viene de la home ────────────────────────────────────────────
+// La home manda dos cosas por la dirección: `q` (lo que el cliente escribió
+// en el buscador) y `oficio` (el id de la tarjeta que tocó). Sin esto, quien
+// ya escribió el problema en la home tiene que volver a escribirlo acá, y el
+// oficio que eligió se pierde en el camino.
+const DE_LA_HOME = new URLSearchParams(location.search);
+const HOME_TEXTO  = (DE_LA_HOME.get('q') || '').trim().slice(0, 400);
+const HOME_OFICIO = (DE_LA_HOME.get('oficio') || '').trim();
+if (HOME_TEXTO) $('txtProblema').value = HOME_TEXTO;
+// El oficio se toma YA, sin esperar al catálogo: si la base tarda o falla,
+// los chips no aparecen, pero el pedido igual sale con el oficio que el
+// cliente eligió en la home. El nombre se completa más abajo si carga.
+if (/^\d+$/.test(HOME_OFICIO)) S.profesionId = Number(HOME_OFICIO);
+
 // ── Oficios rápidos (catálogo real, no una lista inventada) ─────────────
 let CATALOGO = [];
 (async () => {
@@ -521,6 +642,22 @@ let CATALOGO = [];
     CATALOGO = data || [];
     $('chipsOficio').innerHTML = CATALOGO.slice(0, 10).map(p =>
       `<button type="button" class="chip" data-id="${p.id}" onclick="tocarChip(this)">${esc(p.name)}</button>`).join('');
+
+    // El oficio que venía de la home. Se busca por id y, si no aparece, por
+    // nombre: así un id que cambie en la base no deja el link muerto.
+    if (HOME_OFICIO){
+      const limpio = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const p = CATALOGO.find(x => String(x.id) === HOME_OFICIO) ||
+                CATALOGO.find(x => limpio(x.name) === limpio(HOME_OFICIO));
+      if (p){
+        S.profesionId = p.id;
+        S.oficio = p.name;
+        // Puede no tener chip: sólo se muestran los 10 primeros. La elección
+        // vale igual, que es lo que importa.
+        const chip = document.querySelector(`#chipsOficio .chip[data-id="${p.id}"]`);
+        if (chip) chip.classList.add('on');
+      }
+    }
   } catch (e) { /* sin catálogo, el asistente igual deduce el oficio */ }
 })();
 
@@ -770,12 +907,19 @@ async function usuarioActual(){
   return session?.user || null;
 }
 
+// ¿Tiene contraseña propia, o entró sólo con Google? Sale de las identidades
+// de la cuenta. Sin dato, asumimos que sí: pedirle la actual es lo que no
+// rompe nada. Lo usa el cambio de contraseña, más abajo.
+let TIENE_CLAVE = true;
+
 /** Muestra el login o el formulario del pedido, según haya sesión. */
 async function pintarSesion(){
   const u = await usuarioActual();
   if (!u) return null;
   S.userId = u.id;
   const meta = u.user_metadata || {};
+  TIENE_CLAVE = !u.identities?.length || u.identities.some(i => i.provider === 'email');
+  $('btnClave').textContent = TIENE_CLAVE ? 'Cambiar mi contraseña' : 'Poner una contraseña';
   $('subCuenta').textContent = 'Entraste como ' + (u.email || 'tu cuenta') + '. Estos datos los ve sólo el profesional que elijas.';
   if (!$('txtNombre').value) $('txtNombre').value = S.nombre || meta.nombre || meta.full_name || meta.name || '';
   if (!$('txtTel').value)    $('txtTel').value    = S.tel || meta.telefono || '';
@@ -892,6 +1036,75 @@ async function guardarClaveNueva(){
   if (error){ $('errNueva').textContent = 'No se pudo cambiar: ' + error.message; return; }
   await pintarSesion();
   ir(1);
+}
+
+// ─── Cambiar la contraseña estando adentro ──────────────────────────────────
+//
+// 🔴 El que entró con Google NO tiene contraseña: pedirle la actual sería
+//    pedirle algo que no existe y el botón fallaría sin explicar por qué. A ese
+//    le ofrecemos ponerle una, y a partir de ahí puede entrar con el correo sin
+//    depender de Google.  (`TIENE_CLAVE` se define arriba, en pintarSesion.)
+
+function abrirClave(){
+  $('filaClaveActual').style.display = TIENE_CLAVE ? 'block' : 'none';
+  $('errClave').style.color = 'var(--muted)';
+  $('errClave').textContent = TIENE_CLAVE
+    ? 'La misma te sirve para la app y para esta página.'
+    : 'Entrás con Google, así que todavía no tenés una. Si ponés una, vas a poder entrar también con tu correo.';
+  $('fondoClave').classList.add('on');
+  (TIENE_CLAVE ? $('txtClaveActual') : $('txtClave1')).focus();
+}
+
+function cerrarClave(){
+  $('fondoClave').classList.remove('on');
+  $('txtClaveActual').value = ''; $('txtClave1').value = ''; $('txtClave2').value = '';
+  $('errClave').textContent = '';
+}
+
+// Con Escape también se sale: un panel del que no se puede salir es
+// exactamente lo que la casa no permite.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('fondoClave').classList.contains('on')) cerrarClave();
+});
+
+async function guardarClave(){
+  const err = $('errClave');
+  err.style.color = 'var(--yellow)';
+  const p1 = $('txtClave1').value, p2 = $('txtClave2').value;
+  if (p1.length < 6){ err.textContent = 'Necesita al menos 6 caracteres.'; return; }
+  if (p1 !== p2)   { err.textContent = 'Las dos no son iguales.'; return; }
+
+  const btn = $('btnGuardarClave');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  try {
+    // Confirmar la actual antes de cambiarla: sin esto, cualquiera que agarre
+    // el teléfono desbloqueado deja al dueño afuera de su propia cuenta.
+    if (TIENE_CLAVE){
+      const u = await usuarioActual();
+      const { error: mala } = await sb.auth.signInWithPassword({
+        email: u?.email, password: $('txtClaveActual').value,
+      });
+      if (mala){ err.textContent = 'La contraseña actual no es esa. Probá de nuevo.'; return; }
+    }
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if (error){
+      err.textContent = /same|should be different/i.test(error.message || '')
+        ? 'Esa ya es tu contraseña actual. Poné una distinta.'
+        : 'No se pudo cambiar. Probá de nuevo en un momento.';
+      return;
+    }
+    const texto = TIENE_CLAVE
+      ? '✅ Contraseña cambiada. Usala la próxima vez, acá y en la app.'
+      : '✅ Listo. Ahora podés entrar con tu correo y esta contraseña.';
+    TIENE_CLAVE = true;
+    $('btnClave').textContent = 'Cambiar mi contraseña';
+    $('txtClaveActual').value = ''; $('txtClave1').value = ''; $('txtClave2').value = '';
+    err.style.color = 'var(--ok)';
+    err.textContent = texto;
+    setTimeout(cerrarClave, 2200);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
 }
 
 async function salir(){

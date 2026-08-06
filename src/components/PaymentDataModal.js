@@ -28,7 +28,7 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
 
   const save = async () => {
     if (!valid) {
-      showError('Revisá los datos', 'CUIT de 11 dígitos y tu CBU o alias.');
+      showError('CUIT de 11 dígitos y tu CBU o alias.', 'Revisá los datos');
       return;
     }
     setSaving(true);
@@ -39,10 +39,10 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
         .update(fields)
         .eq('id', professional.id);
       if (error) throw error;
-      showSuccess('¡Listo!', 'Ya podés cobrar tus trabajos.');
+      showSuccess('Ya podés cobrar tus trabajos.', '¡Listo!');
       onSaved?.(fields);
     } catch (e) {
-      showError('No se pudo guardar', 'Probá de nuevo en un momento.');
+      showError('Probá de nuevo en un momento.', 'No se pudo guardar');
     } finally {
       setSaving(false);
     }

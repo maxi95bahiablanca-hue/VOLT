@@ -14,3 +14,12 @@ CUENTAS_GOVOLT.md
 .netlify/
 android/app/google-services.json
 
+# Archivos de trabajo, no van al repo ni al sitio
+_chk.cjs
+_tmp.html
+web/_tmp.html
+web/pedir/_tmp.html
+# Las fotos candidatas para elegir (39 MB). Las elegidas viven en
+# web/fotos/oficios/ y esas SI se publican.
+web/fotos/opciones/
+

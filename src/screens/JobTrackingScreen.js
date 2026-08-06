@@ -240,6 +240,18 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     (job.professionals?.first_name || '') ||
     'El profesional';
 
+  // ── La ventana de ubicación ──────────────────────────────────────────────
+  //  Maxi (5-ago-2026): "no se tiene que ver el GPS hasta que no esté yendo el
+  //  profesional al domicilio, luego se deja de ver hasta la próxima visita".
+  //
+  //  El interruptor es job.on_the_way_at (migración 054), que ya existía desde
+  //  la 040 pero nadie apagaba: se ponía al aceptar y quedaba encendido para
+  //  siempre. Ahora se limpia al llegar y se vuelve a encender en cada viaje.
+  //
+  //  El profesional nunca vio un mapa acá, así que esto sólo afecta al cliente.
+  const enCamino = !!job.on_the_way_at;
+  const verMapa  = !isWorker && enCamino;
+
   // Suscribir a cambios del job (Realtime) + polling de respaldo.
   // Sin el polling, si el Realtime no entrega el UPDATE, el trabajador que envió
   // su presupuesto nunca se entera de que el cliente lo eligió (queda "enviado/
@@ -442,6 +454,12 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   // Suscribir a ubicación del trabajador (solo cliente)
   useEffect(() => {
     if (isWorker || !job.professional_id) return;
+    // 🔴 La ubicación se recibe SOLO mientras va en camino (migración 054).
+    //    Antes no había ninguna condición: el cliente lo veía moverse por toda
+    //    la ciudad desde que aceptaba hasta que el trabajo cerraba — y en
+    //    multi-día eso son días. Al llegar, on_the_way_at vuelve a NULL y esta
+    //    suscripción se corta sola (está en las dependencias del efecto).
+    if (!job.on_the_way_at) return;
     const svc = isDemoMode() ? demoJobService : jobService;
     const channel = svc.subscribeWorkerLocation(job.professional_id, (locationStr) => {
       const match = locationStr.match(/POINT\(([^ ]+) ([^ )]+)\)/);
@@ -472,25 +490,36 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
       }
     });
     return () => { if (channel) channel.unsubscribe?.(); };
-  }, [isWorker, job.professional_id, job.status]);
+  }, [isWorker, job.professional_id, job.status, job.on_the_way_at]);
 
-  // Publicar ubicación del trabajador MIENTRAS dura el trabajo (no solo desde el
-  // radar del Home). Sin esto, el cliente no ve el recorrido en el seguimiento.
+  // Publicar ubicación del trabajador — SOLO mientras va en camino.
+  //
+  // 🔴 Distinción que hay que entender para no romper el cierre de jornada:
+  //    LEER el GPS y PUBLICARLO son dos cosas distintas.
+  //    · Se PUBLICA (updateLocation) sólo si va en camino → es lo único que el
+  //      cliente puede ver. Antes se publicaba también en 'arrived' e
+  //      'in_progress', o sea mientras trabajaba dentro de la casa.
+  //    · Se LEE igual mientras está en la obra, sin publicar nada, porque
+  //      detectarQueSeFue() necesita el GPS para cerrar la jornada sola cuando
+  //      el profesional se va y no aprieta ningún botón (regla del proyecto).
   useEffect(() => {
     if (!isWorker || isDemoMode()) return;
-    if (!['accepted', 'arrived', 'in_progress'].includes(job.status)) return;
+    const enObra = ['arrived', 'in_progress'].includes(job.status);
+    if (!enCamino && !enObra) return;
 
     let sub = null;
     let cancelled = false;
     (async () => {
       const granted = await locationService.requestPermission().catch(() => false);
       if (!granted || cancelled) return;
-      // Empujar la posición actual de entrada
-      locationService.getCurrentLocation()
-        .then(pos => professionalService.updateLocation(userId, pos.coords.latitude, pos.coords.longitude))
-        .catch(() => {});
+      // Empujar la posición actual de entrada, sólo si el cliente lo está viendo
+      if (enCamino) {
+        locationService.getCurrentLocation()
+          .then(pos => professionalService.updateLocation(userId, pos.coords.latitude, pos.coords.longitude))
+          .catch(() => {});
+      }
       const s = await locationService.watchLocation(async (lat, lng) => {
-        await professionalService.updateLocation(userId, lat, lng).catch(() => {});
+        if (enCamino) await professionalService.updateLocation(userId, lat, lng).catch(() => {});
         detectarQueSeFue(lat, lng);
       }).catch(() => null);
       if (cancelled) { s?.remove?.(); return; }
@@ -498,7 +527,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     })();
 
     return () => { cancelled = true; sub?.remove?.(); };
-  }, [isWorker, job.status, userId]);
+  }, [isWorker, job.status, job.on_the_way_at, userId]);
 
   // ── "¿Te fuiste?" ────────────────────────────────────────────────────────
   //  Regla de Maxi: nada puede quedar esperando a que alguien se acuerde de
@@ -567,8 +596,12 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     if (isDemoMode()) {
       setTimeout(() => {
         setLoading(false);
-        if (action === 'arrive') {
-          setJob(j => ({ ...j, status: 'arrived', arrived_at: new Date().toISOString() }));
+        if (action === 'on_the_way') {
+          setJob(j => ({ ...j, on_the_way_at: new Date().toISOString(),
+                         verification_code: String(Math.floor(Math.random() * 10000)).padStart(4, '0'),
+                         viajes: (j.viajes || 0) + 1, status: 'accepted' }));
+        } else if (action === 'arrive') {
+          setJob(j => ({ ...j, status: 'arrived', arrived_at: new Date().toISOString(), on_the_way_at: null }));
         } else if (action === 'start') {
           setJob(j => ({ ...j, status: 'in_progress', work_started_at: new Date().toISOString() }));
         } else if (action === 'set_amount') {
@@ -590,7 +623,21 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     try {
       let notifTitle = '', notifBody = '';
 
-      if (action === 'arrive') {
+      if (action === 'on_the_way') {
+        // Una sola acción hace las tres cosas: abre la ventana de ubicación,
+        // genera un código NUEVO y le avisa al cliente. El evento en job_events
+        // lo escribe la propia función de la base (migración 054).
+        const { codigo, viaje } = await jobService.salirAlDomicilio(job.id);
+        setJob(j => ({ ...j, on_the_way_at: new Date().toISOString(),
+                       verification_code: codigo, viajes: viaje,
+                       status: 'accepted', sub_status: null }));
+        chatService.sendSystemMessage(job.id,
+          `${workerFirstName} salió para tu domicilio 🚗`).catch(() => {});
+        notifTitle = '🚗 Va en camino';
+        notifBody  = viaje > 1
+          ? `${workerFirstName} volvió a salir para tu domicilio. Pedile el código nuevo cuando llegue.`
+          : `${workerFirstName} salió para tu domicilio. Cuando llegue, pedile el código.`;
+      } else if (action === 'arrive') {
         await jobService.arrive(job.id);
         jobService.addEvent(job.id, 'arrived', `Llegó a tu domicilio. Pedile el código 🔑`).catch(() => {});
         chatService.sendSystemMessage(job.id, volt.chatArrived(workerFirstName)).catch(() => {});
@@ -1674,8 +1721,14 @@ window.addEventListener('message', e => {
 
       {/* Mapa — envuelto en un View flex:1 con el WebView en absoluteFill para que
           SIEMPRE ocupe todo el espacio entre la línea de tiempo y el panel (si no,
-          el WebView a veces no se expande y queda un bloque negro abajo). */}
-      {!isWorker && (
+          el WebView a veces no se expande y queda un bloque negro abajo).
+
+          🔴 Se muestra SÓLO mientras el profesional va en camino (migración 054).
+          Antes la única condición era !isWorker, o sea que el mapa seguía vivo
+          después de que llegaba, mientras trabajaba y al día siguiente. Al
+          desmontarse el WebView se va también el marcador, que en el HTML no se
+          borraba nunca (ver el manejador de WORKER_MOVE). */}
+      {verMapa && (
         <View style={{ flex: 1, minHeight: 280 }}>
           <WebView
             ref={webRef}
@@ -1688,12 +1741,33 @@ window.addEventListener('message', e => {
         </View>
       )}
 
+      {/* Sin mapa hay que DECIR por qué, o el cliente cree que se rompió algo.
+          Y de paso explica la regla nueva, que juega a favor de los dos: nadie
+          comparte dónde está cuando no está yendo a ningún lado. */}
+      {!isWorker && !enCamino && ['accepted', 'arrived', 'in_progress'].includes(job.status) && (
+        <View style={styles.sinMapa}>
+          <Ionicons name="lock-closed-outline" size={22} color="#444" />
+          <Text style={styles.sinMapaTitulo}>
+            {job.status === 'accepted'
+              ? 'Vas a poder seguirlo cuando salga'
+              : `${workerFirstName} ya está en tu domicilio`}
+          </Text>
+          <Text style={styles.sinMapaTexto}>
+            {job.status === 'accepted'
+              ? `Cuando ${workerFirstName} salga para tu casa te avisamos y vas a ver el mapa en vivo hasta que llegue.`
+              : 'El mapa se muestra sólo mientras viene en camino.'}
+          </Text>
+        </View>
+      )}
+
       {/* Panel inferior. Para el cliente usamos flexShrink:1 para que el panel se
           AJUSTE a su contenido (antes reservaba ~52% fijo y dejaba un bloque negro
-          vacío abajo cuando el contenido era corto). El mapa (flex:1) llena el resto. */}
+          vacío abajo cuando el contenido era corto). El mapa (flex:1) llena el resto.
+          Sin mapa no hay nada que llene ese resto: por eso el panel pasa a flex:1
+          y no queda un bloque negro abajo. */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={isWorker ? { flex: 1 } : { flexShrink: 1 }}
+        style={(isWorker || !verMapa) ? { flex: 1 } : { flexShrink: 1 }}
       >
         <ScrollView
           style={isWorker ? [styles.panel, { flex: 1 }] : [styles.panel, styles.panelClient]}
@@ -2006,8 +2080,28 @@ window.addEventListener('message', e => {
 
           {/* ─── Acciones del trabajador ─── */}
 
-          {/* Llegué al domicilio (status = accepted) */}
-          {isWorker && job.status === 'accepted' && (
+          {/* Voy en camino — abre la ventana de ubicación (migración 054).
+              Aparece cuando NO está yendo: recién aceptó y quedó para otro día,
+              o ya fue una vez y vuelve. Mientras esté cerrada, el cliente no ve
+              dónde está. */}
+          {isWorker && ['accepted', 'arrived'].includes(job.status) && !enCamino && (
+            <>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('on_the_way')} disabled={loading}>
+                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
+                  <><Ionicons name="navigate" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>
+                    {(job.viajes || 0) > 0 ? 'Vuelvo al domicilio' : 'Voy en camino'}
+                  </Text></>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.ventanaHint}>
+                Al tocarlo le avisamos al cliente y va a poder seguirte en el mapa hasta que llegues.
+                Recién ahí ve tu ubicación.
+              </Text>
+            </>
+          )}
+
+          {/* Llegué al domicilio — cierra la ventana de ubicación */}
+          {isWorker && job.status === 'accepted' && enCamino && (
             <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('arrive')} disabled={loading}>
               {loading ? <ActivityIndicator color="#0A0A0A" /> : (
                 <><Ionicons name="home" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Llegué al domicilio</Text></>
@@ -2337,6 +2431,16 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 16,
   },
   actionBtnText: { color: '#0A0A0A', fontSize: 15, fontWeight: '900' },
+  // Aclara qué pasa al tocar "Voy en camino": que su ubicación se comparte
+  // recién ahí, y sólo hasta que llegue.
+  ventanaHint: { color: '#777', fontSize: 12, lineHeight: 17, textAlign: 'center',
+                 marginTop: 8, marginBottom: 4, paddingHorizontal: 8 },
+  // Ocupa el lugar del mapa cuando la ventana está cerrada, para que el cliente
+  // no crea que algo falló.
+  sinMapa:       { alignItems: 'center', justifyContent: 'center', gap: 8,
+                   paddingVertical: 30, paddingHorizontal: 34 },
+  sinMapaTitulo: { color: '#888', fontSize: 14.5, fontWeight: '800', textAlign: 'center' },
+  sinMapaTexto:  { color: '#555', fontSize: 12.5, lineHeight: 18, textAlign: 'center' },
 
   amountRow: { gap: 10 },
   amountInputWrap: {

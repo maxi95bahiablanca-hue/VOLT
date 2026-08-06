@@ -1,0 +1,1529 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ═══════════════════════════════════════════════════════════════════════
+     LA PÁGINA DEL TRABAJO — bolt.com.ar/p/?t=TOKEN
+     Lo abre el CLIENTE desde WhatsApp. No tiene cuenta, no instala nada y no
+     se va a registrar: este link es EL ÚNICO lugar donde puede seguir el
+     trabajo. Por eso la misma URL sirve para todo el circuito y muestra otra
+     cosa según el estado (migración 056):
+
+        enviado/visto → Aceptar / No, gracias
+        aceptado      → "ya fue avisado, te va a escribir"
+        agendado      → 📅 el día y la hora
+        en_camino     → 🚗 + CÓDIGO DE 4 DÍGITOS (seguridad en la puerta)
+                          + mapa en vivo (Leaflet, migración 057)
+        hecho         → ✅ + recomendarlo a un conocido
+        rechazado     → cartel neutro
+
+     El documento del presupuesto se sigue viendo SIEMPRE, abajo. Lo que
+     cambia es el bloque de estado de arriba de todo.
+
+     REGLAS QUE NO SE TOCAN:
+     1. El token NO va en el <title>, ni en og:*, ni en ningún texto visible:
+        cualquiera de esos lugares se comparte solo (captura, historial,
+        "compartir página") y el token ES la llave.
+     2. referrer=no-referrer para que el token no viaje en el Referer cuando
+        el cliente toca el link a bolt.com.ar o el de WhatsApp.
+     3. noindex: esto no se busca en Google.
+     4. Todo lo que viene de la base entra por textContent o por esc().
+     5. Fondo claro: es un documento que se lee antes de gastar plata y que
+        se imprime. Nada de dark theme acá.
+     6. El código de 4 dígitos NO se guarda ni se cachea: la base sólo lo
+        devuelve mientras el profesional va en camino, y acá se pinta y se
+        olvida. No va a localStorage, ni al title, ni a la URL.
+     7. La ubicación igual: la base la manda SÓLO si va en camino y es de los
+        últimos 10 minutos. Si viene null NO se muestra el último pin conocido
+        — un pin viejo pasando por vivo es peor que no mostrar nada.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<title>Presupuesto</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0A0A0A">
+<meta property="og:title" content="Presupuesto">
+<meta property="og:description" content="Abrí el link para ver el detalle.">
+<link rel="icon" href="../logo.png">
+<link rel="preload" href="../fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  /* ── Inter: la tipografía de BOLT ────────────────────────────────────
+     Hospedada acá mismo (web/fuentes/), NO en un CDN: si el servidor de
+     Google tarda o falla, el texto se ve mal, y eso es justo lo que no
+     queremos. Un solo archivo variable cubre todos los grosores.
+     Inter — Rasmus Andersson — SIL Open Font License 1.1. */
+  @font-face{
+    font-family:"Inter";
+    font-style:normal;
+    font-weight:100 900;
+    font-display:swap;
+    src:url("../fuentes/InterVariable.woff2") format("woff2");
+    unicode-range:U+0000-00FF, U+0100-024F, U+0259, U+0131, U+0152-0153,
+                  U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+                  U+0329, U+1E00-1EFF, U+2000-206F, U+2074, U+20A0-20CF,
+                  U+2122, U+2190-2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
+  /* ══ EL DISEÑO ════════════════════════════════════════════════════════
+     Dos materiales y nada más: NEGRO y PAPEL.
+
+     La página es negra (el fondo de BOLT) y el presupuesto es una hoja
+     blanca apoyada encima. Ese contraste es toda la idea: lo que el
+     cliente tiene en la mano es un documento, y lo que lo rodea es la
+     marca. El amarillo no decora — aparece SÓLO en lo que hay que mirar:
+     el número del presupuesto, el total y el código de la puerta.
+
+     Reglas que sostienen esto:
+     · Sobre negro nunca se escribe con el acento crudo (el profesional
+       puede elegir azul marino): se usa --acento-claro, que el JS aclara
+       hasta que se lea. Sobre negro, el acento es bloque, no letra.
+     · Cero emojis. Los íconos son dibujos propios (SVG, trazo grueso).
+     · Impreso, todo esto se vuelve blanco y negro: ver @media print.
+     ═══════════════════════════════════════════════════════════════════ */
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --acento:#FFD600;          /* BOLT por defecto; en Pro lo pisa el color de la empresa */
+    --acento-tx:#0A0A0A;       /* texto que se lee ARRIBA del acento */
+    --acento-suave:rgba(255,214,0,.14);
+    --acento-claro:#FFD600;    /* el acento, aclarado hasta que se lea SOBRE NEGRO */
+    --tinta:#0B0D0F;
+    --tinta2:#3d444b;
+    --gris:#697077;
+    --gris2:#98a0a8;
+    --linea:#e4e7ea;
+    --papel:#ffffff;
+    --negro:#0A0A0A;
+    --negro2:#17191C;
+    --negro3:#232629;
+  }
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       /* cv05 = ele con cola, ss03 = comillas rectas: dos cosas
+          que Inter trae y la del sistema no. */
+       font-feature-settings:"cv05" 1,"ss03" 1;
+    background:var(--negro);color:var(--tinta);line-height:1.6;
+    padding:16px 12px 34px;
+  }
+  a{color:inherit}
+
+  /* ── El documento ─────────────────────────────────────────────────────── */
+  /* --pad es el margen interno de la hoja. Los bloques que van "a sangre"
+     (la cabecera, el total) se salen de él con margin negativo, así que
+     tiene que ser una variable y no un número suelto. */
+  .doc{
+    --pad:22px;
+    max-width:720px;margin:0 auto;background:var(--papel);
+    border-radius:4px;overflow:hidden;
+    box-shadow:0 2px 4px rgba(0,0,0,.5),0 20px 50px rgba(0,0,0,.45);
+    animation:hoja .5s cubic-bezier(.16,.9,.3,1) both;
+  }
+  @keyframes hoja{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .cuerpo{padding:0 var(--pad) 26px}
+  @media(min-width:640px){.doc{--pad:40px}.cuerpo{padding-bottom:34px}}
+
+  /* Encabezado — franja negra a sangre. Es lo primero que se ve y lo que
+     hace que esto no parezca la plantilla de un procesador de textos. */
+  .enc{
+    background:var(--negro);color:#fff;
+    margin:0 calc(var(--pad) * -1) 0;
+    padding:20px var(--pad) 18px;
+    border-bottom:3px solid var(--acento);
+    display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  }
+  .emp{display:flex;gap:13px;align-items:center;min-width:0}
+  .emp-logo{width:52px;height:52px;object-fit:contain;border-radius:6px;flex-shrink:0;background:#fff;padding:3px}
+  .emp-ini{
+    width:52px;height:52px;border-radius:6px;flex-shrink:0;
+    background:var(--acento);color:var(--acento-tx);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:1.6rem;line-height:1;
+  }
+  .emp-nom{font-size:1.3rem;font-weight:800;letter-spacing:-.4px;line-height:1.2;word-break:break-word;color:#fff}
+  .emp-sub{font-size:.85rem;color:#9aa1a9;font-weight:600}
+  .emp-sub a{color:#9aa1a9;text-decoration:none}
+
+  .sello{text-align:right;flex-shrink:0}
+  .sello .rot{font-size:.66rem;font-weight:800;letter-spacing:2px;color:#7d858c;text-transform:uppercase}
+  .sello .num{font-size:1.5rem;font-weight:800;line-height:1.15;letter-spacing:-.5px;font-variant-numeric:tabular-nums;color:var(--acento-claro)}
+  .sello .fec{font-size:.8rem;color:#9aa1a9;font-weight:600}
+  @media(max-width:430px){
+    .enc{flex-direction:column;align-items:flex-start;gap:14px}
+    .sello{text-align:left}
+  }
+
+  .sep{height:0;margin:22px 0 0}
+
+  /* Datos (Para / Validez) */
+  .datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px 22px}
+  .dato .k{font-size:.66rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--gris2)}
+  .dato .v{font-size:1rem;font-weight:700;color:var(--tinta);word-break:break-word}
+
+  /* Bloques de texto. El rótulo lleva una marca de acento a la izquierda:
+     es la misma señal en toda la hoja, y ordena la lectura sin líneas ni
+     cajas de por medio. */
+  .bloque{margin-top:26px}
+  .rotulo{
+    font-size:.66rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;
+    color:var(--gris);margin-bottom:9px;padding-left:11px;position:relative;
+  }
+  .rotulo::before{
+    content:'';position:absolute;left:0;top:.28em;width:4px;height:.85em;
+    background:var(--acento);border-radius:1px;
+  }
+  .texto{font-size:1rem;color:var(--tinta2);white-space:pre-wrap;word-break:break-word}
+
+  /* Ítems — lista tipo tabla, se lee igual de bien en un celular */
+  .items{margin-top:10px;border-top:2px solid var(--tinta)}
+  .it-enc{display:flex;gap:12px;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--linea)}
+  .it-enc span{font-size:.66rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--gris2)}
+  .it{display:flex;gap:14px;justify-content:space-between;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--linea)}
+  .it-d{font-size:.98rem;font-weight:700;word-break:break-word}
+  .it-c{font-size:.84rem;color:var(--gris);font-weight:600;margin-top:1px}
+  .it-s{font-size:1rem;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  /* Materiales / Mano de obra — la pregunta número uno frente a un presupuesto
+     de oficio es cuánto es material y cuánto es el trabajo de la persona. Cada
+     sección es un bloque .items con su rótulo arriba y su subtotal abajo. El
+     rótulo del grupo pesa más que el "Importe" de al lado: es lo que se busca
+     al pasar la vista. */
+  .items + .items{margin-top:26px}
+  .it-enc .g-rot{color:var(--tinta);font-size:.72rem;letter-spacing:1.8px}
+  .it-sub{display:flex;gap:14px;justify-content:flex-end;align-items:baseline;padding:11px 0 1px}
+  .it-sub .s-k{font-size:.66rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--gris)}
+  .it-sub .s-v{font-size:1.02rem;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  /* Total — franja negra a sangre. Es el número por el que se abrió el
+     link: tiene que ser lo que queda en la cabeza al cerrarlo. */
+  .total{
+    margin:26px calc(var(--pad) * -1) 0;
+    padding:20px var(--pad);
+    background:var(--negro);
+    display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .total .t-k{font-size:.72rem;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;color:#9aa1a9}
+  .total .t-v{
+    font-size:2.3rem;font-weight:800;letter-spacing:-1.4px;line-height:1.05;
+    font-variant-numeric:tabular-nums;color:var(--acento-claro);
+  }
+  @media(max-width:400px){.total .t-v{font-size:1.95rem}}
+  /* Lo que viene después del total respira desde el negro, no pegado. */
+  .total + *{margin-top:26px}
+
+  /* Estado */
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;margin-top:22px;
+    font-size:.88rem;font-weight:800;padding:9px 15px;border-radius:3px;border:2px solid;
+  }
+  .badge svg{width:17px;height:17px;flex-shrink:0}
+  .badge.ok{background:#eefbf3;border-color:#158a4d;color:#0f6b3c}
+  .badge.no{background:#f4f5f7;border-color:#c3c9cf;color:#4b5563}
+
+  /* Acciones */
+  .acciones{margin-top:26px}
+  .fila{display:flex;gap:11px;flex-wrap:wrap}
+  .btn{
+    flex:1 1 200px;display:flex;align-items:center;justify-content:center;gap:9px;
+    font-family:inherit;font-size:1rem;font-weight:800;padding:16px 18px;
+    border-radius:4px;border:2px solid transparent;cursor:pointer;transition:.14s;
+    text-decoration:none;text-align:center;letter-spacing:-.2px;
+  }
+  .btn svg{width:19px;height:19px;flex-shrink:0}
+  .btn-si{background:var(--acento);color:var(--acento-tx);box-shadow:0 5px 16px rgba(0,0,0,.16)}
+  .btn-si:hover{transform:translateY(-2px);box-shadow:0 9px 22px rgba(0,0,0,.2)}
+  .btn-si:active{transform:translateY(1px);box-shadow:0 3px 10px rgba(0,0,0,.16)}
+  .btn-no{background:#fff;color:var(--tinta2);border-color:#c9cfd5}
+  .btn-no:hover{border-color:var(--tinta);color:var(--tinta)}
+  .btn-wa{background:#25D366;color:#fff}
+  .btn-wa:hover{transform:translateY(-2px)}
+  .btn-gris{background:#fff;color:var(--gris);border-color:var(--linea);font-weight:700;font-size:.9rem;padding:12px 16px;flex:0 1 auto}
+  .btn-gris:hover{border-color:var(--gris);color:var(--tinta)}
+  .btn:disabled{opacity:.5;cursor:default;transform:none;box-shadow:none}
+  .aviso{margin-top:12px;font-size:.86rem;font-weight:700;text-align:center;min-height:18px}
+  .aviso.err{color:#b91c1c}
+  .aviso.ok{color:#0f6b3c}
+
+  /* Confirmación de rechazo */
+  .confirmar{background:#f6f7f9;border:1px solid var(--linea);border-radius:4px;padding:16px;margin-top:4px}
+  .confirmar p{font-size:.94rem;font-weight:700;color:var(--tinta2);margin-bottom:12px}
+
+  /* Respuesta enviada */
+  .respuesta{margin-top:26px;border:2px solid #158a4d;background:#eefbf3;border-radius:4px;padding:22px 18px;text-align:center}
+  .respuesta.neutro{border-color:#c3c9cf;background:#f6f7f9}
+  .respuesta .em svg{width:46px;height:46px}
+  .respuesta h3{font-size:1.2rem;font-weight:800;margin:8px 0 4px;letter-spacing:-.3px}
+  .respuesta p{font-size:.95rem;color:var(--tinta2);margin-bottom:14px}
+
+  /* ── BLOQUE DE ESTADO DEL TRABAJO — arriba de todo ─────────────────────── */
+  /* Es lo primero que ve el cliente cuando vuelve a abrir el link. El
+     documento (abajo) no cambia nunca; esto sí. Va en negro, no en papel:
+     es lo vivo, y así se distingue de un vistazo del documento. */
+  .panel{
+    max-width:720px;margin:0 auto 14px;
+    background:var(--negro2);color:#fff;
+    border:1px solid var(--negro3);border-radius:4px;
+    padding:24px 20px 22px;text-align:center;
+    animation:hoja .5s cubic-bezier(.16,.9,.3,1) both;
+  }
+  .panel .p-ic{display:flex;justify-content:center;margin-bottom:12px}
+  .panel .p-ic svg{width:52px;height:52px}
+  .panel h2{font-size:1.34rem;font-weight:800;letter-spacing:-.5px;margin:0;line-height:1.3;word-break:break-word;color:#fff}
+  .panel h2 b{font-weight:800;color:var(--acento-claro)}
+  .panel .p-tx{font-size:.97rem;color:#b6bcc2;font-weight:500;margin-top:9px}
+  .panel .fila{margin-top:20px}
+  .panel .btn{flex:1 1 220px}
+  .panel .btn-no{background:transparent;color:#e8eaec;border-color:#3a3f44}
+  .panel .btn-no:hover{border-color:#7d858c;color:#fff}
+
+  /* en_camino: es lo más importante de toda la página */
+  .panel.urgente{border-color:var(--acento);padding-top:26px}
+  .panel.urgente h2{font-size:1.5rem}
+  .panel.urgente .p-ic svg{width:62px;height:62px}
+  .panel.urgente .p-ic{animation:anda 2.6s ease-in-out infinite}
+  @keyframes anda{0%,100%{transform:translateX(-7px)}50%{transform:translateX(7px)}}
+
+  /* El código de la puerta. Un dígito por casilla: así se lee de corrido
+     y a un metro de distancia, que es como se usa — el cliente lo mira en
+     la pantalla mientras el otro está del lado de afuera. */
+  .codigo-caja{margin-top:20px}
+  .codigo-rot{font-size:.68rem;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;color:#9aa1a9}
+  .codigo{
+    display:flex;justify-content:center;gap:8px;margin:10px 0 12px;
+    font-variant-numeric:tabular-nums;
+  }
+  .cod-d{
+    flex:0 1 76px;aspect-ratio:3/4;max-width:76px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--acento);color:var(--acento-tx);border-radius:4px;
+    font-size:clamp(2.4rem,15vw,3.4rem);font-weight:800;line-height:1;
+  }
+  .codigo-ley{font-size:1rem;font-weight:700;color:#fff;padding:0 6px;line-height:1.45}
+  .codigo-ley span{display:block;font-size:.9rem;font-weight:700;color:#ff8f8f;margin-top:4px}
+
+  /* Dónde está — el mapa en vivo mientras va en camino.
+     Leaflet se carga por CDN y sólo en este estado. */
+  .mapa-bloque{margin-top:18px}
+  .mapa{
+    height:240px;border-radius:4px;overflow:hidden;
+    border:1px solid var(--negro3);background:#1e2124;
+  }
+  .mapa-pie{font-size:.78rem;color:#9aa1a9;font-weight:600;margin-top:8px}
+  .mapa-sin{
+    margin-top:18px;font-size:.92rem;font-weight:600;color:#b6bcc2;
+    background:#101215;border:1px solid var(--negro3);border-radius:4px;padding:14px 12px;
+  }
+  /* El pin va con el color de la empresa. divIcon trae fondo y borde propios
+     de Leaflet: hay que apagarlos. */
+  .leaflet-div-icon.pin-wrap{background:transparent;border:0}
+  .pin{
+    width:20px;height:20px;border-radius:50%;
+    background:var(--acento);border:3px solid #fff;
+    box-shadow:0 0 0 2px rgba(0,0,0,.45),0 3px 10px rgba(0,0,0,.5);
+    position:relative;
+  }
+  .pin::after{
+    content:'';position:absolute;inset:-9px;border-radius:50%;
+    border:2px solid var(--acento);opacity:.55;animation:pulso 2s ease-out infinite;
+  }
+  @keyframes pulso{0%{transform:scale(.6);opacity:.6}100%{transform:scale(1.35);opacity:0}}
+  @media(prefers-reduced-motion:reduce){.pin::after{animation:none;opacity:.35}}
+
+  /* hecho: recomendarlo es la única forma que tiene de devolverle la gauchada */
+  .recomendar{margin-top:22px;background:#101215;border:1px solid var(--negro3);border-radius:4px;padding:18px 14px}
+  .recomendar .r-t{font-size:1rem;font-weight:800;color:#fff}
+  .recomendar .r-p{font-size:.9rem;color:#b6bcc2;font-weight:500;margin-top:4px}
+  .recomendar .fila{margin-top:16px}
+
+  /* El cambio de estado llega solo: que se note, pero sin que salte la página */
+  @keyframes entrar{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  .entra{animation:entrar .45s ease both}
+  @media(prefers-reduced-motion:reduce){
+    .entra,.doc,.panel{animation:none}
+    .panel.urgente .p-ic{animation:none}
+  }
+
+  /* Pie del documento (datos fiscales, contacto) */
+  .pie-doc{margin-top:26px;padding-top:16px;border-top:1px solid var(--linea);font-size:.82rem;color:var(--gris);white-space:pre-wrap;word-break:break-word}
+
+  /* Pie BOLT — sólo plan free. Sobre el negro de la página no necesita caja:
+     el rayo y el nombre alcanzan. Es lo único que BOLT recibe a cambio. */
+  .bolt{max-width:720px;margin:22px auto 0;text-align:center}
+  .bolt a.b1{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.84rem;color:#9aa1a9;text-decoration:none;font-weight:600;
+  }
+  .bolt a.b1 svg{width:15px;height:20px;flex-shrink:0}
+  .bolt a.b1 b{color:#fff;font-weight:800;letter-spacing:.4px}
+  .bolt .b2{display:block;margin-top:7px;font-size:.76rem;color:#6f767c;text-decoration:none;font-weight:600}
+  .bolt .b2:hover{color:#9aa1a9}
+
+  /* Estados de carga / error */
+  .estado-pag{
+    max-width:520px;margin:60px auto;text-align:center;padding:34px 22px;
+    background:var(--negro2);color:#fff;border:1px solid var(--negro3);border-radius:4px;
+  }
+  .estado-pag .em svg{width:46px;height:46px}
+  .estado-pag h2{font-size:1.22rem;font-weight:800;margin:12px 0 6px;letter-spacing:-.3px}
+  .estado-pag p{color:#b6bcc2;font-size:.95rem}
+  .spin{width:30px;height:30px;border:3px solid #2c3034;border-top-color:var(--acento);border-radius:50%;margin:0 auto 12px;animation:gira .8s linear infinite}
+  @keyframes gira{to{transform:rotate(360deg)}}
+  .oculto{display:none !important}
+
+  /* ── PAPEL ────────────────────────────────────────────────────────────── */
+  /* En papel no hay marca ni color: queda el documento, en blanco y negro.
+     Las franjas negras se vuelven líneas gruesas — el mismo ritmo visual
+     sin gastarle un cartucho de tinta a nadie. */
+  @media screen{
+    @page{margin:14mm}
+    body{background:#fff;color:#000;padding:0}
+    .no-print{display:none !important}
+    .panel,.mapa,.mapa-bloque,.mapa-sin{display:none !important}
+    .doc{max-width:none;margin:0;border:none;border-radius:0;box-shadow:none;animation:none}
+    .cuerpo{padding:0}
+    .enc{
+      background:#fff;color:#000;margin:0;padding:0 0 14px;
+      border-bottom:3px solid #000;
+    }
+    .emp-nom{color:#000}
+    .emp-sub,.sello .fec{color:#444}
+    .sello .rot{color:#444}
+    .sello .num{color:#000}
+    .emp-ini{background:#fff;color:#000;border:2px solid #000}
+    .total{
+      background:#fff;color:#000;margin:22px 0 0;padding:14px 0;
+      border-top:3px solid #000;border-bottom:3px solid #000;
+    }
+    .total .t-k{color:#000}
+    .total .t-v{color:#000}
+    .rotulo::before{background:#000}
+    .badge{border-color:#000 !important;background:#fff !important;color:#000 !important}
+    .respuesta{border-color:#000;background:#fff}
+    .it,.it-enc{border-color:#999}
+    .items{border-color:#000}
+    .texto,.it-c,.pie-doc,.dato .v{color:#000}
+    .rotulo,.dato .k,.it-enc span,.it-sub .s-k{color:#444}
+    .it-enc .g-rot,.it-sub .s-v{color:#000}
+    /* Que el rótulo no quede solo al pie de una hoja ni el subtotal arranque
+       una hoja nueva separado de sus ítems. */
+    .it-enc{break-after:avoid;page-break-after:avoid}
+    .it-sub{break-before:avoid;page-break-before:avoid}
+    .bolt{margin-top:16px}
+    .bolt a.b1{color:#666}
+    .bolt a.b1 b{color:#000}
+    .bolt a.b1 svg{display:none}
+    .bolt .b2{color:#666}
+    a{text-decoration:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- Cargando -->
+<div class="estado-pag" id="vCargando">
+  <div class="spin"></div>
+  <p>Abriendo el presupuesto…</p>
+</div>
+
+<!-- No existe / token roto -->
+<div class="estado-pag oculto" id="vError">
+  <div class="em"><svg viewBox="0 0 44 52" fill="none" stroke="currentColor" stroke-width="2.6"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M6 4h20l12 12v32H6z"/><path d="M26 4v12h12"/><path d="M14 28h16M14 36h10"/>
+  </svg></div>
+  <h2 id="errTitulo">Este presupuesto no existe o fue dado de baja</h2>
+  <p id="errTexto">Si te lo pasaron por WhatsApp, pedile a quien te lo envió que te mande el link de nuevo.</p>
+</div>
+
+<!-- Bloque de estado del trabajo (se arma por JS según el estado) -->
+<div class="panel no-print oculto" id="vPanel"></div>
+
+<!-- El documento -->
+<div class="doc oculto" id="vDoc">
+  <div class="cuerpo">
+
+    <div class="enc">
+      <div class="emp">
+        <img class="emp-logo oculto" id="empLogo" alt="">
+        <div class="emp-ini" id="empIni">·</div>
+        <div style="min-width:0">
+          <div class="emp-nom" id="empNom">—</div>
+          <div class="emp-sub" id="empSub"></div>
+        </div>
+      </div>
+      <div class="sello">
+        <div class="rot">Presupuesto</div>
+        <div class="num" id="pNum">—</div>
+        <div class="fec" id="pFecha"></div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="datos" id="datos">
+      <div class="dato oculto" id="dCliente"><div class="k">Para</div><div class="v" id="vCliente"></div></div>
+      <div class="dato oculto" id="dValidez"><div class="k">Validez</div><div class="v" id="vValidez"></div></div>
+    </div>
+
+    <div class="bloque">
+      <div class="rotulo">Trabajo a realizar</div>
+      <div class="texto" id="pDesc"></div>
+    </div>
+
+    <!-- El detalle lo arma el JS: una sola lista si nadie clasificó los ítems,
+         o una sección por tipo (Materiales / Mano de obra / Otros) con su
+         subtotal. Ver pintarItems(). -->
+    <div class="bloque oculto" id="bItems">
+      <div class="rotulo">Detalle</div>
+      <div id="listaItems"></div>
+    </div>
+
+    <div class="bloque oculto" id="bNotas">
+      <div class="rotulo">Notas</div>
+      <div class="texto" id="pNotas"></div>
+    </div>
+
+    <!-- El total va DESPUÉS de las notas y pegado a los botones: el cliente
+         lee el trabajo, lee las condiciones, ve el número y recién ahí
+         decide. Antes quedaba en el medio y partía la hoja en dos. -->
+    <div class="total">
+      <div class="t-k">Total</div>
+      <div class="t-v" id="pTotal">—</div>
+    </div>
+
+    <!-- Estado ya resuelto (aceptado / rechazado / borrador) -->
+    <div id="bEstado"></div>
+
+    <!-- Botones de respuesta -->
+    <div class="acciones no-print oculto" id="bAcciones">
+      <div class="fila" id="filaBotones">
+        <button class="btn btn-si" id="btnSi" type="button">Aceptar presupuesto</button>
+        <button class="btn btn-no" id="btnNo" type="button">No, gracias</button>
+      </div>
+      <div class="confirmar oculto" id="cajaConfirmar">
+        <p>¿Confirmás que no vas a tomar este presupuesto? Se le avisa al profesional y no se puede deshacer.</p>
+        <div class="fila">
+          <button class="btn btn-no" id="btnNoSi" type="button">Sí, rechazarlo</button>
+          <button class="btn btn-no" id="btnVolver" type="button">Volver</button>
+        </div>
+      </div>
+      <div class="aviso" id="avisoAcc"></div>
+    </div>
+
+    <!-- Respuesta enviada -->
+    <div class="respuesta oculto no-print" id="bRespuesta">
+      <div class="em" id="rEmoji"></div>
+      <h3 id="rTitulo"></h3>
+      <p id="rTexto"></p>
+      <a class="btn btn-wa oculto" id="rWa" target="_blank" rel="noopener noreferrer">Escribirle por WhatsApp</a>
+    </div>
+
+    <div class="pie-doc oculto" id="pieDoc"></div>
+
+    <div class="acciones no-print">
+      <div class="fila">
+        <button class="btn btn-gris" id="btnImprimir" type="button">Descargar / Imprimir</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Marca BOLT — SÓLO plan free. Se imprime también (en gris, sin fondo): es
+     lo que paga el plan gratis. En Pro este bloque nunca se muestra. -->
+<div class="bolt oculto" id="pieBolt">
+  <a class="b1" href="https://bolt.com.ar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 32" fill="#FFD600" aria-hidden="true"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>Presupuesto hecho con <b>BOLT</b></a>
+  <a class="b2" href="https://bolt.com.ar/prestadores/" target="_blank" rel="noopener noreferrer">¿Sos profesional? Hacé los tuyos gratis</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  'use strict';
+
+  var SUPABASE_URL = 'https://lyeqnvldemcltlbujlnc.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_4e50WLUuWTJ0u2DN6HPUNw_FeIdsV-0';
+
+  // Sin persistSession ni detectSessionInUrl: acá no hay login ni tiene que
+  // haberlo. El cliente entra con el token y nada más.
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+  });
+
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ var d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; }
+  function ver(el, si){ if (el) el.classList.toggle('oculto', !si); }
+
+  // ── Plata en argentino: $180.000 ───────────────────────────────────────
+  function plata(n){
+    var x = Number(n);
+    if (!isFinite(x)) x = 0;
+    return '$' + x.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+  function cantidad(n){
+    var x = Number(n);
+    if (!isFinite(x)) x = 1;
+    return x.toLocaleString('es-AR', { maximumFractionDigits: 3 });
+  }
+  function fecha(iso){
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  // ── "el jueves 7 de agosto a las 10:00" ────────────────────────────────
+  // Si es hoy o mañana (o ayer, para lo que ya pasó) se dice así: es como lo
+  // diría una persona, y es lo primero que el cliente quiere saber.
+  function cuando(iso, pasado){
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    var hoy = new Date();
+    var a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var b = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    var dif = Math.round((a - b) / 86400000);
+    if (dif === 0)  return 'hoy a las ' + hora;
+    if (dif === 1 && !pasado) return 'mañana a las ' + hora;
+    if (dif === -1 && pasado) return 'ayer a las ' + hora;
+    var opc = { weekday: 'long', day: 'numeric', month: 'long' };
+    if (d.getFullYear() !== hoy.getFullYear()) opc.year = 'numeric';
+    var largo = d.toLocaleDateString('es-AR', opc).replace(/,/g, '');
+    return 'el ' + largo + ' a las ' + hora;
+  }
+
+  // ── Color de acento ────────────────────────────────────────────────────
+  // Sólo en Pro. Si el hex no es válido, se queda el amarillo de BOLT.
+  function normHex(c){
+    if (typeof c !== 'string') return null;
+    var h = c.trim();
+    if (/^[0-9a-fA-F]{6}$/.test(h) || /^[0-9a-fA-F]{3}$/.test(h)) h = '#' + h;
+    if (/^#[0-9a-fA-F]{3}$/.test(h)) h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+    return /^#[0-9a-fA-F]{6}$/.test(h) ? h.toLowerCase() : null;
+  }
+  function rgbDe(hex){
+    return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+  }
+  // El acento puede ser amarillo (necesita texto negro) o azul marino (blanco).
+  // Se decide por luminancia y no a ojo, porque el color lo elige el profesional.
+  function lum(c){ return (0.299*c[0] + 0.587*c[1] + 0.114*c[2]) / 255; }
+  function textoSobre(hex){
+    return lum(rgbDe(hex)) > 0.62 ? '#0A0A0A' : '#FFFFFF';
+  }
+  // Sobre el negro de la página, el color de la empresa puede no leerse: el
+  // amarillo de BOLT brilla, pero un azul marino desaparece. Acá se lo mezcla
+  // con blanco hasta que se lea, y ESA versión es la que se usa como letra
+  // (el número, el total, el rayo del ícono). El acento crudo queda para los
+  // bloques de color, donde el contraste lo pone el fondo y no la tinta.
+  function aclarar(c){
+    var r = c[0], g = c[1], b = c[2];
+    for (var i = 0; i < 12 && lum([r,g,b]) < 0.62; i++){
+      r += (255 - r) * 0.22; g += (255 - g) * 0.22; b += (255 - b) * 0.22;
+    }
+    return 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ')';
+  }
+  function aplicarAcento(hex){
+    var h = normHex(hex);
+    if (!h) return;
+    var c = rgbDe(h);
+    var r = document.documentElement.style;
+    r.setProperty('--acento', h);
+    r.setProperty('--acento-tx', textoSobre(h));
+    r.setProperty('--acento-suave', 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',.12)');
+    r.setProperty('--acento-claro', aclarar(c));
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', '#0A0A0A');
+  }
+
+  // ── Los dibujos ────────────────────────────────────────────────────────
+  // Acá no hay un solo emoji, a propósito. Un 🚗 lo dibuja el sistema
+  // operativo: es rojo en un Android, gris en un iPhone y no es de nadie.
+  // Estos son de BOLT: trazo grueso, esquinas rectas y el relleno en el
+  // color de la empresa. Se pintan con currentColor, así que sirven igual
+  // sobre negro (el panel) que sobre papel (el documento).
+  var ICO = {
+    // La camioneta del oficio, con las rayas de que va andando. Las ruedas
+    // van rellenas del fondo y no huecas: hueca sobre negro no se ve, y este
+    // dibujo se mira a 5 cm en un teléfono.
+    camioneta:
+      '<svg viewBox="0 0 70 46" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M14 8h26v26H14z" fill="var(--acento-claro)"/>' +
+        '<path d="M40 16h9l10 9v9H40z" fill="var(--acento-claro)"/>' +
+        '<path d="M42 19h6l6 6h-12z" fill="none" stroke-width="2.2"/>' +
+        '<path d="M10 34h52"/>' +
+        '<circle cx="24" cy="37" r="5.5" fill="currentColor" stroke="none"/>' +
+        '<circle cx="24" cy="37" r="2" fill="var(--acento-claro)" stroke="none"/>' +
+        '<circle cx="50" cy="37" r="5.5" fill="currentColor" stroke="none"/>' +
+        '<circle cx="50" cy="37" r="2" fill="var(--acento-claro)" stroke="none"/>' +
+        '<path d="M2 14h7M0 22h6M3 30h5"/>' +
+      '</svg>',
+    // El calendario: la franja de arriba es la marca de la empresa.
+    calendario:
+      '<svg viewBox="0 0 56 52" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M6 12h44v34H6z"/>' +
+        '<path d="M6 12h44v9H6z" fill="var(--acento-claro)" stroke="none"/>' +
+        '<path d="M6 21h44"/>' +
+        '<path d="M17 6v9M39 6v9"/>' +
+        '<path d="M31 28h11v9H31z" fill="var(--acento-claro)"/>' +
+      '</svg>',
+    // Hecho. El tilde va en el color de la empresa, adentro del sello.
+    tilde:
+      '<svg viewBox="0 0 52 52" fill="none" stroke="currentColor" stroke-width="2.8" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="26" cy="26" r="21"/>' +
+        '<path d="M15 27l8 8 15-17" stroke="var(--acento-claro)" stroke-width="4.5"/>' +
+      '</svg>',
+    // Avisado: el sobre salió. Para el "ya fue avisado" y el "aceptaste".
+    enviado:
+      '<svg viewBox="0 0 56 46" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M16 8h34v30H16z" fill="var(--acento-claro)"/>' +
+        '<path d="M16 8l17 13L50 8"/>' +
+        '<path d="M2 15h9M0 23h8M3 31h7"/>' +
+      '</svg>',
+    // La hoja del presupuesto, para cuando el link no lleva a ningún lado.
+    hoja:
+      '<svg viewBox="0 0 44 52" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M6 4h20l12 12v32H6z"/>' +
+        '<path d="M26 4v12h12"/>' +
+        '<path d="M14 28h16M14 36h10"/>' +
+      '</svg>',
+    // Un gesto neutro para el rechazo: la hoja cerrada, sin drama.
+    neutro:
+      '<svg viewBox="0 0 52 52" fill="none" stroke="currentColor" stroke-width="2.8" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="26" cy="26" r="21"/>' +
+        '<path d="M17 26h18"/>' +
+      '</svg>',
+    // El tilde chico del cartel de estado, dentro del documento.
+    check:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M4 13l5 5L20 6"/>' +
+      '</svg>',
+    // El rayo de BOLT, para el pie.
+    rayo:
+      '<svg viewBox="0 0 24 32" fill="var(--acento)" aria-hidden="true">' +
+        '<path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/>' +
+      '</svg>'
+  };
+  function icono(nombre){ return '<div class="p-ic">' + ICO[nombre] + '</div>'; }
+
+  // ── WhatsApp ───────────────────────────────────────────────────────────
+  // Misma convención que el panel (admin.html): si ya trae 54 se respeta,
+  // si no se arma 549 + los últimos 10 dígitos.
+  function waNumero(tel){
+    var n = String(tel || '').replace(/\D/g, '');
+    if (n.length < 8) return null;
+    return n.indexOf('54') === 0 ? n : ('549' + n.slice(-10));
+  }
+  function waLink(tel, texto){
+    var n = waNumero(tel);
+    if (!n) return null;
+    return 'https://wa.me/' + n + '?text=' + encodeURIComponent(texto);
+  }
+  // Sin número: WhatsApp abre el selector de contactos. Es lo que hace falta
+  // para recomendar (el mensaje va a un conocido, no al profesional).
+  function waReenviar(texto){
+    return 'https://wa.me/?text=' + encodeURIComponent(texto);
+  }
+
+  // ── El token ───────────────────────────────────────────────────────────
+  var QS = new URLSearchParams(location.search);
+  var TOKEN = (QS.get('t') || QS.get('token') || '').trim();
+
+  var P = null;              // el presupuesto/trabajo que devolvió la RPC
+  var respondido = false;    // ¿respondió recién, en esta misma pantalla?
+
+  // ── Vista previa (?demo=…) ─────────────────────────────────────────────
+  // Sólo para mirar el diseño mientras se trabaja: NO toca la base, no lee ni
+  // escribe nada, no refresca y los botones de respuesta quedan apagados.
+  // Se puede combinar el plan y el estado: ?demo=camino ?demo=pro,camino
+  //   ?demo=1 · ?demo=pro · ?demo=aceptado · ?demo=agendado
+  //   ?demo=camino · ?demo=hecho · ?demo=rechazado
+  //   ?demo=camino,singps → va en camino pero sin ubicación (GPS mudo)
+  //   ?demo=desglose → ítems separados en materiales y mano de obra
+  //   ?demo=desglose,mixto → además un ítem sin clasificar, que cae en "Otros"
+  //   (sin `desglose`, los ítems van sin tipo: es el presupuesto viejo)
+  // Si molesta, se borra este bloque y las 3 líneas de DEMO más abajo.
+  var DEMO = QS.get('demo');
+  var DEMO_ESTADOS = {
+    enviado:'enviado', visto:'visto', aceptado:'aceptado', agendado:'agendado',
+    camino:'en_camino', en_camino:'en_camino', encamino:'en_camino',
+    hecho:'hecho', terminado:'hecho', rechazado:'rechazado'
+  };
+  var demoPro = false, demoEstado = 'enviado', demoSinGps = false;
+  var demoDesglose = false, demoMixto = false;
+  if (DEMO){
+    String(DEMO).toLowerCase().split(/[^a-z_]+/).forEach(function(k){
+      if (!k) return;
+      if (k === 'pro') demoPro = true;
+      else if (k === 'singps' || k === 'sin_gps' || k === 'sinubicacion') demoSinGps = true;
+      else if (k === 'desglose' || k === 'materiales') demoDesglose = true;
+      else if (k === 'mixto' || k === 'otros') { demoDesglose = true; demoMixto = true; }
+      else if (DEMO_ESTADOS[k]) demoEstado = DEMO_ESTADOS[k];
+    });
+  }
+  function enDias(dias, hora){
+    var d = new Date(); d.setDate(d.getDate() + dias); d.setHours(hora, 0, 0, 0);
+    return d.toISOString();
+  }
+  function presupuestoDemo(pro, estado){
+    var p = {
+      numero: 12,
+      descripcion: 'Instalación de aire acondicionado split 3000 frigorías en dormitorio.\nIncluye soportes, caño y puesta en marcha.',
+      total: 180000,
+      notas: 'El equipo no está incluido. Se coordina fecha con 48 hs de anticipación.',
+      estado: estado,
+      validez_dias: 15,
+      creado: new Date().toISOString(),
+      cliente: 'María González',
+      agendado_para: null,
+      en_camino: false,
+      hecho_at: null,
+      codigo: null,
+      ubicacion: null,
+      items: [
+        { descripcion: 'Mano de obra e instalación', cantidad: 1, precio: 120000 },
+        { descripcion: 'Caño y aislación (metro)',    cantidad: 4, precio: 12000  },
+        { descripcion: 'Soportes de pared',           cantidad: 1, precio: 12000  }
+      ],
+      empresa: pro
+        ? { nombre: 'Refrigeración Sur', telefono: '2914123456', logo: null, color: '#1E4E8C',
+            instagram: 'refrisur', web: 'refrisur.com.ar', fiscales: 'Juan Pérez · CUIT 20-12345678-9 · Monotributo', pro: true }
+        : { nombre: 'Juan Pérez', telefono: '2914123456', logo: null, color: null,
+            instagram: null, web: null, fiscales: null, pro: false }
+    };
+    // ?demo=desglose — el caso que importa: materiales aparte de la mano de
+    // obra. Sin esto los ítems van sin `tipo`, que es el presupuesto viejo y
+    // tiene que seguir viéndose como una lista plana.
+    if (demoDesglose){
+      p.descripcion = 'Cambio de termotanque de 80 litros a gas.\nIncluye retiro del viejo, conexión y prueba.';
+      p.notas = 'Garantía de 6 meses sobre la instalación. No incluye rotura de pared.';
+      p.items = [
+        { descripcion: 'Termotanque 80L',         cantidad: 1, precio: 128000, tipo: 'material' },
+        { descripcion: 'Materiales de conexión',  cantidad: 1, precio: 22000,  tipo: 'material' },
+        { descripcion: 'Instalación y prueba',    cantidad: 1, precio: 30000,  tipo: 'obra'     }
+      ];
+      p.subtotales = { material: 150000, obra: 30000, sin_tipo: null };
+      if (demoMixto){
+        // Un ítem viejo, sin clasificar: cae al final, en "Otros".
+        p.items.push({ descripcion: 'Retiro del equipo viejo', cantidad: 1, precio: 8000, tipo: null });
+        p.subtotales.sin_tipo = 8000;
+        p.total = 188000;
+      }
+    }
+
+    if (estado === 'agendado')  p.agendado_para = enDias(1, 10);
+    if (estado === 'en_camino'){
+      p.agendado_para = enDias(0, 10); p.en_camino = true; p.codigo = '4821';
+      // Bahía Blanca. En demo el pin se mueve solo cada 5 s (ver demoMover)
+      // para poder mirar el seguimiento sin datos reales.
+      p.ubicacion = demoSinGps ? null : { lat: -38.7183, lng: -62.2663, hace_seg: 42 };
+    }
+    if (estado === 'hecho'){     p.agendado_para = enDias(0, 10); p.hecho_at = new Date(Date.now() - 3600000).toISOString(); }
+    return p;
+  }
+
+  // DEMO: el pin camina solo cada 5 s. Sirve para ver que el marcador se mueve
+  // sin que el mapa salte ni se resetee el zoom. Nunca corre fuera de ?demo=.
+  function demoMover(){
+    if (!DEMO || !P || !P.ubicacion || estadoDe(P) !== 'en_camino') return;
+    setInterval(function(){
+      if (document.hidden || !P.ubicacion) return;
+      P.ubicacion = {
+        lat: P.ubicacion.lat + 0.0004,
+        lng: P.ubicacion.lng + 0.0003,
+        hace_seg: Math.floor(Math.random() * 50) + 4
+      };
+      actualizarMapa(P);
+    }, 5000);
+  }
+
+  function mostrarError(titulo, texto){
+    pararRefresco();
+    soltarMapa();
+    ver($('vCargando'), false);
+    ver($('vDoc'), false);
+    ver($('vPanel'), false);
+    ver($('pieBolt'), false);
+    if (titulo) $('errTitulo').textContent = titulo;
+    if (texto)  $('errTexto').textContent  = texto;
+    ver($('vError'), true);
+  }
+
+  // ── Pintar el documento ────────────────────────────────────────────────
+  function pintar(p){
+    var emp = p.empresa || {};
+
+    // 🔴 YA NO HAY PLANES. Maxi (6-ago-2026): "no hagas plan pro, que sea TODO
+    // GRATIS... mientras tanto que disfruten del potencial de la app gratis".
+    // El color de la empresa pinta para todos, sin condición.
+    //
+    // Lo que SÍ queda para todos es la línea de BOLT al pie: no es un castigo
+    // del plan gratis —no hay plan gratis, hay una sola cosa y es gratis—, es
+    // lo único que BOLT recibe a cambio. Cada presupuesto que sale es un aviso
+    // que ve un cliente real, justo cuando está por gastar plata en un oficio.
+    // `emp.pro` sigue llegando de la base; acá ya no lo mira nadie.
+    aplicarAcento(emp.color);
+
+    // Empresa
+    var nombre = (emp.nombre || '').trim() || 'Presupuesto';
+    $('empNom').textContent = nombre;
+    if (emp.logo){
+      var img = $('empLogo');
+      img.onload  = function(){ ver(img, true); ver($('empIni'), false); };
+      img.onerror = function(){ ver(img, false); ver($('empIni'), true); };
+      img.src = emp.logo;
+      img.alt = nombre;
+    }
+    $('empIni').textContent = (nombre[0] || '·').toUpperCase();
+
+    // Contacto debajo del nombre (teléfono / instagram / web)
+    var sub = [];
+    if (emp.telefono)  sub.push(esc(emp.telefono));
+    if (emp.instagram) sub.push(esc(String(emp.instagram).replace(/^@?/, '@')));
+    if (emp.web)       sub.push(esc(String(emp.web).replace(/^https?:\/\//, '')));
+    $('empSub').innerHTML = sub.join(' · ');
+
+    // Número y fecha
+    $('pNum').textContent = p.numero != null ? ('N° ' + p.numero) : '';
+    $('pFecha').textContent = fecha(p.creado);
+
+    // Para / Validez
+    if (p.cliente){
+      $('vCliente').textContent = p.cliente;
+      ver($('dCliente'), true);
+    }
+    if (p.validez_dias){
+      var txt = p.validez_dias + (p.validez_dias === 1 ? ' día' : ' días');
+      var base = new Date(p.creado);
+      if (!isNaN(base.getTime())){
+        var vence = new Date(base.getTime() + p.validez_dias * 86400000);
+        txt += ' · hasta el ' + fecha(vence.toISOString());
+        if (vence < new Date()) txt += ' (vencido)';
+      }
+      $('vValidez').textContent = txt;
+      ver($('dValidez'), true);
+    }
+
+    // Descripción
+    $('pDesc').textContent = p.descripcion || '';
+
+    // Ítems — sólo si hay
+    var items = Array.isArray(p.items) ? p.items : [];
+    if (items.length){
+      pintarItems(items, p.subtotales);
+      ver($('bItems'), true);
+    }
+
+    // Total
+    $('pTotal').textContent = plata(p.total);
+
+    // Notas
+    if (p.notas && String(p.notas).trim()){
+      $('pNotas').textContent = p.notas;
+      ver($('bNotas'), true);
+    }
+
+    // Datos fiscales al pie del documento
+    if (emp.fiscales && String(emp.fiscales).trim()){
+      $('pieDoc').textContent = emp.fiscales;
+      ver($('pieDoc'), true);
+    }
+
+    // La marca de BOLT va siempre (ver el comentario de arriba): con todo
+    // gratis, es lo único que vuelve. Es discreta y va al pie, debajo del
+    // documento — nunca compitiendo con la identidad del profesional.
+    ver($('pieBolt'), true);
+
+    // Estado: el bloque de arriba y el cartel del documento
+    pintarPanel(p, false);
+    pintarEstado(estadoDe(p));
+    actualizarMapa(p);
+
+    ver($('vCargando'), false);
+    ver($('vDoc'), true);
+    document.title = 'Presupuesto' + (p.numero != null ? ' N° ' + p.numero : '');  // nunca el token
+
+    arrancarRefresco();
+  }
+
+  // ── El detalle: materiales y mano de obra ──────────────────────────────
+  // La pregunta número uno frente a un presupuesto de oficio es "¿cuánto es el
+  // material y cuánto es tu trabajo?". Sin la respuesta el número parece caro.
+  //
+  // Reglas:
+  //  · Una sección se muestra SÓLO si tiene ítems. Nunca "Mano de obra $0".
+  //  · Si nadie clasificó nada (presupuestos viejos, tipo:null) va la lista
+  //    plana de siempre: inventarle una clasificación al profesional sería
+  //    ponerle en la boca un desglose que no eligió.
+  //  · Los sin clasificar de una carga mixta van al final, en "Otros".
+  //  · El TOTAL no se toca: sale de p.total, que el profesional pudo pisar a
+  //    mano. La suma de las secciones puede no dar igual, y está bien.
+  var ROTULOS = { material: 'Materiales', obra: 'Mano de obra', otros: 'Otros' };
+
+  function tipoDe(it){
+    var t = String((it && it.tipo) || '').toLowerCase();
+    return (t === 'material' || t === 'obra') ? t : 'otros';
+  }
+
+  // Red de seguridad: si la RPC no mandara `subtotales` (versión vieja), el
+  // subtotal se calcula acá y el documento sale igual.
+  function sumarItems(lista){
+    return lista.reduce(function(acc, it){
+      var c = Number(it.cantidad); if (!isFinite(c)) c = 1;
+      var p = Number(it.precio);   if (!isFinite(p)) p = 0;
+      return acc + c * p;
+    }, 0);
+  }
+
+  function filaItem(it){
+    var cant = Number(it.cantidad); if (!isFinite(cant)) cant = 1;
+    var pre  = Number(it.precio);   if (!isFinite(pre))  pre = 0;
+
+    var fila = document.createElement('div'); fila.className = 'it';
+    var izq  = document.createElement('div'); izq.style.minWidth = '0';
+    var d    = document.createElement('div'); d.className = 'it-d';
+    d.textContent = it.descripcion || '';
+    izq.appendChild(d);
+
+    // "2 × $15.000" sólo aporta cuando hay más de una unidad o hay precio.
+    if (cant !== 1 || pre > 0){
+      var c = document.createElement('div'); c.className = 'it-c';
+      c.textContent = cantidad(cant) + ' × ' + plata(pre);
+      izq.appendChild(c);
+    }
+    var s = document.createElement('div'); s.className = 'it-s';
+    s.textContent = plata(cant * pre);
+
+    fila.appendChild(izq); fila.appendChild(s);
+    return fila;
+  }
+
+  // Un bloque = rótulo + ítems + (si es una sección) su subtotal.
+  // Todo por textContent: nada de lo que viene de la base toca innerHTML.
+  function bloqueItems(rotulo, lista, subtotal){
+    var caja = document.createElement('div'); caja.className = 'items';
+
+    var enc = document.createElement('div'); enc.className = 'it-enc';
+    var a = document.createElement('span'); a.textContent = rotulo;
+    if (subtotal != null) a.className = 'g-rot';
+    var b = document.createElement('span'); b.textContent = 'Importe';
+    enc.appendChild(a); enc.appendChild(b);
+    caja.appendChild(enc);
+
+    lista.forEach(function(it){ caja.appendChild(filaItem(it)); });
+
+    if (subtotal != null){
+      var sub = document.createElement('div'); sub.className = 'it-sub';
+      var k = document.createElement('span'); k.className = 's-k'; k.textContent = 'Subtotal';
+      var v = document.createElement('span'); v.className = 's-v'; v.textContent = plata(subtotal);
+      sub.appendChild(k); sub.appendChild(v);
+      caja.appendChild(sub);
+    }
+    return caja;
+  }
+
+  function pintarItems(items, subs){
+    var cont = $('listaItems');
+    cont.innerHTML = '';
+
+    var grupos = { material: [], obra: [], otros: [] };
+    items.forEach(function(it){ grupos[tipoDe(it)].push(it); });
+
+    // Nadie clasificó: la lista de siempre, sin secciones ni subtotales.
+    if (!grupos.material.length && !grupos.obra.length){
+      cont.appendChild(bloqueItems('Concepto', items, null));
+      return;
+    }
+
+    subs = subs || {};
+    [['material', subs.material], ['obra', subs.obra], ['otros', subs.sin_tipo]]
+      .forEach(function(g){
+        var lista = grupos[g[0]];
+        if (!lista.length) return;                       // sección vacía: no existe
+        var n = Number(g[1]);
+        cont.appendChild(bloqueItems(ROTULOS[g[0]], lista, isFinite(n) && g[1] != null ? n : sumarItems(lista)));
+      });
+  }
+
+  // ── En qué estado está el trabajo ──────────────────────────────────────
+  // `en_camino` viene como bandera aparte: si está prendida manda ella, porque
+  // es el momento en el que el cliente tiene a alguien tocándole el timbre.
+  function estadoDe(p){
+    if (!p) return '';
+    var e = String(p.estado || '').toLowerCase();
+    if (p.en_camino === true && (e === 'aceptado' || e === 'agendado' || e === 'en_camino')) return 'en_camino';
+    return e;
+  }
+
+  // ── El bloque de estado (arriba de todo) ───────────────────────────────
+  // Si el profesional no cargó teléfono, waLink() devuelve null: entonces no
+  // hay botón (mejor eso que un botón que no lleva a ningún lado).
+  function botonWa(href, texto, clase){
+    if (!href) return '';
+    return '<a class="btn ' + (clase || 'btn-wa') + '" href="' + esc(href) + '"' +
+           ' target="_blank" rel="noopener noreferrer">' + esc(texto) + '</a>';
+  }
+  function fila(botones){
+    var b = botones.filter(Boolean);
+    return b.length ? ('<div class="fila">' + b.join('') + '</div>') : '';
+  }
+
+  function pintarPanel(p, animar){
+    var cont = $('vPanel');
+    // Se va a reemplazar todo el contenido del panel: si había un mapa, su div
+    // queda huérfano. Se suelta acá y, si sigue haciendo falta, se rearma.
+    soltarMapa();
+    var e = estadoDe(p);
+    var emp = p.empresa || {};
+    var nombre = (emp.nombre || '').trim() || 'El profesional';
+    var ref = (p.numero != null) ? (' N° ' + p.numero) : '';
+    var extra = '';
+    var h = '';
+
+    if (e === 'aceptado'){
+      // Si acaba de aceptar en esta misma pantalla, ya se lo dijimos abajo:
+      // no se lo repetimos arriba.
+      if (respondido){ cont.innerHTML = ''; ver(cont, false); return; }
+      h = icono('enviado') +
+          '<h2>¡Listo! ' + esc(nombre) + ' ya fue avisado</h2>' +
+          '<p class="p-tx">Te va a escribir para coordinar el día. Cuando quede la fecha, la vas a ver acá mismo.</p>' +
+          fila([ botonWa(waLink(emp.telefono, 'Hola! Acepté el presupuesto' + ref + '. ¿Cuándo lo podemos coordinar?'),
+                         'Coordinar por WhatsApp') ]);
+
+    } else if (e === 'agendado'){
+      var q = p.agendado_para ? cuando(p.agendado_para, false) : '';
+      h = icono('calendario') +
+          (q ? '<h2>' + esc(nombre) + ' viene <b>' + esc(q) + '</b></h2>'
+             : '<h2>' + esc(nombre) + ' ya coordinó el día con vos</h2>') +
+          '<p class="p-tx">Cuando salga para tu casa te va a aparecer acá, con un código para que le abras tranquilo.</p>' +
+          fila([ botonWa(waLink(emp.telefono, 'Hola! Por el trabajo' + ref + ': ¿podemos ver el día y la hora?'),
+                         'Cambiar el día por WhatsApp') ]);
+
+    } else if (e === 'en_camino'){
+      var cod = (p.codigo == null) ? '' : String(p.codigo).trim();
+      h = icono('camioneta') +
+          '<h2>' + esc(nombre) + ' va en camino</h2>';
+      if (cod){
+        // El código NO se guarda en ningún lado: se pinta y se olvida.
+        // Un dígito por casilla: se lee de corrido y a un metro, que es como
+        // se usa de verdad (el cliente mira la pantalla con el otro del lado
+        // de afuera). Va carácter por carácter, así que un código de 5 o de 3
+        // se sigue viendo bien.
+        var casillas = cod.split('').map(function(d){
+          return '<span class="cod-d">' + esc(d) + '</span>';
+        }).join('');
+        h += '<div class="codigo-caja">' +
+               '<div class="codigo-rot">Código de seguridad</div>' +
+               '<div class="codigo">' + casillas + '</div>' +
+               '<div class="codigo-ley">Pedíle este código antes de abrirle.' +
+                 '<span>Si no coincide, no le abras.</span>' +
+               '</div>' +
+             '</div>';
+      } else {
+        h += '<p class="p-tx">Está yendo para tu casa.</p>';
+      }
+      // El mapa va DEBAJO del código: el código es lo que resuelve la puerta.
+      // Los dos contenedores se emiten siempre y se prende uno u otro según
+      // llegue o no la ubicación (nunca los dos).
+      h += '<div class="mapa-bloque oculto" id="mapaBloque">' +
+             '<div class="mapa" id="mapaDiv"></div>' +
+             '<div class="mapa-pie" id="mapaEdad"></div>' +
+           '</div>' +
+           '<div class="mapa-sin oculto" id="mapaSin">No estamos recibiendo su ubicación en este momento.</div>';
+      h += fila([ botonWa(waLink(emp.telefono, 'Hola! Vi que vas en camino por el trabajo' + ref + '.'),
+                          'Escribirle por WhatsApp') ]);
+      extra = ' urgente';
+
+    } else if (e === 'hecho'){
+      var q2 = p.hecho_at ? cuando(p.hecho_at, true) : '';
+      var tel = emp.telefono ? String(emp.telefono).trim() : '';
+      var msjRec = 'Te paso el contacto de ' + nombre + ', me hizo un trabajo y quedé conforme' +
+                   (tel ? (': ' + tel) : '.');
+      h = icono('tilde') +
+          '<h2>Trabajo terminado</h2>' +
+          (q2 ? '<p class="p-tx">Lo dio por terminado ' + esc(q2) + '.</p>' : '') +
+          '<div class="recomendar">' +
+            '<div class="r-t">¿Quedaste conforme?</div>' +
+            '<div class="r-p">Pasale el contacto a un conocido. Para ' + esc(nombre) + ' es la mejor forma de seguir trabajando.</div>' +
+            fila([
+              botonWa(waReenviar(msjRec), 'Recomendarlo a un conocido'),
+              botonWa(waLink(emp.telefono, 'Hola ' + nombre + '! Te quería contactar de nuevo.'),
+                      'Volver a contactarlo', 'btn-no')
+            ]) +
+          '</div>';
+
+    } else {
+      // enviado / visto / rechazado / borrador: el bloque de arriba no aparece,
+      // manda el documento (y sus botones) como siempre.
+      ver(cont, false);
+      cont.innerHTML = '';
+      return;
+    }
+
+    cont.innerHTML = h;
+    cont.className = 'panel no-print' + extra;
+    ver(cont, true);
+    if (animar){
+      void cont.offsetWidth;                     // reinicia la animación
+      cont.className += ' entra';
+    }
+  }
+
+  // ── Estado dentro del documento ────────────────────────────────────────
+  function pintarEstado(estado){
+    var puedeResponder = (estado === 'enviado' || estado === 'visto');
+    ver($('bAcciones'), puedeResponder);
+
+    if (estado === 'aceptado' || estado === 'agendado' || estado === 'en_camino'){
+      badge('ok', 'Presupuesto aceptado');
+    } else if (estado === 'hecho'){
+      badge('ok', 'Trabajo terminado');
+    } else if (estado === 'rechazado'){
+      badge('no', 'Presupuesto rechazado');
+    } else {
+      // 'borrador' u otro: se muestra el documento, sin botones y sin cartel.
+      $('bEstado').innerHTML = '';
+    }
+  }
+  // El tilde va como dibujo, no como carácter: el "✓" suelto cambia de forma
+  // en cada teléfono y en varios ni siquiera existe en la fuente.
+  function badge(clase, texto){
+    var d = document.createElement('div');
+    d.className = 'badge ' + clase;
+    if (clase === 'ok') d.innerHTML = ICO.check;      // constante nuestra, no dato
+    d.appendChild(document.createTextNode(texto));
+    $('bEstado').innerHTML = '';
+    $('bEstado').appendChild(d);
+  }
+
+  // ── El mapa en vivo (sólo mientras va en camino) ───────────────────────
+  // La base ya pone los dos candados sobre `ubicacion`: viene con valor SÓLO
+  // si va en camino y la posición es de los últimos 10 minutos. Acá no se
+  // replican ni se aflojan, y si viene null NO se muestra el último pin
+  // conocido: un pin viejo haciéndose pasar por vivo es peor que nada.
+  var LEAFLET_JS  = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  var LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  var MAPA = null;             // { map, marker, div }
+  var mapaCreando = false;
+  var mapaPend = null;
+  var cargandoLeaflet = null;
+
+  // Leaflet se baja recién cuando hace falta: en los otros estados esta página
+  // no pesa un byte de más.
+  function cargarLeaflet(){
+    if (window.L) return Promise.resolve(window.L);
+    if (cargandoLeaflet) return cargandoLeaflet;
+    cargandoLeaflet = new Promise(function(res, rej){
+      if (!document.querySelector('link[data-leaflet]')){
+        var css = document.createElement('link');
+        css.rel = 'stylesheet'; css.href = LEAFLET_CSS;
+        css.setAttribute('data-leaflet', '1');
+        document.head.appendChild(css);
+      }
+      var s = document.createElement('script');
+      s.src = LEAFLET_JS; s.async = true;
+      s.onload  = function(){ window.L ? res(window.L) : rej(new Error('leaflet')); };
+      s.onerror = function(){ rej(new Error('leaflet')); };
+      document.head.appendChild(s);
+    });
+    // Si el CDN falla dejamos volver a intentar en el próximo refresco.
+    cargandoLeaflet.catch(function(){ cargandoLeaflet = null; });
+    return cargandoLeaflet;
+  }
+
+  function soltarMapa(){
+    if (MAPA && MAPA.map){ try { MAPA.map.remove(); } catch (e) {} }
+    MAPA = null;
+    mapaPend = null;
+  }
+
+  function edadTexto(seg){
+    var s = Number(seg);
+    if (!isFinite(s) || s < 0) return '';
+    if (s < 15) return 'Actualizado recién';
+    if (s < 60) return 'Actualizado hace ' + Math.round(s) + ' segundos';
+    var m = Math.round(s / 60);
+    return 'Actualizado hace ' + m + (m === 1 ? ' minuto' : ' minutos');
+  }
+
+  function dibujarMapa(lat, lng){
+    var d = $('mapaDiv');
+    if (!d) return;
+    // Ya está armado: se mueve el marcador y se acompaña con la vista.
+    // NO se recrea el mapa ni se toca el zoom: le saltaría la pantalla.
+    if (MAPA && MAPA.div === d && MAPA.map){
+      try {
+        MAPA.marker.setLatLng([lat, lng]);
+        MAPA.map.panTo([lat, lng], { animate: true, duration: .6 });
+      } catch (e) {}
+      return;
+    }
+    if (mapaCreando){ mapaPend = [lat, lng]; return; }
+    soltarMapa();
+    mapaCreando = true;
+    cargarLeaflet().then(function(L){
+      var div = $('mapaDiv');
+      if (!div || !document.body.contains(div)) return;
+      var map = L.map(div, {
+        zoomControl: false, scrollWheelZoom: false, attributionControl: true
+      }).setView([lat, lng], 15);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        attribution: '© OpenStreetMap · © CARTO'
+      }).addTo(map);
+      var icono = L.divIcon({
+        className: 'pin-wrap', html: '<div class="pin"></div>',
+        iconSize: [20, 20], iconAnchor: [10, 10]
+      });
+      MAPA = { map: map, marker: L.marker([lat, lng], { icon: icono }).addTo(map), div: div };
+      // El div nace dentro de un bloque que recién se muestra: sin esto
+      // Leaflet mide 0 de alto y pinta los tiles cortados.
+      setTimeout(function(){ try { map.invalidateSize(); } catch (e) {} }, 80);
+    }).catch(function(){
+      // El CDN no cargó. La página sigue igual: el código y el estado son lo
+      // que importa, el mapa es un plus.
+      ver($('mapaBloque'), false);
+    }).then(function(){
+      mapaCreando = false;
+      if (mapaPend){ var q = mapaPend; mapaPend = null; dibujarMapa(q[0], q[1]); }
+    });
+  }
+
+  function actualizarMapa(p){
+    var caja = $('mapaBloque');
+    if (!caja){ soltarMapa(); return; }        // no estamos en el bloque en_camino
+    var u = p && p.ubicacion;
+    var lat = u ? Number(u.lat) : NaN, lng = u ? Number(u.lng) : NaN;
+    var hay = estadoDe(p) === 'en_camino' && isFinite(lat) && isFinite(lng);
+
+    if (!hay){
+      soltarMapa();
+      ver(caja, false);
+      ver($('mapaSin'), true);
+      return;
+    }
+    ver($('mapaSin'), false);
+    ver(caja, true);                            // visible ANTES de crear el mapa
+    $('mapaEdad').textContent = edadTexto(u.hace_seg);
+    dibujarMapa(lat, lng);
+  }
+
+  // ── Mantener la página viva ────────────────────────────────────────────
+  // El cliente la deja abierta esperando que el profesional salga. Cada 20 s
+  // se vuelve a preguntar, pero SÓLO mientras haya algo por pasar y SÓLO con
+  // la pantalla encendida: no le gastamos datos de gusto.
+  var CADA = 20000;
+  var TIMER = null;
+  var VIVOS = { aceptado: 1, agendado: 1, en_camino: 1 };
+
+  function debeRefrescar(){
+    return !DEMO && !!TOKEN && !!P && VIVOS[estadoDe(P)] === 1;
+  }
+  function pararRefresco(){
+    if (TIMER){ clearInterval(TIMER); TIMER = null; }
+  }
+  function arrancarRefresco(){
+    pararRefresco();
+    if (!debeRefrescar() || document.hidden) return;
+    TIMER = setInterval(refrescar, CADA);
+  }
+  async function refrescar(){
+    if (document.hidden || !debeRefrescar()){ pararRefresco(); return; }
+    try {
+      var r = await sb.rpc('presupuesto_publico', { p_token: TOKEN });
+      // Un error de red en un refresco de fondo no rompe nada: lo que ya está
+      // en pantalla sigue siendo válido y en 20 s se prueba de nuevo.
+      if (r.error || !r.data) return;
+      aplicar(r.data);
+    } catch (e) { /* silencio a propósito */ }
+  }
+
+  // Firma de lo que se ve: si no cambió, no se toca el DOM (así no parpadea).
+  function firma(p){
+    if (!p) return '';
+    return [estadoDe(p), p.agendado_para || '', p.hecho_at || '', p.codigo == null ? '' : p.codigo].join('|');
+  }
+  function aplicar(nuevo){
+    var antes = firma(P);
+    var estAntes = estadoDe(P);
+    P = nuevo;
+    if (firma(P) !== antes){
+      if (estadoDe(P) === 'en_camino' && estAntes !== 'en_camino'){
+        respondido = false;   // ya no aplica el mensaje de "recién aceptaste"
+        ver($('bRespuesta'), false);
+        vibrar();
+      }
+      if (estadoDe(P) === 'hecho'){ respondido = false; ver($('bRespuesta'), false); }
+      pintarPanel(P, true);
+      pintarEstado(estadoDe(P));
+    }
+    // Siempre: la ubicación cambia en cada refresco aunque el estado no cambie,
+    // y el marcador se mueve sin volver a armar nada.
+    actualizarMapa(P);
+    arrancarRefresco();   // se corta solo si el estado ya no lo amerita
+  }
+  function vibrar(){
+    try {
+      if (!document.hidden && navigator.vibrate) navigator.vibrate(200);
+    } catch (e) { /* no todos los navegadores lo tienen, y no importa */ }
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden){ pararRefresco(); return; }
+    arrancarRefresco();
+    if (debeRefrescar()) refrescar();   // al volver, mirar YA (no esperar 20 s)
+  });
+
+  // ── Responder ──────────────────────────────────────────────────────────
+  var enviando = false;
+
+  async function responder(acepta){
+    if (enviando) return;
+    if (DEMO){ exito(acepta); return; }                 // DEMO: no toca la base
+    enviando = true;
+    var aviso = $('avisoAcc');
+    aviso.className = 'aviso';
+    aviso.textContent = 'Enviando tu respuesta…';
+    $('btnSi').disabled = true; $('btnNo').disabled = true;
+    $('btnNoSi').disabled = true; $('btnVolver').disabled = true;
+
+    // Se responde por la Edge Function y no por la RPC directa, porque ademas de
+    // cambiar el estado le manda el aviso al profesional. Antes el cliente
+    // aceptaba y del otro lado no se enteraba nadie.
+    // Si la funcion no responde (desplegada a medias, sin internet en el medio),
+    // se cae a la RPC de siempre: perder el aviso es molesto, perder el "acepto"
+    // del cliente es perder el trabajo.
+    var ok = null, error = null;
+    try {
+      var r = await sb.functions.invoke('presupuesto-respondido', {
+        body: { token: TOKEN, acepta: acepta },
+      });
+      if (r.error) throw r.error;
+      ok = true;
+    } catch (e) {
+      try {
+        var r2 = await sb.rpc('responder_presupuesto', { p_token: TOKEN, p_acepta: acepta });
+        ok = r2.data; error = r2.error;
+      } catch (e2) { error = e2; }
+    }
+
+    enviando = false;
+
+    if (error){
+      console.warn(error);
+      $('btnSi').disabled = false; $('btnNo').disabled = false;
+      $('btnNoSi').disabled = false; $('btnVolver').disabled = false;
+      aviso.className = 'aviso err';
+      aviso.textContent = 'No pudimos enviar tu respuesta. Probá de nuevo en un momento.';
+      return;
+    }
+
+    if (ok === false){
+      // Ya lo habían respondido desde otro lado (o el profesional lo volvió a
+      // borrador). No es un error del cliente: se le muestra tal cual está.
+      ver($('bAcciones'), false);
+      badge('no', 'Este presupuesto ya fue respondido');
+      return;
+    }
+
+    exito(acepta);
+  }
+
+  function exito(acepto){
+    var emp = (P && P.empresa) || {};
+    var nombre = (emp.nombre || '').trim() || 'el profesional';
+    var numero = (P && P.numero != null) ? P.numero : null;
+
+    ver($('bAcciones'), false);
+    badge(acepto ? 'ok' : 'no', acepto ? 'Presupuesto aceptado' : 'Presupuesto rechazado');
+
+    $('rEmoji').innerHTML = acepto ? ICO.enviado : ICO.neutro;   // constantes nuestras
+    $('rTitulo').textContent = acepto ? '¡Listo! ' + nombre + ' ya fue avisado' : 'Respuesta enviada';
+    $('rTexto').textContent = acepto
+      ? 'Aceptaste el presupuesto. Si querés coordinar el día y la hora, escribile ahora.'
+      : 'Le avisamos a ' + nombre + ' que no vas a tomar este presupuesto. Gracias por responder.';
+    $('bRespuesta').classList.toggle('neutro', !acepto);
+
+    var msj = acepto
+      ? ('Hola! Acepté el presupuesto' + (numero != null ? ' N° ' + numero : '') + '. ¿Cuándo lo podemos coordinar?')
+      : ('Hola! Vi el presupuesto' + (numero != null ? ' N° ' + numero : '') + '. Por ahora no lo voy a tomar, gracias.');
+    var link = waLink(emp.telefono, msj);
+    if (link){
+      $('rWa').href = link;
+      $('rWa').textContent = acepto ? 'Coordinar por WhatsApp' : 'Escribirle por WhatsApp';
+      ver($('rWa'), true);
+    }
+
+    ver($('bRespuesta'), true);
+    $('bRespuesta').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // A partir de acá el trabajo sigue vivo en esta misma página: si aceptó,
+    // se queda mirando hasta que el profesional agende y salga.
+    respondido = true;
+    if (P) P.estado = acepto ? 'aceptado' : 'rechazado';
+    pintarPanel(P, false);
+    arrancarRefresco();
+  }
+
+  // ── Eventos ────────────────────────────────────────────────────────────
+  $('btnSi').addEventListener('click', function(){ responder(true); });
+  $('btnNo').addEventListener('click', function(){
+    ver($('filaBotones'), false);
+    ver($('cajaConfirmar'), true);
+  });
+  $('btnVolver').addEventListener('click', function(){
+    ver($('cajaConfirmar'), false);
+    ver($('filaBotones'), true);
+    $('avisoAcc').textContent = '';
+  });
+  $('btnNoSi').addEventListener('click', function(){ responder(false); });
+  $('btnImprimir').addEventListener('click', function(){ window.print(); });
+
+  // ── Cargar ─────────────────────────────────────────────────────────────
+  // Va ÚLTIMO a propósito: en modo ?demo= esto corre sin ningún await, y si
+  // estuviera arriba pintaría la página antes de que se inicialicen las
+  // variables del mapa (los `var` de más arriba las volverían a pisar).
+  (async function(){
+    if (DEMO){                                                                   // DEMO
+      P = presupuestoDemo(demoPro, demoEstado); pintar(P); demoMover(); return;   // DEMO
+    }                                                                            // DEMO
+    if (!TOKEN){
+      mostrarError(
+        'Este presupuesto no existe o fue dado de baja',
+        'El link parece incompleto. Pedile a quien te lo envió que te lo mande de nuevo.'
+      );
+      return;
+    }
+    var data = null, error = null;
+    try {
+      var r = await sb.rpc('presupuesto_publico', { p_token: TOKEN });
+      data = r.data; error = r.error;
+    } catch (e) { error = e; }
+
+    if (error){
+      // Un problema de red no es lo mismo que un presupuesto que no existe:
+      // no le digamos que se dio de baja algo que capaz está perfecto.
+      console.warn(error);
+      mostrarError(
+        'No pudimos abrir el presupuesto',
+        'Puede ser la conexión. Probá de nuevo en un momento o volvé a tocar el link.'
+      );
+      return;
+    }
+    if (!data){
+      mostrarError();
+      return;
+    }
+    P = data;
+    pintar(P);
+  })();
+
+})();
+</script>
+</body>
+</html>

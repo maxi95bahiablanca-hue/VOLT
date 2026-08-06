@@ -6,8 +6,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import professionalService from '../services/professionalService';
-import { necesitaPermisoPantallaCompleta, abrirAjustesPantallaCompleta } from '../services/incomingCall';
+import { tocaOfrecerPantallaCompleta, abrirAjustesPantallaCompleta } from '../services/incomingCall';
 import { showInfo } from '../utils/toast';
+import { abrirAyuda } from '../utils/ayuda';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  ALTA DE PROFESIONAL — SOLO CON GOOGLE
@@ -55,7 +56,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
   const volviendoDeAjustes = useRef(false);
 
   const ofrecerPantallaCompleta = async () => {
-    if (!(await necesitaPermisoPantallaCompleta())) return;
+    if (!(await tocaOfrecerPantallaCompleta())) return;
     Alert.alert(
       'Que no se te escape ningún trabajo',
       'En la pantalla que sigue activá "Notificaciones de pantalla completa". Es lo que hace que un pedido te suene y aparezca en pantalla aunque tengas el celular bloqueado.',
@@ -198,6 +199,18 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
 
           <TouchableOpacity style={styles.primaryBtn} onPress={onBack} activeOpacity={0.85}>
             <Text style={styles.primaryBtnText}>Listo</Text>
+          </TouchableOpacity>
+
+          {/* El momento exacto en que esta guía sirve: recién se anotó y lo que
+              sigue es que le entren trabajos. */}
+          <TouchableOpacity
+            style={styles.ayudaLink}
+            onPress={() => abrirAyuda('disponibilidad')}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="help-buoy-outline" size={14} color="#888" />
+            <Text style={styles.ayudaLinkText}>Cómo hacer que te lleguen trabajos</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -350,6 +363,14 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
 
   terms: { fontSize: 11.5, color: '#444', textAlign: 'center', lineHeight: 17, marginTop: 16 },
+
+  // Link de ayuda: discreto a propósito, no compite con el botón principal.
+  ayudaLink: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, marginTop: 16,
+  },
+  ayudaLinkText: { fontSize: 13, color: '#888', textDecorationLine: 'underline' },
+
   termsLink: { color: '#FFD600', textDecorationLine: 'underline' },
 
   errorWrap: {

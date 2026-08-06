@@ -36,6 +36,12 @@ export const OFICIOS = [
   // ── B · Obra / proyecto (programado) ───────────────────────────────────────
   { id: 4,  name: 'Pintor',                 emoji: '🎨', tipo: TIPO.OBRA },
   { id: 5,  name: 'Albañil',                emoji: '🧱', tipo: TIPO.OBRA },
+  // Faltaba desde siempre, aunque existe en la base (professions.id = 6), el alta
+  // de prestadores lo ofrece y la landing lo publicita. Como el espejo de esta
+  // lista se le pasa a la IA en analyze-problem, "armar un mueble bajo mesada"
+  // no matcheaba con nada y el cliente veía "No pudimos identificar el oficio"
+  // (5-ago-2026, con Esteban ya anotado como carpintero).
+  { id: 6,  name: 'Carpintero',              emoji: '🪚', tipo: TIPO.OBRA },
   { id: 9,  name: 'Jardinero',              emoji: '🌿', tipo: TIPO.OBRA },
   { id: 10, name: 'Limpieza',               emoji: '🧹', tipo: TIPO.OBRA },
   { id: 17, name: 'Alarmas / Cámaras',      emoji: '📹', tipo: TIPO.OBRA },

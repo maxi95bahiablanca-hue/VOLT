@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preguntas frecuentes — Ayuda de BOLT</title>
+<meta name="description" content="Las dudas que más se repiten sobre BOLT: por qué no te llega trabajo, si cobra algo, los presupuestos, el código de 4 dígitos y tu cuenta.">
+<meta name="theme-color" content="#FFD600">
+<link rel="preload" href="../../fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../ayuda.css">
+</head>
+<body>
+
+<div class="barra">
+  <div class="barra-in">
+    <a class="volver" href="../">← Ayuda</a>
+    <a class="marca" href="/">BO<em>LT</em></a>
+  </div>
+</div>
+
+<main class="hoja">
+
+  <div class="solo-papel papel-cabecera">BOLT · Centro de ayuda</div>
+
+  <div class="cabecera">
+    <span class="tema-icono no-papel" aria-hidden="true">❓</span>
+    <h1>Preguntas frecuentes</h1>
+    <p class="bajada">Las que más nos hacen, con la respuesta corta. Tocá la pregunta para abrirla.</p>
+    <span class="minutos">Buscá la tuya · 1 minuto</span>
+  </div>
+
+
+  <!-- ── Buscador ──────────────────────────────────────────────
+       Arranca oculto y lo muestra el script del final: si alguien
+       entra sin JavaScript, no se le dibuja un campo que no filtra
+       nada. Las preguntas quedan todas a la vista, como siempre. -->
+  <div class="buscador" id="buscador" hidden>
+    <label class="visualmente-oculto" for="buscar">Buscar en las preguntas</label>
+    <input class="buscador-campo" id="buscar" type="search" autocomplete="off"
+           placeholder="Buscá tu duda: radar, cobro, código…">
+    <p class="buscador-cuenta" id="cuenta" hidden></p>
+  </div>
+
+  <!-- ══ No me llega trabajo ══════════════════════════════ -->
+  <section class="grupo-preguntas">
+    <h2>No me llega trabajo</h2>
+
+    <details class="desplegable pregunta">
+      <summary>¿Por qué no me llega ningún trabajo?</summary>
+      <div class="desplegable-cuerpo">
+        <p>En 9 de cada 10 casos es lo mismo: <strong>la disponibilidad está apagada</strong>. Es un botón en la pantalla principal de la app.</p>
+        <p>Estar aprobado no alcanza. Si el botón dice <strong>"Activar disponibilidad"</strong>, para el sistema hoy no trabajás y no te entra nada.</p>
+        <p><a href="../disponibilidad/">Cómo activarla, paso a paso →</a></p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>Me aprobaron pero no aparezco en las búsquedas</summary>
+      <div class="desplegable-cuerpo">
+        <p>Te falta cargar el <strong>oficio</strong>. Es lo que define en qué búsquedas salís.</p>
+        <p><strong>Sin oficio no aparecés en ninguna</strong>, por más aprobado que estés y por más cerca que estés del cliente. Lo cargás desde el menú, en <strong>"Editar mis oficios y datos"</strong>.</p>
+        <p><a href="../registrarte/">Cómo darte de alta y cargar tu oficio →</a></p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>El botón quedó en "Actualizando…"</summary>
+      <div class="desplegable-cuerpo">
+        <p>Se cortó la conexión en el medio. <strong>Cerrá la app del todo</strong> —sacala de la lista de apps abiertas, no alcanza con volver al inicio— y volvé a abrirla.</p>
+        <p>Después tocá <strong>"Activar disponibilidad"</strong> otra vez. Tiene que quedar en <strong>"Estás disponible"</strong>.</p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Tengo que tener la app abierta todo el día?</summary>
+      <div class="desplegable-cuerpo">
+        <p>No. Podés guardar el celular en el bolsillo.</p>
+        <p>Lo que sí tiene que estar bien son los <strong>permisos de ubicación</strong>: en iPhone la localización de BOLT en <strong>"Siempre"</strong>, y en Android en <strong>"Permitir todo el tiempo"</strong> más sacarle la optimización de batería. Si no, el teléfono duerme la app y los pedidos no entran.</p>
+        <p><a href="../disponibilidad/">Los permisos, para iPhone y para Android →</a></p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Me están siguiendo todo el día?</summary>
+      <div class="desplegable-cuerpo">
+        <p>No. BOLT toma tu ubicación <strong>sólo mientras tenés la disponibilidad prendida</strong>. Cuando la apagás, deja de tomarla.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ══ Plata ═══════════════════════════════════════════ -->
+  <section class="grupo-preguntas">
+    <h2>Plata</h2>
+
+    <details class="desplegable pregunta">
+      <summary>¿BOLT me cobra algo?</summary>
+      <div class="desplegable-cuerpo">
+        <p><strong>No. Es todo gratis.</strong> No hay comisión, no hay abono, no hay plan pago ni funciones que se desbloqueen pagando.</p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Cómo cobro el trabajo?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Directo del cliente, como siempre: efectivo, transferencia, lo que arreglen entre ustedes.</p>
+        <p><strong>BOLT no toca la plata.</strong> No retiene, no adelanta y no se mete en el precio: el precio lo ponés vos.</p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Puedo poner mi logo y mis colores?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Sí, y también es gratis. Cargás tu logo, tu nombre comercial y tu color, y los presupuestos salen con tu marca.</p>
+        <p><a href="../mi-empresa/">Cómo cargarlo →</a></p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ══ Presupuestos ════════════════════════════════════ -->
+  <section class="grupo-preguntas">
+    <h2>Presupuestos</h2>
+
+    <details class="desplegable pregunta">
+      <summary>¿Necesito el número del cliente?</summary>
+      <div class="desplegable-cuerpo">
+        <p>No. Dejá el teléfono vacío y tocá <strong>"Crear y enviar por WhatsApp"</strong>: <strong>WhatsApp te deja elegir el chat</strong> de tu lista.</p>
+        <p><a href="../presupuesto/">Cómo hacer un presupuesto →</a></p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Qué significa "Lo vio"?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Que el cliente <strong>abrió tu presupuesto y todavía no te contestó</strong>. Lo leyó y lo está pensando.</p>
+        <p>Ahí conviene escribirle. Ya vio el precio y no lo descartó: un mensaje corto a los tres días cierra más trabajos que bajar el precio.</p>
+        <p><a href="../mi-negocio/">Todos los estados del presupuesto →</a></p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>El cliente me dijo que sí por teléfono, ¿cómo lo marco?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Abrí el presupuesto en tu panel. Abajo dice <strong>"¿Te contestó por otro lado?"</strong> con dos botones: <strong>"Lo aceptó"</strong> y <strong>"No va"</strong>.</p>
+        <p>Es para que nada te quede colgado esperando un clic del cliente que nunca va a llegar.</p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Puedo separar materiales de mano de obra?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Sí. En el presupuesto tocá <strong>"Agregar detalle"</strong> y cargá cada ítem marcándolo como <strong>Material</strong> o <strong>Mano de obra</strong>.</p>
+        <p>Abajo se te arma solo el desglose: <strong>Materiales $X</strong> y <strong>Mano de obra $Y</strong>. El total sigue siendo el que pusiste vos.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ══ Trabajos y clientes ═════════════════════════════ -->
+  <section class="grupo-preguntas">
+    <h2>Trabajos y clientes</h2>
+
+    <details class="desplegable pregunta">
+      <summary>¿Para qué es el código de 4 dígitos?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Para que el cliente confirme que <strong>el que está en la puerta sos vos</strong>. Le mostramos el mismo número en su teléfono y le decimos que te lo pida antes de abrir.</p>
+        <p>Es distinto en cada trabajo, y si volvés otro día se genera uno nuevo.</p>
+        <p><a href="../ir-al-domicilio/">Cómo funciona →</a></p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿El cliente me ve todo el tiempo en el mapa?</summary>
+      <div class="desplegable-cuerpo">
+        <p><strong>No.</strong> Sólo mientras vas en camino a su casa.</p>
+        <p>Arranca cuando tocás <strong>"Voy en camino"</strong> y <strong>se apaga apenas tocás "Llegué"</strong>. Durante el trabajo y después no ve nada.</p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>El cliente no tiene la app, ¿cómo hace?</summary>
+      <div class="desplegable-cuerpo">
+        <p>No necesita nada. Le mandás el link por WhatsApp y lo abre en el navegador, como cualquier página. No instala ni se registra.</p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Qué pasa si no contesto un pedido?</summary>
+      <div class="desplegable-cuerpo">
+        <p>A los <strong>3 minutos</strong> se cierra solo, se cuenta como rechazo y el trabajo se le ofrece a otro profesional.</p>
+        <p>No perdés nada más que ese trabajo: <strong>rechazar no te baja la calificación</strong>. Igual, si no vas a poder trabajar un rato, conviene pausar la disponibilidad — así el pedido le llega directo a alguien que sí puede ir.</p>
+        <p><a href="../recibir-trabajo/">Cómo aceptar un trabajo →</a></p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ══ Cuenta ══════════════════════════════════════════ -->
+  <section class="grupo-preguntas">
+    <h2>Tu cuenta</h2>
+
+    <details class="desplegable pregunta">
+      <summary>¿Puedo tener más de un oficio?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Sí. En el alta podés elegir <strong>hasta 3</strong>.</p>
+        <p>Vas a aparecer en las búsquedas de los tres. Poné los que de verdad hacés: en el que cargues de más te van a llamar igual.</p>
+        <p><a href="../registrarte/">Cómo cargar tus oficios →</a></p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Cómo cambio mis oficios o mis datos?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Desde el menú de la app, en <strong>"Editar mis oficios y datos"</strong>. Ahí cambiás tu oficio, tu zona y tus datos cuando quieras.</p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Cómo sé si mi solicitud fue aprobada?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Mirá el menú de la app. Mientras la revisamos vas a ver <strong>"Mi solicitud"</strong> con el cartel <strong>"En revisión"</strong>. Si aparecen <strong>"Mi negocio"</strong> y <strong>"Editar mis oficios y datos"</strong>, ya estás aprobado.</p>
+        <p>Si dice <strong>"Rechazada"</strong>, podés tocar <strong>"Reintentar solicitud"</strong>.</p>
+      </div>
+    </details>
+
+    <details class="desplegable pregunta">
+      <summary>¿Cómo borro mi cuenta?</summary>
+      <div class="desplegable-cuerpo">
+        <p>Desde la app: entrá a <strong>Mi perfil</strong> y abajo de todo tocá <strong>"Borrar mi cuenta"</strong>. Te pide dos confirmaciones y listo.</p>
+        <p><strong>Se borran tu cuenta y todos tus datos, y no se puede deshacer.</strong> Si sólo querés dejar de recibir pedidos por un tiempo, pausá la disponibilidad en vez de borrar la cuenta.</p>
+        <p>Si no llegás a entrar a la app, también podés pedirlo por mail a <strong>soporte@bolt.com.ar</strong>, desde la misma dirección con la que te registraste.</p>
+        <p><a href="/eliminar-cuenta.html">Qué datos se borran →</a></p>
+      </div>
+    </details>
+  </section>
+
+
+  <!-- Lo único que queda en pantalla cuando el filtro no encontró nada.
+       Que la salida sea el WhatsApp y no un callejón: el que buscó y no
+       encontró es justamente el que hay que atender. -->
+  <div class="sin-resultados" id="sin-resultados" hidden>
+    <h2>No encontramos esa pregunta</h2>
+    <p class="apoyo">Probá con una palabra sola —«radar», «cobro», «código», «presupuesto»— o preguntanos directamente y te contestamos.</p>
+    <a class="btn-wa" href="https://wa.me/5492914199938?text=Hola%2C%20tengo%20una%20pregunta%20sobre%20BOLT%3A">
+      💬 Escribir al soporte
+    </a>
+  </div>
+
+  <!-- ── PDF ──────────────────────────────────────────────── -->
+  <div class="pdf-zona">
+    <button class="btn-pdf" type="button" onclick="window.print()">📄 Guardar como PDF</button>
+    <p class="pdf-como">Se abre el menú de impresión → elegí «Guardar como PDF».<br>
+      En Android: Compartir → Imprimir → Guardar como PDF. En iPhone: Compartir → Opciones → Imprimir.</p>
+  </div>
+
+  <!-- ── Soporte ──────────────────────────────────────────── -->
+  <section class="soporte">
+    <h2>¿No está tu pregunta?</h2>
+    <p class="apoyo">Escribinos y te contestamos.</p>
+    <p>
+      <a class="btn-wa" href="https://wa.me/5492914199938?text=Hola%2C%20tengo%20una%20pregunta%20sobre%20BOLT%3A">
+        💬 Escribir al soporte
+      </a>
+      <span class="tel-papel">Soporte por WhatsApp: 2914199938</span>
+    </p>
+  </section>
+
+  <!-- ── Relacionados ─────────────────────────────────────── -->
+  <nav class="relacionados">
+    <span class="rotulo">Seguí por acá</span>
+    <a href="../disponibilidad/">Que te lleguen trabajos <span>La guía completa de la disponibilidad y los permisos.</span></a>
+    <a href="../presupuesto/">Hacer un presupuesto <span>Dos datos y lo mandás por WhatsApp.</span></a>
+    <a href="../">Todos los temas <span>Volver al centro de ayuda.</span></a>
+  </nav>
+
+  <div class="solo-papel papel-pie">
+    BOLT — bolt.com.ar/ayuda<br>
+    Esta guía online: <span class="url">bolt.com.ar/ayuda/preguntas/</span>
+  </div>
+
+  <div class="pie">
+    <p>BOLT · Bahía Blanca, Argentina · <a href="../">Centro de ayuda</a> · <a href="/">bolt.com.ar</a></p>
+  </div>
+
+</main>
+
+<!-- Buscador de las preguntas. Filtra mientras se escribe, comparando contra
+     la pregunta Y la respuesta, sin acentos y sin distinguir mayúsculas:
+     "codigo" encuentra "código". En papel no interviene: se imprimen todas. -->
+<script>
+(function () {
+  var campo = document.getElementById('buscar');
+  if (!campo) { return; }
+
+  var caja      = document.getElementById('buscador');
+  var cuenta    = document.getElementById('cuenta');
+  var sin       = document.getElementById('sin-resultados');
+  var grupos    = [].slice.call(document.querySelectorAll('.grupo-preguntas'));
+  var preguntas = [].slice.call(document.querySelectorAll('details.pregunta'));
+
+  function limpiar(t) {
+    t = (t || '').toLowerCase();
+    if (t.normalize) { t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+    return t.replace(/\s+/g, ' ').trim();
+  }
+
+  // El texto de cada pregunta se calcula una sola vez, al arrancar.
+  var textos = preguntas.map(function (d) { return limpiar(d.textContent); });
+
+  function filtrar() {
+    var palabras = limpiar(campo.value).split(' ').filter(function (p) { return p; });
+    var hallados = 0;
+
+    preguntas.forEach(function (d, i) {
+      var entra = true;
+      for (var p = 0; p < palabras.length; p++) {
+        if (textos[i].indexOf(palabras[p]) === -1) { entra = false; break; }
+      }
+      d.hidden = !entra;
+      // Buscando, la respuesta se abre sola: muchas veces la palabra está
+      // adentro de la respuesta y con el título nada más no se entiende por
+      // qué quedó ésa. Con el campo vacío, todo vuelve a estar cerrado.
+      d.open = entra && palabras.length > 0;
+      if (entra) { hallados++; }
+    });
+
+    // Un título de grupo sin ninguna pregunta abajo es ruido.
+    grupos.forEach(function (g) {
+      g.hidden = (g.querySelectorAll('details.pregunta:not([hidden])').length === 0);
+    });
+
+    sin.hidden = (palabras.length === 0 || hallados > 0);
+
+    cuenta.hidden = (palabras.length === 0);
+    cuenta.textContent = palabras.length === 0 ? ''
+      : hallados === 0 ? 'Ninguna coincide'
+      : hallados === 1 ? '1 pregunta' : hallados + ' preguntas';
+  }
+
+  campo.addEventListener('input', filtrar);
+  campo.addEventListener('search', filtrar);   // la crucecita de Chrome
+  campo.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' || e.keyCode === 27) { campo.value = ''; filtrar(); }
+  });
+
+  caja.hidden = false;
+  // Firefox devuelve lo tipeado al recargar: que la lista arranque acorde.
+  filtrar();
+})();
+</script>
+
+<!-- Que las preguntas salgan abiertas en el PDF. En pantalla no cambia nada. -->
+<script>
+(function () {
+  var abiertos = [];
+  function abrir() {
+    abiertos = [];
+    var ds = document.querySelectorAll('details:not([open])');
+    for (var i = 0; i < ds.length; i++) { abiertos.push(ds[i]); ds[i].open = true; }
+  }
+  function cerrar() {
+    for (var i = 0; i < abiertos.length; i++) { abiertos[i].open = false; }
+    abiertos = [];
+  }
+  window.addEventListener('beforeprint', abrir);
+  window.addEventListener('afterprint', cerrar);
+  if (window.matchMedia) {
+    var mq = window.matchMedia('print');
+    var alCambiar = function (e) { e.matches ? abrir() : cerrar(); };
+    if (mq.addEventListener) { mq.addEventListener('change', alCambiar); }
+    else if (mq.addListener) { mq.addListener(alCambiar); }
+  }
+})();
+</script>
+
+<!-- Cuenta que se abrió esta página, y nada más: ni quién, ni de dónde.
+     Si falla, la página funciona igual. Ver visita.js. -->
+<script src="../visita.js" data-pagina="preguntas"></script>
+
+<script src="../iconos.js" defer></script>
+</body>
+</html>

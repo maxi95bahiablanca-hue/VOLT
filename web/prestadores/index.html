@@ -7,223 +7,403 @@
 <meta name="description" content="Sumate a BOLT: recibí trabajos cerca tuyo, cobrá directo del cliente y hacé crecer tu cartera de clientes. Registrate gratis.">
 <meta property="og:title" content="BOLT — Trabajá con nosotros">
 <meta property="og:description" content="Recibí trabajos cerca tuyo y cobrá directo del cliente. Registrate gratis y sé de los primeros.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="preload" href="../fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* ── Inter: la tipografía de BOLT ────────────────────────────────────
+     Hospedada acá mismo (web/fuentes/), NO en un CDN: si el servidor de
+     Google tarda o falla, el texto se ve mal, y eso es justo lo que no
+     queremos. Un solo archivo variable cubre todos los grosores.
+     Inter — Rasmus Andersson — SIL Open Font License 1.1. */
+  @font-face{
+    font-family:"Inter";
+    font-style:normal;
+    font-weight:100 900;
+    font-display:swap;
+    src:url("../fuentes/InterVariable.woff2") format("woff2");
+    unicode-range:U+0000-00FF, U+0100-024F, U+0259, U+0131, U+0152-0153,
+                  U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+                  U+0329, U+1E00-1EFF, U+2000-206F, U+2074, U+20A0-20CF,
+                  U+2122, U+2190-2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
+  /* ── El mismo lenguaje que la home ──────────────────────────────────────
+     Negro y blanco, el amarillo sólo en detalles y en la acción principal.
+     Sin esquinas vivas: círculos, píldoras y radios grandes. Pesos en
+     550-600, nunca 900. Los NOMBRES de las clases no cambian: acá sólo
+     cambia el vestido, el alta funciona igual. */
   *{margin:0;padding:0;box-sizing:border-box}
-  :root{--bg:#0A0A0A;--surf:#141414;--surf2:#1a1a1a;--bord:#262626;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#FFD600;--blue:#FFD600;--red:#FFD600}
+  :root{
+    --bg:#08090A;--surf:rgba(255,255,255,.035);--surf2:rgba(255,255,255,.06);
+    --bord:rgba(255,255,255,.09);--bord2:rgba(255,255,255,.16);
+    --yellow:#FFD600;--text:#FFFFFF;--muted:#9BA1A8;--muted2:#6B7278;
+    --green:#FFD600;--blue:#FFD600;--red:#FFD600;
+  }
   html{scroll-behavior:smooth}
-  body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
-  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  body{font-family:"Inter",-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       /* cv05 = ele con cola, ss03 = comillas rectas: dos cosas
+          que Inter trae y la del sistema no. */
+       font-feature-settings:"cv05" 1,"ss03" 1;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px;position:relative;z-index:1}
   a{text-decoration:none;color:inherit}
 
-  nav{position:sticky;top:0;z-index:30;background:rgba(10,10,10,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--bord)}
-  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:15px 0}
-  .logo{font-size:1.45rem;font-weight:900;letter-spacing:1px}.logo span{color:var(--yellow)}
-  .nav-cta{background:var(--yellow);color:#0A0A0A;font-weight:800;font-size:.85rem;padding:9px 18px;border-radius:12px}
+  /* El halo que gira, como en la home */
+  body::before{
+    content:'';position:fixed;top:-460px;left:50%;width:1000px;height:1000px;
+    margin-left:-500px;pointer-events:none;z-index:0;border-radius:50%;
+    background:conic-gradient(from 0deg,
+      rgba(255,214,0,.15),rgba(255,214,0,0) 30%,
+      rgba(255,255,255,.06) 55%,rgba(255,214,0,0) 76%,rgba(255,214,0,.15));
+    filter:blur(100px);animation:girar 30s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
 
-  .hero{text-align:center;padding:50px 0 40px}
-  .hero .tag{display:inline-block;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);color:var(--yellow);font-weight:800;font-size:.76rem;padding:7px 16px;border-radius:20px;margin-bottom:24px}
-  .logo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;width:fit-content;margin:0 auto 24px}
-  .logo-glow{position:absolute;inset:-60% -80%;background:radial-gradient(circle,rgba(255,180,0,.34),rgba(255,120,0,.09),transparent 62%);filter:blur(34px);z-index:0;pointer-events:none}
-  .bolt-svg{position:relative;width:60px;height:auto;z-index:1;filter:drop-shadow(0 0 14px rgba(255,160,0,.55))}
-  .logo-big{position:relative;z-index:1;font-weight:900;font-size:1.7rem;letter-spacing:2px;margin-top:6px;line-height:1}
+  nav{position:sticky;top:0;z-index:30;background:rgba(8,9,10,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--bord)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  .logo{font-size:1.1rem;font-weight:700;letter-spacing:1px}.logo span{color:var(--yellow)}
+  .nav-cta{background:var(--text);color:#08090A;font-weight:550;font-size:.88rem;padding:11px 22px;border-radius:999px;transition:transform .22s cubic-bezier(.16,.9,.3,1),box-shadow .22s}
+  .nav-cta:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(255,255,255,.16)}
+
+  .hero{text-align:center;padding:64px 0 48px}
+  .hero .tag{display:inline-flex;align-items:center;gap:9px;background:transparent;border:1px solid var(--bord2);color:var(--muted);font-weight:450;font-size:.8rem;padding:8px 18px;border-radius:999px;margin-bottom:28px}
+  .hero .tag::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+  .logo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;width:fit-content;margin:0 auto 26px}
+  .logo-glow{position:absolute;inset:-60% -80%;background:radial-gradient(circle,rgba(255,214,0,.28),rgba(255,214,0,.06),transparent 62%);filter:blur(38px);z-index:0;pointer-events:none}
+  .bolt-svg{position:relative;width:54px;height:auto;z-index:1;filter:drop-shadow(0 0 16px rgba(255,214,0,.45))}
+  .logo-big{position:relative;z-index:1;font-weight:700;font-size:1.5rem;letter-spacing:3px;margin-top:8px;line-height:1}
   .logo-big .bo{color:#fff}.logo-big .lt{color:var(--yellow)}
-  .hero h1{font-size:2.7rem;font-weight:900;line-height:1.1;letter-spacing:-1px;margin-bottom:16px}
-  .hero h1 span{color:var(--yellow)}
-  .hero p{font-size:1.12rem;color:var(--muted);max-width:540px;margin:0 auto 30px}
-  .hero .btn{display:inline-block;background:var(--yellow);color:#0A0A0A;font-weight:800;font-size:1.05rem;padding:16px 34px;border-radius:14px;box-shadow:0 0 40px rgba(255,214,0,.25);transition:.2s}
-  .hero .btn:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(255,214,0,.45)}
-  .hero .sub{margin-top:14px;font-size:.85rem;color:var(--muted2)}
-  @media(max-width:640px){.hero h1{font-size:2rem}.hero{padding:44px 0 32px}}
+  .hero h1{font-size:clamp(2.1rem,5.4vw,3.4rem);font-weight:600;line-height:1.06;letter-spacing:-1.6px;margin-bottom:18px}
+  /* 🔴 Antes acá decía `.hero h1 span{color:var(--yellow)}`. Ahora cada
+     palabra del título es un <span> (para que entren de a una), así que esa
+     regla pintaba el título ENTERO de amarillo. El resaltado va con <em>. */
+  .hero h1 em{font-style:normal;color:var(--yellow)}
+  .hero p{font-size:1.08rem;color:var(--muted);font-weight:400;max-width:540px;margin:0 auto 32px}
+  .hero .btn{display:inline-block;background:var(--yellow);color:#08090A;font-weight:600;font-size:1.02rem;padding:17px 36px;border-radius:999px;transition:transform .22s cubic-bezier(.16,.9,.3,1),box-shadow .22s}
+  .hero .btn:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(255,214,0,.3)}
+  .hero .sub{margin-top:16px;font-size:.86rem;color:var(--muted2)}
+  @media(max-width:640px){.hero{padding:48px 0 34px}}
 
-  section{padding:48px 0;border-top:1px solid var(--bord)}
-  .s-title{font-size:1.6rem;font-weight:900;text-align:center;margin-bottom:34px}
+  section{padding:64px 0;border-top:1px solid var(--bord);position:relative}
+  .s-title{font-size:clamp(1.5rem,3.4vw,2.2rem);font-weight:600;letter-spacing:-1px;text-align:center;margin-bottom:40px}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
   @media(max-width:760px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--surf);border:1px solid var(--bord);border-radius:18px;padding:24px}
-  .card .ico{font-size:2rem;margin-bottom:12px}
-  .card h3{font-size:1.05rem;font-weight:800;margin-bottom:6px}
-  .card p{color:var(--muted);font-size:.92rem}
+  .card{background:var(--surf);border:1px solid var(--bord);border-radius:28px;padding:28px;transition:transform .25s cubic-bezier(.16,.9,.3,1),border-color .25s}
+  .card:hover{transform:translateY(-3px);border-color:var(--bord2)}
+  /* Los dibujos son propios, no emojis: un emoji lo dibuja el sistema
+     operativo, cambia en cada teléfono y no es de nadie. Trazo grueso y el
+     relleno en amarillo, igual que en la página del presupuesto. */
+  .card .ico{margin-bottom:16px;width:46px;height:46px;border-radius:50%;border:1px solid var(--bord2);display:flex;align-items:center;justify-content:center}
+  .card .ico svg{width:24px;height:24px}
+  .tl-ic svg{width:15px;height:15px}
+  .ok-box .em svg{width:56px;height:56px}
+  .card h3{font-size:1.05rem;font-weight:550;margin-bottom:7px;letter-spacing:-.3px}
+  .card p{color:var(--muted);font-size:.93rem;font-weight:400}
 
   .steps{max-width:640px;margin:0 auto}
-  .step{display:flex;gap:16px;align-items:flex-start;margin-bottom:22px}
-  .step-n{width:38px;height:38px;border-radius:12px;background:var(--yellow);color:#0A0A0A;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .step h4{font-weight:800;margin-bottom:2px}
-  .step p{color:var(--muted);font-size:.92rem}
+  .step{display:flex;gap:18px;align-items:flex-start;margin-bottom:24px}
+  .step-n{width:40px;height:40px;border-radius:50%;background:transparent;border:1px solid var(--bord2);color:var(--yellow);font-weight:550;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .step h4{font-weight:550;margin-bottom:3px;letter-spacing:-.3px}
+  .step p{color:var(--muted);font-size:.93rem;font-weight:400}
 
   /* FORM */
-  .form-box{background:var(--surf);border:1px solid rgba(255,214,0,.25);border-radius:22px;padding:30px 24px;max-width:580px;margin:0 auto;position:relative;overflow:hidden}
-  .form-box h2{font-size:1.55rem;font-weight:900;text-align:center;margin-bottom:6px}
-  .form-box .sub{text-align:center;color:var(--muted);margin-bottom:20px;font-size:.92rem}
-  label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;margin-top:14px}
-  input,select{width:100%;background:var(--surf2);border:1px solid var(--bord);color:var(--text);border-radius:12px;padding:13px 14px;font-family:inherit;font-size:.95rem;outline:none;transition:.15s}
-  input:focus,select:focus{border-color:rgba(255,214,0,.5)}
+  .form-box{background:var(--surf);border:1px solid var(--bord);border-radius:34px;padding:36px 28px;max-width:580px;margin:0 auto;position:relative;overflow:hidden}
+  @media(max-width:520px){.form-box{border-radius:26px;padding:28px 20px}}
+  .form-box h2{font-size:1.5rem;font-weight:600;letter-spacing:-.8px;text-align:center;margin-bottom:8px}
+  .form-box .sub{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.93rem;font-weight:400}
+  label{display:block;font-size:.68rem;font-weight:600;color:var(--muted2);margin-bottom:8px;margin-top:18px;letter-spacing:2px;text-transform:uppercase}
+  input,select{width:100%;background:var(--surf);border:1px solid var(--bord);color:var(--text);border-radius:20px;padding:15px 18px;font-family:inherit;font-size:.97rem;outline:none;transition:border-color .2s,background .2s}
+  input:focus,select:focus{border-color:rgba(255,214,0,.55);background:var(--surf2)}
+  input::placeholder{color:var(--muted2)}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media(max-width:480px){.row{grid-template-columns:1fr}}
-  .hint{font-size:.76rem;color:var(--muted2);margin-top:5px}
+  .hint{font-size:.78rem;color:var(--muted2);margin-top:7px}
 
 
   /* Alta con Google */
-  .btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;background:#fff;color:#1f1f1f;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:800;font-size:1.02rem;cursor:pointer;margin-top:8px;transition:.2s}
-  .btn-google:hover{box-shadow:0 0 30px rgba(255,255,255,.18);transform:translateY(-1px)}
-  .btn-google:disabled{opacity:.6;cursor:default;transform:none}
+  .btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;background:#fff;color:#1f1f1f;border:none;border-radius:999px;padding:17px;font-family:inherit;font-weight:600;font-size:1.02rem;cursor:pointer;margin-top:8px;transition:transform .22s cubic-bezier(.16,.9,.3,1),box-shadow .22s}
+  .btn-google:hover{box-shadow:0 12px 32px rgba(255,255,255,.18);transform:translateY(-2px)}
+  .btn-google:disabled{opacity:.55;cursor:default;transform:none}
   .btn-google svg{flex-shrink:0}
-  .g-flow{margin-top:26px;border-top:1px solid var(--bord);padding-top:22px}
-  .g-fitem{display:flex;gap:13px;align-items:flex-start;margin-bottom:15px}
-  .g-fn{width:26px;height:26px;border-radius:9px;background:var(--surf2);border:1px solid var(--bord);color:var(--yellow);font-weight:900;font-size:.82rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .g-fitem b{display:block;font-weight:800;font-size:.94rem;margin-bottom:1px}
-  .g-fitem span.d{display:block;font-size:.84rem;color:var(--muted);line-height:1.5}
-  .g-alt{text-align:center;margin-top:20px;font-size:.88rem;color:var(--muted)}
-  .g-alt a{color:var(--yellow);font-weight:700;cursor:pointer;text-decoration:underline}
-  .g-terms{text-align:center;margin-top:16px;font-size:.74rem;color:var(--muted2);line-height:1.6}
+  .g-flow{margin-top:28px;border-top:1px solid var(--bord);padding-top:24px}
+  .g-fitem{display:flex;gap:14px;align-items:flex-start;margin-bottom:17px}
+  .g-fn{width:28px;height:28px;border-radius:50%;background:transparent;border:1px solid var(--bord2);color:var(--yellow);font-weight:550;font-size:.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .g-fitem b{display:block;font-weight:550;font-size:.95rem;margin-bottom:2px}
+  .g-fitem span.d{display:block;font-size:.85rem;color:var(--muted);line-height:1.5;font-weight:400}
+  .g-alt{text-align:center;margin-top:22px;font-size:.89rem;color:var(--muted)}
+  .g-alt a{color:var(--yellow);font-weight:550;cursor:pointer;text-decoration:none;border-bottom:1px solid rgba(255,214,0,.4)}
+  .g-terms{text-align:center;margin-top:18px;font-size:.75rem;color:var(--muted2);line-height:1.6}
   .g-terms a{color:var(--muted);text-decoration:underline}
-  .g-nota{background:var(--surf2);border:1px solid var(--bord);border-radius:12px;padding:14px;font-size:.86rem;color:var(--muted);line-height:1.6;margin-top:16px}
-  .acct-card{display:flex;align-items:center;gap:13px;background:var(--surf2);border:1px solid var(--bord);border-radius:14px;padding:14px;margin-top:6px}
-  .acct-foto{width:42px;height:42px;border-radius:50%;flex-shrink:0;object-fit:cover}
-  .acct-ini{width:42px;height:42px;border-radius:50%;flex-shrink:0;background:var(--yellow);color:#0A0A0A;font-weight:900;font-size:1.1rem;display:flex;align-items:center;justify-content:center}
-  .acct-lbl{font-size:.74rem;color:var(--muted2);margin-bottom:2px}
-  .acct-mail{font-size:.98rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ok-cta{background:var(--surf2);border:1px solid rgba(255,214,0,.3);border-radius:16px;padding:20px;margin:22px 0 4px;text-align:left}
-  .ok-cta-t{font-weight:900;font-size:1.02rem;margin-bottom:6px}
-  .ok-cta-p{font-size:.9rem;color:var(--muted);line-height:1.6;margin-bottom:6px}
-  .ok-cta-h{font-size:.8rem;color:var(--muted2);line-height:1.5;margin-top:10px;text-align:center}
+  .g-nota{background:var(--surf);border:1px solid var(--bord);border-radius:22px;padding:16px 18px;font-size:.87rem;color:var(--muted);line-height:1.6;margin-top:18px}
+  .acct-card{display:flex;align-items:center;gap:14px;background:var(--surf);border:1px solid var(--bord);border-radius:999px;padding:12px 20px 12px 12px;margin-top:8px}
+  .acct-foto{width:44px;height:44px;border-radius:50%;flex-shrink:0;object-fit:cover}
+  .acct-ini{width:44px;height:44px;border-radius:50%;flex-shrink:0;background:var(--yellow);color:#08090A;font-weight:600;font-size:1.05rem;display:flex;align-items:center;justify-content:center}
+  .acct-lbl{font-size:.7rem;color:var(--muted2);margin-bottom:2px;letter-spacing:1.4px;text-transform:uppercase}
+  .acct-mail{font-size:.97rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ok-cta{background:var(--surf);border:1px solid rgba(255,214,0,.3);border-radius:26px;padding:24px;margin:24px 0 4px;text-align:left}
+  .ok-cta-t{font-weight:550;font-size:1.05rem;margin-bottom:7px;letter-spacing:-.3px}
+  .ok-cta-p{font-size:.91rem;color:var(--muted);line-height:1.6;margin-bottom:6px;font-weight:400}
+  .ok-cta-h{font-size:.81rem;color:var(--muted2);line-height:1.5;margin-top:12px;text-align:center}
 
   /* Progreso de pasos */
-  .prog{display:flex;align-items:center;gap:6px;margin-bottom:22px}
-  .prog .pdot{flex:1;height:6px;border-radius:4px;background:var(--surf2);transition:.4s}
+  .prog{display:flex;align-items:center;gap:7px;margin-bottom:24px}
+  .prog .pdot{flex:1;height:3px;border-radius:999px;background:var(--bord);transition:background .45s}
   .prog .pdot.on{background:var(--yellow)}
-  .prog .plbl{font-size:.74rem;color:var(--muted2);font-weight:700;white-space:nowrap;margin-left:4px}
+  .prog .plbl{font-size:.68rem;color:var(--muted2);font-weight:600;white-space:nowrap;margin-left:6px;letter-spacing:2px;text-transform:uppercase}
 
-  .fstep{animation:slideIn .35s ease}
-  @keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+  .fstep{animation:slideIn .45s cubic-bezier(.16,.9,.3,1)}
+  @keyframes slideIn{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:translateX(0)}}
 
-  .btn-submit{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:900;font-size:1.02rem;cursor:pointer;margin-top:22px;transition:.2s}
-  .btn-submit:hover{box-shadow:0 0 30px rgba(255,214,0,.4)}
-  .btn-submit:disabled{opacity:.6;cursor:default}
-  .btn-back{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:14px;padding:16px 18px;font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;margin-top:22px}
+  .btn-submit{width:100%;background:var(--yellow);color:#08090A;border:none;border-radius:999px;padding:17px;font-family:inherit;font-weight:600;font-size:1.02rem;cursor:pointer;margin-top:24px;transition:transform .22s cubic-bezier(.16,.9,.3,1),box-shadow .22s}
+  .btn-submit:hover{box-shadow:0 12px 34px rgba(255,214,0,.3);transform:translateY(-2px)}
+  .btn-submit:disabled{opacity:.5;cursor:default;transform:none;box-shadow:none}
+  .btn-back{background:transparent;border:1px solid var(--bord2);color:var(--muted);border-radius:999px;padding:17px 24px;font-family:inherit;font-weight:450;font-size:.95rem;cursor:pointer;margin-top:24px;transition:.2s}
+  .btn-back:hover{border-color:var(--text);color:var(--text)}
   .btn-rowf{display:flex;gap:10px}
   .btn-rowf .btn-submit{margin-top:22px}
   .msg{margin-top:14px;text-align:center;font-size:.9rem;font-weight:600;min-height:18px}
 
   /* Subida de archivos */
-  .upload{display:block;background:var(--surf2);border:1.5px dashed #333;border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:.2s;margin-top:6px}
-  .upload:hover{border-color:rgba(255,214,0,.5)}
+  .upload{display:block;background:var(--surf);border:1px dashed var(--bord2);border-radius:22px;padding:20px;text-align:center;cursor:pointer;transition:.2s;margin-top:8px}
+  .upload:hover{border-color:rgba(255,214,0,.5);background:var(--surf2)}
   .upload .uemoji{font-size:1.6rem}
-  .upload .utext{font-size:.84rem;color:var(--muted);margin-top:4px}
-  .upload.has{border-color:var(--green);border-style:solid}
-  .upload.has .utext{color:var(--green);font-weight:700}
+  .upload .utext{font-size:.85rem;color:var(--muted);margin-top:5px}
+  .upload.has{border-color:var(--green);border-style:solid;background:rgba(255,214,0,.06)}
+  .upload.has .utext{color:var(--green);font-weight:550}
   .upload input{display:none}
 
   /* OK / celebración */
   .ok-box{display:none;text-align:center;padding:8px 0}
   .ok-box .em{font-size:3.4rem;margin-bottom:6px;animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
   @keyframes pop{from{transform:scale(0)}}
-  .ok-box h3{font-size:1.55rem;font-weight:900;color:var(--yellow);margin-bottom:8px}
-  .ok-box .okp{color:var(--muted);font-size:.95rem;margin-bottom:8px}
-  .tl{text-align:left;margin:22px auto 0;max-width:420px}
-  .tl-item{display:flex;gap:13px;align-items:flex-start;position:relative;padding-bottom:20px}
-  .tl-item:not(:last-child)::before{content:"";position:absolute;left:15px;top:30px;bottom:0;width:2px;background:var(--bord)}
-  .tl-ic{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.95rem;background:var(--surf2);border:1px solid var(--bord);z-index:1}
-  .tl-item.done .tl-ic{background:var(--green);border-color:var(--green)}
-  .tl-item.wait .tl-ic{background:rgba(255,214,0,.15);border-color:var(--yellow);animation:pulse 1.6s infinite}
-  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(255,214,0,.08)}}
-  .tl-tx b{font-weight:800;font-size:.96rem;display:block}
-  .tl-tx span{font-size:.82rem;color:var(--muted)}
-  .tl-item.wait .tl-tx span{color:var(--yellow);font-weight:700}
+  .ok-box h3{font-size:1.55rem;font-weight:600;letter-spacing:-.8px;color:var(--yellow);margin-bottom:10px}
+  .ok-box .okp{color:var(--muted);font-size:.95rem;margin-bottom:8px;font-weight:400}
+  .tl{text-align:left;margin:26px auto 0;max-width:420px}
+  .tl-item{display:flex;gap:14px;align-items:flex-start;position:relative;padding-bottom:22px}
+  .tl-item:not(:last-child)::before{content:"";position:absolute;left:16px;top:32px;bottom:0;width:1px;background:var(--bord2)}
+  .tl-ic{width:33px;height:33px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.95rem;background:var(--surf);border:1px solid var(--bord2);z-index:1}
+  .tl-item.done .tl-ic{background:var(--green);border-color:var(--green);color:#08090A}
+  .tl-item.wait .tl-ic{background:rgba(255,214,0,.12);border-color:var(--yellow);animation:pulse 2s infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 7px rgba(255,214,0,.08)}}
+  .tl-tx b{font-weight:550;font-size:.97rem;display:block;letter-spacing:-.2px}
+  .tl-tx span{font-size:.83rem;color:var(--muted);font-weight:400}
+  .tl-item.wait .tl-tx span{color:var(--yellow);font-weight:500}
 
   /* Confetti */
   .confetti{position:fixed;top:-12px;width:10px;height:14px;z-index:999;pointer-events:none;will-change:transform;border-radius:2px}
 
-  footer{border-top:1px solid var(--bord);padding:30px 0;color:var(--muted2);font-size:.82rem;text-align:center}
-  footer a{color:var(--muted);font-weight:600;margin:0 10px}
+  footer{border-top:1px solid var(--bord);padding:38px 0;color:var(--muted2);font-size:.83rem;text-align:center;position:relative;z-index:1}
+  footer a{color:var(--muted);font-weight:450;margin:0 12px;transition:color .2s}
+  footer a:hover{color:var(--text)}
 
   /* Chips de oficios (hasta 3) — estilo app: apagado → se colorea amarillo */
-  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
-  .chip{background:var(--surf2);border:2px solid var(--bord);color:var(--text);border-radius:14px;padding:11px 17px;font-size:.92rem;font-weight:800;cursor:pointer;transition:.15s;user-select:none}
-  .chip:hover{border-color:#3a3a3a}
-  .chip.on{background:var(--yellow);border-color:var(--yellow);color:#0A0A0A}
-  .chip.dis{opacity:.35;pointer-events:none}
-  .prof-count{font-size:.82rem;color:var(--muted);margin-top:12px;font-weight:700}
-  .matri-box{margin-top:16px;background:var(--surf);border:1.5px solid var(--bord);border-radius:14px;padding:14px;transition:.15s}
-  .matri-box.checked{background:rgba(255,214,0,.08);border-color:rgba(255,214,0,.4)}
-  .matri-check{display:flex;align-items:flex-start;gap:11px;cursor:pointer;font-size:.9rem;font-weight:700;margin:0}
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:10px}
+  .chip{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:11px 20px;font-size:.9rem;font-weight:450;cursor:pointer;transition:.2s;user-select:none}
+  .chip:hover{border-color:var(--bord2);color:var(--text)}
+  .chip.on{background:var(--yellow);border-color:var(--yellow);color:#08090A;font-weight:550}
+  .chip.dis{opacity:.3;pointer-events:none}
+  .prof-count{font-size:.83rem;color:var(--muted);margin-top:14px;font-weight:450}
+  .matri-box{margin-top:18px;background:var(--surf);border:1px solid var(--bord);border-radius:22px;padding:16px 18px;transition:.2s}
+  .matri-box.checked{background:rgba(255,214,0,.07);border-color:rgba(255,214,0,.4)}
+  .matri-check{display:flex;align-items:flex-start;gap:12px;cursor:pointer;font-size:.91rem;font-weight:450;margin:0}
   .matri-check input{width:20px;height:20px;accent-color:var(--yellow);margin-top:1px;flex-shrink:0;cursor:pointer}
+
+  /* Aceptación de términos — discreta a propósito: una línea chica en gris.
+     Lo que vale es que sea un acto explícito (hay que tildarla) y que quede
+     guardada con fecha, no el tamaño de la letra. Hasta que se tilda, el botón
+     de crear la cuenta se ve apagado (.off) y explica por qué al tocarlo. */
+  .tyc{display:flex;align-items:flex-start;gap:8px;margin-top:18px;margin-bottom:0;font-size:12px;line-height:1.5;font-weight:400;color:#8E8E96;cursor:pointer}
+  .tyc input{width:16px;height:16px;accent-color:var(--yellow);margin-top:1px;flex-shrink:0;cursor:pointer}
+  .tyc a{color:var(--text);text-decoration:underline}
+  .btn-submit.off,.btn-submit.off:hover{opacity:.45;box-shadow:none}
+
+  /* ══ Lo mismo que la home ═══════════════════════════════════════════════
+     Banner con foto y título que se arma, cinta que pasa sola, párrafo con
+     palabras encendidas y todo entrando al aparecer. */
+
+  /* La barra, flotando */
+  nav.flota{
+    position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;
+    width:calc(100% - 28px);max-width:1140px;background:rgba(12,13,15,.6);
+    border:1px solid var(--bord);border-radius:999px;border-bottom:1px solid var(--bord);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);transition:background .3s,border-color .3s;
+  }
+  nav.flota .nav-in{padding:9px 9px 9px 22px}
+  nav.flota.solido{background:rgba(8,9,10,.9);border-color:var(--bord2)}
+  nav .links{display:flex;gap:26px;margin:0 auto 0 40px;font-size:.9rem;color:var(--muted);font-weight:450}
+  nav .links a:hover{color:var(--text)}
+  @media(max-width:880px){ nav .links{display:none} }
+
+  /* El banner */
+  header.hero{
+    position:relative;min-height:92svh;display:flex;align-items:center;
+    text-align:left;padding:calc(74px + 40px) 0 60px;overflow:hidden;
+  }
+  .hero-foto{
+    position:absolute;inset:0;z-index:0;background-size:cover;background-position:center 40%;
+    animation:acercar 16s ease-out both;
+  }
+  @keyframes acercar{from{transform:scale(1.05)}to{transform:scale(1.16)}}
+  .hero-velo{
+    position:absolute;inset:0;z-index:1;
+    background:
+      linear-gradient(100deg,rgba(8,9,10,.97) 0%,rgba(8,9,10,.88) 36%,rgba(8,9,10,.4) 70%,rgba(8,9,10,.62) 100%),
+      linear-gradient(180deg,rgba(8,9,10,.92) 0%,transparent 28%,transparent 52%,rgba(8,9,10,.99) 100%);
+  }
+  .hero .wrap{position:relative;z-index:2;width:100%}
+  .hero h1{max-width:15ch}
+  h1 .pal{display:inline-block;overflow:hidden;vertical-align:bottom}
+  h1 .pal > span{display:inline-block;transform:translateY(105%);animation:subirPal .9s cubic-bezier(.16,.9,.3,1) forwards}
+  @keyframes subirPal{to{transform:none}}
+  .hero p{margin-left:0;margin-right:0}
+  .hero .btn{margin-top:6px}
+  .hero .tag,.hero p,.hero .btn,.hero .sub,.hero .datos{animation:entrarAb .9s both}
+  .hero .tag{animation-delay:.05s}
+  .hero p{animation-delay:.5s}
+  .hero .btn{animation-delay:.62s}
+  .hero .sub{animation-delay:.7s}
+  .hero .datos{animation-delay:.78s}
+  @keyframes entrarAb{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+  .datos{display:flex;flex-wrap:wrap;gap:14px 34px;margin-top:32px}
+  .datos .d{display:flex;align-items:center;gap:10px;font-size:.92rem;color:var(--muted)}
+  .datos .d::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+  .datos .d b{color:var(--text);font-weight:550}
+
+  /* La cinta */
+  .cinta{
+    border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);
+    padding:22px 0;overflow:hidden;position:relative;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+            mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+  }
+  .cinta .fila{display:flex;gap:52px;width:max-content;animation:correr 34s linear infinite}
+  .cinta span{
+    font-size:.86rem;letter-spacing:3px;text-transform:uppercase;color:#5d646b;
+    white-space:nowrap;display:flex;align-items:center;gap:52px;font-weight:500;
+  }
+  .cinta span::after{content:'';width:5px;height:5px;border-radius:50%;background:var(--yellow);opacity:.55}
+  @keyframes correr{to{transform:translateX(-50%)}}
+
+  /* El párrafo grande, con las palabras que se encienden */
+  .manifiesto{
+    font-size:clamp(1.45rem,3.4vw,2.5rem);font-weight:500;line-height:1.3;
+    letter-spacing:-.03em;max-width:900px;margin:0 auto;text-align:center;
+  }
+  .manifiesto span{color:#3A3F44;transition:color .55s ease}
+  .manifiesto.ok span{color:var(--text)}
+  .manifiesto.ok span.luz{color:var(--yellow)}
+  .manifiesto span.tenue{color:#3A3F44}
+  .manifiesto.ok span.tenue{color:var(--muted)}
+
+  /* Todo entra al aparecer */
+  .rev{opacity:0;transition:opacity .85s cubic-bezier(.16,.9,.3,1),transform .85s cubic-bezier(.16,.9,.3,1)}
+  .rev.ab{transform:translateY(38px)}
+  .rev.iz{transform:translateX(-48px)}
+  .rev.de{transform:translateX(48px)}
+  .rev.esc{transform:scale(.965)}
+  .rev.ok{opacity:1;transform:none}
+
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none !important}
+    .rev{opacity:1 !important;transform:none !important}
+    /* Sin esto el título queda escondido: las palabras arrancan corridas y
+       es la animación la que las sube. */
+    h1 .pal > span{transform:none !important}
+    .hero .tag,.hero p,.hero .btn,.hero .sub,.hero .datos{opacity:1 !important;transform:none !important}
+    html{scroll-behavior:auto}
+  }
 </style>
 </head>
 <body>
 
-<nav><div class="wrap nav-in">
-  <div class="logo">BO<span>LT</span></div>
+<nav class="flota" id="nav"><div class="wrap nav-in">
+  <div class="logo">
+    <svg viewBox="0 0 24 32" fill="#FFD600" width="12" height="16" aria-hidden="true" style="vertical-align:-2px;margin-right:7px"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>BOLT
+  </div>
+  <div class="links">
+    <a href="#por-que">Por qué</a>
+    <a href="#como">Cómo funciona</a>
+    <a href="#plata">La plata</a>
+    <a href="/">Para clientes</a>
+  </div>
   <a href="#registro" class="nav-cta">Sumate gratis</a>
 </div></nav>
 
-<header class="hero"><div class="wrap">
-  <div class="tag">🚀 Sé de los primeros profesionales de tu ciudad</div>
-  <div class="logo-wrap">
-    <div class="logo-glow"></div>
-    <svg class="bolt-svg" viewBox="0 0 100 132" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="rayo" x1="0" y1="0" x2="0.4" y2="1">
-        <stop offset="0" stop-color="#FFD600"/><stop offset="0.5" stop-color="#FF8A00"/><stop offset="1" stop-color="#FF4D4D"/>
-      </linearGradient></defs>
-      <path d="M60 4 L22 72 L46 72 L40 128 L80 50 L54 50 Z" fill="url(#rayo)"/>
-    </svg>
-    <div class="logo-big"><span class="bo">BO</span><span class="lt">LT</span></div>
+<!-- ── El banner ──────────────────────────────────────────────────────── -->
+<header class="hero">
+  <div class="hero-foto" style="background-image:url('../fotos/oficios/herrero.jpg')" aria-hidden="true"></div>
+  <div class="hero-velo"></div>
+  <div class="wrap">
+    <div class="tag">Estamos sumando a los primeros de cada zona</div>
+    <h1>
+      <span class="pal"><span style="animation-delay:.06s">El</span></span>
+      <span class="pal"><span style="animation-delay:.13s">trabajo</span></span>
+      <span class="pal"><span style="animation-delay:.2s">te</span></span>
+      <span class="pal"><span style="animation-delay:.27s">llega</span></span>
+      <span class="pal"><span style="animation-delay:.36s"><em>al bolsillo</em>.</span></span>
+    </h1>
+    <p>Clientes de tu zona que necesitan tu oficio, hoy. Vos elegís cuáles tomás,
+       arreglás el precio directo con ellos y BOLT no se mete en el medio.</p>
+    <a href="#registro" class="btn">Quiero sumarme</a>
+    <div class="sub">Registro gratis · Sin comisiones · Sin compromiso</div>
+    <div class="datos">
+      <div class="d"><span><b>Cobrás vos</b>, directo del cliente</span></div>
+      <div class="d"><span><b>Sin cuotas</b> ni costo de alta</span></div>
+      <div class="d"><span>Te avisamos por <b>mail y WhatsApp</b></span></div>
+    </div>
   </div>
-  <h1>Sabés quién <span>toca tu puerta</span></h1>
-  <p>BOLT te conecta con clientes de tu zona que necesitan tu oficio. Recibí pedidos, cobrá directo y hacé crecer tu reputación.</p>
-  <p style="margin-top:-6px"><b>Estamos sumando a los primeros profesionales de cada zona.</b> Apenas completamos el cupo de tu ciudad, te avisamos por <b>mail y WhatsApp</b> para activar la app y que empieces a recibir trabajos. 📲</p>
-  <a href="#registro" class="btn">Quiero sumarme →</a>
-  <div class="sub">Registro gratis · Te avisamos por mail y WhatsApp · Sin compromiso</div>
-</div></header>
+</header>
 
-<section><div class="wrap">
-  <div class="s-title">¿Por qué trabajar con BOLT?</div>
+<!-- ── La cinta ───────────────────────────────────────────────────────── -->
+<div class="cinta" aria-hidden="true"><div class="fila" id="cinta"></div></div>
+
+<!-- ── El párrafo grande ──────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="manifiesto" id="manif"></p>
+  </div>
+</section>
+
+<!-- ── Por qué ────────────────────────────────────────────────────────── -->
+<section id="por-que"><div class="wrap">
+  <div class="s-title rev ab">¿Por qué trabajar con <span style="color:var(--yellow)">BOLT</span>?</div>
   <div class="grid">
-    <div class="card"><div class="ico">📲</div><h3>Trabajos cerca tuyo</h3><p>Te llegan pedidos de clientes de tu zona. Vos decidís cuáles tomás y cuándo estás disponible.</p></div>
-    <div class="card"><div class="ico">💵</div><h3>Cobrás directo</h3><p>El cliente te paga <b>directo a vos</b>, como arreglen (efectivo, transferencia). Sin intermediarios y sin esperar a que te depositen.</p></div>
-    <div class="card"><div class="ico">🎁</div><h3>Sumate GRATIS</h3><p>Al inicio es <b>todo gratis</b>: sin comisión, sin cuotas, sin costo de alta. Los primeros profesionales de cada zona entran sin pagar nada.</p></div>
-    <div class="card"><div class="ico">⭐</div><h3>Tu perfil profesional</h3><p>Calificaciones, trabajos completados y clientes que te eligen. Construí tu marca personal.</p></div>
-    <div class="card"><div class="ico">🛡️</div><h3>Verificado = confianza</h3><p>Verificamos DNI y antecedentes. Los clientes confían más en profesionales verificados.</p></div>
-    <div class="card"><div class="ico">🚀</div><h3>Sé de los primeros</h3><p>Los que entran ahora arrancan con ventaja: más visibilidad y los mejores trabajos de la zona.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="cerca"></div><h3>Trabajos cerca tuyo</h3><p>Te llegan pedidos de clientes de tu zona. Vos decidís cuáles tomás y cuándo estás disponible.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="plata"></div><h3>Cobrás directo</h3><p>El cliente te paga <b>directo a vos</b>, como arreglen: efectivo o transferencia. Sin intermediarios y sin esperar a que te depositen.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="gratis"></div><h3>Sumate gratis</h3><p>Es <b>todo gratis</b>: sin comisión, sin cuotas, sin costo de alta. No hay planes ni letra chica.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="estrella"></div><h3>Tu reputación, tuya</h3><p>Calificaciones y trabajos hechos que se van sumando. Un cliente conforme te trae el próximo.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="escudo"></div><h3>Verificado, y se nota</h3><p>Revisamos DNI y antecedentes de todos. Al cliente que te abre la puerta eso le importa.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="rayo"></div><h3>Tu negocio, ordenado</h3><p>Presupuestos en menos de un minuto, clientes y trabajos guardados solos. No es sólo para conseguir laburo.</p></div>
   </div>
 </div></section>
 
-<section><div class="wrap">
-  <div class="s-title">Cómo funciona</div>
+<!-- ── Cómo funciona ──────────────────────────────────────────────────── -->
+<section id="como"><div class="wrap">
+  <div class="s-title rev ab">Cómo funciona</div>
   <div class="steps">
-    <div class="step"><div class="step-n">1</div><div><h4>Te registrás y verificás</h4><p>Completás tus datos, subís tu DNI y antecedentes. Una sola vez.</p></div></div>
-    <div class="step"><div class="step-n">2</div><div><h4>Te aprobamos (24–48 hs)</h4><p>Revisamos tu documentación y te contactamos por WhatsApp para activarte.</p></div></div>
-    <div class="step"><div class="step-n">3</div><div><h4>Recibís trabajos</h4><p>Activás tu disponibilidad en el mapa y empezás a recibir pedidos cerca tuyo.</p></div></div>
-    <div class="step"><div class="step-n">4</div><div><h4>Cobrás y crecés</h4><p>Hacés el trabajo, cobrás <b>directo del cliente</b> y sumás calificaciones que te traen más clientes.</p></div></div>
+    <div class="step rev iz"><div class="step-n">1</div><div><h4>Te registrás y verificás</h4><p>Tus datos, el DNI y los antecedentes. Una sola vez, desde el celular.</p></div></div>
+    <div class="step rev iz"><div class="step-n">2</div><div><h4>Te aprobamos, en 24 a 48 hs</h4><p>Miramos la documentación y te escribimos por WhatsApp para activarte.</p></div></div>
+    <div class="step rev iz"><div class="step-n">3</div><div><h4>Prendés el radar</h4><p>Cuando estás disponible lo activás, y ahí empiezan a llegarte los pedidos de tu zona.</p></div></div>
+    <div class="step rev iz"><div class="step-n">4</div><div><h4>Cobrás y crecés</h4><p>Hacés el trabajo, cobrás <b>directo del cliente</b>, y las calificaciones te traen el próximo.</p></div></div>
   </div>
 </div></section>
 
-<!-- CÓMO FUNCIONA EL PAGO -->
-<section><div class="wrap">
-  <div class="s-title">💼 Cómo funciona el pago</div>
+<!-- ── La plata ───────────────────────────────────────────────────────── -->
+<section id="plata"><div class="wrap">
+  <div class="s-title rev ab">Tu plata <span style="color:var(--yellow)">no pasa por acá</span></div>
   <div class="grid">
-    <div class="card"><div class="ico">💵</div><h3>Cobrás directo</h3><p>El cliente te paga <b>directo a vos</b>, como prefieran (efectivo, transferencia). BOLT <b>no se mete</b> en el medio de tu plata.</p></div>
-    <div class="card"><div class="ico">🏷️</div><h3>Vos ponés tu precio</h3><p>Vos acordás con el cliente cuánto cobrás por la visita y por el trabajo. Tu tiempo y tu trabajo, <b>tu precio</b>.</p></div>
-    <div class="card"><div class="ico">🤝</div><h3>Queda todo registrado</h3><p>El pedido, el chat y la calificación quedan en la app: respaldo y transparencia para ambos, sin que la plataforma maneje tu plata.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="plata"></div><h3>Cobrás directo</h3><p>El cliente te paga a vos, como prefieran. BOLT <b>no toca</b> ni un peso de tu trabajo.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="etiqueta"></div><h3>Vos ponés el precio</h3><p>Vos acordás cuánto sale la visita y cuánto el trabajo. Tu tiempo, <b>tu precio</b>.</p></div>
+    <div class="card rev ab"><div class="ico" data-ico="papel"></div><h3>Queda todo registrado</h3><p>El pedido, la charla y la calificación quedan guardados. Respaldo para los dos.</p></div>
   </div>
-  <div style="text-align:center;color:var(--muted);margin-top:18px;max-width:700px;margin-left:auto;margin-right:auto;line-height:1.6">BOLT te <b>conecta</b> con clientes de tu zona. El pago lo arreglás <b>directo con cada cliente</b>. 💪</div>
 </div></section>
 
-<!-- COMISIÓN + CUPO -->
+<!-- ── El cupo ────────────────────────────────────────────────────────── -->
 <section><div class="wrap">
-  <div class="s-title">🎁 Gratis para los primeros</div>
-  <div style="max-width:760px;margin:0 auto;text-align:center;color:var(--muted);line-height:1.7">
-    <p style="font-size:1.05rem;color:var(--text)">Estamos arrancando, y queremos que <b style="color:var(--yellow)">los primeros profesionales de cada zona entren sin pagar nada</b>: sin comisión, sin cuotas, sin costo de alta.</p>
-    <p>Cobrás <b>directo del cliente</b> el 100% de tu trabajo. Sumate ahora y aprovechá el arranque gratis. 🚀</p>
-  </div>
-
-  <div style="margin:30px auto 0;background:var(--surf);border:1px solid var(--bord);border-radius:18px;padding:24px;display:flex;gap:16px;align-items:flex-start;max-width:760px">
-    <div style="font-size:2rem;flex-shrink:0">🔔</div>
+  <div class="rev esc" style="max-width:820px;margin:0 auto;background:var(--surf);border:1px solid var(--bord);border-radius:34px;padding:40px 36px;display:flex;gap:22px;align-items:flex-start">
+    <div class="ico" data-ico="campana" style="width:52px;height:52px;border-radius:50%;border:1px solid var(--bord2);display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
     <div>
-      <h3 style="margin:0 0 6px">Estamos completando cupos por ciudad</h3>
-      <p style="margin:0;color:var(--muted);line-height:1.6">Activamos cada zona cuando juntamos a los primeros profesionales de cada oficio. <b style="color:var(--text)">Apenas se completa el cupo de tu ciudad, te avisamos por mail y WhatsApp</b> para que actives la app y empieces a recibir trabajos. Registrate ahora y asegurá tu lugar entre los primeros.</p>
+      <h3 style="margin:0 0 10px;font-size:1.3rem;font-weight:600;letter-spacing:-.6px">Vamos ciudad por ciudad</h3>
+      <p style="margin:0;color:var(--muted);line-height:1.65;font-weight:400">Cada zona se activa cuando juntamos a los primeros profesionales de cada oficio.
+      <b style="color:var(--text);font-weight:550">Apenas se completa el cupo de la tuya te avisamos por mail y WhatsApp</b>, para que prendas el radar y empieces a recibir trabajos. Anotate ahora y asegurate el lugar.</p>
     </div>
   </div>
 </div></section>
@@ -280,7 +460,11 @@
         </div>
 
         <div class="g-nota" id="gNota">Ahora esto es todo. Después te pedimos tu WhatsApp, tu oficio y la documentación por tu link personal — lo hacés desde el celular sacando las fotos en el momento.</div>
-        <button class="btn-submit" id="btnRegistrar" onclick="registrarConGoogle()">Registrarme como profesional ⚡</button>
+        <label class="tyc" id="tycGoogleBox">
+          <input type="checkbox" id="tycGoogle" onchange="pintarTyc()">
+          <span>Acepto los <a href="../terms.html" target="_blank" rel="noopener" onclick="event.stopPropagation()">Términos</a> y la <a href="../privacy.html" target="_blank" rel="noopener" onclick="event.stopPropagation()">Política de Privacidad</a>. Trabajo de forma independiente; BOLT no es mi empleador.</span>
+        </label>
+        <button class="btn-submit off" id="btnRegistrar" onclick="registrarConGoogle()">Registrarme como profesional ⚡</button>
         <div class="msg" id="gcMsg"></div>
         <div class="g-alt"><a onclick="salirGoogle()">No soy yo · entrar con otra cuenta</a></div>
       </div>
@@ -304,7 +488,11 @@
              estuvo tres días aprobada sin poder recibir un solo trabajo. -->
         <label style="margin-top:14px">¿Qué hacés? *</label>
         <div id="m_chipsOficio" class="chips"></div>
-        <button class="btn-submit" id="btnManual" onclick="registrarManual()">Registrarme ⚡</button>
+        <label class="tyc" id="tycManualBox">
+          <input type="checkbox" id="tycManual" onchange="pintarTyc()">
+          <span>Acepto los <a href="../terms.html" target="_blank" rel="noopener" onclick="event.stopPropagation()">Términos</a> y la <a href="../privacy.html" target="_blank" rel="noopener" onclick="event.stopPropagation()">Política de Privacidad</a>. Trabajo de forma independiente; BOLT no es mi empleador.</span>
+        </label>
+        <button class="btn-submit off" id="btnManual" onclick="registrarManual()">Registrarme ⚡</button>
         <div class="msg" id="mMsg"></div>
         <div class="g-alt"><a onclick="verGoogle()">← Mejor entro con Google</a></div>
       </div>
@@ -340,11 +528,110 @@
 </div></section>
 
 <footer><div class="wrap">
-  © 2026 BOLT · Bahía Blanca, Argentina
-  <div style="margin-top:8px">
-    <a href="../privacy.html">Privacidad</a><a href="../terms.html">Términos</a>
+  <div style="display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:10px;color:#fff;font-weight:700;letter-spacing:1px">
+    <svg viewBox="0 0 24 32" fill="#FFD600" width="12" height="16" aria-hidden="true"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>BOLT
+  </div>
+  Bahía Blanca, Argentina
+  <div style="margin-top:10px">
+    <a href="/">Para clientes</a><a href="/ayuda/">Centro de ayuda</a><a href="../privacy.html">Privacidad</a><a href="../terms.html">Términos</a>
   </div>
 </div></footer>
+
+<script>
+// ── Lo mismo que la home: los dibujos, la cinta, el párrafo y el movimiento.
+// Va aparte del script del alta, que no se toca.
+(function(){
+  'use strict';
+
+  // Los dibujos son de BOLT, no emojis: un emoji lo dibuja el sistema
+  // operativo, cambia en cada teléfono y no es de nadie.
+  var A = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+          'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  var Y = 'var(--yellow)';
+  var ICO = {
+    cerca:    A + '<rect x="7" y="2" width="10" height="20" rx="3" fill="'+Y+'"/><path d="M10.5 18.5h3"/><path d="M3 8.5h1.5M2.5 12h1M3 15.5h1.5M20.5 8.5H22M20.5 12h1M20.5 15.5H22"/></svg>',
+    plata:    A + '<rect x="2" y="6" width="20" height="12" rx="3" fill="'+Y+'"/><circle cx="12" cy="12" r="2.6"/></svg>',
+    gratis:   A + '<circle cx="12" cy="12" r="8.5" fill="'+Y+'"/><path d="M8.5 15.5l7-7" stroke="#08090A" stroke-width="2.2"/></svg>',
+    estrella: A + '<path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9-5.3-2.9-5.3 2.9 1.1-5.9L3.5 9.4l5.9-.8z" fill="'+Y+'"/></svg>',
+    escudo:   A + '<path d="M12 2.6l7.5 3.2v5.6c0 4.7-3.2 8.1-7.5 9.4-4.3-1.3-7.5-4.7-7.5-9.4V5.8z" fill="'+Y+'"/><path d="M8.8 11.8l2.2 2.2 4.2-4.4" stroke="#08090A" stroke-width="2.2"/></svg>',
+    rayo:     A + '<path d="M13.5 2L4 13.5h5.5L8 22l10-11.5h-5.5z" fill="'+Y+'"/></svg>',
+    etiqueta: A + '<path d="M2.8 12.6l8.4-8.4 8.9.6.6 8.9-8.4 8.4z" fill="'+Y+'"/><circle cx="16.3" cy="7.7" r="1.4" fill="#08090A" stroke="none"/></svg>',
+    papel:    A + '<path d="M5 2.8h9l5 5V21H5z" fill="'+Y+'"/><path d="M14 2.8v5h5"/><path d="M8.5 13.5l2 2 4-4.4" stroke="#08090A" stroke-width="2.1"/></svg>',
+    campana:  A + '<path d="M18 15V10a6 6 0 1 0-12 0v5l-1.8 2.6h15.6z" fill="'+Y+'"/><path d="M9.6 20a2.5 2.5 0 0 0 4.8 0"/></svg>',
+    tilde:    A + '<path d="M4 12.5l5 5L20 6" stroke-width="2.8"/></svg>',
+    planilla: A + '<rect x="4" y="3.5" width="16" height="17" rx="3" fill="'+Y+'"/><path d="M8.5 9h7M8.5 13h7M8.5 17h4" stroke="#08090A" stroke-width="1.8"/></svg>'
+  };
+  document.querySelectorAll('[data-ico]').forEach(function(el){
+    var d = ICO[el.getAttribute('data-ico')];
+    if (d) el.innerHTML = d;
+  });
+
+  // Los emojis que quedaban en el alta y en el cartel de "listo"
+  var sueltos = [
+    ['.ok-box .em', 'tilde'],
+    ['.tl-item:nth-child(1) .tl-ic', 'tilde'],
+    ['.tl-item:nth-child(2) .tl-ic', 'planilla'],
+    ['.tl-item:nth-child(3) .tl-ic', 'escudo'],
+    ['.tl-item:nth-child(4) .tl-ic', 'rayo']
+  ];
+  sueltos.forEach(function(s){
+    var el = document.querySelector(s[0]);
+    if (el) el.innerHTML = ICO[s[1]];
+  });
+
+  // La cinta de oficios
+  var OFICIOS = ['Electricista','Plomero','Gasista','Pintor','Albañil','Carpintero',
+                 'Herrero','Cerrajero','Durlock','Aire acondicionado','Jardinero',
+                 'Limpieza','Fletes','Heladeras y lavarropas','Alarmas y cámaras'];
+  var cinta = document.getElementById('cinta');
+  if (cinta){
+    for (var v = 0; v < 2; v++){
+      OFICIOS.forEach(function(o){
+        var s = document.createElement('span');
+        s.textContent = o;
+        cinta.appendChild(s);
+      });
+    }
+  }
+
+  // El párrafo grande. Entre * va en amarillo, entre _ va en gris.
+  var TEXTO = 'Te escriben por WhatsApp, quedás en pasar, y el laburo se pierde ' +
+              '_entre veinte mensajes sin contestar_. Con BOLT el pedido te llega ' +
+              '*con la dirección, el problema y las fotos*, y vos decidís ' +
+              '*si lo tomás o no*.';
+  var manif = document.getElementById('manif');
+  if (manif){
+    TEXTO.replace(/\*([^*]+)\*|_([^_]+)_|([^*_]+)/g, function(_, luz, tenue, normal){
+      var tramo = luz || tenue || normal;
+      var clase = luz ? 'luz' : (tenue ? 'tenue' : '');
+      tramo.split(' ').forEach(function(p){
+        if (!p) return;
+        var s = document.createElement('span');
+        if (clase) s.className = clase;
+        s.textContent = p + ' ';
+        manif.appendChild(s);
+      });
+      return '';
+    });
+  }
+
+  // Todo entra al aparecer
+  var io = new IntersectionObserver(function(filas){
+    filas.forEach(function(f){
+      if (!f.isIntersecting) return;
+      f.target.classList.add('ok');
+      io.unobserve(f.target);
+    });
+  }, { threshold:.15, rootMargin:'0px 0px -60px 0px' });
+  document.querySelectorAll('.rev, .manifiesto').forEach(function(el){ io.observe(el); });
+
+  // La barra se vuelve sólida al bajar
+  var nav = document.getElementById('nav');
+  addEventListener('scroll', function(){
+    nav.classList.toggle('solido', scrollY > 40);
+  }, { passive:true });
+})();
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -398,6 +685,48 @@
   }
   function verManual(){ vista('manualForm'); }
   function verGoogle(){ vista('gStart'); }
+
+  // ── Aceptación de términos ────────────────────────────────────────────────
+  // Es un acto explícito: hay que tildar la casilla. Mientras no esté tildada el
+  // botón se ve apagado, pero NO usamos el atributo disabled a propósito: un
+  // botón muerto no puede explicar por qué no anda. Se deja clickeable y el
+  // handler contesta con el motivo.
+  const TYC = [['tycGoogle','tycGoogleBox','btnRegistrar'], ['tycManual','tycManualBox','btnManual']];
+  function tycPedido(boxId){
+    const box = $(boxId);
+    return !!box && box.style.display !== 'none';
+  }
+  function pintarTyc(){
+    TYC.forEach(([chkId, boxId, btnId]) => {
+      const chk = $(chkId), btn = $(btnId);
+      if (!chk || !btn) return;
+      btn.classList.toggle('off', tycPedido(boxId) && !chk.checked);
+    });
+  }
+  // true = falta aceptar (y ya se lo dijimos en pantalla)
+  function faltaAceptar(chkId, boxId, msgId){
+    if (!tycPedido(boxId)) return false;          // no se está creando una cuenta
+    const chk = $(chkId);
+    if (chk && chk.checked) return false;
+    const msg = $(msgId);
+    if (msg){
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Falta tildar la casilla de los Términos y la Política de Privacidad.';
+    }
+    $(boxId).scrollIntoView({ behavior:'smooth', block:'center' });
+    return true;
+  }
+  // La aceptación se guarda junto con el alta. ⚠️ Las columnas terminos_aceptados
+  // (boolean) y terminos_at (timestamptz) TODAVÍA NO EXISTEN en 'professionals'
+  // ni en 'prestador_leads': hasta que se creen, PostgREST rechaza el insert con
+  // PGRST204 y reintentamos sin esos campos, para que el alta no se caiga por
+  // esto. Cuando las columnas existan, entra al primer intento y no hay reintento.
+  const camposTyc = () => ({ terminos_aceptados: true, terminos_at: new Date().toISOString() });
+  function sinTyc(fila){ const f = { ...fila }; delete f.terminos_aceptados; delete f.terminos_at; return f; }
+  function faltanColumnasTyc(error){
+    if (!error) return false;
+    return error.code === 'PGRST204' || /terminos_(aceptados|at)/i.test(error.message || '');
+  }
 
   // Vuelve al principio para cargar a la próxima persona, sin arrastrar la
   // cuenta de Google de la anterior. Recarga entera: es la forma más segura de
@@ -551,6 +880,10 @@
     $('gNota').textContent = 'Es lo único que falta. Sin oficio no aparecés en las búsquedas de los clientes.';
     $('btnRegistrar').textContent = 'Guardar mi oficio ⚡';
     $('btnRegistrar').onclick = guardarSoloOficio;
+    // Acá no se crea ninguna cuenta: ya está registrada y ya aceptó al darse de
+    // alta. Pedirle otra vez los términos sólo trabaría la reparación del oficio.
+    $('tycGoogleBox').style.display = 'none';
+    pintarTyc();
     vista('gConfirm');
   }
 
@@ -589,7 +922,7 @@
   // Si esto falla no se corta el alta — el lead y el mail ya son útiles.
   async function crearProfesional(user, d){
     try {
-      const { data: prof, error } = await sb.from('professionals').upsert({
+      const fila = {
         user_id: user.id,
         first_name: d.nombre,
         last_name: d.apellido || '',
@@ -597,7 +930,14 @@
         // En la calle hay alguien de BOLT delante: queda listo para trabajar.
         // Por la web queda pendiente de revisión, como hasta ahora.
         verification_status: MODO_CALLE ? 'approved' : 'pending',
-      }, { onConflict: 'user_id' }).select().single();
+        ...camposTyc(),
+      };
+      let { data: prof, error } = await sb.from('professionals')
+        .upsert(fila, { onConflict: 'user_id' }).select().single();
+      if (faltanColumnasTyc(error)) {
+        ({ data: prof, error } = await sb.from('professionals')
+          .upsert(sinTyc(fila), { onConflict: 'user_id' }).select().single());
+      }
       if (error) throw error;
 
       const filas = elegidos.filter(o => o.id)
@@ -641,6 +981,8 @@
       return;
     }
 
+    if (faltaAceptar('tycGoogle','tycGoogleBox','gcMsg')) return;
+
     btn.disabled = true; btn.textContent = 'Registrando…';
     msg.style.color = 'var(--muted)'; msg.textContent = 'Un momento…';
 
@@ -656,7 +998,7 @@
 
     const token = genToken();
     try {
-      const { error } = await sb.from('prestador_leads').insert({
+      const lead = {
         nombre: d.nombre,
         apellido: d.apellido,
         email: d.email,
@@ -664,7 +1006,10 @@
         profesion: elegidos.length ? elegidos.map(o => o.name).join(', ') : 'A completar',
         fuente: MODO_CALLE ? 'calle' : (FUENTE === 'landing' ? 'web-google' : FUENTE),
         completar_token: token,
-      });
+        ...camposTyc(),
+      };
+      let { error } = await sb.from('prestador_leads').insert(lead);
+      if (faltanColumnasTyc(error)) ({ error } = await sb.from('prestador_leads').insert(sinTyc(lead)));
       if (error) throw error;
 
       // La fila de 'professionals' — sin esto la app lo trata como usuario común.
@@ -698,6 +1043,7 @@
     if (tel.length < 8){ msg.textContent = 'Falta tu WhatsApp (con característica, sin el 0 ni el 15).'; return; }
     const email = v('m_email');
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.textContent = 'Ese email no parece válido. Corregilo o dejalo vacío.'; return; }
+    if (faltaAceptar('tycManual','tycManualBox','mMsg')) return;
 
     btn.disabled = true; btn.textContent = 'Registrando…';
     msg.style.color = 'var(--muted)'; msg.textContent = 'Un momento…';
@@ -714,7 +1060,7 @@
 
     const token = genToken();
     try {
-      const { error } = await sb.from('prestador_leads').insert({
+      const lead = {
         nombre: v('m_nombre'),
         apellido: v('m_apellido'),
         telefono: tel,
@@ -722,7 +1068,10 @@
         profesion: elegidosManual.map(o => o.name).join(', '),
         fuente: 'web-whatsapp',
         completar_token: token,
-      });
+        ...camposTyc(),
+      };
+      let { error } = await sb.from('prestador_leads').insert(lead);
+      if (faltanColumnasTyc(error)) ({ error } = await sb.from('prestador_leads').insert(sinTyc(lead)));
       if (error) throw error;
       let mailOk = false;
       if (email){
@@ -800,6 +1149,11 @@
   //    El intercambio del ?code= por la sesión es asincrónico. Si preguntáramos
   //    una sola vez podríamos llegar antes de que termine y mostrarle otra vez
   //    el botón de registrarse a alguien que YA se logueó.
+  // El navegador puede recordar la casilla tildada al recargar o al volver
+  // atrás: si no repintamos, el botón se quedaría apagado con el tilde puesto.
+  pintarTyc();
+  window.addEventListener('pageshow', pintarTyc);
+
   (async () => {
     const url = new URL(location.href);
     const volvimosDeGoogle = url.searchParams.has('code') || url.searchParams.has('error') || /access_token=/.test(location.hash);

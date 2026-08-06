@@ -12,6 +12,11 @@ import notifee, {
 
 const CHANNEL_ID = 'bolt-incoming-call-v1';
 
+// El paquete de la app, tal cual esta en app.json (expo.android.package). Se
+// escribe UNA sola vez: es el dato que Android usa para saber de que app le
+// estan hablando, y escribirlo mal falla en silencio.
+const PAQUETE = 'ar.com.bolt.com';
+
 export async function ensureIncomingChannel() {
   await notifee.createChannel({
     id: CHANNEL_ID,
@@ -65,9 +70,21 @@ export async function cancelIncomingJob() {
 // Android 14 (API 34) dejó de conceder USE_FULL_SCREEN_INTENT automáticamente a
 // las apps que no son de llamadas o alarmas. Sin ese permiso, el pedido entrante
 // degrada a un banner común y NO despierta la pantalla con el celular bloqueado.
-// notifee no expone si está concedido, así que lo pedimos una sola vez y dejamos
-// anotado que ya se pidió.
+// notifee (9.1.8) NO expone si el permiso está concedido: `getNotificationSettings()`
+// sólo trae `android.alarm`. O sea que del lado JS es imposible saberlo, y todo
+// lo que podemos hacer es ofrecerlo bien y volver a ofrecerlo si sigue sin pasar
+// nada.
 const FS_PEDIDO_KEY = 'bolt.fullscreen.pedido';
+
+// 🔴 Antes esto se ofrecía UNA SOLA VEZ EN LA VIDA. El que tocaba "Ahora no"
+//    —o el que abría los ajustes y no encontraba el interruptor— no lo veía
+//    nunca más, y se quedaba sin que le suene un pedido con el celular
+//    bloqueado sin enterarse jamás de por qué. Es el mismo agujero de siempre:
+//    un estado que espera para siempre a que alguien apriete un botón.
+//    Ahora se vuelve a ofrecer a los 7 días, hasta 3 veces. Después se calla:
+//    insistir para siempre sería lo contrario.
+const DIAS_PARA_REINSISTIR = 7;
+const VECES_MAX = 3;
 
 export async function ensureFullScreenPermission() {
   try {
@@ -75,33 +92,78 @@ export async function ensureFullScreenPermission() {
   } catch {}
 }
 
-/** ¿Corresponde ofrecerle al trabajador activar la pantalla completa? */
-export async function necesitaPermisoPantallaCompleta() {
+async function leerRegistro() {
+  try {
+    const crudo = await AsyncStorage.getItem(FS_PEDIDO_KEY);
+    if (!crudo) return { veces: 0, ultima: null };
+    // El formato viejo era el string '1'. Se traduce en vez de descartarse,
+    // para no volver a molestar de golpe al que ya lo activó.
+    if (crudo === '1') return { veces: 1, ultima: null };
+    const r = JSON.parse(crudo);
+    return { veces: Number(r?.veces) || 0, ultima: r?.ultima || null };
+  } catch {
+    return { veces: 0, ultima: null };
+  }
+}
+
+/**
+ * ¿Toca ofrecerle al trabajador activar la pantalla completa?
+ *
+ * ⚠️ NO es sólo una pregunta: cuando devuelve `true` deja anotado el
+ * ofrecimiento. Es a propósito — así queda registrado aunque el trabajador
+ * cierre el cartel con "Ahora no", que es el caso que antes no se anotaba y
+ * hacía que el aviso volviera a saltar en cada toque del radar.
+ */
+export async function tocaOfrecerPantallaCompleta() {
   if (Platform.OS !== 'android') return false;
   if (Number(Platform.Version) < 34) return false;   // antes de Android 14 se concedía solo
-  try {
-    return !(await AsyncStorage.getItem(FS_PEDIDO_KEY));
-  } catch {
-    return false;
+  const { veces, ultima } = await leerRegistro();
+  if (veces >= VECES_MAX) return false;
+  if (ultima) {
+    const pasaron = Date.now() - new Date(ultima).getTime();
+    if (pasaron < DIAS_PARA_REINSISTIR * 24 * 3600 * 1000) return false;
   }
+  try {
+    await AsyncStorage.setItem(FS_PEDIDO_KEY, JSON.stringify({
+      veces: veces + 1, ultima: new Date().toISOString(),
+    }));
+  } catch {}
+  return true;
 }
 
 /** Abre los ajustes de notificaciones de BOLT para habilitar pantalla completa. */
 export async function abrirAjustesPantallaCompleta() {
-  try {
-    await AsyncStorage.setItem(FS_PEDIDO_KEY, '1');
-  } catch {}
+  // El ofrecimiento ya quedó anotado en tocaOfrecerPantallaCompleta(). Acá no
+  // se anota nada más: abrir los ajustes NO es lo mismo que conceder el
+  // permiso, y darlo por hecho es justamente lo que dejaba a alguien sin
+  // avisos para siempre.
+  //
   // En Android 14+ el permiso de pantalla completa NO esta en los ajustes
   // generales de notificaciones: tiene su propia pantalla. Sin ir ahi, el
   // trabajador daba vueltas y la alarma seguia degradada a banner comun.
+  //
+  // 🔴 6-ago-2026 — ACA EL PAQUETE ESTABA MAL ESCRITO: decia 'ar.com.bolt.app'
+  //    y el de BOLT es 'ar.com.bolt.com' (app.json → expo.android.package).
+  //    Con el paquete equivocado, Android no sabe de que app le estan hablando:
+  //    el boton "Activarlo" no llevaba a la pantalla del permiso. Se quedo sin
+  //    detectar porque el fallo es silencioso — abre otra cosa o no abre nada,
+  //    pero nunca dice que el paquete no existe.
   try {
     await Linking.sendIntent('android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT', [
-      { key: 'android.provider.extra.APP_PACKAGE', value: 'ar.com.bolt.app' },
+      { key: 'android.provider.extra.APP_PACKAGE', value: PAQUETE },
     ]);
     return true;
   } catch {}
   try {
     await notifee.openNotificationSettings();   // respaldo para versiones viejas
+    return true;
+  } catch {}
+  // Ultimo recurso: los ajustes de BOLT. Desde ahi el permiso esta a dos
+  // toques (Notificaciones → Notificaciones de pantalla completa). Es peor que
+  // llegar derecho, pero es un camino que existe: dejarlo devolver false
+  // significaba mandar al trabajador a buscarlo solo por todo Android.
+  try {
+    await Linking.openSettings();
     return true;
   } catch {
     return false;

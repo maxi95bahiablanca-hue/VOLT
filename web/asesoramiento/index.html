@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ═══════════════════════════════════════════════════════════════════════
+     ASESORAMIENTO — bolt.com.ar/asesoramiento/
+
+     Para qué existe: el que tiene un problema en la casa primero busca en
+     Google, no en una app. Si la respuesta se la damos nosotros, cuando
+     decida llamar a alguien ya está adentro de BOLT.
+
+     El contenido vive en datos.js: agregar un problema es sumar un objeto,
+     sin tocar el diseño ni el buscador.
+
+     🔴 Las marcas van escritas con la letra de la página, NO con sus logos:
+     un logo es marca registrada y bajarlo de internet es material con
+     derechos, el mismo criterio que con las fotos (nada de iStock).
+     ═══════════════════════════════════════════════════════════════════════ -->
+<title>BOLT — Asesoramiento: qué hacer con los problemas de tu casa</title>
+<meta name="description" content="Humedad, térmicas que saltan, canillas que gotean, splits que no enfrían. Qué es, qué podés hacer vos y cuándo llamar a un profesional. Sin vueltas.">
+<meta name="theme-color" content="#08090A">
+<meta property="og:title" content="BOLT — Asesoramiento para tu casa">
+<meta property="og:description" content="Los problemas más frecuentes de cada oficio, explicados claro: qué mirar, qué podés resolver vos y cuándo no conviene tocar nada.">
+<link rel="icon" href="../logo.png">
+<link rel="preload" href="../fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face{
+    font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;
+    src:url("../fuentes/InterVariable.woff2") format("woff2");
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#08090A;--surf:rgba(255,255,255,.035);--surf2:rgba(255,255,255,.06);
+    --bord:rgba(255,255,255,.09);--bord2:rgba(255,255,255,.16);
+    --y:#FFD600;--tx:#FFFFFF;--tx2:#9BA1A8;--tx3:#6B7278;--rojo:#FF6B6B;
+  }
+  html{scroll-behavior:smooth}
+  body{
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    font-feature-settings:"cv05" 1,"ss03" 1;
+    background:var(--bg);color:var(--tx);line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 22px;position:relative;z-index:1}
+  h1,h2,h3{font-weight:600;letter-spacing:-.03em;line-height:1.08}
+
+  /* Barra */
+  nav{
+    position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;
+    width:calc(100% - 28px);max-width:1080px;display:flex;align-items:center;gap:20px;
+    padding:9px 9px 9px 22px;border-radius:999px;border:1px solid var(--bord);
+    background:rgba(12,13,15,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    transition:background .3s,border-color .3s;
+  }
+  nav.solido{background:rgba(8,9,10,.9);border-color:var(--bord2)}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:1px}
+  .logo svg{width:13px;height:18px}
+  nav .links{display:flex;gap:26px;margin-left:auto;font-size:.9rem;color:var(--tx2);font-weight:450}
+  nav .links a:hover{color:var(--tx)}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    font-family:inherit;font-size:.94rem;font-weight:550;padding:11px 22px;border-radius:999px;
+    border:1px solid transparent;cursor:pointer;white-space:nowrap;
+    transition:transform .22s cubic-bezier(.16,.9,.3,1),box-shadow .22s,border-color .22s,background .22s;
+  }
+  .btn-blanco{background:var(--tx);color:#08090A}
+  .btn-blanco:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(255,255,255,.16)}
+  .btn-y{background:var(--y);color:#08090A;font-weight:600}
+  .btn-y:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(255,214,0,.28)}
+  .btn-linea{border-color:var(--bord2);color:var(--tx)}
+  .btn-linea:hover{border-color:var(--tx);transform:translateY(-2px)}
+  @media(max-width:880px){ nav .links{display:none} }
+
+  /* El halo */
+  body::before{
+    content:'';position:fixed;top:-460px;left:50%;width:1000px;height:1000px;
+    margin-left:-500px;pointer-events:none;z-index:0;border-radius:50%;
+    background:conic-gradient(from 0deg,
+      rgba(255,214,0,.15),rgba(255,214,0,0) 30%,
+      rgba(255,255,255,.06) 55%,rgba(255,214,0,0) 76%,rgba(255,214,0,.15));
+    filter:blur(100px);animation:girar 30s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
+
+  /* Cabecera con el buscador */
+  header{padding:150px 0 40px;text-align:center}
+  .tag{
+    display:inline-flex;align-items:center;gap:9px;border:1px solid var(--bord2);
+    border-radius:999px;padding:8px 18px;font-size:.8rem;color:var(--tx2);
+    animation:entrar .8s .05s both;
+  }
+  .tag::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--y)}
+  h1{font-size:clamp(2.1rem,5.6vw,3.6rem);margin:22px auto 0;max-width:16ch}
+  h1 .pal{display:inline-block;overflow:hidden;vertical-align:bottom}
+  h1 .pal > span{display:inline-block;transform:translateY(105%);animation:subir .9s cubic-bezier(.16,.9,.3,1) forwards}
+  @keyframes subir{to{transform:none}}
+  h1 em{font-style:normal;color:var(--y)}
+  header p{color:var(--tx2);font-size:1.05rem;max-width:600px;margin:18px auto 0;animation:entrar .8s .5s both}
+  @keyframes entrar{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+
+  .buscador{
+    display:flex;align-items:center;gap:10px;max-width:660px;margin:34px auto 0;
+    background:var(--surf2);border:1px solid var(--bord2);border-radius:999px;
+    padding:8px 8px 8px 24px;animation:entrar .8s .62s both;
+    transition:border-color .25s,background .25s;
+  }
+  .buscador:focus-within{border-color:rgba(255,214,0,.55)}
+  .buscador svg{width:19px;height:19px;color:var(--tx3);flex-shrink:0}
+  .buscador input{
+    flex:1;min-width:0;background:none;border:0;outline:0;color:var(--tx);
+    font-family:inherit;font-size:1.02rem;padding:12px 0;
+  }
+  .buscador input::placeholder{color:var(--tx3)}
+  .buscador .limpiar{
+    background:none;border:0;color:var(--tx3);font-family:inherit;font-size:1.4rem;
+    cursor:pointer;padding:0 12px;line-height:1;display:none;
+  }
+  .buscador.tiene .limpiar{display:block}
+
+  /* La cinta de marcas */
+  .cinta{
+    margin-top:48px;border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);
+    padding:20px 0;overflow:hidden;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+            mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+  }
+  .cinta .fila{display:flex;gap:46px;width:max-content;animation:correr 40s linear infinite}
+  .cinta b{
+    font-size:1rem;letter-spacing:1.5px;color:#5d646b;white-space:nowrap;font-weight:600;
+    display:flex;align-items:center;gap:46px;
+  }
+  .cinta b::after{content:'';width:5px;height:5px;border-radius:50%;background:var(--y);opacity:.5}
+  @keyframes correr{to{transform:translateX(-50%)}}
+
+  /* Filtros */
+  .filtros{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin:44px 0 30px}
+  .chip{
+    border:1px solid var(--bord);border-radius:999px;padding:10px 20px;font-size:.88rem;
+    color:var(--tx2);cursor:pointer;background:none;font-family:inherit;transition:.22s;
+  }
+  .chip:hover{border-color:var(--bord2);color:var(--tx)}
+  .chip.on{background:var(--tx);color:#08090A;border-color:var(--tx);font-weight:550}
+
+  /* Las fichas */
+  .fichas{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding-bottom:20px}
+  .ficha{
+    background:var(--surf);border:1px solid var(--bord);border-radius:28px;overflow:hidden;
+    cursor:pointer;text-align:left;font-family:inherit;color:inherit;padding:0;
+    transition:transform .25s cubic-bezier(.16,.9,.3,1),border-color .25s;
+    display:flex;flex-direction:column;
+  }
+  .ficha:hover{transform:translateY(-3px);border-color:var(--bord2)}
+  .ficha .foto{height:150px;overflow:hidden;position:relative;flex-shrink:0}
+  .ficha .foto img{width:100%;height:100%;object-fit:cover;filter:grayscale(.4) contrast(1.05);transition:transform .8s cubic-bezier(.16,.9,.3,1),filter .5s}
+  .ficha:hover .foto img{transform:scale(1.06);filter:none}
+  .ficha .foto::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(8,9,10,.85))}
+  .ficha .oficio{
+    position:absolute;left:16px;bottom:14px;z-index:2;font-size:.7rem;letter-spacing:1.8px;
+    text-transform:uppercase;color:var(--y);font-weight:600;
+  }
+  .ficha .cuerpo{padding:20px}
+  .ficha h3{font-size:1.08rem;font-weight:550;letter-spacing:-.4px;line-height:1.25}
+  .ficha p{color:var(--tx2);font-size:.9rem;font-weight:400;margin-top:7px}
+  .ficha .mas{
+    margin-top:14px;font-size:.83rem;color:var(--y);font-weight:500;
+    display:flex;align-items:center;gap:8px;
+  }
+  .ficha .mas svg{width:14px;height:14px;transition:transform .25s}
+  .ficha:hover .mas svg{transform:translateX(4px)}
+
+  .vacio{text-align:center;color:var(--tx2);padding:60px 20px}
+  .vacio b{display:block;color:var(--tx);font-weight:550;font-size:1.1rem;margin-bottom:8px}
+
+  /* El detalle, en un panel que sube */
+  .fondo{
+    position:fixed;inset:0;z-index:80;background:rgba(4,5,6,.72);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    opacity:0;pointer-events:none;transition:opacity .3s;
+  }
+  .fondo.abierto{opacity:1;pointer-events:auto}
+  .panel{
+    position:fixed;z-index:90;left:50%;bottom:0;transform:translateX(-50%) translateY(100%);
+    width:min(720px,100%);max-height:92svh;overflow-y:auto;
+    background:#0E1012;border:1px solid var(--bord2);border-bottom:0;
+    border-radius:34px 34px 0 0;padding:0 0 40px;
+    transition:transform .45s cubic-bezier(.16,.9,.3,1);
+  }
+  .panel.abierto{transform:translateX(-50%)}
+  .panel .tirador{
+    position:sticky;top:0;z-index:3;background:linear-gradient(#0E1012 70%,transparent);
+    padding:14px 0 10px;display:flex;justify-content:center;
+  }
+  .panel .tirador i{width:44px;height:4px;border-radius:999px;background:var(--bord2);display:block}
+  .panel .cerrar{
+    position:absolute;right:18px;top:14px;z-index:4;width:38px;height:38px;border-radius:50%;
+    border:1px solid var(--bord2);background:rgba(8,9,10,.6);color:var(--tx2);
+    font-size:1.2rem;line-height:1;cursor:pointer;font-family:inherit;
+  }
+  .panel .cerrar:hover{color:var(--tx);border-color:var(--tx)}
+  .panel .cont{padding:4px 30px 0}
+  @media(max-width:560px){ .panel .cont{padding:4px 20px 0} }
+  .panel .oficio{font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--y);font-weight:600}
+  .panel h2{font-size:clamp(1.5rem,4vw,2.1rem);margin:10px 0 0}
+  .panel .resumen{color:var(--tx2);margin-top:12px;font-size:1.02rem}
+
+  .bloque{margin-top:28px}
+  .bloque .rot{
+    display:flex;align-items:center;gap:10px;font-size:.68rem;font-weight:600;
+    letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:10px;
+  }
+  .bloque .rot::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--y);flex-shrink:0}
+  .bloque .rot::after{content:'';flex:1;height:1px;background:var(--bord)}
+  .bloque p{color:#D6DADE;font-weight:400}
+  .bloque.cuidado{
+    background:rgba(255,107,107,.07);border:1px solid rgba(255,107,107,.3);
+    border-radius:24px;padding:20px 22px;
+  }
+  .bloque.cuidado .rot{color:var(--rojo)}
+  .bloque.cuidado .rot::before{background:var(--rojo)}
+  .bloque.cuidado .rot::after{background:rgba(255,107,107,.25)}
+  .bloque.cuidado p{color:#FFE0E0}
+
+  .cierre-panel{
+    margin-top:32px;border:1px solid var(--bord);border-radius:26px;padding:24px;
+    text-align:center;background:radial-gradient(120% 140% at 50% 0%,rgba(255,214,0,.08),transparent 62%);
+  }
+  .cierre-panel b{display:block;font-weight:550;font-size:1.08rem;letter-spacing:-.3px}
+  .cierre-panel span{display:block;color:var(--tx2);font-size:.92rem;margin:7px 0 18px}
+
+  /* Cierre de la página */
+  section{padding:80px 0}
+  .cierre{
+    border:1px solid var(--bord);border-radius:40px;padding:60px 40px;text-align:center;
+    background:radial-gradient(120% 140% at 50% 0%,rgba(255,214,0,.07),transparent 60%);
+  }
+  @media(max-width:700px){ .cierre{padding:40px 22px;border-radius:30px} }
+  .cierre h2{font-size:clamp(1.7rem,4vw,2.6rem)}
+  .cierre h2 em{font-style:normal;color:var(--y)}
+  .cierre p{color:var(--tx2);margin:16px auto 0;max-width:520px}
+  .cierre .botones{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px}
+
+  footer{border-top:1px solid var(--bord);padding:44px 0 56px;color:var(--tx3);font-size:.88rem}
+  footer .cols{display:flex;flex-wrap:wrap;gap:24px 60px;justify-content:space-between;align-items:center}
+  footer .links{display:flex;flex-wrap:wrap;gap:8px 26px}
+  footer a:hover{color:var(--tx)}
+
+  .rev{opacity:0;transform:translateY(30px);transition:opacity .8s cubic-bezier(.16,.9,.3,1),transform .8s cubic-bezier(.16,.9,.3,1)}
+  .rev.ok{opacity:1;transform:none}
+
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none !important}
+    .rev{opacity:1 !important;transform:none !important}
+    /* Sin esto el título no se ve: las palabras arrancan corridas hacia abajo
+       y es la animación la que las sube. */
+    h1 .pal > span{transform:none !important}
+    .tag,header p,.buscador{opacity:1 !important;transform:none !important}
+    .panel{transition:none}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <svg viewBox="0 0 24 32" fill="#FFD600" aria-hidden="true"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>
+    BOLT
+  </a>
+  <div class="links">
+    <a href="/">Inicio</a>
+    <a href="#fichas">Problemas</a>
+    <a href="/ayuda/">Centro de ayuda</a>
+    <a href="/prestadores/">Para profesionales</a>
+  </div>
+  <a class="btn btn-blanco" href="/pedir/">Pedir ahora</a>
+</nav>
+
+<header>
+  <div class="wrap">
+    <div class="tag">Asesoramiento gratis, sin registrarte</div>
+    <h1>
+      <span class="pal"><span style="animation-delay:.06s">Antes</span></span>
+      <span class="pal"><span style="animation-delay:.13s">de</span></span>
+      <span class="pal"><span style="animation-delay:.2s">llamar</span></span>
+      <span class="pal"><span style="animation-delay:.27s">a</span></span>
+      <span class="pal"><span style="animation-delay:.34s">alguien,</span></span>
+      <span class="pal"><span style="animation-delay:.44s"><em>entendé qué pasa</em>.</span></span>
+    </h1>
+    <p>Los problemas que más aparecen en una casa, explicados como te los explicaría
+       un conocido del oficio: qué mirar, qué podés resolver vos y cuándo conviene
+       no tocar nada.</p>
+
+    <div class="buscador" id="cajaBusca">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="busca" type="search" placeholder="¿Qué te pasa? Ej: humedad, salta la térmica, gotea…"
+             aria-label="Buscar un problema" autocomplete="off">
+      <button class="limpiar" id="limpiar" type="button" aria-label="Limpiar">×</button>
+    </div>
+  </div>
+
+  <!-- Las marcas van con la letra de la página, no con sus logos: un logo es
+       marca registrada. Son las que se consiguen acá. -->
+  <div class="cinta" aria-hidden="true"><div class="fila" id="cinta"></div></div>
+</header>
+
+<div class="wrap" id="fichas">
+  <div class="filtros" id="filtros"></div>
+  <div class="fichas" id="lista"></div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="cierre rev">
+      <h2>¿Lo mirás vos o <em>llamamos a alguien</em>?</h2>
+      <p>Si el problema es de los que conviene no tocar, en minutos tenés a un
+         profesional verificado de tu zona en camino.</p>
+      <div class="botones">
+        <a class="btn btn-y" href="/pedir/">Pedir un profesional</a>
+        <a class="btn btn-linea" href="/">Ver cómo funciona BOLT</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap cols">
+    <a class="logo" href="/" style="color:#fff">
+      <svg viewBox="0 0 24 32" fill="#FFD600" aria-hidden="true"><path d="M14 0L1 18h7l-2 14L23 12h-8l3-12z"/></svg>
+      BOLT
+    </a>
+    <div class="links">
+      <a href="/pedir/">Pedir</a>
+      <a href="/prestadores/">Sumate</a>
+      <a href="/ayuda/">Centro de ayuda</a>
+      <a href="/terms.html">Términos</a>
+      <a href="/privacy.html">Privacidad</a>
+    </div>
+  </div>
+  <div class="wrap" style="margin-top:18px;font-size:.8rem;color:#4d5359;max-width:760px">
+    Esta información es orientativa y no reemplaza la visita de un profesional
+    matriculado. En instalaciones de gas y electricidad, ante la duda, no toques nada.
+  </div>
+</footer>
+
+<!-- El detalle -->
+<div class="fondo" id="fondo"></div>
+<div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="pTitulo">
+  <button class="cerrar" id="cerrar" type="button" aria-label="Cerrar">×</button>
+  <div class="tirador"><i></i></div>
+  <div class="cont" id="panelCont"></div>
+</div>
+
+<script src="datos.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ var d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; }
+  // Sin acentos y en minúscula: el que busca "termica" tiene que encontrar
+  // "térmica", que es como está escrito.
+  function limpio(s){
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  var FLECHA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+               'stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+  // ── La cinta de marcas ────────────────────────────────────────────────
+  var MARCAS = ['ALBA','SINTEPLAST','TERSUAVE','SIKA','WEBER','SCHNEIDER','GENROD',
+                'SICA','FV','HIDROMET','PEIRANO','ORBIS','ESCORIAL','DURLOCK',
+                'KNAUF','TRABEX','KALLAY','SURREY','BGH'];
+  var cinta = $('cinta');
+  for (var v = 0; v < 2; v++){
+    MARCAS.forEach(function(m){
+      var b = document.createElement('b');
+      b.textContent = m;
+      cinta.appendChild(b);
+    });
+  }
+
+  // ── Filtros por oficio ────────────────────────────────────────────────
+  var oficios = [];
+  FICHAS.forEach(function(f){ if (oficios.indexOf(f.oficio) < 0) oficios.push(f.oficio); });
+  oficios.sort();
+  var filtro = 'todos', texto = '';
+
+  var cajaFiltros = $('filtros');
+  function chip(id, nombre){
+    var b = document.createElement('button');
+    b.className = 'chip' + (id === filtro ? ' on' : '');
+    b.type = 'button';
+    b.textContent = nombre;
+    b.addEventListener('click', function(){
+      filtro = id;
+      cajaFiltros.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('on'); });
+      b.classList.add('on');
+      pintar();
+    });
+    cajaFiltros.appendChild(b);
+  }
+  chip('todos', 'Todos');
+  oficios.forEach(function(o){ chip(o, o); });
+
+  // ── La lista ──────────────────────────────────────────────────────────
+  var lista = $('lista');
+  function pintar(){
+    var t = limpio(texto);
+    var hay = FICHAS.filter(function(f){
+      if (filtro !== 'todos' && f.oficio !== filtro) return false;
+      if (!t) return true;
+      // Busca en todo el contenido, no sólo en el título: el que escribe
+      // "burlete" tiene que llegar a la ficha de la heladera.
+      var todo = limpio([f.titulo, f.resumen, f.sintomas, f.causas, f.hacer, f.ojo, f.marcas, f.oficio].join(' '));
+      return t.split(/\s+/).every(function(p){ return todo.indexOf(p) >= 0; });
+    });
+
+    lista.innerHTML = '';
+    if (!hay.length){
+      lista.innerHTML = '<div class="vacio" style="grid-column:1/-1">' +
+        '<b>No encontramos nada con eso</b>' +
+        'Probá con una palabra sola —"humedad", "gotea", "no enfría"— o pedí un profesional y contale el problema.</div>';
+      return;
+    }
+    hay.forEach(function(f, i){
+      var a = document.createElement('button');
+      a.className = 'ficha rev';
+      a.type = 'button';
+      a.style.transitionDelay = ((i % 9) * 45) + 'ms';
+      a.innerHTML =
+        '<span class="foto"><img src="../fotos/oficios/' + esc(f.foto) + '.jpg" alt="" loading="lazy">' +
+        '<span class="oficio">' + esc(f.oficio) + '</span></span>' +
+        '<span class="cuerpo"><h3>' + esc(f.titulo) + '</h3>' +
+        '<p>' + esc(f.resumen) + '</p>' +
+        '<span class="mas">Ver qué hacer ' + FLECHA + '</span></span>';
+      a.addEventListener('click', function(){ abrir(f); });
+      lista.appendChild(a);
+      io.observe(a);
+    });
+  }
+
+  // ── El detalle ────────────────────────────────────────────────────────
+  var fondo = $('fondo'), panel = $('panel'), cont = $('panelCont');
+  function bloque(rot, txt, clase){
+    if (!txt) return '';
+    return '<div class="bloque ' + (clase || '') + '"><div class="rot">' + rot + '</div>' +
+           '<p>' + esc(txt) + '</p></div>';
+  }
+  function abrir(f){
+    cont.innerHTML =
+      '<div class="oficio">' + esc(f.oficio) + '</div>' +
+      '<h2 id="pTitulo">' + esc(f.titulo) + '</h2>' +
+      (f.resumen ? '<p class="resumen">' + esc(f.resumen) + '</p>' : '') +
+      bloque('Cómo te das cuenta', f.sintomas) +
+      bloque('Por qué pasa', f.causas) +
+      bloque('Qué podés hacer vos', f.hacer) +
+      bloque('Ojo con esto', f.ojo, 'cuidado') +
+      bloque('Qué pedir en la casa de materiales', f.marcas) +
+      bloque('Cuánto suele costar', f.costo) +
+      '<div class="cierre-panel">' +
+        '<b>¿Preferís que lo vea alguien?</b>' +
+        '<span>Contale el problema y en minutos te responden profesionales de tu zona.</span>' +
+        '<a class="btn btn-y" href="/pedir/?oficio=' + encodeURIComponent(f.oficio) + '">Pedir un ' + esc(f.oficio.toLowerCase()) + '</a>' +
+      '</div>';
+    panel.scrollTop = 0;
+    fondo.classList.add('abierto');
+    panel.classList.add('abierto');
+    document.body.style.overflow = 'hidden';
+  }
+  function cerrar(){
+    fondo.classList.remove('abierto');
+    panel.classList.remove('abierto');
+    document.body.style.overflow = '';
+  }
+  fondo.addEventListener('click', cerrar);
+  $('cerrar').addEventListener('click', cerrar);
+  addEventListener('keydown', function(e){ if (e.key === 'Escape') cerrar(); });
+
+  // ── El buscador ───────────────────────────────────────────────────────
+  var input = $('busca'), caja = $('cajaBusca');
+  input.addEventListener('input', function(){
+    texto = input.value;
+    caja.classList.toggle('tiene', !!texto);
+    pintar();
+  });
+  $('limpiar').addEventListener('click', function(){
+    input.value = ''; texto = ''; caja.classList.remove('tiene');
+    pintar(); input.focus();
+  });
+  // Si llega desde la home con ?q=, arranca buscando eso
+  var q = new URLSearchParams(location.search).get('q');
+  if (q){ input.value = q; texto = q; caja.classList.add('tiene'); }
+
+  // ── Movimiento de entrada ─────────────────────────────────────────────
+  var io = new IntersectionObserver(function(filas){
+    filas.forEach(function(f){
+      if (!f.isIntersecting) return;
+      f.target.classList.add('ok');
+      io.unobserve(f.target);
+    });
+  }, { threshold:.12, rootMargin:'0px 0px -50px 0px' });
+  document.querySelectorAll('.rev').forEach(function(el){ io.observe(el); });
+
+  var nav = $('nav');
+  addEventListener('scroll', function(){
+    nav.classList.toggle('solido', scrollY > 40);
+  }, { passive:true });
+
+  pintar();
+})();
+</script>
+</body>
+</html>

@@ -5,72 +5,118 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BOLT — Completá tu registro</title>
 <meta name="robots" content="noindex,nofollow">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="preload" href="../fuentes/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* ── Inter: la tipografía de BOLT ────────────────────────────────────
+     Hospedada acá mismo (web/fuentes/), NO en un CDN: si el servidor de
+     Google tarda o falla, el texto se ve mal, y eso es justo lo que no
+     queremos. Un solo archivo variable cubre todos los grosores.
+     Inter — Rasmus Andersson — SIL Open Font License 1.1. */
+  @font-face{
+    font-family:"Inter";
+    font-style:normal;
+    font-weight:100 900;
+    font-display:swap;
+    src:url("../fuentes/InterVariable.woff2") format("woff2");
+    unicode-range:U+0000-00FF, U+0100-024F, U+0259, U+0131, U+0152-0153,
+                  U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+                  U+0329, U+1E00-1EFF, U+2000-206F, U+2074, U+20A0-20CF,
+                  U+2122, U+2190-2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
+  /* ── El sistema de BOLT ─────────────────────────────────────────────────
+     Negro y blanco, amarillo sólo en detalles y en la acción. Círculos y
+     píldoras, nada de esquina viva. Pesos 550-600. Esta pantalla es de
+     trabajo: no lleva banner, pero sí el halo y el movimiento de entrada. */
   *{margin:0;padding:0;box-sizing:border-box}
-  :root{--bg:#0A0A0A;--surf:#141414;--surf2:#1a1a1a;--bord:#262626;--yellow:#FFD600;--text:#F5F5F5;--muted:#999;--muted2:#666;--green:#FFD600;--red:#ff6b6b}
-  body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
-  .wrap{max-width:600px;margin:0 auto;padding:0 16px}
+  :root{
+    --bg:#08090A;--surf:rgba(255,255,255,.035);--surf2:rgba(255,255,255,.06);
+    --bord:rgba(255,255,255,.09);--bord2:rgba(255,255,255,.16);
+    --yellow:#FFD600;--text:#FFFFFF;--muted:#9BA1A8;--muted2:#6B7278;
+    --green:#FFD600;--red:#FF6B6B;
+  }
+  body{font-family:"Inter",-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       /* cv05 = ele con cola, ss03 = comillas rectas: dos cosas
+          que Inter trae y la del sistema no. */
+       font-feature-settings:"cv05" 1,"ss03" 1;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+  .wrap{max-width:600px;margin:0 auto;padding:0 16px;position:relative;z-index:1}
   a{color:var(--yellow);text-decoration:none}
 
-  nav{position:sticky;top:0;z-index:30;background:rgba(10,10,10,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--bord)}
+  /* El halo que gira */
+  body::before{
+    content:'';position:fixed;top:-420px;left:50%;width:900px;height:900px;
+    margin-left:-450px;pointer-events:none;z-index:0;border-radius:50%;
+    background:conic-gradient(from 0deg,
+      rgba(255,214,0,.14),rgba(255,214,0,0) 30%,
+      rgba(255,255,255,.06) 55%,rgba(255,214,0,0) 76%,rgba(255,214,0,.14));
+    filter:blur(90px);animation:girar 28s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
+
+  nav{position:sticky;top:0;z-index:30;background:rgba(8,9,10,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--bord)}
   .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
-  .logo{font-size:1.4rem;font-weight:900;letter-spacing:1px}.logo span{color:var(--yellow)}
-  .nav-tag{background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);color:var(--yellow);font-weight:800;font-size:.72rem;padding:6px 13px;border-radius:20px}
+  .logo{font-size:1.05rem;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:8px}.logo span{color:var(--yellow)}
+  .nav-tag{background:transparent;border:1px solid var(--bord2);color:var(--muted);font-weight:450;font-size:.78rem;padding:8px 16px;border-radius:999px}
 
-  .head{text-align:center;padding:28px 0 6px}
-  .logo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;width:fit-content;margin:0 auto 14px}
-  .logo-glow{position:absolute;inset:-60% -80%;background:radial-gradient(circle,rgba(255,180,0,.34),rgba(255,120,0,.09),transparent 62%);filter:blur(34px);z-index:0;pointer-events:none}
-  .bolt-svg{position:relative;width:44px;height:auto;z-index:1;filter:drop-shadow(0 0 14px rgba(255,160,0,.55))}
-  .head h1{font-size:1.55rem;font-weight:900;letter-spacing:-.5px}
+  .head{text-align:center;padding:38px 0 6px}
+  .logo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;width:fit-content;margin:0 auto 18px}
+  .logo-glow{position:absolute;inset:-60% -80%;background:radial-gradient(circle,rgba(255,214,0,.3),rgba(255,214,0,.06),transparent 62%);filter:blur(36px);z-index:0;pointer-events:none}
+  .bolt-svg{position:relative;width:42px;height:auto;z-index:1;filter:drop-shadow(0 0 16px rgba(255,214,0,.45))}
+  .head h1{font-size:1.7rem;font-weight:600;letter-spacing:-1px}
   .head h1 span{color:var(--yellow)}
-  .head p{color:var(--muted);font-size:.92rem;max-width:440px;margin:4px auto 0}
+  .head p{color:var(--muted);font-size:.94rem;font-weight:400;max-width:440px;margin:8px auto 0}
 
-  .form-box{background:var(--surf);border:1px solid rgba(255,214,0,.25);border-radius:22px;padding:26px 20px;margin:22px auto 40px;position:relative;overflow:hidden}
-  label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;margin-top:16px}
-  input,select{width:100%;background:var(--surf2);border:1px solid var(--bord);color:var(--text);border-radius:12px;padding:13px 14px;font-family:inherit;font-size:.95rem;outline:none;transition:.15s}
-  input:focus,select:focus{border-color:rgba(255,214,0,.5)}
-  .hint{font-size:.76rem;color:var(--muted2);margin-top:5px}
+  .form-box{background:var(--surf);border:1px solid var(--bord);border-radius:34px;padding:32px 24px;margin:26px auto 44px;position:relative;overflow:hidden}
+  @media(max-width:520px){.form-box{border-radius:26px;padding:26px 18px}}
+  label{display:block;font-size:.68rem;font-weight:600;color:var(--muted2);margin-bottom:8px;margin-top:20px;letter-spacing:2px;text-transform:uppercase}
+  input,select{width:100%;background:var(--surf);border:1px solid var(--bord);color:var(--text);border-radius:20px;padding:15px 18px;font-family:inherit;font-size:.97rem;outline:none;transition:border-color .2s,background .2s}
+  input:focus,select:focus{border-color:rgba(255,214,0,.55);background:var(--surf2)}
+  input::placeholder{color:var(--muted2)}
+  .hint{font-size:.78rem;color:var(--muted2);margin-top:7px}
 
-  .falta-badge{display:inline-block;background:var(--yellow);color:#0A0A0A;font-size:.62rem;font-weight:900;letter-spacing:1px;border-radius:20px;padding:2px 9px;margin-right:8px;vertical-align:middle}
+  .falta-badge{display:inline-block;background:var(--yellow);color:#08090A;font-size:.62rem;font-weight:600;letter-spacing:1.4px;border-radius:999px;padding:3px 11px;margin-right:8px;vertical-align:middle}
 
-  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}
-  .chip{background:var(--surf2);border:2px solid var(--bord);color:var(--text);border-radius:14px;padding:9px 15px;font-size:.88rem;font-weight:800;cursor:pointer;transition:.15s;user-select:none}
-  .chip.on{background:var(--yellow);border-color:var(--yellow);color:#0A0A0A}
-  .chip.dis{opacity:.35;pointer-events:none}
-  .prof-count{font-size:.8rem;color:var(--muted);margin-top:10px;font-weight:700}
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:10px}
+  .chip{background:transparent;border:1px solid var(--bord);color:var(--muted);border-radius:999px;padding:11px 20px;font-size:.9rem;font-weight:450;cursor:pointer;transition:.2s;user-select:none}
+  .chip:hover{border-color:var(--bord2);color:var(--text)}
+  .chip.on{background:var(--yellow);border-color:var(--yellow);color:#08090A;font-weight:550}
+  .chip.dis{opacity:.3;pointer-events:none}
+  .prof-count{font-size:.83rem;color:var(--muted);margin-top:12px;font-weight:450}
 
-  .upload{display:block;background:var(--surf2);border:1.5px dashed #333;border-radius:12px;padding:15px;text-align:center;cursor:pointer;transition:.2s;margin-top:6px}
-  .upload:hover{border-color:rgba(255,214,0,.5)}
+  .upload{display:block;background:var(--surf);border:1px dashed var(--bord2);border-radius:22px;padding:20px;text-align:center;cursor:pointer;transition:.2s;margin-top:8px}
+  .upload:hover{border-color:rgba(255,214,0,.5);background:var(--surf2)}
   .upload .uemoji{font-size:1.5rem}
-  .upload .utext{font-size:.82rem;color:var(--muted);margin-top:3px}
-  .upload.has{border-color:var(--green);border-style:solid}
-  .upload.has .utext{color:var(--green);font-weight:700}
+  .upload .uemoji svg{width:26px;height:26px;color:var(--muted)}
+  .upload.has .uemoji svg{color:var(--yellow)}
+  .upload .utext{font-size:.84rem;color:var(--muted);margin-top:5px}
+  .upload.has{border-color:var(--green);border-style:solid;background:rgba(255,214,0,.06)}
+  .upload.has .utext{color:var(--green);font-weight:550}
   .upload input{display:none}
 
-  .btn-submit{width:100%;background:var(--yellow);color:#0A0A0A;border:none;border-radius:14px;padding:16px;font-family:inherit;font-weight:900;font-size:1.02rem;cursor:pointer;margin-top:26px;transition:.2s}
-  .btn-submit:hover{box-shadow:0 0 30px rgba(255,214,0,.4)}
-  .btn-submit:disabled{opacity:.6;cursor:default}
-  .msg{margin-top:14px;text-align:center;font-size:.9rem;font-weight:600;min-height:18px}
+  .btn-submit{width:100%;background:var(--yellow);color:#08090A;border:none;border-radius:999px;padding:17px;font-family:inherit;font-weight:600;font-size:1.02rem;cursor:pointer;margin-top:28px;transition:transform .22s cubic-bezier(.16,.9,.3,1),box-shadow .22s}
+  .btn-submit:hover{box-shadow:0 12px 34px rgba(255,214,0,.3);transform:translateY(-2px)}
+  .btn-submit:disabled{opacity:.5;cursor:default;transform:none;box-shadow:none}
+  .msg{margin-top:14px;text-align:center;font-size:.9rem;font-weight:500;min-height:18px}
 
   .ok-box{display:none;text-align:center;padding:8px 0}
-  .ok-box .em{font-size:3.4rem;margin-bottom:6px;animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
+  .ok-box .em{margin:0 auto 12px;width:84px;height:84px;border-radius:50%;border:1px solid var(--bord2);display:flex;align-items:center;justify-content:center;animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
+  .ok-box .em svg{width:40px;height:40px}
   @keyframes pop{from{transform:scale(0)}}
-  .ok-box h3{font-size:1.5rem;font-weight:900;color:var(--yellow);margin-bottom:8px}
-  .ok-box .okp{color:var(--muted);font-size:.95rem}
+  .ok-box h3{font-size:1.5rem;font-weight:600;letter-spacing:-.8px;color:var(--yellow);margin-bottom:10px}
+  .ok-box .okp{color:var(--muted);font-size:.95rem;font-weight:400}
 
-  .cargando{text-align:center;color:var(--muted);padding:30px 0}
+  .cargando{text-align:center;color:var(--muted);padding:34px 0}
   .confetti{position:fixed;top:-12px;width:10px;height:14px;z-index:999;pointer-events:none;will-change:transform;border-radius:2px}
-  footer{border-top:1px solid var(--bord);padding:24px 0;color:var(--muted2);font-size:.8rem;text-align:center}
+  footer{border-top:1px solid var(--bord);padding:28px 0;color:var(--muted2);font-size:.82rem;text-align:center;position:relative;z-index:1}
+
+  @media(prefers-reduced-motion:reduce){ *{animation:none !important} }
 </style>
 </head>
 <body>
 
 <nav><div class="wrap nav-in">
   <div class="logo">BO<span>LT</span></div>
-  <div class="nav-tag">⚡ Completar registro</div>
+  <div class="nav-tag">Completar registro</div>
 </div></nav>
 
 <header class="head"><div class="wrap">
@@ -89,22 +135,22 @@
 
 <div class="wrap">
   <div class="form-box">
-    <div class="cargando" id="cargando">⚡ Cargando tu registro…</div>
+    <div class="cargando" id="cargando">Cargando tu registro…</div>
 
     <div id="formContent" style="display:none">
       <div id="campos"></div>
-      <button class="btn-submit" id="btnSubmit" onclick="guardar()">Guardar mis datos ⚡</button>
+      <button class="btn-submit" id="btnSubmit" onclick="guardar()">Guardar mis datos</button>
       <div class="msg" id="msg"></div>
     </div>
 
     <div class="ok-box" id="okBox">
-      <div class="em">🎉</div>
+      <div class="em" id="emOk"></div>
       <h3>¡Listo! Tu registro está completo</h3>
-      <div class="okp">Nuestro equipo verifica tu documentación en 24 a 48 hs hábiles y te avisamos por mail y WhatsApp para activar tu perfil. ⚡</div>
+      <div class="okp">Nuestro equipo verifica tu documentación en 24 a 48 hs hábiles y te avisamos por mail y WhatsApp para activar tu perfil.</div>
     </div>
 
     <div class="ok-box" id="errBox">
-      <div class="em">🤔</div>
+      <div class="em" id="emDuda"></div>
       <h3 style="color:var(--text)">No encontramos tu registro</h3>
       <div class="okp">El link no es válido o está incompleto. Abrilo de nuevo desde el mail que te mandamos, o escribinos a <a href="mailto:soporte@bolt.com.ar">soporte@bolt.com.ar</a>.</div>
     </div>
@@ -121,17 +167,29 @@
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
 
   // key → cómo se renderiza
+  // Los dibujos son propios, no emojis: un emoji lo dibuja el sistema
+  // operativo, cambia en cada teléfono y no es de la marca.
+  const _svg = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  const ICO = {
+    camara: _svg('<path d="M3 8.5h3.5L8 6h8l1.5 2.5H21v11H3z"/><circle cx="12" cy="13.5" r="3.6"/>'),
+    selfie: _svg('<rect x="6" y="2.5" width="12" height="19" rx="3"/><circle cx="12" cy="9.5" r="2.4"/><path d="M8 17c1-1.6 2.4-2.4 4-2.4S15 15.4 16 17"/>'),
+    papel:  _svg('<path d="M5.5 2.8h8l5 5V21h-13z"/><path d="M13.5 2.8v5h5"/><path d="M8.5 13h7M8.5 17h4"/>'),
+    ticket: _svg('<path d="M5 2.8h14v18.4l-2.3-1.5-2.3 1.5-2.4-1.5-2.3 1.5-2.4-1.5L5 21.2z"/><path d="M9 8h6M9 12h6"/>'),
+    tilde:  _svg('<path d="M4 12.5l5 5L20 6" stroke-width="2.6"/>'),
+    duda:   _svg('<circle cx="12" cy="12" r="9"/><path d="M9.4 9.2a2.7 2.7 0 1 1 3.6 2.5v1.6"/><path d="M13 17v0"/>')
+  };
   const RENDER = {
     telefono:         { tipo:'text',  ph:'291 4XXXXXX', inputmode:'numeric' },
     dni:              { tipo:'text',  ph:'30.123.456', inputmode:'numeric' },
     fecha_nac:        { tipo:'date' },
     profesion:        { tipo:'chips' },
     zona:             { tipo:'text',  ph:'Ej: Centro, Villa Mitre, Palihue...' },
-    dni_frente_url:   { tipo:'file',  emoji:'📷', accept:'image/*', txt:'Sacar foto del frente del DNI' },
-    dni_dorso_url:    { tipo:'file',  emoji:'📷', accept:'image/*', txt:'Sacar foto del dorso del DNI' },
-    selfie_url:       { tipo:'file',  emoji:'🤳', accept:'image/*', txt:'Sacar selfie sosteniendo tu DNI' },
-    antecedentes_url: { tipo:'file',  emoji:'📄', accept:'image/*,application/pdf', txt:'Subir certificado (foto o PDF)' },
-    monotributo_url:  { tipo:'file',  emoji:'🧾', accept:'image/*,application/pdf', txt:'Subir constancia (foto o PDF)' },
+    dni_frente_url:   { tipo:'file',  emoji:ICO.camara, accept:'image/*', txt:'Sacar foto del frente del DNI' },
+    dni_dorso_url:    { tipo:'file',  emoji:ICO.camara, accept:'image/*', txt:'Sacar foto del dorso del DNI' },
+    selfie_url:       { tipo:'file',  emoji:ICO.selfie, accept:'image/*', txt:'Sacar selfie sosteniendo tu DNI' },
+    antecedentes_url: { tipo:'file',  emoji:ICO.papel,  accept:'image/*,application/pdf', txt:'Subir certificado (foto o PDF)' },
+    monotributo_url:  { tipo:'file',  emoji:ICO.ticket, accept:'image/*,application/pdf', txt:'Subir constancia (foto o PDF)' },
   };
   const PREFIX = { dni_frente_url:'dnifrente', dni_dorso_url:'dnidorso', selfie_url:'selfie', antecedentes_url:'antecedentes', monotributo_url:'monotributo' };
 
@@ -158,7 +216,7 @@
       const r = RENDER[it.key];
       if (!r) return;
       const box = document.createElement('div');
-      let hint = it.hint ? `<div class="hint">${esc(it.hint)}${it.link ? ` 👉 <a href="${it.link}" target="_blank">abrir acá</a>` : ''}</div>` : '';
+      let hint = it.hint ? `<div class="hint">${esc(it.hint)}${it.link ? ` <a href="${it.link}" target="_blank">abrir acá</a>` : ''}</div>` : '';
       if (r.tipo === 'chips') {
         box.innerHTML = `<label><span class="falta-badge">TE FALTA</span>${esc(it.label)} <span style="color:var(--muted2);font-weight:400">— hasta 3</span></label>
           <div id="profChips" class="chips"><span class="hint">Cargando oficios...</span></div>
@@ -236,14 +294,14 @@
     }
 
     if (!Object.keys(datos).length) {
-      btn.disabled = false; btn.textContent = 'Guardar mis datos ⚡';
+      btn.disabled = false; btn.textContent = 'Guardar mis datos';
       msg.style.color = 'var(--red)'; msg.textContent = 'Completá al menos un dato antes de guardar.';
       return;
     }
 
     const { ok, data } = await fn({ action:'save', token: TOKEN, datos });
     if (!ok || !data.ok) {
-      btn.disabled = false; btn.textContent = 'Guardar mis datos ⚡';
+      btn.disabled = false; btn.textContent = 'Guardar mis datos';
       msg.style.color = 'var(--red)'; msg.textContent = 'No se pudo guardar. Probá de nuevo en un momento.';
       return;
     }
@@ -259,7 +317,7 @@
     } else {
       selectedProfs = [];
       render();
-      btn.disabled = false; btn.textContent = 'Guardar mis datos ⚡';
+      btn.disabled = false; btn.textContent = 'Guardar mis datos';
       msg.style.color = 'var(--green)';
       msg.textContent = '✓ Guardado. Todavía falta' + (FALTAN.length > 1 ? 'n' : '') + ' ' + FALTAN.length + ' dato' + (FALTAN.length > 1 ? 's' : '') + ' (podés completarlos ahora o volver con este mismo link).';
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -305,6 +363,18 @@
       setTimeout(()=>c.remove(), dur*1000+200);
     }
   }
+</script>
+
+<script>
+// Los dos dibujos de los carteles finales. Van acÃ¡ y no en el marcado para
+// no repetir el SVG entero dos veces.
+(function(){
+  var A = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  var ok = document.getElementById('emOk');
+  var duda = document.getElementById('emDuda');
+  if (ok) ok.innerHTML = A + '<path d="M4 12.5l5 5L20 6" stroke-width="2.8"/></svg>';
+  if (duda) duda.innerHTML = A + '<circle cx="12" cy="12" r="9"/><path d="M9.4 9.2a2.7 2.7 0 1 1 3.6 2.5v1.6"/><path d="M13 17v0"/></svg>';
+})();
 </script>
 </body>
 </html>
