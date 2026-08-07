@@ -178,11 +178,22 @@
     transition:border-color .25s,background .25s;
     animation:entrarAb .9s .56s cubic-bezier(.16,.9,.3,1) both}
   .campon:focus-within{border-color:rgba(255,214,0,.55);background:rgba(255,255,255,.09)}
-  .campon textarea{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);
+  .campon textarea{flex:1;min-width:120px;background:none;border:0;outline:0;color:var(--text);
     font-family:inherit;font-size:1.02rem;line-height:1.5;padding:14px 0;resize:none;max-height:140px}
   .campon textarea::placeholder{color:#7d848b}
-  .btn-ir{margin:0;flex-shrink:0;padding:14px 22px;display:inline-flex;align-items:center;gap:9px}
+  /* 🔴 `width:auto` NO es decoracion: `.btn` de arriba trae `width:100%` y acá
+     adentro, en una fila flex con `flex-shrink:0`, eso hacia que el boton
+     reclamara el ancho ENTERO de la pildora — el textarea quedaba en 0 px (no
+     habia donde escribir) y el boton se salia del recuadro. En celular no se
+     notaba porque la fila se vuelve columna. Si se toca esta regla, mirar la
+     pantalla en escritorio antes de publicar. */
+  .btn-ir{margin:0;flex-shrink:0;width:auto;padding:14px 22px;display:inline-flex;align-items:center;gap:9px}
   .btn-ir svg{width:15px;height:15px}
+  /* "Tocaste Continuar pero no escribiste nada", dicho sin cartel. */
+  .campon.sacude{animation:sacudir .42s cubic-bezier(.36,.07,.19,.97) both;
+                 border-color:rgba(255,214,0,.55)}
+  @keyframes sacudir{10%,90%{transform:translateX(-3px)}30%,70%{transform:translateX(5px)}
+                     50%{transform:translateX(-5px)}100%{transform:none}}
   @media(max-width:560px){
     .campon{flex-direction:column;align-items:stretch;border-radius:26px;padding:16px}
     .campon textarea{padding:2px 4px 12px}
@@ -860,7 +871,11 @@ if (/^\d+$/.test(HOME_OFICIO)) S.profesionId = Number(HOME_OFICIO);
 let CATALOGO = [];
 (async () => {
   try {
-    const { data } = await sb.from('professions').select('id,name,icon').order('name');
+    // Sólo `id` y `name`: la tabla NO tiene columna `icon`. Pedirla devolvía
+    // 400 ("column professions.icon does not exist"), el catch de abajo se lo
+    // tragaba y los chips de oficio quedaban vacíos — sin ninguna señal.
+    const { data, error } = await sb.from('professions').select('id,name').order('name');
+    if (error) throw error;
     CATALOGO = data || [];
     $('chipsOficio').innerHTML = CATALOGO.slice(0, 10).map(p =>
       `<button type="button" class="chip" data-id="${p.id}" onclick="tocarChip(this)">${esc(p.name)}</button>`).join('');
@@ -880,7 +895,15 @@ let CATALOGO = [];
         if (chip) chip.classList.add('on');
       }
     }
-  } catch (e) { /* sin catálogo, el asistente igual deduce el oficio */ }
+  } catch (e) {
+    // Sin catálogo el asistente igual deduce el oficio, así que el pedido no se
+    // cae. Pero el renglón "O elegí el oficio…" arriba de una fila vacía es una
+    // promesa rota: se esconde. Y el error queda escrito, que es lo que faltó
+    // para darse cuenta de esto.
+    console.error('BOLT · no se pudo cargar el catálogo de oficios:', e);
+    const t = document.querySelector('#p-inicio .oquien');
+    if (t) t.style.display = 'none';
+  }
 })();
 
 function tocarChip(el){
@@ -906,7 +929,15 @@ let PREGUNTAS = [], IDX = 0, RESPUESTAS = {}, FOTOS = [];
 
 function arrancar(){
   const txt = $('txtProblema').value.trim();
-  if (!txt && !S.profesionId){ $('txtProblema').focus(); return; }
+  // Sin texto ni oficio no hay nada que mandar. Antes esto era un `return` mudo
+  // y el botón parecía roto: ahora el campo se sacude, que es lo que dice "acá
+  // falta algo" sin sumar un cartel.
+  if (!txt && !S.profesionId){
+    const c = $('campon');
+    c.classList.remove('sacude'); void c.offsetWidth; c.classList.add('sacude');
+    $('txtProblema').focus();
+    return;
+  }
   ir(2);
   arrancarEspera();
   $('cajaPreg').style.display = 'none';
@@ -946,10 +977,16 @@ function arrancarEspera(){
   }, 2100);
 }
 
+// 🔴 Acá había `pararEspera()` llamándose a sí misma: recursión infinita. El
+// navegador tiraba "Maximum call stack size exceeded" JUSTO cuando volvía el
+// asistente, así que la pantalla se quedaba clavada para siempre en "Leyendo lo
+// que nos contaste…" y el pedido no salía nunca. Lo que tenía que hacer es
+// apagar el reloj y esconder la caja de la espera.
 function pararEspera(){
   clearInterval(esperaTimer);
   esperaTimer = null;
-  pararEspera();
+  const caja = $('cajaPensando');
+  if (caja) caja.style.display = 'none';
 }
 
 async function analizar(mensaje){
@@ -967,7 +1004,10 @@ async function analizar(mensaje){
 
     PREGUNTAS = (Array.isArray(data.preguntas) ? data.preguntas : []).filter(p => p?.id && p?.pregunta);
     IDX = 0; RESPUESTAS = {};
-    if (!PREGUNTAS.length){ terminarPreguntas(); return; }
+    // Sin preguntas se salta derecho a la dirección, pero la espera hay que
+    // apagarla igual: si no, el reloj sigue latiendo y la caja queda prendida
+    // atrás de la pantalla siguiente.
+    if (!PREGUNTAS.length){ pararEspera(); terminarPreguntas(); return; }
     pararEspera();
     $('cajaPreg').style.display = 'flex';
     pintarPregunta();
