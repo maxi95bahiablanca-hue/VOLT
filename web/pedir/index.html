@@ -79,7 +79,18 @@
        /* el halo es más ancho que la pantalla: sin esto, en el celular
           aparece scroll para el costado */
        overflow-x:hidden}
-  .app{max-width:520px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;position:relative;z-index:1}
+  /* ── EL ANCHO DE LA PÁGINA ────────────────────────────────────────────────
+     Maxi (7-ago-2026): "no se ve la pantalla completa, hacelo pantalla completa
+     de lado a lado". Antes `.app` estaba clavada en 520 px (1040 desde 900 px):
+     en un monitor de 1920 quedaban 440 px de negro a cada lado y la foto de la
+     tapa vivía adentro de una franja — y el botón Continuar, pegado al borde de
+     esa franja, se leía como corrido.
+
+     El criterio es el de la home: **el fondo va de borde a borde y el contenido
+     se centra en un ancho de lectura**. Un formulario a 1900 px no se lee. Por
+     eso `.app` ya no limita nada y cada pantalla dice cuánto ocupa. */
+  :root{ --wrap:1180px }        /* el ancho de lectura, igual que .wrap de la home */
+  .app{width:100%;min-height:100dvh;display:flex;flex-direction:column;position:relative;z-index:1}
 
   /* El halo que gira, igual que en la home. Es lo único de color del fondo
      y hace que la pantalla no parezca un formulario apagado. */
@@ -94,7 +105,11 @@
   @keyframes girar{to{transform:rotate(360deg)}}
 
   /* Barra de arriba */
-  .top{display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid var(--bord);position:sticky;top:0;background:rgba(8,9,10,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:20}
+  /* La barra cruza toda la pantalla, pero su contenido se alinea con el resto:
+     el `max()` reparte el sobrante a los costados sin necesitar un div extra. */
+  .top{display:flex;align-items:center;gap:12px;
+    padding:15px max(18px, calc((100% - var(--wrap)) / 2));
+    border-bottom:1px solid var(--bord);position:sticky;top:0;background:rgba(8,9,10,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:20}
   .logo{font-weight:700;font-size:1.05rem;letter-spacing:1px}
   .logo span{color:var(--yellow)}
   .back{background:none;border:1px solid var(--bord);color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;width:34px;height:34px;border-radius:50%;font-family:inherit;display:grid;place-items:center;transition:.2s}
@@ -108,9 +123,17 @@
   .fondoModal.on{display:flex}
   .cajaModal{width:100%;max-width:400px;background:#101214;border:1px solid var(--bord);border-radius:20px;padding:22px;max-height:92vh;overflow:auto;animation:sube .3s cubic-bezier(.16,.9,.3,1)}
 
-  main{flex:1;padding:26px 18px 32px;display:flex;flex-direction:column}
-  .pantalla{display:none;flex-direction:column;flex:1;animation:sube .45s cubic-bezier(.16,.9,.3,1)}
+  /* `main` ya no pone márgenes: el ancho lo decide cada pantalla, porque no
+     todas quieren lo mismo. Los formularios se leen en una columna angosta; la
+     tapa tiene que llegar a los bordes; el seguimiento con mapa quiere aire. */
+  main{flex:1;padding:0;display:flex;flex-direction:column}
+  .pantalla{display:none;flex-direction:column;flex:1;width:100%;
+    max-width:560px;margin:0 auto;padding:26px 18px 32px;
+    animation:sube .45s cubic-bezier(.16,.9,.3,1)}
   .pantalla.on{display:flex}
+  #p-inicio{max-width:none;padding:0}            /* la foto, de lado a lado */
+  #p-chat{max-width:640px}                        /* el asistente, un poco más ancho */
+  #p-seguir{max-width:1320px}                     /* mapa + chat, en dos columnas */
   @keyframes sube{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 
   h1{font-size:1.75rem;font-weight:600;line-height:1.14;letter-spacing:-1px;margin-bottom:10px}
@@ -145,8 +168,10 @@
      notaba que era otra cosa. Ahora es el banner de la home: foto de fondo que
      se acerca sola, velo para que el texto se lea, titulo armandose palabra
      por palabra y el campo grande flotando. */
+  /* Sin márgenes negativos: `#p-inicio` ya no tiene padding, así que la tapa
+     ocupa el ancho entero por sí sola. El aire lateral lo pone `.tapa-cont`. */
   .tapa{position:relative;flex:1;display:flex;align-items:center;
-    margin:-26px -18px 0;padding:34px 18px 40px;overflow:hidden}
+    padding:34px 0 40px;overflow:hidden}
   .tapa-fotos{position:absolute;inset:0;z-index:0}
   .tapa-foto{position:absolute;inset:0;opacity:0;background-size:cover;background-position:center;
     transition:opacity 1.6s ease}
@@ -157,7 +182,9 @@
   .tapa-velo{position:absolute;inset:0;z-index:1;background:
       linear-gradient(100deg,rgba(8,9,10,.96) 0%,rgba(8,9,10,.88) 38%,rgba(8,9,10,.45) 72%,rgba(8,9,10,.68) 100%),
       linear-gradient(180deg,rgba(8,9,10,.86) 0%,transparent 30%,transparent 52%,rgba(8,9,10,.97) 100%)}
-  .tapa-cont{position:relative;z-index:2;width:100%}
+  /* El texto sobre la foto, centrado en el ancho de lectura. */
+  .tapa-cont{position:relative;z-index:2;width:100%;max-width:var(--wrap);
+    margin:0 auto;padding:0 22px}
 
   .titulon{font-size:clamp(2.1rem,8.4vw,3.2rem);font-weight:600;letter-spacing:-1.6px;
     line-height:1.06;max-width:14ch;margin-bottom:16px}
@@ -172,7 +199,10 @@
   @keyframes entrarAb{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
 
   /* El campo grande. Es el buscador de la home, con textarea en vez de input. */
-  .campon{display:flex;align-items:flex-end;gap:10px;
+  /* `max-width` acá es lo que evita que el botón termine a un metro del texto:
+     con la página de lado a lado, una píldora de 1180 px deja "Continuar"
+     perdido en la esquina. Mismo criterio que el buscador de la home. */
+  .campon{display:flex;align-items:flex-end;gap:10px;max-width:800px;
     background:rgba(255,255,255,.06);border:1px solid var(--bord2);border-radius:28px;
     padding:8px 8px 8px 20px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     transition:border-color .25s,background .25s;
@@ -203,7 +233,7 @@
   .oquien{color:var(--muted2);font-size:.78rem;font-weight:600;letter-spacing:1.6px;
     text-transform:uppercase;margin:26px 0 12px;
     animation:entrarAb .9s .7s cubic-bezier(.16,.9,.3,1) both}
-  #p-inicio .chips{animation:entrarAb .9s .78s cubic-bezier(.16,.9,.3,1) both}
+  #p-inicio .chips{max-width:940px;animation:entrarAb .9s .78s cubic-bezier(.16,.9,.3,1) both}
 
   /* Los tres datos, iguales a los de la home: lo que si es cierto. */
   .tres{display:flex;flex-wrap:wrap;gap:9px 22px;margin-top:30px;
@@ -373,7 +403,6 @@
   .est{font-size:2rem;cursor:pointer;filter:grayscale(1);opacity:.4}
   .est.on{filter:none;opacity:1}
   @media(min-width:900px){
-    .app{max-width:1040px}
     .seguir{flex-direction:row;align-items:stretch}
     .col-izq{flex:1.15;min-width:0}
     .col-der{flex:1;min-width:0}
@@ -531,10 +560,13 @@
             </div>
           </div>
 
-          <!-- Mi cuenta, sin tener que empezar un pedido para llegar. -->
-          <div style="text-align:center;margin-top:26px">
-            <button class="link" id="btnClave" onclick="abrirClave()">Cambiar mi contraseña</button>
-          </div>
+          <!-- 🔴 Acá había un botón "Poner una contraseña". Maxi lo sacó el
+               7-ago-2026: *"no me parece el lugar indicado, ahí entraron para
+               pedir un oficio no para poner una contraseña"*. Tiene razón: es
+               la pantalla de la acción principal y lo único que compite con
+               ella tiene que ser nada. El botón sigue estando en la pantalla de
+               contacto, al lado de "Salir de esta cuenta", que es donde uno va
+               a buscar las cosas de su cuenta. -->
         </div>
       </div>
     </section>
@@ -598,7 +630,10 @@
         <div class="err" id="errDatos"></div>
         <div class="btn-row">
           <button class="btn" id="btnPedir" onclick="pedir()">Buscar profesionales</button>
-          <button class="btn sec" onclick="abrirClave()">Cambiar mi contraseña</button>
+          <!-- `btnClave` vive acá desde que se sacó el de la pantalla de inicio:
+               `pintarSesion()` le cambia el texto a "Poner una contraseña" para
+               el que entró con Google. Si se mueve, mover el id con él. -->
+          <button class="btn sec" id="btnClave" onclick="abrirClave()">Cambiar mi contraseña</button>
           <button class="btn sec" onclick="salir()">Salir de esta cuenta</button>
         </div>
       </div>
