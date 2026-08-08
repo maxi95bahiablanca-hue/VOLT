@@ -27,10 +27,49 @@ para poder enviar la app: lo que queda son trámites tuyos y una cosa de Maxi.
 | ⏳ | Generar el proyecto iOS (`npx expo prebuild --platform ios`) | **vos** |
 | ⏳ | Grabar el video de la ubicación en segundo plano (guion en `APPLE_REVIEW.md`) | **vos** |
 | ⏳ | Pasarle a Maxi tu **usuario de GitHub** (el mail no alcanza para agregarte) | **vos** |
+| ✅ | **Privacidad de la app**: el formulario de App Store Connect, resuelto → `APPLE_PRIVACY.md` | hecho |
 
 **El orden que yo seguiría:** cuenta de Apple → que Maxi te sume a Expo → prebuild en la
 Mac → habilitar Apple en Supabase → build y subida → completar la ficha con
-`APPLE_REVIEW.md` y el video.
+`APPLE_REVIEW.md`, `APPLE_PRIVACY.md` y el video.
+
+### Revisado de nuevo el 8-ago-2026, contra el sistema en vivo
+
+No es lo que decía la nota vieja: se volvió a comprobar una por una.
+
+- ✅ **La cuenta del revisor sigue entrando** (`review@bolt.com.ar`), con el mail
+  confirmado, **profesional aprobado** y oficio *Electricista*, y el radar apagado —
+  que es lo que queremos: lo prende él y ve el permiso de ubicación en contexto.
+  🔴 Si Apple no puede entrar, el rechazo es automático: **no la toques**.
+- ✅ **La función de borrar la cuenta existe y responde** en producción.
+- ✅ **Las tres páginas legales están online** (`privacy.html`, `terms.html`,
+  `eliminar-cuenta.html`): Apple exige la de privacidad y verifica que abra.
+- ✅ **Los textos de permisos están completos y son específicos** (ubicación en uso y
+  siempre, cámara, fotos, micrófono). Es la causa número uno de rechazo y acá está bien:
+  cada uno explica *para qué*, no dice "necesitamos tu ubicación".
+- ✅ **`eas.json` correcto para iOS**: `credentialsSource: "remote"` sólo en el bloque
+  de iOS (EAS genera los certificados), y `"local"` únicamente en Android, que es donde
+  está el keystore que no se puede perder.
+- ✅ **No hay ninguna librería de analítica ni de publicidad** — por eso en el formulario
+  de privacidad la respuesta a *"¿usás los datos para rastrear?"* es **NO**.
+- ⏳ En `eas.json` no hay bloque `submit.production.ios`. No es un problema:
+  `eas submit -p ios` pide los datos (Apple ID, App Store Connect App ID, Team ID) la
+  primera vez. Si querés dejarlo fijo, se completa después del primer envío.
+
+### ⚠️ Antes de subir: el nombre
+
+Maxi decidió el **8-ago-2026 seguir adelante con "BOLT"**, sabiendo el riesgo. Queda
+dicho acá para que nadie se sorprenda después:
+
+- En Argentina **"BOLT" está concedida a terceros** en las clases 9, 35 y 42 (ver la
+  búsqueda del INPI). La 35 —poner en contacto clientes con prestadores— es exactamente
+  lo que hace la app.
+- **Apple revisa marcas al aprobar** (guideline 5.2.1), y existe una app de movilidad
+  llamada Bolt, muy grande. Puede haber rechazo por el nombre.
+- 🔴 **El Bundle ID `com.bolt.app` no se puede cambiar nunca** una vez subido el primer
+  build. Si más adelante hay que cambiar de nombre, el nombre visible se cambia en un
+  rato, pero el identificador no: sería **una app nueva**, sin reseñas y sin que los
+  usuarios instalados reciban la actualización.
 
 ---
 
