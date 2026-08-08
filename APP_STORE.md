@@ -80,6 +80,33 @@ Todo por web. Los tres documentos que te dejé preparados:
 - Las capturas: hacen falta de **iPhone 6.7"** (1290×2796) y **6.5"**. Se pueden armar
   con las de Android reencuadradas, o con un iPhone prestado.
 
+### 4.b Las actualizaciones por aire ya no se cruzan de plataforma
+
+**8-ago-2026.** Antes, iOS y Android **compartían el canal `production`**. Eso quería
+decir que un `eas update --channel production` pensado para iPhone **también le bajaba
+a los Android instalados**, incluidos los testers de Play. Ya no:
+
+| Plataforma | Canal |
+|---|---|
+| iOS | `production-ios` |
+| Android | `production` |
+
+⚠️ **Android sigue en `production` a propósito.** Los binarios que ya están en Play
+llevan ese nombre de canal **grabado adentro**: si se lo cambiáramos, esos teléfonos
+dejarían de recibir actualizaciones por aire para siempre. iOS estrena canal propio
+porque todavía no hay ningún build, que es el único momento en que sale gratis.
+
+Para publicar una actualización por aire, ahora se elige a quién:
+
+```bash
+eas update --channel production-ios --message "qué cambiaste"   # sólo iPhone
+eas update --channel production     --message "qué cambiaste"   # sólo Android
+```
+
+🔴 **`eas.json` no admite comentarios**: cualquier campo que no esté en su esquema
+—incluido un `"//"`— hace fallar el build con *"eas.json is not valid"*. Por eso esto
+está documentado acá y no adentro del archivo.
+
 ### 5. Mandarla a revisión
 
 Apple tarda entre un día y tres. Si rechaza, contesta en el mismo hilo: casi siempre es

@@ -39,10 +39,12 @@
       "channel": "production",
       "android": {
         "buildType": "app-bundle",
-        "credentialsSource": "local"
+        "credentialsSource": "local",
+        "channel": "production"
       },
       "ios": {
-        "credentialsSource": "remote"
+        "credentialsSource": "remote",
+        "channel": "production-ios"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://lyeqnvldemcltlbujlnc.supabase.co",
