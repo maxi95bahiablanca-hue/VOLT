@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   ActivityIndicator, Platform, TextInput, KeyboardAvoidingView,
@@ -9,9 +9,17 @@ import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../supabase';
 
 const LoginScreen = () => {
+  // 🔴 11-ago-2026 — La app es edge-to-edge: en Android el SafeAreaView de
+  //    react-native no reserva nada y la barra de gestos se come el último
+  //    botón del formulario. El alto real lo da el inset, nunca un número fijo.
+  //    Sólo en Android: en iOS el SafeAreaView ya reservó ese espacio y sumarlo
+  //    de nuevo correría todo hacia arriba sin motivo.
+  const insets = useSafeAreaInsets();
+  const padAbajo = 40 + (Platform.OS === 'android' ? insets.bottom : 0);
   const [mode, setMode]       = useState('landing'); // 'landing' | 'email'
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail]     = useState('');
@@ -21,6 +29,7 @@ const LoginScreen = () => {
   const [error, setError]     = useState(null);
   const [success, setSuccess] = useState(null);
   const [appleDisponible, setAppleDisponible] = useState(false);
+  const pwdRef = useRef(null);
 
   // ─── Google OAuth ────────────────────────────────────────
   const signInWithGoogle = async () => {
@@ -106,6 +115,12 @@ const LoginScreen = () => {
 
   // ─── Email / Password ────────────────────────────────────
   const handleEmailAuth = async () => {
+    // 🔴 11-ago-2026 — La tecla "Ir" del teclado es una segunda puerta a esta
+    //    función, y esa puerta NO tiene el `disabled={loading}` que sí tiene el
+    //    botón amarillo. Sin este candado, dos toques seguidos en "Ir" mandan
+    //    dos altas: la segunda vuelve con "Ya existe una cuenta con ese email"
+    //    y la persona cree que falló cuando en realidad ya se registró.
+    if (loading) return;
     if (!email.trim() || !password) { setError('Completá email y contraseña.'); return; }
     if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
     setLoading(true);
@@ -183,13 +198,21 @@ const LoginScreen = () => {
   if (mode === 'landing') {
     return (
       <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: padAbajo }]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
 
             {/* Logo */}
             <View style={styles.logoWrap}>
               <View style={styles.logoBadge}>
-                <Ionicons name="flash" size={32} color="#0A0A0A" />
+                <Ionicons name="flash" size={32} color="#0D0D0D" />
               </View>
               <Text style={styles.logoText}>BOLT</Text>
               <Text style={styles.logoTagline}>Profesionales a domicilio,{'\n'}cuando los necesitás</Text>
@@ -247,13 +270,13 @@ const LoginScreen = () => {
               onPress={() => { setMode('email'); setError(null); }}
               activeOpacity={0.8}
             >
-              <Ionicons name="mail-outline" size={18} color="#888" />
+              <Ionicons name="mail-outline" size={18} color="#8A8A8A" />
               <Text style={styles.emailBtnText}>Continuar con email</Text>
             </TouchableOpacity>
 
             {error && (
               <View style={styles.errorWrap}>
-                <Ionicons name="alert-circle-outline" size={16} color="#ff4444" />
+                <Ionicons name="alert-circle-outline" size={16} color="#E5484D" />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
@@ -279,19 +302,34 @@ const LoginScreen = () => {
   // ─── EMAIL FORM ───────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {/* 🔴 11-ago-2026 — Acá el revisor de Play tocaba "Contraseña" y el teclado
+          le tapaba el campo y el botón "Ingresar", sin manera de scrollear:
+          con behavior=undefined el KeyboardAvoidingView en Android no hacía NADA
+          (la ventana ya no se achica sola por edge-to-edge) y el contenido medía
+          exacto el alto de pantalla. Con 'height' la vista se encoge lo que mide
+          el teclado y el ScrollView por fin tiene a dónde correrse. Es el mismo
+          patrón de RegisterProfessionalScreen. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: padAbajo }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
 
           {/* Back */}
           <TouchableOpacity style={styles.backBtn} onPress={() => { setMode('landing'); setError(null); setSuccess(null); }}>
-            <Ionicons name="arrow-back" size={22} color="#888" />
+            <Ionicons name="arrow-back" size={22} color="#8A8A8A" />
             <Text style={styles.backBtnText}>Volver</Text>
           </TouchableOpacity>
 
           {/* Logo pequeño */}
           <View style={styles.logoSmall}>
             <View style={styles.logoBadgeSmall}>
-              <Ionicons name="flash" size={18} color="#0A0A0A" />
+              <Ionicons name="flash" size={18} color="#0D0D0D" />
             </View>
             <Text style={styles.logoTextSmall}>BOLT</Text>
           </View>
@@ -311,12 +349,19 @@ const LoginScreen = () => {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => pwdRef.current?.focus()}
           />
 
           {/* Campo contraseña */}
           <Text style={styles.fieldLabel}>Contraseña</Text>
           <View style={styles.pwdWrap}>
+            {/* 🔴 11-ago-2026 — La tecla "Ir" del teclado también entra: si en
+                algún teléfono el botón amarillo igual queda tapado, esta es la
+                salida que no depende de ver nada en pantalla. */}
             <TextInput
+              ref={pwdRef}
               style={styles.pwdInput}
               placeholder={isSignUp ? 'Mínimo 6 caracteres' : 'Tu contraseña'}
               placeholderTextColor="#444"
@@ -324,22 +369,24 @@ const LoginScreen = () => {
               onChangeText={setPassword}
               secureTextEntry={!showPwd}
               autoCapitalize="none"
+              returnKeyType="go"
+              onSubmitEditing={handleEmailAuth}
             />
             <TouchableOpacity onPress={() => setShowPwd(v => !v)} style={styles.pwdEye}>
-              <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={20} color="#555" />
+              <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={20} color="#5C5C5C" />
             </TouchableOpacity>
           </View>
 
           {error && (
             <View style={styles.errorWrap}>
-              <Ionicons name="alert-circle-outline" size={16} color="#ff4444" />
+              <Ionicons name="alert-circle-outline" size={16} color="#E5484D" />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
 
           {success && (
             <View style={styles.successWrap}>
-              <Ionicons name="checkmark-circle-outline" size={16} color="#4CAF50" />
+              <Ionicons name="checkmark-circle-outline" size={16} color="#FFD600" />
               <Text style={styles.successText}>{success}</Text>
             </View>
           )}
@@ -352,7 +399,7 @@ const LoginScreen = () => {
             activeOpacity={0.85}
           >
             {loading
-              ? <ActivityIndicator color="#0A0A0A" />
+              ? <ActivityIndicator color="#0D0D0D" />
               : <Text style={styles.submitBtnText}>{isSignUp ? 'Crear cuenta' : 'Ingresar'}</Text>}
           </TouchableOpacity>
 
@@ -388,7 +435,7 @@ const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   content: {
     flexGrow: 1, paddingHorizontal: 28,
     justifyContent: 'center', paddingVertical: 40,
@@ -404,52 +451,51 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4, shadowRadius: 16, elevation: 10,
   },
   logoText: {
-    fontSize: 44, fontWeight: '900', color: '#F5F5F5',
+    fontSize: 44, fontWeight: '700', color: '#FFFFFF',
     letterSpacing: 10, marginBottom: 10,
   },
   logoTagline: {
-    fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 22,
+    fontSize: 16, color: '#5C5C5C', textAlign: 'center', lineHeight: 22,
   },
 
   features: { marginBottom: 36, gap: 14 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   featureIcon: {
-    width: 34, height: 34, borderRadius: 10,
+    width: 34, height: 34, borderRadius: 20,
     backgroundColor: '#141400',
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: '#2a2a10',
   },
-  featureText: { fontSize: 14, color: '#888', flex: 1, lineHeight: 20 },
+  featureText: { fontSize: 16, color: '#8A8A8A', flex: 1, lineHeight: 20 },
 
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 12, backgroundColor: '#F5F5F5',
-    borderRadius: 16, paddingVertical: 18, marginBottom: 10,
+    gap: 12, backgroundColor: '#FFFFFF',
+    borderRadius: 999, paddingVertical: 18, marginBottom: 10,
   },
   // La altura la fija Apple: su botón nativo no acepta padding propio
   appleBtn: { height: 56, marginBottom: 10 },
   googleIcon: {
-    width: 24, height: 24, borderRadius: 12,
+    width: 24, height: 24, borderRadius: 20,
     backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
   },
-  googleG: { fontSize: 14, fontWeight: '900', color: '#4285F4' },
+  googleG: { fontSize: 16, fontWeight: '700', color: '#4285F4' },
   googleBtnText: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
 
   emailBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10,
-    borderWidth: 1, borderColor: '#222',
-    borderRadius: 16, paddingVertical: 16, marginBottom: 16,
+    borderRadius: 999, paddingVertical: 16, marginBottom: 16,
   },
-  emailBtnText: { fontSize: 15, fontWeight: '600', color: '#888' },
+  emailBtnText: { fontSize: 16, fontWeight: '600', color: '#8A8A8A' },
 
   terms: {
-    fontSize: 11, color: '#333', textAlign: 'center', lineHeight: 17, marginTop: 8,
+    fontSize: 12, color: '#5C5C5C', textAlign: 'center', lineHeight: 18, marginTop: 8,
   },
   termsLink: { color: '#FFD600', textDecorationLine: 'underline' },
 
   version: {
-    textAlign: 'center', fontSize: 11, color: '#1a1a1a', paddingBottom: 12,
+    textAlign: 'center', fontSize: 12, color: '#333', paddingBottom: 12,
   },
 
   // Email form
@@ -457,68 +503,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     marginBottom: 32,
   },
-  backBtnText: { color: '#555', fontSize: 14 },
+  backBtnText: { color: '#5C5C5C', fontSize: 16 },
 
   logoSmall: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 28,
   },
   logoBadgeSmall: {
-    width: 36, height: 36, borderRadius: 10,
+    width: 36, height: 36, borderRadius: 999,
     backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
   logoTextSmall: {
-    fontSize: 24, fontWeight: '900', color: '#F5F5F5', letterSpacing: 5,
+    fontSize: 24, fontWeight: '700', color: '#FFFFFF', letterSpacing: 3,
   },
 
   emailFormTitle: {
-    fontSize: 26, fontWeight: '900', color: '#F5F5F5', marginBottom: 28,
+    fontSize: 26, fontWeight: '700', color: '#FFFFFF', marginBottom: 28,
   },
 
   fieldLabel: {
-    fontSize: 12, fontWeight: '700', color: '#555',
-    textTransform: 'uppercase', letterSpacing: 0.5,
+    fontSize: 12, fontWeight: '600', color: '#5C5C5C',
+    textTransform: 'uppercase', letterSpacing: 1.8,
     marginBottom: 8, marginTop: 16,
   },
   input: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
-    color: '#F5F5F5', fontSize: 16, padding: 14,
+    backgroundColor: '#161616', borderRadius: 20,
+    color: '#FFFFFF', fontSize: 16, padding: 14,
   },
   pwdWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
-  },
-  pwdInput: { flex: 1, color: '#F5F5F5', fontSize: 16, padding: 14 },
+    backgroundColor: '#161616', borderRadius: 20,
+    },
+  pwdInput: { flex: 1, color: '#FFFFFF', fontSize: 16, padding: 14 },
   pwdEye: { paddingHorizontal: 14 },
 
   errorWrap: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: 'rgba(255,68,68,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,68,68,0.25)',
-    borderRadius: 10, padding: 12, marginTop: 12,
+    backgroundColor: 'rgba(229,72,77,0.08)',
+    borderWidth: 1, borderColor: 'rgba(229,72,77,0.25)',
+    borderRadius: 20, padding: 12, marginTop: 12,
   },
-  errorText: { color: '#ff4444', fontSize: 13, flex: 1, lineHeight: 18 },
+  errorText: { color: '#E5484D', fontSize: 14, flex: 1, lineHeight: 18 },
 
   successWrap: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: 'rgba(76,175,80,0.08)',
-    borderWidth: 1, borderColor: 'rgba(76,175,80,0.25)',
-    borderRadius: 10, padding: 12, marginTop: 12,
+    backgroundColor: 'rgba(255,214,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)',
+    borderRadius: 20, padding: 12, marginTop: 12,
   },
-  successText: { color: '#4CAF50', fontSize: 13, flex: 1, lineHeight: 18 },
+  successText: { color: '#FFD600', fontSize: 14, flex: 1, lineHeight: 18 },
 
   submitBtn: {
-    backgroundColor: '#FFD600', borderRadius: 16,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingVertical: 18, alignItems: 'center', marginTop: 24,
   },
-  submitBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  submitBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '600' },
 
   toggleBtn: { paddingVertical: 16, alignItems: 'center' },
-  toggleBtnText: { color: '#555', fontSize: 14 },
+  toggleBtnText: { color: '#5C5C5C', fontSize: 16 },
   olvideBtn: { paddingVertical: 6, alignItems: 'center' },
-  olvideBtnText: { color: '#888', fontSize: 13.5, textDecorationLine: 'underline' },
+  olvideBtnText: { color: '#8A8A8A', fontSize: 14, textDecorationLine: 'underline' },
 });
 
 export default LoginScreen;

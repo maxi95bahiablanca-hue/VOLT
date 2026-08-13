@@ -82,7 +82,7 @@ const jobService = {
     const since = new Date(Date.now() - 4 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('jobs')
-      .select('*, professions(name)')
+      .select('*, professions(name), professionals(user_id)')
       .eq('professional_id', professionalId)
       .eq('status', 'pending')
       .gte('created_at', since)
@@ -94,7 +94,7 @@ const jobService = {
   getActiveForWorker: async (professionalId) => {
     const { data, error } = await supabase
       .from('jobs')
-      .select('*, professions(name)')
+      .select('*, professions(name), professionals(user_id)')
       .eq('professional_id', professionalId)
       .in('status', ['accepted','arrived','in_progress','awaiting_payment'])
       // Excluir presupuestos aún no elegidos por el cliente (tienen quote_group_id):
@@ -447,7 +447,7 @@ const jobService = {
     const { data, error } = await supabase
       .from('jobs')
       .insert(rows)
-      .select('*, professions(name), professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url)');
+      .select('*, professions(name), professionals(id, user_id, first_name, last_name, phone, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url)');
     if (error) throw error;
     return { quoteGroupId, jobs: data };
   },
@@ -455,7 +455,7 @@ const jobService = {
   getQuoteGroup: async (quoteGroupId) => {
     const { data, error } = await supabase
       .from('jobs')
-      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url), professions(name)')
+      .select('*, professionals(id, user_id, first_name, last_name, phone, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url), professions(name)')
       .eq('quote_group_id', quoteGroupId);
     if (error) throw error;
     return data ?? [];
@@ -474,7 +474,7 @@ const jobService = {
     if (!job?.quote_group_id) return null;
     const { data: groupJobs, error } = await supabase
       .from('jobs')
-      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url), professions(name)')
+      .select('*, professionals(id, user_id, first_name, last_name, phone, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct, avatar_url), professions(name)')
       .eq('quote_group_id', job.quote_group_id)
       .not('status', 'eq', 'cancelled');
     if (error) throw error;
@@ -492,7 +492,7 @@ const jobService = {
     await supabase.from('jobs').update({ quote_group_id: null }).eq('id', selectedJobId);
     const { data, error } = await supabase
       .from('jobs')
-      .select('*, professionals(id, user_id, first_name, last_name, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct), professions(name)')
+      .select('*, professionals(id, user_id, first_name, last_name, phone, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct), professions(name)')
       .eq('id', selectedJobId)
       .single();
     if (error) throw error;
@@ -522,7 +522,7 @@ const jobService = {
           // El payload de INSERT no incluye joins — hacer fetch completo
           const { data } = await supabase
             .from('jobs')
-            .select('*, professions(name)')
+            .select('*, professions(name), professionals(user_id)')
             .eq('id', p.new.id)
             .maybeSingle();
           onNew(data || p.new);
@@ -535,10 +535,17 @@ const jobService = {
         p => { if (p.new.location) onUpdate(p.new.location); })
       .subscribe(),
 
-  addEvent: async (jobId, eventType, message) => {
+  /** Anota un paso del trabajo.
+   *
+   *  `origen` dice POR DÓNDE entró la acción: 'app' (esta pantalla), 'wa' (el
+   *  bot de WhatsApp) o 'auto' (un cron). Es lo que va a permitir contestar con
+   *  números —y no con impresiones— qué canal usa la gente de verdad, y decidir
+   *  con eso cuánto seguimiento tiene sentido pedirle a la app.
+   */
+  addEvent: async (jobId, eventType, message, origen = 'app') => {
     const { error } = await supabase
       .from('job_events')
-      .insert({ job_id: jobId, event_type: eventType, message });
+      .insert({ job_id: jobId, event_type: eventType, message, origen });
     if (error) throw error;
   },
 

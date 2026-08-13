@@ -32,6 +32,17 @@ export const OFICIOS = [
   { id: 8,  name: 'Heladeras y lavarropas', emoji: '🧊', tipo: TIPO.REPARACION },
   { id: 16, name: 'Aire acondicionado',     emoji: '❄️', tipo: TIPO.REPARACION },
   { id: 19, name: 'Herrero',                emoji: '⚒️', tipo: TIPO.REPARACION },
+  // 10-ago-2026. Sale de un caso real: Juan hace calderas y calefactores a gas,
+  // pero no todo lo que incluye "Gasista" (garrafas, cocinas, termotanques).
+  // Un oficio angosto le acerca lo que sabe hacer y le ahorra lo que no.
+  // ⚠️ Hoy lo cubre una sola persona: por eso `getNearbyWorkers` cae a Gasista
+  // (id 3) si no hay ningún especialista cerca — el pedido no puede morir acá.
+  { id: 20, name: 'Calderas',               emoji: '♨️', tipo: TIPO.REPARACION },
+  // 11-ago-2026. Marcelo repara cortinas y no había dónde ponerlo: "arreglar la
+  // cortina de enrollar" no matcheaba con ningún oficio y el cliente veía "no
+  // pudimos identificar el oficio". Es de todo tipo —de enrollar, de tela,
+  // motorizadas— y va como reparación: se rompió, viene y lo arregla.
+  { id: 21, name: 'Cortinas',               emoji: '🪟', tipo: TIPO.REPARACION },
 
   // ── B · Obra / proyecto (programado) ───────────────────────────────────────
   { id: 4,  name: 'Pintor',                 emoji: '🎨', tipo: TIPO.OBRA },

@@ -122,7 +122,23 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
   const [notes, setNotes]     = useState(initialNotes || '');
   const [loading, setLoading] = useState(false);
   const [notesTouched, setNotesTouched] = useState(false);
+  // El WhatsApp del cliente. Se pregunta UNA vez y queda en la cuenta: es por
+  // donde le vamos a avisar que el profesional salió y mandarle el código.
+  // Hasta hoy la app no lo juntaba de nadie (0 de 29 usuarios lo tenían; los 4
+  // que sí venían de la web, que sí lo pedía).
+  const [tel, setTel] = useState('');
+  const [telGuardado, setTelGuardado] = useState(true);   // hasta saber, no molestamos
   const [foundCount, setFoundCount]     = useState(0);
+
+  useEffect(() => {
+    supabase.auth.getUser()
+      .then(({ data }) => {
+        const guardado = data?.user?.user_metadata?.telefono || '';
+        setTel(guardado);
+        setTelGuardado(!!guardado);
+      })
+      .catch(() => setTelGuardado(false));
+  }, []);
 
   // Foto opcional del problema
   // La foto que se elige acá. Las que ya vienen del asistente (initialPhotos)
@@ -161,11 +177,23 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
   const stars      = Math.round(parseFloat(worker?.avg_rating) || 0);
   const visitPrice = worker?.min_price ?? 30000;
 
+  // Guarda el WhatsApp en la cuenta. Si falla no frena el pedido: el trabajo
+  // vale más que el dato, y el dato se vuelve a pedir la próxima.
+  const guardarTelefono = async () => {
+    const limpio = (tel || '').replace(/\D/g, '');
+    if (limpio.length < 8 || telGuardado) return;
+    try {
+      await supabase.auth.updateUser({ data: { telefono: limpio } });
+      setTelGuardado(true);
+    } catch {}
+  };
+
   const handleConfirm = async () => {
     if (notes.trim().length < 10) {
       setNotesTouched(true);
       return;
     }
+    guardarTelefono();
 
     // Bloquear si no hay ubicación — los campos client_lat/lng son NOT NULL en la DB
     if (!userLocation?.latitude || !userLocation?.longitude) {
@@ -318,7 +346,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Confirmar solicitud</Text>
       </View>
@@ -376,7 +404,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
             <Ionicons name="location-sharp" size={16} color="#FFD600" />
             <Text style={styles.addressLabel}>Dirección del servicio</Text>
             <TouchableOpacity onPress={() => setEditingAddress(e => !e)} style={styles.addressEditBtn}>
-              <Ionicons name={editingAddress ? 'checkmark' : 'pencil-outline'} size={15} color="#888" />
+              <Ionicons name={editingAddress ? 'checkmark' : 'pencil-outline'} size={15} color="#8A8A8A" />
               <Text style={styles.addressEditText}>{editingAddress ? 'Listo' : 'Cambiar'}</Text>
             </TouchableOpacity>
           </View>
@@ -407,7 +435,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
         <View style={styles.notesSection}>
           <View style={styles.notesSectionHeader}>
             <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFD600" />
-            <Text style={styles.notesSectionTitle}>Describí el problema <Text style={{ color: '#ff4444' }}>*</Text></Text>
+            <Text style={styles.notesSectionTitle}>Describí el problema <Text style={{ color: '#E5484D' }}>*</Text></Text>
           </View>
           <Text style={styles.notesSectionHint}>
             El profesional necesita entender qué falló para llegar preparado y darte un diagnóstico preciso.
@@ -424,6 +452,28 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
           />
           {notesTouched && notes.trim().length < 10 && (
             <Text style={styles.notesError}>Describí el problema con un poco más de detalle para continuar.</Text>
+          )}
+
+          {/* Sólo la primera vez. Después queda en la cuenta y no se vuelve a
+              preguntar: es un dato que se guarda, no un formulario que se
+              repite en cada pedido. */}
+          {!telGuardado && (
+            <View style={styles.telWrap}>
+              <Text style={styles.notesSectionTitle}>Tu WhatsApp</Text>
+              <Text style={styles.notesSectionHint}>
+                Te avisamos por acá cuando el profesional salga para tu casa, y te mandamos el
+                código para la puerta. No se lo damos a nadie más.
+              </Text>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="291 555 5555"
+                placeholderTextColor="#444"
+                value={tel}
+                onChangeText={setTel}
+                keyboardType="phone-pad"
+                maxLength={20}
+              />
+            </View>
           )}
 
           {/* Fotos que ya mandó en el cuestionario: se muestran para que no las
@@ -446,17 +496,17 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
             <View style={styles.photoPreview}>
               <Image source={{ uri: problemPhoto.uri }} style={styles.photoPreviewImg} />
               <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => setProblemPhoto(null)}>
-                <Ionicons name="close-circle" size={22} color="#ff4444" />
+                <Ionicons name="close-circle" size={22} color="#E5484D" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.photoChangeBtn} onPress={pickProblemPhoto}>
-                <Ionicons name="camera-outline" size={13} color="#888" />
+                <Ionicons name="camera-outline" size={13} color="#8A8A8A" />
                 <Text style={styles.photoChangeBtnText}>Cambiar</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity style={styles.photoPickBtn} onPress={pickProblemPhoto} activeOpacity={0.8}>
-              <Ionicons name="camera-outline" size={18} color="#888" />
-              <Text style={styles.photoPickBtnText}>Agregar foto del problema <Text style={{ color: '#555' }}>(opcional)</Text></Text>
+              <Ionicons name="camera-outline" size={18} color="#8A8A8A" />
+              <Text style={styles.photoPickBtnText}>Agregar foto del problema <Text style={{ color: '#5C5C5C' }}>(opcional)</Text></Text>
             </TouchableOpacity>
           )}
         </View>
@@ -481,13 +531,13 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
             </View>
             <View style={styles.divider} />
             <View style={styles.visitDeductRow}>
-              <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+              <Ionicons name="checkmark-circle" size={16} color="#FFD600" />
               <Text style={styles.visitDeductText}>
-                Si se realiza el trabajo, la visita <Text style={{ color: '#4CAF50', fontWeight: '800' }}>se descuenta del total</Text>. Solo pagás el trabajo.
+                Si se realiza el trabajo, la visita <Text style={{ color: '#FFD600', fontWeight: '600' }}>se descuenta del total</Text>. Solo pagás el trabajo.
               </Text>
             </View>
             <View style={styles.visitDeductRow}>
-              <Ionicons name="document-text-outline" size={16} color="#888" />
+              <Ionicons name="document-text-outline" size={16} color="#8A8A8A" />
               <Text style={styles.visitDeductText}>
                 El profesional te enviará un presupuesto con los materiales necesarios cuando llegue.
               </Text>
@@ -501,7 +551,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
           <Text style={styles.infoText}>
             {chargesInApp()
               ? 'Tu pago está protegido. El profesional no recibe el dinero hasta que confirmes que el trabajo está hecho.'
-              : 'Profesionales verificados, con antecedentes. El precio lo acordás directo con el profesional y el pago es entre ustedes — BOLT te conecta.'}
+              : 'Profesionales revisados uno por uno por el equipo de BOLT. El precio lo acordás directo con el profesional y el pago es entre ustedes — BOLT te conecta.'}
           </Text>
         </View>
 
@@ -513,10 +563,10 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
           activeOpacity={0.85}
         >
           {loading ? (
-            <ActivityIndicator color="#0A0A0A" />
+            <ActivityIndicator color="#0D0D0D" />
           ) : (
             <>
-              <Ionicons name="flash" size={20} color="#0A0A0A" />
+              <Ionicons name="flash" size={20} color="#0D0D0D" />
               <Text style={styles.confirmBtnText}>Buscar profesionales</Text>
             </>
           )}
@@ -530,7 +580,7 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20,
@@ -539,157 +589,155 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFFFFF' },
   scroll: { padding: 20, paddingBottom: 48 },
 
   workerCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 16, marginBottom: 16,
   },
   workerAvatar: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 56, height: 56, borderRadius: 999,
     backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
   workerAvatarImg: { width: '100%', height: '100%' },
   workerInfo: { flex: 1 },
-  workerName: { fontSize: 16, fontWeight: '800', color: '#F5F5F5' },
-  workerProfession: { fontSize: 13, color: '#888', marginTop: 2, marginBottom: 6 },
+  workerName: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  workerProfession: { fontSize: 14, color: '#8A8A8A', marginTop: 2, marginBottom: 6 },
   workerStars: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  workerRating: { fontSize: 12, color: '#666', marginLeft: 4 },
+  workerRating: { fontSize: 14, color: '#5C5C5C', marginLeft: 4 },
   distBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#1A1A1A', borderRadius: 8,
+    backgroundColor: '#1A1A1A', borderRadius: 999,
     paddingHorizontal: 8, paddingVertical: 5,
     borderWidth: 1, borderColor: '#2a2a1a',
   },
-  distText: { color: '#FFD600', fontSize: 12, fontWeight: '700' },
+  distText: { color: '#FFD600', fontSize: 14, fontWeight: '700' },
 
   addressSection: {
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 14, marginBottom: 16,
   },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  addressLabel: { flex: 1, fontSize: 13, fontWeight: '700', color: '#888' },
+  addressLabel: { flex: 1, fontSize: 14, fontWeight: '700', color: '#8A8A8A' },
   addressEditBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4 },
-  addressEditText: { fontSize: 12, color: '#888' },
-  addressText: { fontSize: 14, color: '#F5F5F5', lineHeight: 20 },
+  addressEditText: { fontSize: 14, color: '#8A8A8A' },
+  addressText: { fontSize: 16, color: '#FFFFFF', lineHeight: 20 },
   addressInput: {
-    backgroundColor: '#0A0A0A', borderRadius: 10, borderWidth: 1, borderColor: '#FFD600',
-    color: '#F5F5F5', fontSize: 14, padding: 12,
+    backgroundColor: '#161616', borderRadius: 20, borderWidth: 1, borderColor: '#FFD600',
+    color: '#FFFFFF', fontSize: 16, padding: 12,
   },
-  addressHint: { fontSize: 11, color: '#555', marginTop: 6, lineHeight: 16 },
+  addressHint: { fontSize: 12, color: '#5C5C5C', marginTop: 6, lineHeight: 16 },
 
   multiNotice: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#111', borderRadius: 14,
+    backgroundColor: '#161616', borderRadius: 20,
     borderWidth: 1, borderColor: '#2a2a1a',
     padding: 14, marginBottom: 20,
   },
-  multiNoticeText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 19 },
+  multiNoticeText: { flex: 1, fontSize: 14, color: '#8A8A8A', lineHeight: 19 },
 
   divider: { height: 1, backgroundColor: '#1a1a1a', marginVertical: 10 },
 
   notesSection: {
-    backgroundColor: '#111', borderRadius: 18,
+    backgroundColor: '#161616', borderRadius: 20,
     borderWidth: 1.5, borderColor: '#2a2a1a',
     padding: 16, marginBottom: 16,
   },
   notesSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  notesSectionTitle:  { fontSize: 15, fontWeight: '800', color: '#F5F5F5' },
-  notesSectionHint:   { fontSize: 12, color: '#666', lineHeight: 17, marginBottom: 12 },
+  notesSectionTitle:  { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  notesSectionHint:   { fontSize: 14, color: '#5C5C5C', lineHeight: 17, marginBottom: 12 },
   notesInput: {
-    backgroundColor: '#0A0A0A', borderRadius: 12,
-    borderWidth: 1, borderColor: '#1E1E1E',
-    color: '#F5F5F5', fontSize: 14, padding: 14,
+    backgroundColor: '#161616', borderRadius: 20,
+    color: '#FFFFFF', fontSize: 16, padding: 14,
     minHeight: 100,
   },
-  notesInputError: { borderColor: '#ff444460' },
-  notesError: { fontSize: 12, color: '#ff4444', marginTop: 6 },
+  // El campo ya no tiene borde (el fondo lo define): para marcar el error hay
+  // que ponerle uno, si no el estado de error no se ve por ningún lado.
+  notesInputError: { borderWidth: 1.5, borderColor: '#E5484D' },
+  telWrap: { marginTop: 24 },
+  notesError: { fontSize: 14, color: '#E5484D', marginTop: 6 },
 
   visitSection: {
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 16, marginBottom: 20, gap: 4,
   },
   visitRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  visitLabel: { fontSize: 15, color: '#F5F5F5', fontWeight: '700' },
-  visitSub:   { fontSize: 12, color: '#555', marginTop: 2 },
-  visitVal:   { fontSize: 22, color: '#FFD600', fontWeight: '900' },
+  visitLabel: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
+  visitSub:   { fontSize: 14, color: '#5C5C5C', marginTop: 2 },
+  visitVal:   { fontSize: 22, color: '#FFD600', fontWeight: '700' },
   visitDeductRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 6 },
-  visitDeductText: { flex: 1, fontSize: 13, color: '#666', lineHeight: 18 },
+  visitDeductText: { flex: 1, fontSize: 14, color: '#5C5C5C', lineHeight: 18 },
 
   infoBox: {
     flexDirection: 'row', gap: 10, alignItems: 'flex-start',
-    backgroundColor: '#111', borderRadius: 14,
+    backgroundColor: '#161616', borderRadius: 20,
     borderWidth: 1, borderColor: '#2a2a1a',
     padding: 14, marginBottom: 24,
   },
-  infoText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 19 },
+  infoText: { flex: 1, fontSize: 14, color: '#8A8A8A', lineHeight: 19 },
 
   // Foto del problema
   photoPickBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginTop: 12, paddingVertical: 12, paddingHorizontal: 14,
-    borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
-    borderStyle: 'dashed', backgroundColor: '#0D0D0D',
+    borderRadius: 999, borderStyle: 'dashed', backgroundColor: '#0D0D0D',
   },
-  photoPickBtnText: { fontSize: 13, color: '#888' },
+  photoPickBtnText: { fontSize: 14, color: '#8A8A8A' },
 
   fotosPrevias: { marginTop: 12, marginBottom: 4 },
-  fotosPreviasTxt: { fontSize: 12, color: '#4CAF50', fontWeight: '700', marginBottom: 8 },
+  fotosPreviasTxt: { fontSize: 14, color: '#FFD600', fontWeight: '700', marginBottom: 8 },
   fotosPreviasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  fotoPrevia: { width: 64, height: 64, borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a' },
+  fotoPrevia: { width: 64, height: 64, borderRadius: 20, },
   photoPreview: {
-    marginTop: 12, borderRadius: 12, overflow: 'hidden',
+    marginTop: 12, borderRadius: 20, overflow: 'hidden',
     position: 'relative',
   },
-  photoPreviewImg: { width: '100%', height: 160, borderRadius: 12 },
+  photoPreviewImg: { width: '100%', height: 160, borderRadius: 20 },
   photoRemoveBtn: {
     position: 'absolute', top: 8, right: 8,
-    backgroundColor: '#0A0A0A', borderRadius: 12,
+    backgroundColor: '#161616', borderRadius: 999,
   },
   photoChangeBtn: {
     position: 'absolute', bottom: 8, right: 8,
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 999,
     paddingHorizontal: 10, paddingVertical: 5,
   },
-  photoChangeBtnText: { fontSize: 11, color: '#888' },
+  photoChangeBtnText: { fontSize: 12, color: '#8A8A8A' },
 
   autoCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#111', borderRadius: 18,
+    backgroundColor: '#161616', borderRadius: 20,
     borderWidth: 1.5, borderColor: '#2a2a1a',
     padding: 16, marginBottom: 16,
   },
   autoIcon: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 56, height: 56, borderRadius: 999,
     backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
-  autoTitle: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 4 },
-  autoSub:   { fontSize: 12, color: '#888', lineHeight: 17 },
+  autoTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  autoSub:   { fontSize: 14, color: '#8A8A8A', lineHeight: 17 },
 
   confirmBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, backgroundColor: '#FFD600',
-    borderRadius: 16, paddingVertical: 18, marginBottom: 12,
+    borderRadius: 999, paddingVertical: 18, marginBottom: 12,
   },
   confirmBtnDisabled: { opacity: 0.6 },
-  confirmBtnText: { color: '#0A0A0A', fontSize: 17, fontWeight: '900' },
-  cancelNote: { textAlign: 'center', fontSize: 12, color: '#444' },
+  confirmBtnText: { color: '#0D0D0D', fontSize: 17, fontWeight: '700' },
+  cancelNote: { textAlign: 'center', fontSize: 14, color: '#444' },
 });
 
 // ─── Estilos del overlay de búsqueda ─────────────────────────────────────────
 const searchStyles = StyleSheet.create({
   overlay: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#0D0D0D',
     paddingHorizontal: 32, gap: 28,
   },
 
@@ -699,11 +747,11 @@ const searchStyles = StyleSheet.create({
   },
   ring: {
     position: 'absolute',
-    width: 100, height: 100, borderRadius: 50,
+    width: 100, height: 100, borderRadius: 999,
     borderWidth: 1.5, borderColor: '#FFD600',
   },
   centerCircle: {
-    width: 72, height: 72, borderRadius: 36,
+    width: 72, height: 72, borderRadius: 999,
     backgroundColor: '#1A1A00',
     borderWidth: 2.5, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
@@ -713,12 +761,12 @@ const searchStyles = StyleSheet.create({
 
   dotsRow: { flexDirection: 'row', gap: 8 },
   dot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: '#222',
+    width: 6, height: 6, borderRadius: 999, backgroundColor: '#222',
   },
   dotActive: { backgroundColor: '#FFD600' },
 
   stepText: {
-    fontSize: 18, fontWeight: '700', color: '#F5F5F5',
+    fontSize: 18, fontWeight: '700', color: '#FFFFFF',
     textAlign: 'center', lineHeight: 26,
   },
 
@@ -726,10 +774,10 @@ const searchStyles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,214,0,0.08)',
     borderWidth: 1.5, borderColor: 'rgba(255,214,0,0.25)',
-    borderRadius: 20, paddingHorizontal: 28, paddingVertical: 16,
+    borderRadius: 999, paddingHorizontal: 28, paddingVertical: 16,
   },
-  countNum: { fontSize: 48, fontWeight: '900', color: '#FFD600', lineHeight: 52 },
-  countLbl: { fontSize: 13, color: '#888', fontWeight: '600', marginTop: 4 },
+  countNum: { fontSize: 48, fontWeight: '700', color: '#FFD600', lineHeight: 52 },
+  countLbl: { fontSize: 14, color: '#8A8A8A', fontWeight: '600', marginTop: 4 },
 
   waitingRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -737,10 +785,10 @@ const searchStyles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,214,0,0.15)',
     borderRadius: 20, paddingHorizontal: 20, paddingVertical: 12,
   },
-  waitingText: { fontSize: 14, color: '#888', fontWeight: '600' },
+  waitingText: { fontSize: 16, color: '#8A8A8A', fontWeight: '600' },
 
   hint: {
-    fontSize: 12, color: '#333', textAlign: 'center',
+    fontSize: 14, color: '#5C5C5C', textAlign: 'center',
     position: 'absolute', bottom: 48, paddingHorizontal: 24,
   },
 });

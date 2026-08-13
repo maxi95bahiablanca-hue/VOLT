@@ -61,7 +61,7 @@ const PhotoButton = ({ label, hint, uri, onPress, icon = 'camera-outline' }) => 
       {uri && <Text style={styles.photoBtnLabelDone}>✓ Cargada</Text>}
     </View>
     <Ionicons name={uri ? 'checkmark-circle' : 'chevron-forward'} size={20}
-      color={uri ? '#4CAF50' : '#444'} />
+      color={uri ? '#FFD600' : '#444'} />
   </TouchableOpacity>
 );
 
@@ -324,7 +324,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack}><Ionicons name="arrow-back" size={24} color="#F5F5F5" /></TouchableOpacity>
+          <TouchableOpacity onPress={onBack}><Ionicons name="arrow-back" size={24} color="#FFFFFF" /></TouchableOpacity>
           <Text style={styles.headerTitle}>Mi solicitud</Text>
           <View style={{ width: 24 }} />
         </View>
@@ -357,20 +357,20 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack}><Ionicons name="arrow-back" size={24} color="#F5F5F5" /></TouchableOpacity>
+          <TouchableOpacity onPress={onBack}><Ionicons name="arrow-back" size={24} color="#FFFFFF" /></TouchableOpacity>
           <Text style={styles.headerTitle}>Mi perfil</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.statusWrap}>
-          <View style={[styles.statusIcon, { borderColor: '#4CAF5040', backgroundColor: '#001A0D' }]}>
-            <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
+          <View style={[styles.statusIcon, { borderColor: '#FFD60040', backgroundColor: '#001A0D' }]}>
+            <Ionicons name="checkmark-circle" size={48} color="#FFD600" />
           </View>
           <Text style={styles.statusTitle}>Perfil aprobado</Text>
           <Text style={styles.statusSub}>
             Estás activo en la plataforma y podés recibir trabajos.
           </Text>
           <TouchableOpacity style={styles.editBtn} onPress={() => setExistingStatus(null)}>
-            <Ionicons name="pencil-outline" size={16} color="#888" style={{ marginRight: 6 }} />
+            <Ionicons name="pencil-outline" size={16} color="#8A8A8A" style={{ marginRight: 6 }} />
             <Text style={styles.editBtnText}>Editar perfil / agregar servicios</Text>
           </TouchableOpacity>
         </View>
@@ -382,20 +382,20 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack}><Ionicons name="arrow-back" size={24} color="#F5F5F5" /></TouchableOpacity>
+          <TouchableOpacity onPress={onBack}><Ionicons name="arrow-back" size={24} color="#FFFFFF" /></TouchableOpacity>
           <Text style={styles.headerTitle}>Mi solicitud</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.statusWrap}>
-          <View style={[styles.statusIcon, { borderColor: '#ff444440' }]}>
-            <Ionicons name="close-circle" size={48} color="#ff4444" />
+          <View style={[styles.statusIcon, { borderColor: '#E5484D40' }]}>
+            <Ionicons name="close-circle" size={48} color="#E5484D" />
           </View>
           <Text style={styles.statusTitle}>Solicitud rechazada</Text>
           <Text style={styles.statusSub}>
             Podés corregir tu documentación y volver a enviar la solicitud.
           </Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => setExistingStatus(null)}>
-            <Ionicons name="refresh" size={18} color="#0A0A0A" />
+            <Ionicons name="refresh" size={18} color="#0D0D0D" />
             <Text style={styles.retryBtnText}>Volver a solicitar</Text>
           </TouchableOpacity>
         </View>
@@ -414,7 +414,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={step > 1 ? () => setStep(s => s - 1) : onBack}>
-          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {step === 1 ? 'Tus datos' : step === 2 ? 'Tus servicios' : 'Verificación'}
@@ -450,7 +450,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
                 </View>
               )}
               <View style={styles.avatarEditBadge}>
-                <Ionicons name="pencil" size={12} color="#0A0A0A" />
+                <Ionicons name="pencil" size={12} color="#0D0D0D" />
               </View>
             </TouchableOpacity>
 
@@ -482,7 +482,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
 
             <TouchableOpacity style={styles.nextBtn} onPress={() => validateStep1() && setStep(2)}>
               <Text style={styles.nextBtnText}>Continuar</Text>
-              <Ionicons name="arrow-forward" size={18} color="#0A0A0A" />
+              <Ionicons name="arrow-forward" size={18} color="#0D0D0D" />
             </TouchableOpacity>
           </>
         )}
@@ -502,7 +502,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
                     onPress={() => toggleProfession(p)} activeOpacity={0.8}
                   >
                     <View style={[styles.check, sel && styles.checkSelected]}>
-                      {sel && <Ionicons name="checkmark" size={14} color="#0A0A0A" />}
+                      {sel && <Ionicons name="checkmark" size={14} color="#0D0D0D" />}
                     </View>
                     <Text style={[styles.profName, sel && styles.profNameSelected]}>{p.name}</Text>
                   </TouchableOpacity>
@@ -530,7 +530,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
 
             <TouchableOpacity style={styles.nextBtn} onPress={() => validateStep2() && setStep(3)}>
               <Text style={styles.nextBtnText}>Continuar</Text>
-              <Ionicons name="arrow-forward" size={18} color="#0A0A0A" />
+              <Ionicons name="arrow-forward" size={18} color="#0D0D0D" />
             </TouchableOpacity>
           </>
         )}
@@ -580,7 +580,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
             <View style={styles.docSection}>
               <Text style={styles.docSectionTitle}>
                 Estudios / Certificaciones{' '}
-                <Text style={{ color: '#555', fontWeight: '400' }}>(opcional)</Text>
+                <Text style={{ color: '#5C5C5C', fontWeight: '400' }}>(opcional)</Text>
               </Text>
               <Text style={styles.docSectionHint}>Título o habilitación — aparece como badge verificado en tu perfil.</Text>
               <PhotoButton
@@ -602,9 +602,9 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
                 activeOpacity={0.8}
               >
                 <View style={[styles.check, paymentMethod === 'cbu' && styles.checkSelected]}>
-                  {paymentMethod === 'cbu' && <Ionicons name="checkmark" size={14} color="#0A0A0A" />}
+                  {paymentMethod === 'cbu' && <Ionicons name="checkmark" size={14} color="#0D0D0D" />}
                 </View>
-                <Ionicons name="card-outline" size={20} color={paymentMethod === 'cbu' ? '#FFD600' : '#555'} />
+                <Ionicons name="card-outline" size={20} color={paymentMethod === 'cbu' ? '#FFD600' : '#5C5C5C'} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.payMethodLabel, paymentMethod === 'cbu' && { color: '#FFD600' }]}>CBU / CVU</Text>
                   <Text style={styles.payMethodSub}>Transferencia bancaria directa</Text>
@@ -616,7 +616,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
                 activeOpacity={0.8}
               >
                 <View style={[styles.check, paymentMethod === 'mercadopago' && styles.checkSelected]}>
-                  {paymentMethod === 'mercadopago' && <Ionicons name="checkmark" size={14} color="#0A0A0A" />}
+                  {paymentMethod === 'mercadopago' && <Ionicons name="checkmark" size={14} color="#0D0D0D" />}
                 </View>
                 <Text style={{ fontSize: 18 }}>💳</Text>
                 <View style={{ flex: 1 }}>
@@ -632,7 +632,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
               onPress={() => setCriminalRecord(v => !v)} activeOpacity={0.8}
             >
               <View style={[styles.check, criminalRecord && styles.checkSelected]}>
-                {criminalRecord && <Ionicons name="checkmark" size={14} color="#0A0A0A" />}
+                {criminalRecord && <Ionicons name="checkmark" size={14} color="#0D0D0D" />}
               </View>
               <Text style={styles.declText}>
                 Declaro bajo juramento que no tengo antecedentes penales ni procesos judiciales
@@ -648,10 +648,10 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
               activeOpacity={0.85}
             >
               {saving ? (
-                <ActivityIndicator color="#0A0A0A" />
+                <ActivityIndicator color="#0D0D0D" />
               ) : (
                 <>
-                  <Ionicons name="send" size={18} color="#0A0A0A" />
+                  <Ionicons name="send" size={18} color="#0D0D0D" />
                   <Text style={styles.submitBtnText}>Enviar solicitud</Text>
                 </>
               )}
@@ -669,7 +669,7 @@ const RegisterProfessionalScreen = ({ userId, session, onBack }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -678,21 +678,21 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
-  stepCounter: { fontSize: 14, color: '#555', fontWeight: '700' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
+  stepCounter: { fontSize: 16, color: '#5C5C5C', fontWeight: '700' },
 
   progressBar: { height: 3, backgroundColor: '#1a1a1a' },
   progressFill: { height: 3, backgroundColor: '#FFD600' },
 
   scroll: { padding: 24, paddingBottom: 60 },
 
-  stepTitle: { fontSize: 24, fontWeight: '900', color: '#F5F5F5', marginBottom: 6, marginTop: 8 },
-  stepSub:   { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 28 },
+  stepTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF', marginBottom: 6, marginTop: 8 },
+  stepSub:   { fontSize: 16, color: '#5C5C5C', lineHeight: 20, marginBottom: 28 },
 
   // Avatar
   avatarBtn: {
     alignSelf: 'center', marginBottom: 28,
-    width: 100, height: 100, borderRadius: 50,
+    width: 100, height: 100, borderRadius: 999,
     borderWidth: 2, borderColor: '#FFD600',
     overflow: 'hidden',
   },
@@ -701,148 +701,141 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#1A1A1A', gap: 6,
   },
-  avatarPlaceholderText: { fontSize: 11, color: '#666', textAlign: 'center' },
+  avatarPlaceholderText: { fontSize: 12, color: '#5C5C5C', textAlign: 'center' },
   avatarEditBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 28, height: 28, borderRadius: 14,
+    width: 28, height: 28, borderRadius: 999,
     backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
 
   // Campos
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginTop: 16 },
-  fieldError: { fontSize: 12, color: '#ff4444', marginTop: 4 },
+  fieldLabel: { fontSize: 14, fontWeight: '700', color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8, marginTop: 16 },
+  fieldError: { fontSize: 14, color: '#E5484D', marginTop: 4 },
   input: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
-    color: '#F5F5F5', fontSize: 16, padding: 14,
+    backgroundColor: '#161616', borderRadius: 20,
+    color: '#FFFFFF', fontSize: 16, padding: 14,
   },
 
   // Profesiones
   profRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 16, marginBottom: 8,
   },
   profRowSelected: { borderColor: '#FFD600', backgroundColor: '#1A1A00' },
   check: {
     width: 24, height: 24, borderRadius: 6,
-    borderWidth: 2, borderColor: '#333',
     alignItems: 'center', justifyContent: 'center',
   },
   checkSelected: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
-  profName:         { fontSize: 15, color: '#888', fontWeight: '600', flex: 1 },
+  profName:         { fontSize: 16, color: '#8A8A8A', fontWeight: '600', flex: 1 },
   profNameSelected: { color: '#FFD600' },
 
   priceWrap: {
-    backgroundColor: '#0D0D00', borderRadius: 12,
+    backgroundColor: '#0D0D00', borderRadius: 20,
     borderWidth: 1, borderColor: '#2a2a00',
     padding: 14, marginBottom: 8, marginTop: -2,
   },
-  priceLabel:    { fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  priceLabel:    { fontSize: 12, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8 },
   priceRow:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  priceCurrency: { fontSize: 22, fontWeight: '700', color: '#F5F5F5' },
+  priceCurrency: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
   priceInput:    { flex: 1, fontSize: 22, fontWeight: '700', color: '#FFD600', borderBottomWidth: 1, borderBottomColor: '#333', paddingBottom: 4 },
 
   // Documentos
   docSection: { marginBottom: 24 },
-  docSectionTitle: { fontSize: 15, fontWeight: '800', color: '#F5F5F5', marginBottom: 4 },
-  docSectionHint:  { fontSize: 13, color: '#555', marginBottom: 12 },
+  docSectionTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  docSectionHint:  { fontSize: 14, color: '#5C5C5C', marginBottom: 12 },
 
   photoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 999,
     padding: 14, marginBottom: 10,
   },
-  photoBtnDone: { borderColor: '#4CAF5040' },
+  photoBtnDone: { borderColor: '#FFD60040' },
   photoBtnIcon: {
-    width: 48, height: 48, borderRadius: 12,
+    width: 48, height: 48, borderRadius: 999,
     backgroundColor: '#1A1A00',
     alignItems: 'center', justifyContent: 'center',
   },
-  photoBtnThumb: { width: 48, height: 48, borderRadius: 10 },
-  photoBtnLabel:     { fontSize: 14, fontWeight: '700', color: '#F5F5F5' },
-  photoBtnLabelDone: { fontSize: 13, color: '#4CAF50' },
-  photoBtnHint:      { fontSize: 12, color: '#555', marginTop: 2 },
+  photoBtnThumb: { width: 48, height: 48, borderRadius: 999 },
+  photoBtnLabel:     { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  photoBtnLabelDone: { fontSize: 14, color: '#FFD600' },
+  photoBtnHint:      { fontSize: 14, color: '#5C5C5C', marginTop: 2 },
 
   // Link
   linkBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingVertical: 6, marginBottom: 10,
   },
-  linkBtnText: { fontSize: 13, color: '#FFD600', textDecorationLine: 'underline' },
+  linkBtnText: { fontSize: 14, color: '#FFD600', textDecorationLine: 'underline' },
 
   // Método de pago
   payMethodRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 14, marginBottom: 8,
   },
   payMethodSelected: { borderColor: '#FFD600', backgroundColor: '#1A1A00' },
-  payMethodLabel: { fontSize: 14, fontWeight: '700', color: '#888' },
-  payMethodSub: { fontSize: 12, color: '#555', marginTop: 2 },
+  payMethodLabel: { fontSize: 16, fontWeight: '700', color: '#8A8A8A' },
+  payMethodSub: { fontSize: 14, color: '#5C5C5C', marginTop: 2 },
 
   // Declaración
   declRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 16, marginBottom: 24,
   },
   declRowChecked: { borderColor: '#FFD60040' },
-  declText: { flex: 1, fontSize: 13, color: '#666', lineHeight: 20 },
+  declText: { flex: 1, fontSize: 14, color: '#5C5C5C', lineHeight: 20 },
 
   // Botones
   nextBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: '#FFD600',
-    borderRadius: 16, paddingVertical: 18, marginTop: 28,
+    borderRadius: 999, paddingVertical: 18, marginTop: 28,
   },
-  nextBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  nextBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   submitBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: '#FFD600',
-    borderRadius: 16, paddingVertical: 18, marginBottom: 12,
+    borderRadius: 999, paddingVertical: 18, marginBottom: 12,
   },
-  submitBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
-  submitNote: { textAlign: 'center', fontSize: 12, color: '#444', lineHeight: 18 },
+  submitBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
+  submitNote: { textAlign: 'center', fontSize: 14, color: '#444', lineHeight: 18 },
 
   // Estados pendiente / rechazado
   statusWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   statusIcon: {
-    width: 96, height: 96, borderRadius: 48,
+    width: 96, height: 96, borderRadius: 999,
     backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#FFD60040',
     alignItems: 'center', justifyContent: 'center', marginBottom: 24,
   },
-  statusTitle: { fontSize: 24, fontWeight: '900', color: '#F5F5F5', textAlign: 'center', marginBottom: 12 },
-  statusSub:   { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+  statusTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 12 },
+  statusSub:   { fontSize: 16, color: '#5C5C5C', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
 
   statusSteps: { width: '100%', gap: 16, marginBottom: 32 },
   statusStep:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#222' },
-  stepDotDone:   { backgroundColor: '#4CAF50' },
+  stepDot: { width: 12, height: 12, borderRadius: 999, backgroundColor: '#222' },
+  stepDotDone:   { backgroundColor: '#FFD600' },
   stepDotActive: { backgroundColor: '#FFD600' },
-  stepText:       { fontSize: 14, color: '#444' },
-  stepTextDone:   { color: '#4CAF50', fontWeight: '700' },
+  stepText:       { fontSize: 16, color: '#444' },
+  stepTextDone:   { color: '#FFD600', fontWeight: '700' },
   stepTextActive: { color: '#FFD600', fontWeight: '700' },
 
   editBtn: {
     flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: '#333',
-    borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28,
+    borderRadius: 999, paddingVertical: 14, paddingHorizontal: 28,
   },
-  editBtnText: { color: '#888', fontSize: 14, fontWeight: '600' },
+  editBtnText: { color: '#8A8A8A', fontSize: 16, fontWeight: '600' },
 
   retryBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FFD600', borderRadius: 16,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingVertical: 16, paddingHorizontal: 32,
   },
-  retryBtnText: { color: '#0A0A0A', fontSize: 15, fontWeight: '900' },
+  retryBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 });
 
 export default RegisterProfessionalScreen;

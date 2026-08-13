@@ -24,8 +24,7 @@ const DemoToggle = ({ onToggle }) => {
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#111', borderRadius: 20,
-    borderWidth: 1, borderColor: '#222',
+    backgroundColor: '#161616', borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 6,
     alignSelf: 'flex-start',
   },
@@ -35,7 +34,7 @@ const styles = StyleSheet.create({
   },
   dot:   { width: 7, height: 7, borderRadius: 4, backgroundColor: '#333' },
   dotOn: { backgroundColor: '#FFD600' },
-  label:   { fontSize: 10, fontWeight: '800', color: '#444', letterSpacing: 0.8 },
+  label:   { fontSize: 12, fontWeight: '600', color: '#444', letterSpacing: 0.8 },
   labelOn: { color: '#FFD600' },
 });
 

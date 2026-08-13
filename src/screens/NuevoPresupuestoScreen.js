@@ -31,11 +31,11 @@ const soloDigitos = (s) => String(s ?? '').replace(/\D/g, '');
 // opcional, pero cada ítem arranca en `material`: en un desglose de oficio es
 // lo más frecuente, así el caso común no cuesta ni un toque.
 const TIPOS = [
-  { key: 'material', label: 'Material',     color: '#7EA6FF' },
+  { key: 'material', label: 'Material',     color: '#8A8A8A' },
   { key: 'obra',     label: 'Mano de obra', color: '#FFD600' },
 ];
 const tipoDe    = (it) => (it?.tipo === 'obra' ? 'obra' : 'material');
-const colorTipo = (t)  => (t === 'obra' ? '#FFD600' : '#7EA6FF');
+const colorTipo = (t)  => (t === 'obra' ? '#FFD600' : '#8A8A8A');
 
 // Formato de miles mientras escribe: 180000 → "180.000". Sin esto nadie sabe
 // si puso ciento ochenta mil o un millón ochocientos.
@@ -262,7 +262,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose}>
-            <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Presupuesto N°{creado.numero}</Text>
           <View style={{ width: 24 }} />
@@ -270,7 +270,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
 
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.okIconWrap}>
-            <Ionicons name="checkmark" size={38} color="#0A0A0A" />
+            <Ionicons name="checkmark" size={38} color="#0D0D0D" />
           </View>
           <Text style={styles.okTitle}>Presupuesto N°{creado.numero} listo</Text>
           <Text style={styles.okSub}>
@@ -279,7 +279,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
           </Text>
 
           <TouchableOpacity style={styles.waBtn} onPress={() => abrirWhatsApp(creado)} activeOpacity={0.85}>
-            <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+            <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
             <Text style={styles.waBtnText}>
               {creado.estado === 'borrador' ? 'Enviar por WhatsApp' : 'Volver a enviar por WhatsApp'}
             </Text>
@@ -304,7 +304,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
                 activeOpacity={0.85}
               >
                 {guardandoCliente
-                  ? <ActivityIndicator color="#0A0A0A" size="small" />
+                  ? <ActivityIndicator color="#0D0D0D" size="small" />
                   : <Text style={styles.askBtnText}>Guardar</Text>}
               </TouchableOpacity>
             </View>
@@ -325,7 +325,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nuevo presupuesto</Text>
         <View style={{ width: 24 }} />
@@ -383,7 +383,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
                   onPress={() => usarCliente(c)}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="person" size={12} color={clienteId === c.id ? '#0A0A0A' : '#888'} />
+                  <Ionicons name="person" size={12} color={clienteId === c.id ? '#0D0D0D' : '#8A8A8A'} />
                   <Text style={[styles.chipText, clienteId === c.id && styles.chipTextOn]} numberOfLines={1}>
                     {c.nombre}
                   </Text>
@@ -478,7 +478,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
                       placeholderTextColor="#444"
                     />
                     <TouchableOpacity onPress={() => delItem(idx)} style={styles.itemDel}>
-                      <Ionicons name="close" size={16} color="#666" />
+                      <Ionicons name="close" size={16} color="#5C5C5C" />
                     </TouchableOpacity>
                   </View>
                   <View style={styles.itemBottom}>
@@ -559,10 +559,10 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
             activeOpacity={0.85}
           >
             {saving
-              ? <ActivityIndicator color="#0A0A0A" />
+              ? <ActivityIndicator color="#0D0D0D" />
               : (
                 <>
-                  <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+                  <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
                   <Text style={styles.waBtnText}>Crear y enviar por WhatsApp</Text>
                 </>
               )}
@@ -609,7 +609,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -618,133 +618,124 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 
   content: { padding: 16, paddingBottom: 60 },
 
-  bigLabel: { color: '#F5F5F5', fontSize: 15, fontWeight: '800', marginBottom: 8, marginTop: 6 },
+  bigLabel: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginBottom: 8, marginTop: 6 },
   bigInput: {
-    backgroundColor: '#0A0A0A', borderRadius: 14, borderWidth: 1, borderColor: '#2a2a2a',
-    color: '#fff', fontSize: 16, padding: 14, minHeight: 92, marginBottom: 10, lineHeight: 22,
+    backgroundColor: '#161616', borderRadius: 20, color: '#fff', fontSize: 16, padding: 14, minHeight: 92, marginBottom: 10, lineHeight: 22,
   },
 
   montoWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#0A0A0A', borderRadius: 14, borderWidth: 1, borderColor: '#2a2a2a',
-    paddingHorizontal: 14, marginBottom: 6,
+    backgroundColor: '#161616', borderRadius: 20, paddingHorizontal: 14, marginBottom: 6,
   },
-  montoSigno: { color: '#FFD600', fontSize: 26, fontWeight: '900', marginRight: 6 },
-  montoInput: { flex: 1, color: '#fff', fontSize: 26, fontWeight: '900', paddingVertical: 12 },
+  montoSigno: { color: '#FFD600', fontSize: 26, fontWeight: '700', marginRight: 6 },
+  montoInput: { flex: 1, color: '#fff', fontSize: 26, fontWeight: '700', paddingVertical: 12 },
 
   sep: { height: 1, backgroundColor: '#1a1a1a', marginVertical: 18 },
-  sectionTitle: { color: '#F5F5F5', fontSize: 14, fontWeight: '800', marginBottom: 10 },
-  opcional: { color: '#666', fontSize: 12, fontWeight: '600' },
+  sectionTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginBottom: 10 },
+  opcional: { color: '#5C5C5C', fontSize: 14, fontWeight: '600' },
 
   chipsRow: { gap: 8, paddingBottom: 12, paddingRight: 4 },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#1E1E1E',
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, maxWidth: 170,
+    backgroundColor: '#161616', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, maxWidth: 170,
   },
   chipOn: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
   oficiosWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  chipText: { color: '#ccc', fontSize: 12.5, fontWeight: '700' },
-  chipTextOn: { color: '#0A0A0A' },
+  chipText: { color: '#ccc', fontSize: 14, fontWeight: '700' },
+  chipTextOn: { color: '#0D0D0D' },
 
-  label: { color: '#ccc', fontSize: 12.5, fontWeight: '700', marginBottom: 6, marginTop: 4 },
+  label: { color: '#ccc', fontSize: 14, fontWeight: '700', marginBottom: 6, marginTop: 4 },
   input: {
-    backgroundColor: '#0A0A0A', borderRadius: 12, borderWidth: 1, borderColor: '#2a2a2a',
-    color: '#fff', fontSize: 15, padding: 14, marginBottom: 14,
+    backgroundColor: '#161616', borderRadius: 20, color: '#fff', fontSize: 16, padding: 14, marginBottom: 14,
   },
 
   masBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, marginBottom: 4 },
-  masBtnText: { color: '#FFD600', fontSize: 14, fontWeight: '800' },
+  masBtnText: { color: '#FFD600', fontSize: 16, fontWeight: '600' },
 
   detalleBox: {
-    backgroundColor: '#111', borderRadius: 16, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 14, marginBottom: 10,
+    backgroundColor: '#161616', borderRadius: 20, padding: 14, marginBottom: 10,
   },
   // La barrita de la izquierda se pinta del color del tipo: en una lista de 6
   // ítems se ve de un vistazo cuánto es material y cuánto es trabajo.
-  itemCard: { backgroundColor: '#0D0D0D', borderRadius: 12, borderWidth: 1, borderColor: '#1a1a1a',
-              borderLeftWidth: 3, borderLeftColor: '#7EA6FF', padding: 10, marginBottom: 8 },
+  itemCard: { backgroundColor: '#161616', borderRadius: 20, borderLeftWidth: 3, borderLeftColor: '#8A8A8A', padding: 10, marginBottom: 8 },
   tipoRow: { flexDirection: 'row', gap: 6, marginBottom: 8 },
   tipoChip: {
-    borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 14,
+    borderRadius: 999,
     paddingHorizontal: 11, paddingVertical: 5,
   },
-  tipoChipText:   { color: '#777', fontSize: 11.5, fontWeight: '800' },
-  tipoChipTextOn: { color: '#0A0A0A' },
+  tipoChipText:   { color: '#8A8A8A', fontSize: 12, fontWeight: '600' },
+  tipoChipTextOn: { color: '#0D0D0D' },
   itemTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   itemBottom: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   itemInput: {
-    backgroundColor: '#0A0A0A', borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
-    color: '#fff', fontSize: 14, paddingHorizontal: 10, paddingVertical: 10,
+    backgroundColor: '#161616', borderRadius: 20, color: '#fff', fontSize: 16, paddingHorizontal: 10, paddingVertical: 10,
   },
-  itemDel: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#161616' },
-  itemX: { color: '#666', fontSize: 14, fontWeight: '800' },
+  itemDel: { width: 30, height: 30, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#161616' },
+  itemX: { color: '#5C5C5C', fontSize: 16, fontWeight: '600' },
 
   addItemBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 12, paddingVertical: 11, marginBottom: 8,
+    borderRadius: 999, paddingVertical: 11, marginBottom: 8,
   },
-  addItemText: { color: '#FFD600', fontSize: 13.5, fontWeight: '800' },
-  sumaHint: { color: '#888', fontSize: 12, marginBottom: 10, lineHeight: 17 },
-  desglose:     { fontSize: 13, marginBottom: 4, lineHeight: 19 },
-  desgloseMat:  { color: '#7EA6FF', fontWeight: '800' },
-  desgloseObra: { color: '#FFD600', fontWeight: '800' },
-  desgloseSep:  { color: '#555', fontWeight: '800' },
+  addItemText: { color: '#FFD600', fontSize: 14, fontWeight: '600' },
+  sumaHint: { color: '#8A8A8A', fontSize: 14, marginBottom: 10, lineHeight: 17 },
+  desglose:     { fontSize: 14, marginBottom: 4, lineHeight: 19 },
+  desgloseMat:  { color: '#8A8A8A', fontWeight: '600' },
+  desgloseObra: { color: '#FFD600', fontWeight: '600' },
+  desgloseSep:  { color: '#5C5C5C', fontWeight: '600' },
 
   waBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
-    backgroundColor: '#25D366', borderRadius: 16, paddingVertical: 18, marginTop: 12,
+    backgroundColor: '#8A8A8A', borderRadius: 999, paddingVertical: 18, marginTop: 12,
   },
-  waBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  waBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
   btnOff: { opacity: 0.35 },
 
   soloGuardar: { alignItems: 'center', paddingVertical: 16 },
-  soloGuardarText: { color: '#FFD600', fontSize: 14, fontWeight: '700' },
+  soloGuardarText: { color: '#FFD600', fontSize: 16, fontWeight: '700' },
 
   // Sacarle presión al campo del teléfono: sin número también se manda.
-  sinTelHint: { color: '#777', fontSize: 12.5, lineHeight: 17, textAlign: 'center',
+  sinTelHint: { color: '#8A8A8A', fontSize: 14, lineHeight: 17, textAlign: 'center',
                 marginTop: 9, paddingHorizontal: 10 },
   // Pegar el número copiado desde WhatsApp, de un toque.
   pegarBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
               backgroundColor: '#151500', borderWidth: 1, borderColor: '#FFD60040',
-              borderRadius: 20, paddingVertical: 7, paddingHorizontal: 12, marginTop: -6, marginBottom: 12 },
-  pegarBtnText: { color: '#FFD600', fontSize: 12.5, fontWeight: '800' },
+              borderRadius: 999, paddingVertical: 7, paddingHorizontal: 12, marginTop: -6, marginBottom: 12 },
+  pegarBtnText: { color: '#FFD600', fontSize: 14, fontWeight: '600' },
   // Compartir por fuera de WhatsApp.
   compartirBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  backgroundColor: '#111', borderWidth: 1, borderColor: '#1E1E1E',
-                  borderRadius: 14, paddingVertical: 14, marginTop: 10 },
-  compartirBtnText: { color: '#ccc', fontSize: 14, fontWeight: '800' },
+                  backgroundColor: '#161616', borderRadius: 999, paddingVertical: 14, marginTop: 10 },
+  compartirBtnText: { color: '#ccc', fontSize: 16, fontWeight: '600' },
 
-  primaryBtn: { backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 12 },
-  primaryBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  primaryBtn: { backgroundColor: '#FFD600', borderRadius: 999, paddingVertical: 18, alignItems: 'center', marginTop: 12 },
+  primaryBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   ghostBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 16, paddingVertical: 15, marginTop: 10,
+    borderRadius: 999, paddingVertical: 15, marginTop: 10,
   },
-  ghostBtnText: { color: '#FFD600', fontSize: 14.5, fontWeight: '800' },
+  ghostBtnText: { color: '#FFD600', fontSize: 16, fontWeight: '600' },
 
   okIconWrap: {
-    alignSelf: 'center', width: 72, height: 72, borderRadius: 36,
+    alignSelf: 'center', width: 72, height: 72, borderRadius: 999,
     backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center',
     marginTop: 24, marginBottom: 16,
   },
-  okTitle: { color: '#F5F5F5', fontSize: 21, fontWeight: '900', textAlign: 'center' },
-  okSub:   { color: '#999', fontSize: 14.5, textAlign: 'center', marginTop: 8, marginBottom: 22 },
+  okTitle: { color: '#FFFFFF', fontSize: 21, fontWeight: '700', textAlign: 'center' },
+  okSub:   { color: '#999', fontSize: 16, textAlign: 'center', marginTop: 8, marginBottom: 22 },
 
   askCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#111', borderRadius: 16, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 14, marginTop: 20,
+    backgroundColor: '#161616', borderRadius: 20, padding: 14, marginTop: 20,
   },
-  askTitle: { color: '#F5F5F5', fontSize: 14, fontWeight: '800' },
-  askSub:   { color: '#666', fontSize: 12, marginTop: 3 },
-  askBtn: { backgroundColor: '#FFD600', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 11, minWidth: 84, alignItems: 'center' },
-  askBtnText: { color: '#0A0A0A', fontSize: 13.5, fontWeight: '900' },
+  askTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  askSub:   { color: '#5C5C5C', fontSize: 14, marginTop: 3 },
+  askBtn: { backgroundColor: '#FFD600', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 11, minWidth: 84, alignItems: 'center' },
+  askBtnText: { color: '#0D0D0D', fontSize: 14, fontWeight: '700' },
 });
 
 export default NuevoPresupuestoScreen;

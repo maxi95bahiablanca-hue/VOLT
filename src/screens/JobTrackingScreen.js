@@ -6,8 +6,9 @@ import demoChatService from '../demo/demoChatService';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   TextInput, Alert, ActivityIndicator, Platform, KeyboardAvoidingView,
-  Modal, Linking, ScrollView, Animated,
+  Modal, Linking, ScrollView, Animated, Image, Dimensions, PanResponder,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { supabase } from '../supabase';
@@ -22,20 +23,32 @@ import locationService from '../services/locationService';
 import chatService from '../services/chatService';
 import favoriteService from '../services/favoriteService';
 import ChatScreen from './ChatScreen';
-import DraggableBubble from '../components/DraggableBubble';
+import { preguntarCuandoVoy } from '../utils/cuandoVoy';
+import { conTiempo } from '../utils/conTiempo';
 
+// El mapa se lleva casi la mitad de la pantalla: es lo que BOLT tiene y nadie
+// más. La hoja arranca justo debajo y se sube con el dedo hasta dejar apenas un
+// asomo de mapa, que mantiene el sentido de dónde estás parado.
+const { height: SCREEN_H } = Dimensions.get('window');
+const HOJA_ABAJO  = Math.round(SCREEN_H * 0.42);                    // reposo: el mapa manda
+const HOJA_ARRIBA = Math.max(104, Math.round(SCREEN_H * 0.13));      // subida: no pisa el header
+
+// Un solo acento. El verde, el naranja y el azul se fueron: cinco colores
+// compitiendo hacen que ninguno signifique nada (Maxi, 8-ago-2026). El amarillo
+// es "esto está pasando ahora"; lo demás, gris. El rojo queda reservado para la
+// emergencia real, que vive adentro de "Tengo un problema".
 const EVENT_ICONS = {
-  received:       { icon: 'search-outline',           color: '#888'    },
-  accepted:       { icon: 'checkmark-circle-outline', color: '#FFD600' },
-  reviewing:      { icon: 'eye-outline',              color: '#FFD600' },
-  photo_reviewed: { icon: 'image-outline',            color: '#FF9800' },
-  estimated:      { icon: 'time-outline',             color: '#FFD600' },
+  received:       { icon: 'search-outline',           color: '#5C5C5C' },
+  accepted:       { icon: 'checkmark-circle-outline', color: '#8A8A8A' },
+  reviewing:      { icon: 'eye-outline',              color: '#5C5C5C' },
+  photo_reviewed: { icon: 'image-outline',            color: '#5C5C5C' },
+  estimated:      { icon: 'time-outline',             color: '#5C5C5C' },
   trip_started:   { icon: 'navigate-outline',         color: '#FFD600' },
-  halfway:        { icon: 'locate-outline',           color: '#FFD600' },
-  nearby:         { icon: 'radio-outline',            color: '#4CAF50' },
+  halfway:        { icon: 'locate-outline',           color: '#8A8A8A' },
+  nearby:         { icon: 'radio-outline',            color: '#FFD600' },
   arrived:        { icon: 'home-outline',             color: '#FFD600' },
-  work_started:   { icon: 'construct-outline',        color: '#FF9800' },
-  work_done:      { icon: 'checkmark-done-outline',   color: '#4CAF50' },
+  work_started:   { icon: 'construct-outline',        color: '#FFD600' },
+  work_done:      { icon: 'checkmark-done-outline',   color: '#8A8A8A' },
 };
 
 // Lo que significa cada estrella cuando el profesional califica al cliente.
@@ -49,23 +62,39 @@ const CLIENT_STAR_LABELS = [
   'Excelente — ojalá todos así',
 ];
 
+// Cuatro. Con siete pasos ninguno se leía y la barra parecía un tren.
+// "Cerca", "Llegó" e "Iniciado" son matices que ya cuenta el dato grande de
+// arriba, que es donde el cliente mira.
 const PROGRESS_STEPS = [
-  { label: 'Aceptado',  step: 1 },
-  { label: 'En camino', step: 2 },
-  { label: 'Cerca',     step: 3 },
-  { label: 'Llegó',     step: 4 },
-  { label: 'Iniciado',  step: 5 },
-  { label: 'Listo',     step: 6 },
+  { label: 'Aceptado',   step: 1 },
+  { label: 'En camino',  step: 2 },
+  { label: 'Trabajando', step: 3 },
+  { label: 'Listo',      step: 4 },
 ];
 
+/** "hoy a las 18:00", "mañana a las 10:00", "el jueves a las 10:00".
+ *  Un ISO crudo no le dice nada a nadie; la fecha larga tampoco cuando es hoy. */
+const cuandoVa = (iso) => {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const hoy  = new Date(); hoy.setHours(0, 0, 0, 0);
+  const dia  = new Date(d); dia.setHours(0, 0, 0, 0);
+  const dif  = Math.round((dia - hoy) / 86400000);
+  if (dif <= 0) return `hoy a las ${hora}`;
+  if (dif === 1) return `mañana a las ${hora}`;
+  if (dif < 7)  return `el ${d.toLocaleDateString('es-AR', { weekday: 'long' })} a las ${hora}`;
+  return `el ${d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} a las ${hora}`;
+};
+
 const STATUS_INFO = {
-  pending:          { icon: 'time-outline',            color: '#888',    label: 'Esperando confirmación...' },
+  pending:          { icon: 'time-outline',            color: '#8A8A8A', label: 'Esperando confirmación...' },
   accepted:         { icon: 'navigate-outline',         color: '#FFD600', label: 'El profesional está en camino' },
   arrived:          { icon: 'home-outline',             color: '#FFD600', label: 'El profesional llegó' },
-  in_progress:      { icon: 'construct-outline',        color: '#FF9800', label: 'Trabajo en curso' },
-  awaiting_payment: { icon: isFreeMode() ? 'checkmark-done-outline' : 'card-outline', color: '#4CAF50', label: isFreeMode() ? 'Por finalizar' : 'Listo para pagar' },
-  completed:        { icon: 'checkmark-circle-outline', color: '#4CAF50', label: '¡Trabajo completado!' },
-  cancelled:        { icon: 'close-circle-outline',     color: '#ff4444', label: 'Cancelado' },
+  in_progress:      { icon: 'construct-outline',        color: '#FFD600', label: 'Trabajo en curso' },
+  awaiting_payment: { icon: isFreeMode() ? 'checkmark-done-outline' : 'card-outline', color: '#FFD600', label: isFreeMode() ? 'Por finalizar' : 'Listo para pagar' },
+  completed:        { icon: 'checkmark-circle-outline', color: '#8A8A8A', label: '¡Trabajo completado!' },
+  cancelled:        { icon: 'close-circle-outline',     color: '#8A8A8A', label: 'Cancelado' },
 };
 
 const WORKER_TIPS = {
@@ -164,6 +193,11 @@ const getProblemIssues = (isWorker, status) => {
   }
 };
 
+// Centinela para saber si una llamada volvió o no volvió: conTiempo devuelve
+// `siFalla` tanto cuando revienta como cuando vence, así que hay que comparar
+// por identidad contra algo que ningún servicio pueda devolver.
+const NO_VOLVIO = Symbol('no_volvio');
+
 const haversineMeters = (lat1, lng1, lat2, lng2) => {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -173,6 +207,12 @@ const haversineMeters = (lat1, lng1, lat2, lng2) => {
 };
 
 const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete, onCancel, onBack }) => {
+  // 🔴 11-ago-2026 — las hojas de abajo (modal de cierre, código, "tengo un
+  // problema") cerraban con paddingBottom 0 en Android: la última fila caía
+  // arriba de la barra de 3 botones y el dedo tocaba Home o Atrás en vez del
+  // botón. El alto real lo da el sistema, nunca un número fijo.
+  const insets      = useSafeAreaInsets();
+  const padBarra    = { paddingBottom: Math.max(insets.bottom, 16) };
   const [job, setJob]               = useState(initialJob);
   const [workAmount, setWorkAmount]     = useState('');
   const [pricePropModal, setPricePropModal] = useState(false); // trabajador propone precio
@@ -181,15 +221,13 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [enteredCode, setEnteredCode] = useState('');
   const [codeResult, setCodeResult]   = useState(null);
   const [completedModal, setCompletedModal] = useState(false);
+  const [completing, setCompleting]         = useState(null); // opción de horas que se está cerrando
   const [clientStars, setClientStars]       = useState(0);   // el profesional califica al cliente
   const [seguimientoHecho, setSeguimientoHecho] = useState(false);  // ya contestó el "¿vino?"
-  const [sessionElapsed, setSessionElapsed] = useState(0);
-  const [workElapsed, setWorkElapsed]       = useState(0);
   const [problemModal, setProblemModal]     = useState(false);
+  const [menuOpen, setMenuOpen]             = useState(false);
+  const [hojaArriba, setHojaArriba]         = useState(false);
   const [visitPayModal, setVisitPayModal]   = useState(false);
-  const [multidayModal, setMultidayModal]   = useState(false);
-  const [multidaySessions, setMultidaySessions] = useState('');
-  const [multidayHrs, setMultidayHrs]       = useState('');
   // Materiales (estimación → aprobación)
   const [materialsEstModal, setMaterialsEstModal] = useState(false);
   const [materialsEst, setMaterialsEst]     = useState('');
@@ -216,6 +254,54 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const [inactivityAlert, setInactivityAlert] = useState(false);
   const [workerDistKm, setWorkerDistKm]       = useState(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // ─── La hoja deslizable del cliente ─────────────────────────────────────────
+  // Dos posiciones, no libre: soltar en cualquier lado deja la pantalla a medio
+  // camino y se siente rota. El gesto decide con la dirección, no con la
+  // distancia, así un empujón corto ya la mueve.
+  const sheetY        = useRef(new Animated.Value(HOJA_ABAJO)).current;
+  const sheetBaseRef  = useRef(HOJA_ABAJO);
+  const panelScrollRef = useRef(null);
+  const scrollYRef     = useRef(0);
+
+  const moverHoja = (arriba) => {
+    const destino = arriba ? HOJA_ARRIBA : HOJA_ABAJO;
+    sheetBaseRef.current = destino;
+    setHojaArriba(arriba);
+    if (!arriba) panelScrollRef.current?.scrollTo({ y: 0, animated: true });
+    Animated.spring(sheetY, {
+      toValue: destino,
+      useNativeDriver: true,
+      bounciness: 2,
+      speed: 14,
+    }).start();
+  };
+
+  const sheetPan = useRef(
+    PanResponder.create({
+      // Sólo si el movimiento es claramente vertical: si no, se come el toque de
+      // los botones que están adentro.
+      onMoveShouldSetPanResponder: (_, g) => {
+        if (Math.abs(g.dy) < 8 || Math.abs(g.dy) < Math.abs(g.dx)) return false;
+        // Con la hoja arriba, el contenido scrollea: sólo tomamos el gesto para
+        // bajarla, y únicamente si el scroll ya está en el tope.
+        if (sheetBaseRef.current === HOJA_ARRIBA) return g.dy > 0 && scrollYRef.current <= 0;
+        return true;
+      },
+      onPanResponderMove: (_, g) => {
+        const y = Math.min(HOJA_ABAJO, Math.max(HOJA_ARRIBA, sheetBaseRef.current + g.dy));
+        sheetY.setValue(y);
+      },
+      onPanResponderRelease: (_, g) => {
+        const rapido = Math.abs(g.vy) > 0.5;
+        const sube = rapido ? g.vy < 0 : g.dy < -(HOJA_ABAJO - HOJA_ARRIBA) / 3;
+        const baja = rapido ? g.vy > 0 : g.dy > (HOJA_ABAJO - HOJA_ARRIBA) / 3;
+        if (sube) moverHoja(true);
+        else if (baja) moverHoja(false);
+        else moverHoja(sheetBaseRef.current === HOJA_ARRIBA);
+      },
+    })
+  ).current;
   const completedShownRef  = useRef(false);
   const selfCancelledRef   = useRef(false);
   const visitPayShownRef   = useRef(false);
@@ -227,6 +313,10 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const chatChannelRef     = useRef(null);
   const webRef = useRef(null);
   const wasQuoteRef    = useRef(!!job.quote_group_id); // nació como presupuesto (grupo)
+  // ¿El trabajo YA estaba terminado cuando se abrió esta pantalla? Si sí, se
+  // está mirando un trabajo viejo y no hay que mandarlo a calificar: la
+  // calificación es para el trabajo que termina MIENTRAS lo estás siguiendo.
+  const yaEstabaCerradoRef = useRef(['completed', 'cancelled'].includes(job.status));
   const tripStartedRef = useRef(false);                // ya disparó el viaje al ser elegido
 
   const userId   = session?.user?.id;
@@ -235,10 +325,45 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   // Un usuario registrado como trabajador también puede PEDIR trabajos (ser
   // cliente). Soy "trabajador" en este job solo si soy el profesional asignado
   // y no su cliente. Así, si pido un servicio, veo las pantallas de cliente.
-  const isWorker = !!professional && professional.id === job.professional_id && userId !== clientId;
-  const workerFirstName = professional?.first_name ||
+  // 🔴 9-ago-2026 — ACÁ SE PERDÍA EL BOTÓN "VOY EN CAMINO".
+  //    Esto dependía SÓLO de `professional`, que llega por prop desde App.js y
+  //    se carga de forma asincrónica: si la pantalla se abre antes de que el
+  //    perfil esté cargado —entrando por una notificación, por el pin, o
+  //    volviendo a la app— `professional` es null, `isWorker` da false y el
+  //    profesional ve la pantalla del CLIENTE de su propio trabajo: con
+  //    "Llamar" y "Mensaje", y sin ninguna de sus acciones. Desde afuera se ve
+  //    exactamente como lo describió Maxi: "desapareció el VOY EN CAMINO".
+  //
+  //    ⚠️ El primer intento de arreglo (mirar `job.professionals.user_id`) NO
+  //    servía: `getActiveForWorker` trae el job con `select('*, professions(name)')`,
+  //    o sea SIN los datos del profesional. Justo por el camino que usa el
+  //    trabajador, ese respaldo llegaba vacío y el bug seguía igual.
+  //
+  //    Y el segundo intento —"si no sos el cliente, sos el profesional"— tenía
+  //    un agujero que se come justo el caso de las pruebas: **cuando el mismo
+  //    usuario es las dos cosas**. Probando el circuito con una sola cuenta
+  //    (pedís desde la web y aceptás desde la app), `userId === clientId`, la
+  //    app te trata de cliente y NADIE puede tocar "Voy en camino": el trabajo
+  //    queda trabado. No es sólo cosa de la prueba — un profesional que se
+  //    pide un trabajo a sí mismo por error queda igual de trabado.
+  //
+  //    Ahora se pregunta lo que importa de verdad: ¿soy el profesional de este
+  //    trabajo? Y se responde por dos vías, para no depender de ninguna sola:
+  //    el perfil que llega por prop (puede tardar) o el user_id que viaja
+  //    dentro del job (`professionals(user_id)`, agregado a los tres selects
+  //    del servicio justo para esto). Ser el cliente NO quita ser el
+  //    profesional: si sos los dos, ganan las acciones, que son las únicas que
+  //    hacen avanzar el trabajo.
+  const proUserId = job.professionals?.user_id;
+  const soyElProfesional =
+    (!!professional && professional.id === job.professional_id) ||
+    (!!proUserId && proUserId === userId);
+  const isWorker = soyElProfesional || (!!job.professional_id && userId !== clientId);
+  const nombreCrudo = professional?.first_name ||
     (job.professionals?.first_name || '') ||
     'El profesional';
+  // Se anotan en minúscula y así se leía en toda la pantalla ("maximiliano").
+  const workerFirstName = nombreCrudo.charAt(0).toUpperCase() + nombreCrudo.slice(1);
 
   // ── La ventana de ubicación ──────────────────────────────────────────────
   //  Maxi (5-ago-2026): "no se tiene que ver el GPS hasta que no esté yendo el
@@ -250,7 +375,6 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   //
   //  El profesional nunca vio un mapa acá, así que esto sólo afecta al cliente.
   const enCamino = !!job.on_the_way_at;
-  const verMapa  = !isWorker && enCamino;
 
   // Suscribir a cambios del job (Realtime) + polling de respaldo.
   // Sin el polling, si el Realtime no entrega el UPDATE, el trabajador que envió
@@ -271,19 +395,51 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     return () => { if (channel) channel.unsubscribe?.(); if (poll) clearInterval(poll); };
   }, [job.id]);
 
+  // Mezclar sin repetir y en orden: el mismo evento puede llegar por el canal
+  // en vivo y por la recarga de respaldo.
+  const sumarEventos = (nuevos) => {
+    setEvents(prev => {
+      const porId = new Map();
+      [...prev, ...(nuevos || [])].forEach(e => { if (e?.id) porId.set(e.id, e); });
+      return [...porId.values()].sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      );
+    });
+  };
+
   // Cargar eventos históricos del timeline
   useEffect(() => {
-    jobService.getEvents(job.id).then(setEvents).catch(() => {});
+    jobService.getEvents(job.id).then(sumarEventos).catch(() => {});
   }, [job.id]);
 
   // Suscribir a nuevos eventos del timeline en tiempo real
   useEffect(() => {
     eventsChannelRef.current = jobService.subscribeToEvents(job.id, (ev) => {
-      setEvents(prev => [...prev, ev]);
+      sumarEventos([ev]);
       lastActivityRef.current = Date.now();
     });
     return () => { eventsChannelRef.current?.unsubscribe?.(); };
   }, [job.id]);
+
+  // 🔴 9-ago-2026 — LA LÍNEA DE TIEMPO NO SE MOVÍA.
+  //    Los eventos se cargaban UNA sola vez (dependencia `[job.id]`) y de ahí
+  //    en adelante dependían **sólo** del canal en vivo. Si ese canal no
+  //    entregaba —y el de `job_events` es el más frágil de los tres— el cliente
+  //    veía la línea congelada en el primer evento; después, al volver a montar
+  //    la pantalla, aparecían todos juntos de golpe. Justo lo que reportó Maxi:
+  //    "se pusieron todos juntos al iniciar el trabajo".
+  //
+  //    El job ya tenía polling de respaldo desde hace rato; los eventos no.
+  //    Ahora se recargan cada 10 s y, además, en cuanto cambia algo del trabajo
+  //    —cada cambio de estado trae eventos nuevos con él—.
+  //    Sólo para el cliente: es el único que ve la línea de tiempo.
+  useEffect(() => {
+    if (isWorker || isDemoMode()) return;
+    const traer = () => jobService.getEvents(job.id).then(sumarEventos).catch(() => {});
+    traer();
+    const t = setInterval(traer, 10000);
+    return () => clearInterval(t);
+  }, [job.id, job.status, job.on_the_way_at, job.sub_status, isWorker]);
 
   // Actualizar actividad cuando el job cambia
   useEffect(() => {
@@ -332,18 +488,6 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
       .then(setIsFav).catch(() => {});
   }, [job.professional_id]);
 
-  // Timer de sesión multi-día
-  useEffect(() => {
-    if (!job.current_session_start) { setSessionElapsed(0); return; }
-    const calc = () => {
-      const diff = Math.floor((Date.now() - new Date(job.current_session_start)) / 1000);
-      setSessionElapsed(Math.max(0, diff));
-    };
-    calc();
-    const t = setInterval(calc, 1000);
-    return () => clearInterval(t);
-  }, [job.current_session_start]);
-
   // Auto-mostrar pago de visita al cliente cuando el trabajador llega
   useEffect(() => {
     if (chargesInApp() && !isWorker && job.status === 'arrived' && !job.visit_paid && !visitPayShownRef.current) {
@@ -352,35 +496,28 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     }
   }, [job.status, job.visit_paid]);
 
-  // Timer de trabajo en curso (single-day)
-  useEffect(() => {
-    if (job.status !== 'in_progress' || job.is_multiday || !job.work_started_at) { setWorkElapsed(0); return; }
-    const calc = () => {
-      const diff = Math.floor((Date.now() - new Date(job.work_started_at)) / 1000);
-      setWorkElapsed(Math.max(0, diff));
-    };
-    calc();
-    const t = setInterval(calc, 1000);
-    return () => clearInterval(t);
-  }, [job.status, job.work_started_at, job.is_multiday]);
-
   // Presupuesto elegido por el cliente (se borró quote_group_id) → recién ACÁ
-  // arranca el viaje: notificación al cliente + eventos del timeline.
+  // el presupuesto se vuelve un trabajo: aviso al cliente + eventos del timeline.
   useEffect(() => {
     if (!isWorker || !wasQuoteRef.current || tripStartedRef.current) return;
     if (job.quote_group_id || job.status !== 'accepted') return;
     tripStartedRef.current = true;
     const arrivalEst = job.arrival_estimate || '~30 min';
     notificationService.sendToUser(clientId, {
-      title: '⚡ ESTÁ POR LLEGAR UN BOLT',
-      body:  `POR FAVOR PEDILE EL CÓDIGO ANTES DE ABRIR LA PUERTA. Llega en ${arrivalEst}.`,
+      title: '✅ Tu profesional quedó confirmado',
+      body:  `${workerFirstName} tomó el trabajo. Te avisamos cuando salga: pedile el código antes de abrir la puerta.`,
       data:  { jobId: job.id, screen: 'tracking' },
     }).catch(() => {});
     chatService.sendSystemMessage(job.id, volt.chatAccepted).catch(() => {});
-    chatService.sendSystemMessage(job.id, volt.chatInTransit).catch(() => {});
     jobService.addEvent(job.id, 'accepted',      `Profesional confirmado para el trabajo ✅`).catch(() => {});
     jobService.addEvent(job.id, 'estimated',     `Llega en aprox. ${arrivalEst}.`).catch(() => {});
-    jobService.addEvent(job.id, 'trip_started',  `En camino a tu domicilio 🚗`).catch(() => {});
+    // 🔴 Ya no se anota `trip_started` acá: que lo elijan no es que haya salido.
+    //    Ese evento lo escribe handleWorkerAction('on_the_way'), cuando el
+    //    profesional toca "Voy en camino" de verdad.
+    // La pregunta "¿cuándo vas?" es ACÁ para el presupuesto: recién ahora hay
+    // trabajo. Antes se hacía al enviarlo y podía dejar `on_the_way_at` puesto
+    // sin que nadie hubiera salido.
+    preguntarCuandoVoy(job.id);
   }, [job.quote_group_id, job.status]);
 
   // Cancelación o finalización detectada vía realtime
@@ -391,11 +528,11 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         : 'El cliente canceló el trabajo.';
       Alert.alert(wasQuoteRef.current ? 'No fuiste elegido esta vez' : 'Trabajo cancelado', msg, [{ text: 'Entendido', onPress: onCancel }]);
     }
-    if (job.status === 'completed' && isWorker && !completedShownRef.current) {
+    if (job.status === 'completed' && isWorker && !completedShownRef.current && !yaEstabaCerradoRef.current) {
       completedShownRef.current = true;
       setCompletedModal(true);
     }
-    if (job.status === 'completed' && !isWorker) {
+    if (job.status === 'completed' && !isWorker && !yaEstabaCerradoRef.current) {
       onComplete(job);
     }
   }, [job.status]);
@@ -429,27 +566,66 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     }
   };
 
+  // 🔴 11-ago-2026 — antes esto cerraba el modal de entrada y recién después
+  // esperaba rateClient y setAvailableAt, los dos sin tope. Con mala señal el
+  // fetch no vuelve nunca, el `onComplete` no corría y el profesional quedaba
+  // parado en la pantalla de un trabajo que ya estaba en 'completed': sin
+  // modal, sin botones y sin entender qué pasó. Y encima con la disponibilidad
+  // sin programar, que es el agujero que dejó 8 de 10 aprobados invisibles.
+  // Ahora: el modal se queda con el spinner mientras trabaja, cada llamada
+  // tiene 5 s y la salida se ejecuta sí o sí desde el finally.
   const handleAvailabilityAndComplete = async (hoursFromNow) => {
-    setCompletedModal(false);
-    // La calificación del cliente va primero pero NUNCA frena el cierre: si
-    // falla (o si no puntuó), el trabajo se termina igual.
-    if (clientStars > 0 && professional?.id && job.client_id) {
-      try {
-        await jobService.rateClient({
+    if (completing !== null) return;
+    setCompleting(hoursFromNow);
+    let dispoProgramada = true;
+    try {
+      // La calificación del cliente va primero pero NUNCA frena el cierre: si
+      // falla (o si no puntuó), el trabajo se termina igual.
+      if (clientStars > 0 && professional?.id && job.client_id) {
+        await conTiempo(jobService.rateClient({
           jobId:          job.id,
           clientId:       job.client_id,
           professionalId: professional.id,
           rating:         clientStars,
-        });
-      } catch {}
-    }
-    try {
-      if (professional?.id) {
-        await professionalService.setAvailableAt(professional.id, hoursFromNow);
+        }), 5000);
       }
-    } catch {}
-    onComplete(job);
+      if (professional?.id) {
+        // Centinela propio: conTiempo devuelve lo mismo si falla que si vence,
+        // y acá sí importa distinguirlo para poder avisarle.
+        const r = await conTiempo(
+          professionalService.setAvailableAt(professional.id, hoursFromNow), 5000, NO_VOLVIO);
+        dispoProgramada = r !== NO_VOLVIO;
+      }
+    } catch (e) {
+      // `conTiempo` sólo atrapa la promesa: si algo revienta ANTES de que la
+      // llamada arranque (un servicio que no está, un dato que falta), el error
+      // salía crudo del async y encima quedaba `dispoProgramada` en true, o sea
+      // que nos callábamos con el radar sin programar. Si llegamos acá, la
+      // disponibilidad seguro no se guardó.
+      dispoProgramada = false;
+      console.log('cierre del trabajo:', e?.message);
+    } finally {
+      setCompleting(null);
+      setCompletedModal(false);
+      onComplete(job);
+      // No se puede quedar creyendo que su radar quedó programado si no quedó:
+      // callarse acá es dejarlo apagado sin que se entere.
+      if (!dispoProgramada) {
+        Alert.alert(
+          'Trabajo cerrado',
+          'No pudimos programar tu disponibilidad. Revisá el radar en Mi negocio para volver a recibir pedidos.'
+        );
+      }
+    }
   };
+
+  // Se dejó de ir en camino (llegó, o el viaje se cerró): borrar su marcador.
+  // El mapa ahora queda montado siempre, así que hay que limpiarlo a mano.
+  useEffect(() => {
+    if (isWorker || enCamino) return;
+    setWorkerDistKm(null);
+    webRef.current?.postMessage(JSON.stringify({ type: 'WORKER_CLEAR' }));
+  }, [enCamino, isWorker]);
 
   // Suscribir a ubicación del trabajador (solo cliente)
   useEffect(() => {
@@ -540,7 +716,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const detectarQueSeFue = (lat, lng) => {
     if (!isWorker || yaPregunto.current) return;
-    const enObra = job.is_multiday && job.current_session_start;
+    const enObra = false;
     if (!enObra && job.status !== 'in_progress') return;
 
     const R = 6371000;
@@ -568,7 +744,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   const cerrarJornadaAhora = async () => {
     try {
-      if (job.is_multiday && job.current_session_start) {
+      if (false) {
         await jobService.endSession(job.id, job.current_session_start,
                                     job.completed_sessions || 0, job.total_minutes_worked || 0);
         setJob(j => ({ ...j, current_session_start: null,
@@ -600,6 +776,10 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
           setJob(j => ({ ...j, on_the_way_at: new Date().toISOString(),
                          verification_code: String(Math.floor(Math.random() * 10000)).padStart(4, '0'),
                          viajes: (j.viajes || 0) + 1, status: 'accepted' }));
+        } else if (action === 'llegue_y_empiezo') {
+          setJob(j => ({ ...j, status: 'in_progress', on_the_way_at: null,
+                         arrived_at: new Date().toISOString(),
+                         work_started_at: new Date().toISOString() }));
         } else if (action === 'arrive') {
           setJob(j => ({ ...j, status: 'arrived', arrived_at: new Date().toISOString(), on_the_way_at: null }));
         } else if (action === 'start') {
@@ -637,6 +817,19 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         notifBody  = viaje > 1
           ? `${workerFirstName} volvió a salir para tu domicilio. Pedile el código nuevo cuando llegue.`
           : `${workerFirstName} salió para tu domicilio. Cuando llegue, pedile el código.`;
+      } else if (action === 'llegue_y_empiezo') {
+        // Las dos cosas de una. `arrive` cierra la ventana de ubicación —deja
+        // de compartir dónde está— y `start` arranca el reloj del trabajo.
+        await jobService.arrive(job.id);
+        await jobService.start(job.id);
+        setJob(j => ({ ...j, status: 'in_progress', on_the_way_at: null,
+                       arrived_at: new Date().toISOString(),
+                       work_started_at: new Date().toISOString() }));
+        jobService.addEvent(job.id, 'arrived', `Llegó a tu domicilio 🔑`).catch(() => {});
+        jobService.addEvent(job.id, 'work_started', `Comenzó el trabajo 🔧`).catch(() => {});
+        chatService.sendSystemMessage(job.id, volt.chatArrived(workerFirstName)).catch(() => {});
+        notifTitle = '⚡ Llegó y arrancó';
+        notifBody  = `${workerFirstName} está en tu domicilio y empezó el trabajo.`;
       } else if (action === 'arrive') {
         await jobService.arrive(job.id);
         jobService.addEvent(job.id, 'arrived', `Llegó a tu domicilio. Pedile el código 🔑`).catch(() => {});
@@ -887,77 +1080,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     }
   };
 
-  const handleConvertToMultiday = async () => {
-    const sessions = parseInt(multidaySessions, 10);
-    if (!sessions || sessions < 2) {
-      Alert.alert('Revisá los datos', 'Ingresá al menos 2 días de trabajo.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await jobService.convertToMultiday(job.id, sessions, multidayHrs || `${multidayHrs || '?'}h`);
-      setJob(j => ({ ...j, is_multiday: true, estimated_sessions: sessions, current_session_start: new Date().toISOString() }));
-      chatService.sendSystemMessage(job.id, volt.chatMultidayPlan(sessions)).catch(() => {});
-      setMultidayModal(false);
-      setMultidaySessions('');
-      setMultidayHrs('');
-      await notificationService.sendToUser(clientId, {
-        title: '📅 Trabajo de varios días',
-        body: `El profesional confirmó que el trabajo requiere ${sessions} días. Te avisará cada vez que termine una jornada.`,
-        data: { jobId: job.id, screen: 'tracking' },
-      });
-    } catch {
-      Alert.alert('Error', 'No se pudo actualizar el trabajo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEndSessionWithReturn = (daysFromNow) => {
-    const returnDate = new Date();
-    returnDate.setDate(returnDate.getDate() + daysFromNow);
-    returnDate.setHours(9, 0, 0, 0);
-    return async () => {
-      setLoading(true);
-      try {
-        await jobService.endSessionWithReturn(
-          job.id,
-          job.current_session_start,
-          job.completed_sessions || 0,
-          job.total_minutes_worked || 0,
-          returnDate.toISOString(),
-        );
-        const label = daysFromNow === 1 ? 'mañana' : `en ${daysFromNow} días`;
-        chatService.sendSystemMessage(job.id, volt.chatSessionEnded(workerFirstName, label)).catch(() => {});
-        await notificationService.sendToUser(clientId, {
-          title: '📋 Jornada terminada',
-          body: job.estimated_sessions
-            ? `Sesión ${(job.completed_sessions || 0) + 1} de ${job.estimated_sessions} completada. El profesional regresa ${label}.`
-            : `Jornada ${(job.completed_sessions || 0) + 1} terminada. El profesional regresa ${label}.`,
-          data: { jobId: job.id, screen: 'tracking' },
-        });
-      } catch { Alert.alert('Error', 'No se pudo guardar la sesión.'); }
-      finally { setLoading(false); }
-    };
-  };
-
   // ── #2 Cliente confirma el plan multi-día ──────────────────────────────────
-  const handleConfirmMultiday = async () => {
-    setLoading(true);
-    try {
-      await jobService.confirmMultiday(job.id);
-      chatService.sendSystemMessage(job.id, 'El cliente confirmó el plan de trabajo de varios días. ¡A darle!').catch(() => {});
-      if (proUserId) {
-        notificationService.sendToUser(proUserId, {
-          title: '✅ Plan confirmado',
-          body: 'El cliente confirmó el trabajo de varios días.',
-          data: { jobId: job.id, screen: 'tracking' },
-        }).catch(() => {});
-      }
-    } catch { Alert.alert('Error', 'No se pudo confirmar.'); }
-    finally { setLoading(false); }
-  };
-
   // ── #3 Materiales: el profesional propone estimación ───────────────────────
   const handleProposeMaterials = async () => {
     const est = parseInt(materialsEst.replace(/\D/g, ''), 10);
@@ -1079,22 +1202,45 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     );
   };
 
-  const statusInfo = STATUS_INFO[job.status] || STATUS_INFO.pending;
+  // 🔴 'accepted' NO quiere decir "va en camino": el 90% de las veces se acepta
+  //    y se coordina para más tarde u otro día. Mientras `on_the_way_at` esté
+  //    vacío nadie salió, y decir "El profesional está en camino" es mentirle al
+  //    cliente — que además ve justo abajo "vas a poder seguirlo cuando salga"
+  //    (Maxi, 8-ago-2026). El mismo arreglo ya estaba hecho en PanelTrabajos y
+  //    en el panel del trabajador; faltaba acá.
+  const statusInfo = (() => {
+    const base = STATUS_INFO[job.status] || STATUS_INFO.pending;
+    if (job.status !== 'accepted' || enCamino) return base;
+    if (job.quote_group_id) {
+      return { icon: 'hourglass-outline', color: '#888', label: 'Esperando que elijas' };
+    }
+    return {
+      icon:  'checkmark-circle-outline',
+      color: '#FFD600',
+      label: job.scheduled_for ? `Confirmado · va ${cuandoVa(job.scheduled_for)}` : 'Confirmado — todavía no salió',
+    };
+  })();
   const tip = isWorker ? WORKER_TIPS[job.status] : CLIENT_TIPS[job.status];
 
   // Cuánto ganó el trabajador. En modo gratis no hay comisión → se queda con el 100%.
   const jobCommission = chargesInApp() ? (job.commission_pct || 20) : 0;
   const jobEarned = Math.round((job.work_amount || 0) * (1 - jobCommission / 100)) + (job.materials_cost || 0);
-  const proUserId = job.professionals?.user_id;
+  // (proUserId ya está declarado arriba, junto al cálculo del rol.)
 
-  const currentStep = (() => {
+  // Dos números, no uno: hasta dónde está cumplido y cuál está pasando AHORA.
+  // Cuando llegó, "En camino" ya se cumplió pero "Trabajando" todavía no empezó:
+  // con un solo número había que mentir en alguno de los dos (y era justo la
+  // contradicción que se veía en pantalla).
+  const { doneUpTo, activeStep } = (() => {
     switch (job.status) {
-      case 'accepted':    return job.sub_status === 'nearby' ? 3 : 2;
-      case 'arrived':     return 4;
-      case 'in_progress': return 5;
-      case 'awaiting_payment':
-      case 'completed':   return 6;
-      default:            return 1;
+      // El paso "En camino" se enciende cuando alguien salió de verdad
+      // (on_the_way_at), no al aceptar.
+      case 'accepted':    return enCamino ? { doneUpTo: 1, activeStep: 2 } : { doneUpTo: 0, activeStep: 1 };
+      case 'arrived':     return { doneUpTo: 2, activeStep: null };
+      case 'in_progress': return { doneUpTo: 2, activeStep: 3 };
+      case 'awaiting_payment': return { doneUpTo: 3, activeStep: 4 };
+      case 'completed':   return { doneUpTo: 4, activeStep: null };
+      default:            return { doneUpTo: 0, activeStep: 1 };
     }
   })();
 
@@ -1115,20 +1261,116 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     return `${s}s`;
   };
 
-  const totalMinutesFormatted = () => {
-    const total = (job.total_minutes_worked || 0) + Math.floor(sessionElapsed / 60);
-    const h = Math.floor(total / 60);
-    const m = total % 60;
-    if (h > 0) return `${h}h ${m}min`;
-    return `${m}min`;
-  };
+  // 🔴 9-ago-2026 — se fue el multi-día. Había sesiones por jornada, "terminar
+  //    por hoy · vuelvo mañana", contador de días y minutos trabajados: un reloj
+  //    de fichaje para gente que no es empleada de nadie. Un trabajo se toma una
+  //    vez y se cierra una vez, dure una hora o cinco días.
+  //    Las banderas quedan en false para los trabajos viejos que se marcaron
+  //    multi-día: se comportan como cualquier otro y se pueden finalizar.
+  const isMultiday = false;
+  const inSession  = false;
 
-  const isMultiday = !!job.is_multiday;
-  const inSession  = !!job.current_session_start;
+  // La gente se anota como "maximiliano fraggetta" y así se veía en pantalla.
+  // Capitalizar es la diferencia entre una ficha y un campo de base de datos.
+  const capitalizar = (s) => (s || '')
+    .split(' ')
+    .filter(Boolean)
+    .map(p => p[0].toUpperCase() + p.slice(1).toLowerCase())
+    .join(' ');
 
   const professionalName = job.professionals
-    ? `${job.professionals.first_name || ''} ${job.professionals.last_name || ''}`.trim() || 'Profesional'
-    : 'Profesional en camino';
+    ? capitalizar(`${job.professionals.first_name || ''} ${job.professionals.last_name || ''}`.trim()) || 'Profesional'
+    : 'Profesional asignado';
+
+  // Abre el domicilio en la app de mapas del teléfono. En Android el esquema
+  // `geo:` deja elegir entre Maps, Waze o la que tenga puesta; en iOS no existe,
+  // así que se cae a la URL de Google Maps, que abre la app si está instalada.
+  const abrirEnMapas = () => {
+    const lat = job.client_lat, lng = job.client_lng;
+    if (!lat || !lng) return;
+    const etiqueta = encodeURIComponent(job.address || 'Domicilio del cliente');
+    const url = Platform.OS === 'android'
+      ? `geo:${lat},${lng}?q=${lat},${lng}(${etiqueta})`
+      : `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`).catch(() => {});
+    });
+  };
+
+  // Los id son uuid: los últimos 4 caracteres alcanzan para que el cliente y
+  // soporte hablen del mismo pedido sin leer 36 caracteres por teléfono.
+  const nroPedido = String(job.id || '').replace(/-/g, '').slice(-4).toUpperCase() || '—';
+
+  const proInitials = (job.professionals
+    ? `${job.professionals.first_name?.[0] || ''}${job.professionals.last_name?.[0] || ''}`
+    : '').toUpperCase() || '⚡';
+
+  // El bloque grande de la hoja. Una sola pregunta contestada en grande, y abajo
+  // el detalle. Cambia con el estado real, no con el nominal: mientras nadie
+  // salió NO dice "llega en", dice cuándo va.
+  //
+  // Cliente y trabajador miran cosas distintas: uno quiere saber cuánto falta,
+  // el otro adónde tiene que ir y qué le toca hacer ahora.
+  const heroInfo = (() => {
+    const destino = job.address ? `a ${job.address}` : 'a tu domicilio';
+
+    if (isWorker) {
+      const dir = job.address || 'Ver ubicación en el mapa';
+      if (job.status === 'pending')  return { label: 'Sin confirmar', value: dir, sub: 'El cliente todavía no confirmó el trabajo.' };
+      if (job.status === 'arrived')  return { label: 'Estás en', value: dir, sub: 'Mostrale el código antes de que te abra. Es obligatorio.' };
+      if (job.status === 'in_progress') {
+        return { label: 'Trabajo en curso', value: dir, sub: 'Cuando termines, tocá "Finalizar trabajo".' };
+      }
+      if (job.status === 'awaiting_payment') {
+        return { label: 'Esperando el pago', value: `$${(job.work_amount || 0).toLocaleString('es-AR')}`, sub: 'Te avisamos apenas entre.' };
+      }
+      if (job.quote_group_id) {
+        // "Esperando que elijas" es lo que lee el CLIENTE. Al profesional le
+        // toca la otra mitad de la frase (Maxi, 9-ago-2026).
+        return {
+          label: 'Presupuesto enviado',
+          value: 'Esperando que te elijan',
+          sub: `${dir} · el cliente está comparando. Te avisamos si te elige.`,
+        };
+      }
+      if (enCamino) return { label: 'Vas camino a', value: dir, sub: 'El cliente te está viendo en el mapa. Al llegar, tocá "Llegué".' };
+      return {
+        label: 'Tenés que ir a',
+        value: dir,
+        sub: job.scheduled_for
+          ? `Quedaron ${cuandoVa(job.scheduled_for)}. Cuando salgas, tocá "Voy en camino".`
+          : 'Cuando salgas, tocá "Voy en camino" y el cliente te sigue en el mapa.',
+      };
+    }
+
+    if (job.status === 'arrived') {
+      return { label: 'Ya llegó', value: `${workerFirstName} está en la puerta`, sub: 'Pedile el código antes de abrirle. Es obligatorio.' };
+    }
+    if (job.status === 'in_progress') {
+      return { label: 'Trabajo en curso', value: `${workerFirstName} está trabajando`, sub: job.address || 'En tu domicilio' };
+    }
+    if (job.status === 'awaiting_payment') {
+      return { label: 'Trabajo terminado', value: isFreeMode() ? 'Falta confirmar' : 'Listo para pagar', sub: 'Revisá el detalle acá abajo.' };
+    }
+    if (enCamino) {
+      return {
+        label: 'Llega en',
+        value: job.arrival_estimate || 'unos minutos',
+        tail:  job.arrival_estimate ? 'aprox.' : '',
+        sub:   `Va camino ${destino} · ${fmtAgo(timeSinceUpdate).toLowerCase()}`,
+      };
+    }
+    if (job.quote_group_id) {
+      return { label: 'Presupuesto enviado', value: 'Esperando que elijas', sub: 'Cuando lo elijas, coordinan el día por el chat.' };
+    }
+    return {
+      label: 'Cuándo va',
+      value: job.scheduled_for ? cuandoVa(job.scheduled_for) : 'A coordinar',
+      sub:   job.scheduled_for
+        ? `${workerFirstName} confirmó el trabajo. Te avisamos apenas salga y lo seguís en el mapa.`
+        : `${workerFirstName} confirmó el trabajo. Coordinen el día por el chat 👇`,
+    };
+  })();
 
   const mapHtml = `
 <!DOCTYPE html><html>
@@ -1142,11 +1384,13 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 <div id="map"></div>
 <script>
 const map = L.map('map',{zoomControl:false,attributionControl:false})
-  .setView([${job.client_lat || -38.71}, ${job.client_lng || -62.26}], 14);
+  .setView([${job.client_lat || -38.71}, ${job.client_lng || -62.26}], 15);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
-const clientIcon = L.divIcon({html:'<div style="width:18px;height:18px;border-radius:50%;background:#FFD600;border:3px solid white;box-shadow:0 0 10px rgba(255,214,0,0.8)"></div>',iconSize:[18,18],iconAnchor:[9,9],className:''});
-const workerIcon = L.divIcon({html:'<div style="width:34px;height:34px;border-radius:17px;background:#1a1a1a;border:2.5px solid #FFD600;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 12px rgba(255,214,0,0.6)">⚡</div>',iconSize:[34,34],iconAnchor:[17,17],className:''});
-L.marker([${job.client_lat || -38.71}, ${job.client_lng || -62.26}],{icon:clientIcon}).addTo(map).bindPopup('Tu ubicación').openPopup();
+const clientIcon = L.divIcon({html:'<div style="width:16px;height:16px;border-radius:50%;background:#FFD600;border:3px solid #0D0D0D;box-shadow:0 0 0 4px rgba(255,214,0,0.18)"></div>',iconSize:[16,16],iconAnchor:[8,8],className:''});
+const workerIcon = L.divIcon({html:'<div style="width:36px;height:36px;border-radius:18px;background:#FFD600;border:3px solid #0D0D0D;display:flex;align-items:center;justify-content:center;font-size:17px">⚡</div>',iconSize:[36,36],iconAnchor:[18,18],className:''});
+${(job.client_lat && job.client_lng)
+  ? `L.marker([${job.client_lat}, ${job.client_lng}],{icon:clientIcon}).addTo(map);`
+  : '/* sin coordenadas del domicilio: mapa sin pin, mejor que un pin mentiroso */'}
 let workerMarker = null;
 window.addEventListener('message', e => {
   try {
@@ -1154,22 +1398,380 @@ window.addEventListener('message', e => {
     if(msg.type==='WORKER_MOVE'){
       if(workerMarker) workerMarker.setLatLng([msg.lat,msg.lng]);
       else workerMarker = L.marker([msg.lat,msg.lng],{icon:workerIcon}).addTo(map);
+      map.fitBounds(L.latLngBounds([msg.lat,msg.lng],[${job.client_lat || -38.71}, ${job.client_lng || -62.26}]),{padding:[60,60],maxZoom:16});
+    }
+    // El mapa ya no se desmonta al llegar (antes se iba entero y con él el
+    // marcador). Sin esto quedaría un punto fantasma en la última posición.
+    if(msg.type==='WORKER_CLEAR' && workerMarker){
+      map.removeLayer(workerMarker); workerMarker = null;
+      map.setView([${job.client_lat || -38.71}, ${job.client_lng || -62.26}], 15);
     }
   } catch {}
 });
 </script>
 </body></html>`;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  //  EL PROFESIONAL TOMÓ EL TRABAJO: mismo criterio que del lado del cliente.
+  //
+  //  🔴 10-ago-2026 — le quedaban "Iniciar trabajo", el mapa y "Finalizar":
+  //  los mismos botones que nadie toca. Si BOLT no controla a nadie, tampoco
+  //  puede pedirle al profesional que fiche. Ve lo que necesita para ir a
+  //  trabajar —a quién, dónde, cómo llegar, su código— y nada más.
+  //
+  //  Queda UN botón para cerrar, y es opcional a propósito: el que quiera
+  //  ordenarse lo usa, y el que no, el trabajo se cierra igual cuando el
+  //  cliente conteste el mensaje o por el cierre automático.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (isWorker && ['accepted', 'arrived', 'in_progress'].includes(job.status) && !job.quote_group_id) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          {onBack && (
+            <TouchableOpacity onPress={onBack} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Volver al inicio">
+              <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.headerEyebrow} numberOfLines={1}>Pedido #{nroPedido}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{job.professions?.name || 'Trabajo'}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setMenuOpen(true)} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Más opciones">
+            <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.entregaScroll} showsVerticalScrollIndicator={false}>
+          <Text style={[styles.headerEyebrow, { marginTop: 8 }]}>Tenés que ir a</Text>
+          <Text style={styles.entregaTitulo}>{job.address || 'Ver ubicación'}</Text>
+          <Text style={styles.entregaSub}>
+            Arreglá con el cliente el día y la hora que les quede bien a los dos.
+          </Text>
+
+          {!!(job.client_lat && job.client_lng) && (
+            <TouchableOpacity style={[styles.entregaBtn, styles.entregaBtnPrimario]} onPress={abrirEnMapas}
+              accessibilityRole="button" accessibilityLabel="Cómo llegar al domicilio">
+              <Ionicons name="navigate" size={19} color="#0D0D0D" />
+              <Text style={styles.entregaBtnPrimarioText}>Cómo llegar</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={[styles.entregaBtn, styles.entregaBtnSec]} onPress={() => setShowChat(true)}
+            accessibilityRole="button" accessibilityLabel="Escribirle al cliente">
+            <Ionicons name="chatbubble-ellipses-outline" size={19} color="#FFFFFF" />
+            <Text style={styles.entregaBtnSecText}>
+              {unreadCount > 0 ? `Leer los mensajes (${unreadCount})` : 'Escribirle al cliente'}
+            </Text>
+          </TouchableOpacity>
+
+          {!!job.verification_code && (
+            <View style={styles.entregaCodigo}>
+              <Text style={styles.entregaCodigoLabel}>Tu código de verificación</Text>
+              <Text style={styles.entregaCodigoNum}>{job.verification_code}</Text>
+              <Text style={styles.entregaCodigoHint}>
+                Mostráselo al cliente antes de que te abra. Es lo que prueba que sos vos.
+              </Text>
+            </View>
+          )}
+
+          {!!job.notes && (
+            <View style={styles.entregaAviso}>
+              <Ionicons name="chatbubble-outline" size={19} color="#8A8A8A" style={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.entregaAvisoTitulo}>Lo que pidió</Text>
+                <Text style={styles.entregaAvisoTexto}>{job.notes}</Text>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.entregaFila} onPress={handleFinishJob} disabled={loading}>
+            <Ionicons name="checkmark-done" size={19} color="#8A8A8A" />
+            <Text style={styles.entregaFilaText}>
+              {loading ? 'Cerrando…' : 'Ya terminé este trabajo'}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#5C5C5C" style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.entregaFila} onPress={() => setProblemModal(true)}>
+            <Ionicons name="help-circle-outline" size={19} color="#8A8A8A" />
+            <Text style={styles.entregaFilaText}>Tengo un problema</Text>
+            <Ionicons name="chevron-forward" size={16} color="#5C5C5C" style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
+        </ScrollView>
+
+        <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+          <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuOpen(false)}>
+            <TouchableOpacity style={styles.menuBox} activeOpacity={1} onPress={() => {}}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); setProblemModal(true); }}>
+                <Ionicons name="alert-circle-outline" size={19} color="#FFFFFF" />
+                <Text style={styles.menuItemText}>Tengo un problema</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); handleCancel(); }}>
+                <Ionicons name="close-circle-outline" size={19} color="#FFFFFF" />
+                <Text style={styles.menuItemText}>Cancelar este trabajo</Text>
+              </TouchableOpacity>
+              <View style={styles.menuDivider} />
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); handleEmergency(); }}>
+                <Ionicons name="call" size={19} color="#E5484D" />
+                <Text style={[styles.menuItemText, { color: '#E5484D' }]}>Emergencia · llamar al 911</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        <Modal visible={problemModal} transparent animationType="slide" onRequestClose={() => setProblemModal(false)}>
+          <TouchableOpacity style={[styles.problemOverlay, padBarra]} activeOpacity={1} onPress={() => setProblemModal(false)}>
+            <TouchableOpacity style={styles.problemBox} activeOpacity={1} onPress={() => {}}>
+              <View style={styles.problemHeader}>
+                <Text style={styles.problemTitle}>¿Cuál es el problema?</Text>
+                <TouchableOpacity onPress={() => setProblemModal(false)}>
+                  <Ionicons name="close" size={22} color="#5C5C5C" />
+                </TouchableOpacity>
+              </View>
+              {getProblemIssues(true, job.status).map(issue => (
+                <TouchableOpacity key={issue.text} style={styles.problemItem} onPress={() => handleReportIssue(issue.text)}>
+                  <Ionicons name={issue.icon} size={17} color="#8A8A8A" />
+                  <Text style={styles.problemItemText}>{issue.text}</Text>
+                  <Ionicons name="chevron-forward" size={15} color="#3a3a3a" />
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.emergencyRow} onPress={() => { setProblemModal(false); handleEmergency(); }}>
+                <Ionicons name="call" size={18} color="#E5484D" />
+                <Text style={styles.emergencyRowText}>Estoy en peligro · llamar al 911</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        {showChat && (
+          <Modal visible animationType="slide" onRequestClose={() => setShowChat(false)}>
+            <ChatScreen
+              job={job}
+              userId={userId}
+              isWorker
+              onClose={() => { setShowChat(false); setUnreadCount(0); if (!isDemoMode()) chatService.markAsRead(job.id, userId).catch(() => {}); }}
+            />
+          </Modal>
+        )}
+      </SafeAreaView>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  EL CLIENTE YA ELIGIÓ: se entrega el contacto y la app se corre al costado.
+  //
+  //  🔴 10-ago-2026 — el cambio más grande del producto. Antes de acá el cliente
+  //  entraba a una pantalla de seguimiento que dependía de que el profesional
+  //  marcara "salí", "llegué", "empecé", "terminé". Los números de las pruebas
+  //  fueron claros: el botón que hay que tocar ANTES de llegar se usó 3 veces
+  //  sobre 87. Y el motivo de fondo no es que se olviden: a un electricista
+  //  matriculado no lo seguís por GPS, y a un pintor que va cinco días a una
+  //  casa no le pedís que fiche entrada y salida. No son empleados de nadie
+  //  (Maxi, 9-ago-2026).
+  //
+  //  Entonces BOLT hace lo que sabe hacer —pasarle un cliente a un profesional
+  //  verificado— y se corre. Lo que queda es lo que no se puede delegar: el
+  //  código de la puerta, y que después preguntamos cómo fue.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!isWorker && job.status === 'accepted' && !job.quote_group_id) {
+    const tel = (job.professionals?.phone || '').replace(/\D/g, '');
+    const abrirWhatsApp = () => {
+      if (!tel) return;
+      const texto = encodeURIComponent(
+        `Hola ${workerFirstName}! Te escribo por BOLT, por el pedido de ${job.professions?.name?.toLowerCase() || 'trabajo'} en ${job.address || 'mi domicilio'}.`
+      );
+      // wa.me toma el número con característica y sin signos. Si el teléfono
+      // vino sin el 549 de Argentina, se lo agregamos: sin eso no abre el chat.
+      const numero = tel.startsWith('54') ? tel : `549${tel.replace(/^0/, '')}`;
+      Linking.openURL(`https://wa.me/${numero}?text=${texto}`).catch(() => {});
+    };
+
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          {onBack && (
+            <TouchableOpacity onPress={onBack} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Volver al inicio">
+              <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.headerEyebrow} numberOfLines={1}>Pedido #{nroPedido}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{job.professions?.name || 'Servicio a domicilio'}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setMenuOpen(true)} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Más opciones">
+            <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.entregaScroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.entregaTick}>
+            <Ionicons name="checkmark" size={28} color="#FFD600" />
+          </View>
+
+          <Text style={styles.entregaTitulo}>
+            Listo. Ahora hablás{'\n'}con <Text style={styles.displayEm}>{workerFirstName}</Text>
+          </Text>
+          <Text style={styles.entregaSub}>
+            Le avisamos que lo elegiste. Escribile y arreglen el día y la hora que a vos te queden bien.
+          </Text>
+
+          <View style={styles.proCard}>
+            {job.professionals?.avatar_url
+              ? <Image source={{ uri: job.professionals.avatar_url }} style={styles.proAvatarImg} />
+              : <View style={styles.proAvatar}><Text style={styles.proAvatarText}>{proInitials}</Text></View>}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.proName} numberOfLines={1}>{professionalName}</Text>
+              <View style={styles.proMetaRow}>
+                {job.professionals?.avg_rating ? (
+                  <>
+                    <Ionicons name="star" size={13} color="#FFD600" />
+                    <Text style={styles.proMeta}>
+                      {Number(job.professionals.avg_rating).toFixed(1).replace('.', ',')}
+                    </Text>
+                  </>
+                ) : <Text style={styles.proMeta}>Nuevo en BOLT</Text>}
+                {job.professionals?.completed_jobs > 0 && (
+                  <Text style={styles.proMeta}>· {job.professionals.completed_jobs} trabajos</Text>
+                )}
+                <Text style={styles.proMeta}>· Verificado</Text>
+              </View>
+            </View>
+          </View>
+
+          {!!tel && (
+            <TouchableOpacity style={[styles.entregaBtn, styles.entregaBtnPrimario]} onPress={abrirWhatsApp}
+              accessibilityRole="button" accessibilityLabel={`Escribirle a ${workerFirstName} por WhatsApp`}>
+              <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
+              <Text style={styles.entregaBtnPrimarioText}>Escribirle por WhatsApp</Text>
+            </TouchableOpacity>
+          )}
+
+          {!!tel && (
+            <TouchableOpacity style={[styles.entregaBtn, styles.entregaBtnSec]} onPress={() => Linking.openURL(`tel:${tel}`)}
+              accessibilityRole="button" accessibilityLabel={`Llamar a ${workerFirstName}`}>
+              <Ionicons name="call" size={19} color="#FFFFFF" />
+              <Text style={styles.entregaBtnSecText}>Llamarlo</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Sin teléfono cargado no hay a dónde mandarlo: queda el chat. */}
+          <TouchableOpacity style={[styles.entregaBtn, styles.entregaBtnSec]} onPress={() => setShowChat(true)}
+            accessibilityRole="button" accessibilityLabel="Escribirle por el chat de BOLT">
+            <Ionicons name="chatbubble-ellipses-outline" size={19} color="#FFFFFF" />
+            <Text style={styles.entregaBtnSecText}>
+              {unreadCount > 0 ? `Leer (${unreadCount})` : 'Escribirle por acá'}
+            </Text>
+          </TouchableOpacity>
+
+          {!!job.verification_code && (
+            <View style={styles.entregaCodigo}>
+              <Text style={styles.entregaCodigoLabel}>Tu código de seguridad</Text>
+              <Text style={styles.entregaCodigoNum}>{job.verification_code}</Text>
+              <Text style={styles.entregaCodigoHint}>
+                Pediselo cuando toque el timbre. Si el que te dice no coincide, no es de BOLT.
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.entregaAviso}>
+            <Ionicons name="logo-whatsapp" size={19} color="#FFD600" style={{ marginTop: 2 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.entregaAvisoTitulo}>Te escribimos para saber cómo te fue</Text>
+              <Text style={styles.entregaAvisoTexto}>
+                En un par de días te mandamos un mensaje por WhatsApp. Con eso cuidamos que los
+                profesionales de BOLT sean los que tienen que estar.
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.entregaFila} onPress={() => setProblemModal(true)}>
+            <Ionicons name="help-circle-outline" size={19} color="#8A8A8A" />
+            <Text style={styles.entregaFilaText}>Tengo un problema</Text>
+            <Ionicons name="chevron-forward" size={16} color="#5C5C5C" style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.entregaFila} onPress={onBack}>
+            <Ionicons name="add" size={19} color="#8A8A8A" />
+            <Text style={styles.entregaFilaText}>Pedir otro oficio</Text>
+            <Ionicons name="chevron-forward" size={16} color="#5C5C5C" style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* El menú y los modales que esta pantalla usa. */}
+        <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+          <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuOpen(false)}>
+            <TouchableOpacity style={styles.menuBox} activeOpacity={1} onPress={() => {}}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); setProblemModal(true); }}>
+                <Ionicons name="alert-circle-outline" size={19} color="#FFFFFF" />
+                <Text style={styles.menuItemText}>Tengo un problema</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); handleCancel(); }}>
+                <Ionicons name="close-circle-outline" size={19} color="#FFFFFF" />
+                <Text style={styles.menuItemText}>Cancelar el pedido</Text>
+              </TouchableOpacity>
+              <View style={styles.menuDivider} />
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); handleEmergency(); }}>
+                <Ionicons name="call" size={19} color="#E5484D" />
+                <Text style={[styles.menuItemText, { color: '#E5484D' }]}>Emergencia · llamar al 911</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        <Modal visible={problemModal} transparent animationType="slide" onRequestClose={() => setProblemModal(false)}>
+          <TouchableOpacity style={[styles.problemOverlay, padBarra]} activeOpacity={1} onPress={() => setProblemModal(false)}>
+            <TouchableOpacity style={styles.problemBox} activeOpacity={1} onPress={() => {}}>
+              <View style={styles.problemHeader}>
+                <Text style={styles.problemTitle}>¿Cuál es el problema?</Text>
+                <TouchableOpacity onPress={() => setProblemModal(false)}>
+                  <Ionicons name="close" size={22} color="#5C5C5C" />
+                </TouchableOpacity>
+              </View>
+              {getProblemIssues(false, job.status).map(issue => (
+                <TouchableOpacity key={issue.text} style={styles.problemItem} onPress={() => handleReportIssue(issue.text)}>
+                  <Ionicons name={issue.icon} size={17} color="#8A8A8A" />
+                  <Text style={styles.problemItemText}>{issue.text}</Text>
+                  <Ionicons name="chevron-forward" size={15} color="#3a3a3a" />
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.emergencyRow} onPress={() => { setProblemModal(false); handleEmergency(); }}>
+                <Ionicons name="call" size={18} color="#E5484D" />
+                <Text style={styles.emergencyRowText}>Estoy en peligro · llamar al 911</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        {showChat && (
+          <Modal visible animationType="slide" onRequestClose={() => setShowChat(false)}>
+            <ChatScreen
+              job={job}
+              userId={userId}
+              isWorker={false}
+              onClose={() => { setShowChat(false); setUnreadCount(0); if (!isDemoMode()) chatService.markAsRead(job.id, userId).catch(() => {}); }}
+            />
+          </Modal>
+        )}
+      </SafeAreaView>
+    );
+  }
+
   // Trabajador que envió presupuesto y el cliente todavía no lo eligió:
   // queda en espera (sin controles ni "viaje") hasta ser confirmado o descartado.
-  if (isWorker && job.quote_group_id && ['pending', 'accepted'].includes(job.status)) {
+  //
+  // 🔴 10-ago-2026 — acá decía `['pending', 'accepted']`, y un pedido en
+  //    `pending` NO es un presupuesto enviado: es uno que todavía no contestó.
+  //    Si por cualquier camino caía en esta pantalla con un pedido sin
+  //    responder, leía "Presupuesto enviado · el cliente está comparando" por un
+  //    presupuesto que nunca mandó, y quedaba colgado ahí: el pedido seguía
+  //    vivo pero desde acá no se podía aceptar (Maxi, le pasó cuatro veces
+  //    seguidas). Sólo `accepted`.
+  if (isWorker && job.quote_group_id && job.status === 'accepted') {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D', alignItems: 'center', justifyContent: 'center', padding: 28 }}>
         <ActivityIndicator size="large" color="#FFD600" />
-        <Text style={{ color: '#F5F5F5', fontSize: 22, fontWeight: '900', marginTop: 24, textAlign: 'center' }}>
+        <Text style={{ color: '#F5F5F5', fontSize: 22, fontWeight: '700', marginTop: 24, textAlign: 'center' }}>
           Presupuesto enviado
         </Text>
-        <Text style={{ color: '#888', fontSize: 15, textAlign: 'center', marginTop: 12, lineHeight: 22 }}>
+        <Text style={{ color: '#888', fontSize: 16, textAlign: 'center', marginTop: 12, lineHeight: 22 }}>
           El cliente está comparando propuestas. Si te elige, te avisamos al instante y ahí arrancás el viaje.
           {'\n\n'}Todavía no salgas hacia la dirección.
         </Text>
@@ -1178,9 +1780,9 @@ window.addEventListener('message', e => {
           style={{ marginTop: 34, paddingVertical: 16, paddingHorizontal: 40, borderRadius: 14, backgroundColor: '#FFD600' }}
           activeOpacity={0.85}
         >
-          <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 15 }}>Seguir usando la app</Text>
+          <Text style={{ color: '#0D0D0D', fontWeight: '600', fontSize: 16 }}>Seguir usando la app</Text>
         </TouchableOpacity>
-        <Text style={{ color: '#666', fontSize: 12.5, textAlign: 'center', marginTop: 12, paddingHorizontal: 20 }}>
+        <Text style={{ color: '#666', fontSize: 14, textAlign: 'center', marginTop: 12, paddingHorizontal: 20 }}>
           Podés cerrar esta pantalla tranquilo. Te avisamos por notificación cuando el cliente responda.
         </Text>
         <TouchableOpacity
@@ -1188,7 +1790,7 @@ window.addEventListener('message', e => {
           style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 28 }}
           activeOpacity={0.8}
         >
-          <Text style={{ color: '#ff4444', fontWeight: '700', fontSize: 13 }}>Retirar mi presupuesto</Text>
+          <Text style={{ color: '#E5484D', fontWeight: '700', fontSize: 14 }}>Retirar mi presupuesto</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -1199,7 +1801,7 @@ window.addEventListener('message', e => {
 
       {/* Modal: Pago de visita (cliente, auto al llegar el trabajador) */}
       <Modal visible={visitPayModal} transparent animationType="slide" onRequestClose={() => {}}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, padBarra]}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
               <Ionicons name="home-outline" size={28} color="#FFD600" />
@@ -1217,8 +1819,8 @@ window.addEventListener('message', e => {
               <Text style={styles.cardOnlyText}>Tarjeta de débito, crédito o billetera digital</Text>
             </View>
             <TouchableOpacity style={styles.payBtn} onPress={handleVisitPay} disabled={loading} accessibilityRole="button" accessibilityLabel="Pagar la visita">
-              {loading ? <ActivityIndicator color="#fff" /> : (
-                <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>Pagar visita ${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text></>
+              {loading ? <ActivityIndicator color="#0D0D0D" /> : (
+                <><Ionicons name="card" size={18} color="#0D0D0D" /><Text style={styles.payBtnText}>Pagar visita ${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text></>
               )}
             </TouchableOpacity>
             {isDemoMode() && (
@@ -1234,60 +1836,12 @@ window.addEventListener('message', e => {
         </View>
       </Modal>
 
-      {/* Modal: Convertir a trabajo de varios días */}
-      <Modal visible={multidayModal} transparent animationType="slide" onRequestClose={() => setMultidayModal(false)}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="calendar" size={28} color="#FFD600" />
-              <Text style={styles.modalTitle}>Trabajo de varios días</Text>
-              <TouchableOpacity onPress={() => setMultidayModal(false)}>
-                <Ionicons name="close" size={22} color="#555" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalSub}>
-              Indicá cuántos días estimás y cuántas horas por día. El cliente verá esta información y recibirá notificaciones al terminar cada jornada.
-            </Text>
-            <View style={styles.amountInputWrap}>
-              <Ionicons name="calendar-outline" size={18} color="#FFD600" />
-              <TextInput
-                style={styles.amountInput}
-                placeholder="Cantidad de días (ej: 3)"
-                placeholderTextColor="#444"
-                value={multidaySessions}
-                onChangeText={v => setMultidaySessions(v.replace(/\D/g, ''))}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={styles.amountInputWrap}>
-              <Ionicons name="time-outline" size={18} color="#FFD600" />
-              <TextInput
-                style={styles.amountInput}
-                placeholder="Horas por día (ej: 4 horas)"
-                placeholderTextColor="#444"
-                value={multidayHrs}
-                onChangeText={setMultidayHrs}
-              />
-            </View>
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#FFD600' }, (!multidaySessions || parseInt(multidaySessions) < 2) && { opacity: 0.4 }]}
-              onPress={handleConvertToMultiday}
-              disabled={loading || !multidaySessions || parseInt(multidaySessions) < 2}
-            >
-              {loading ? <ActivityIndicator color="#fff" /> : (
-                <><Ionicons name="checkmark" size={18} color="#fff" /><Text style={[styles.actionBtnText, { color: '#fff' }]}>Confirmar plan de trabajo</Text></>
-              )}
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
       {/* Modal: proponer materiales (#3 — trabajador) */}
       <Modal visible={materialsEstModal} transparent animationType="slide" onRequestClose={() => setMaterialsEstModal(false)}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={[styles.modalOverlay, padBarra]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
-              <Ionicons name="cart-outline" size={26} color="#FF9800" />
+              <Ionicons name="cart-outline" size={26} color="#8A8A8A" />
               <Text style={styles.modalTitle}>Materiales necesarios</Text>
             </View>
             <Text style={styles.modalSub}>
@@ -1295,7 +1849,7 @@ window.addEventListener('message', e => {
             </Text>
             <View style={{ width: '100%', gap: 10, marginVertical: 8 }}>
               <View style={styles.amountInputWrap}>
-                <Ionicons name="construct-outline" size={18} color="#FF9800" />
+                <Ionicons name="construct-outline" size={18} color="#8A8A8A" />
                 <TextInput
                   style={styles.amountInput}
                   placeholder="Qué materiales (ej: disyuntor 16A)"
@@ -1317,12 +1871,12 @@ window.addEventListener('message', e => {
               </View>
             </View>
             <TouchableOpacity style={styles.actionBtn} onPress={handleProposeMaterials} disabled={loading}>
-              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                <><Ionicons name="send" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Enviar al cliente</Text></>
+              {loading ? <ActivityIndicator color="#0D0D0D" /> : (
+                <><Ionicons name="send" size={18} color="#0D0D0D" /><Text style={styles.actionBtnText}>Enviar al cliente</Text></>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setMaterialsEstModal(false)}>
-              <Text style={{ color: '#555', fontSize: 14, fontWeight: '700' }}>Cancelar</Text>
+              <Text style={{ color: '#555', fontSize: 16, fontWeight: '700' }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1341,10 +1895,24 @@ window.addEventListener('message', e => {
       )}
 
       {/* Modal de disponibilidad post-trabajo (trabajador) */}
-      <Modal visible={completedModal} transparent animationType="slide" onRequestClose={() => {}}>
-        <View style={styles.completedOverlay}>
+      {/* El Atrás del sistema cierra igual que "Ahora mismo": antes no hacía
+          nada y las 4 filas eran la única salida, con el trabajo colgado hasta
+          que tocara una. Salir dejándolo disponible es el lado seguro — el
+          otro deja el radar apagado sin que se entere. */}
+      <Modal visible={completedModal} transparent animationType="slide" onRequestClose={() => handleAvailabilityAndComplete(0)}>
+        <View style={[styles.completedOverlay, padBarra]}>
+          {/* La hoja entera scrollea: con el recuadro de VOLT y la frase de la
+              calificación en dos líneas, en un celular chico las 4 filas de
+              horario se iban abajo del borde. */}
           <View style={styles.completedBox}>
-            <Ionicons name="checkmark-circle" size={52} color="#4CAF50" />
+           <ScrollView
+             style={styles.completedScroll}
+             contentContainerStyle={styles.completedScrollBody}
+             showsVerticalScrollIndicator={false}
+             bounces={false}
+             keyboardShouldPersistTaps="handled"
+           >
+            <Ionicons name="checkmark-circle" size={52} color="#FFD600" />
             {/* En modo gratuito no hay ningún pago por la app: decir "pago
                 recibido" es prometer algo que no pasó. */}
             <Text style={styles.completedTitle}>
@@ -1394,12 +1962,16 @@ window.addEventListener('message', e => {
                 style={styles.completedOpt}
                 onPress={() => handleAvailabilityAndComplete(opt.hours)}
                 activeOpacity={0.8}
+                disabled={completing !== null}
               >
                 <Ionicons name={opt.icon} size={18} color="#FFD600" />
                 <Text style={styles.completedOptText}>{opt.label}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#444" />
+                {completing === opt.hours
+                  ? <ActivityIndicator size="small" color="#FFD600" />
+                  : <Ionicons name="chevron-forward" size={16} color="#444" />}
               </TouchableOpacity>
             ))}
+           </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1407,7 +1979,7 @@ window.addEventListener('message', e => {
       {/* Modal de verificación de código (cliente) */}
       {/* Modal: el profesional propone el precio del trabajo */}
       <Modal visible={pricePropModal} transparent animationType="slide" onRequestClose={() => setPricePropModal(false)}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={[styles.modalOverlay, padBarra]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
               <Ionicons name="pricetag" size={26} color="#FFD600" />
@@ -1428,19 +2000,19 @@ window.addEventListener('message', e => {
               />
             </View>
             <TouchableOpacity style={[styles.actionBtn, { marginTop: 16 }]} onPress={handleProposePrice} disabled={loading}>
-              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                <><Ionicons name="send" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Enviar precio al cliente</Text></>
+              {loading ? <ActivityIndicator color="#0D0D0D" /> : (
+                <><Ionicons name="send" size={18} color="#0D0D0D" /><Text style={styles.actionBtnText}>Enviar precio al cliente</Text></>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={{ paddingVertical: 14, alignItems: 'center' }} onPress={() => setPricePropModal(false)} disabled={loading}>
-              <Text style={{ color: '#888', fontSize: 14 }}>Cancelar</Text>
+              <Text style={{ color: '#888', fontSize: 16 }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={codeModal} transparent animationType="slide" onRequestClose={() => { setCodeModal(false); setEnteredCode(''); setCodeResult(null); }}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={[styles.modalOverlay, padBarra]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
               <Ionicons name="shield-checkmark" size={28} color="#FFD600" />
@@ -1474,7 +2046,7 @@ window.addEventListener('message', e => {
 
             {codeResult === 'ok' && (
               <View style={styles.codeOkBox}>
-                <Ionicons name="checkmark-circle" size={40} color="#4CAF50" />
+                <Ionicons name="checkmark-circle" size={40} color="#FFD600" />
                 <Text style={styles.codeOkTitle}>¡Código correcto!</Text>
                 <Text style={styles.codeOkSub}>Es tu profesional BOLT verificado. Podés abrir la puerta.</Text>
                 <TouchableOpacity style={styles.codeCloseBtn} onPress={() => { setCodeModal(false); setEnteredCode(''); setCodeResult(null); }}>
@@ -1485,7 +2057,7 @@ window.addEventListener('message', e => {
 
             {codeResult === 'error' && (
               <View style={styles.codeErrorBox}>
-                <Ionicons name="close-circle" size={40} color="#ff4444" />
+                <Ionicons name="close-circle" size={40} color="#E5484D" />
                 <Text style={styles.codeErrorTitle}>Código incorrecto</Text>
                 <Text style={styles.codeErrorSub}>No abras la puerta. Contactá al soporte de BOLT si el problema continúa.</Text>
                 <TouchableOpacity style={styles.codeRetryBtn} onPress={() => { setEnteredCode(''); setCodeResult(null); }}>
@@ -1499,28 +2071,34 @@ window.addEventListener('message', e => {
 
       {/* Modal TENGO UN PROBLEMA */}
       <Modal visible={problemModal} transparent animationType="slide" onRequestClose={() => setProblemModal(false)}>
-        <TouchableOpacity style={styles.problemOverlay} activeOpacity={1} onPress={() => setProblemModal(false)}>
+        <TouchableOpacity style={[styles.problemOverlay, padBarra]} activeOpacity={1} onPress={() => setProblemModal(false)}>
           <TouchableOpacity style={styles.problemBox} activeOpacity={1} onPress={() => {}}>
             <View style={styles.problemHeader}>
-              <Ionicons name="warning" size={22} color="#FF9800" />
               <Text style={styles.problemTitle}>¿Cuál es el problema?</Text>
               <TouchableOpacity onPress={() => setProblemModal(false)}>
-                <Ionicons name="close" size={22} color="#555" />
+                <Ionicons name="close" size={22} color="#5C5C5C" />
               </TouchableOpacity>
             </View>
             {getProblemIssues(isWorker, job.status).map(issue => (
               <TouchableOpacity key={issue.text} style={styles.problemItem} onPress={() => handleReportIssue(issue.text)}>
-                <Ionicons name={issue.icon} size={16} color="#888" />
+                <Ionicons name={issue.icon} size={17} color="#8A8A8A" />
                 <Text style={styles.problemItemText}>{issue.text}</Text>
-                <Ionicons name="chevron-forward" size={14} color="#333" />
+                <Ionicons name="chevron-forward" size={15} color="#3a3a3a" />
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={styles.supportBtn} onPress={() => {
               setProblemModal(false);
               Linking.openURL('https://wa.me/5492914199938?text=Hola%2C%20necesito%20soporte%20con%20un%20trabajo%20BOLT');
             }}>
-              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+              <Ionicons name="logo-whatsapp" size={18} color="#8A8A8A" />
               <Text style={styles.supportBtnText}>Contactar soporte BOLT</Text>
+            </TouchableOpacity>
+            {/* Lo urgente vive acá, al final y en rojo — el único rojo de toda
+                la pantalla. Antes era un botón permanente en el header, más
+                grande que el nombre del profesional. */}
+            <TouchableOpacity style={styles.emergencyRow} onPress={() => { setProblemModal(false); handleEmergency(); }}>
+              <Ionicons name="call" size={18} color="#E5484D" />
+              <Text style={styles.emergencyRowText}>Estoy en peligro · llamar al 911</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -1540,10 +2118,10 @@ window.addEventListener('message', e => {
 
       {/* Modal: Resumen del trabajo (trabajador antes de cobrar) */}
       <Modal visible={summaryModal} transparent animationType="slide" onRequestClose={() => setSummaryModal(false)}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={[styles.modalOverlay, padBarra]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView style={[styles.modalBox, { maxHeight: '90%' }]} contentContainerStyle={{ gap: 14, paddingBottom: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.modalHeader}>
-              <Ionicons name="clipboard" size={26} color="#4CAF50" />
+              <Ionicons name="clipboard" size={26} color="#FFD600" />
               <Text style={styles.modalTitle}>Resumen del trabajo</Text>
               <TouchableOpacity onPress={() => setSummaryModal(false)}>
                 <Ionicons name="close" size={22} color="#555" />
@@ -1559,7 +2137,7 @@ window.addEventListener('message', e => {
               <View key={f.label}>
                 <Text style={styles.summaryFieldLabel}>{f.label}</Text>
                 <TextInput
-                  style={[styles.amountInput, { minHeight: 60, paddingTop: 10, textAlignVertical: 'top', backgroundColor: '#0A0A0A', borderRadius: 14, borderWidth: 1, borderColor: '#1E1E1E', color: '#F5F5F5', padding: 14, fontSize: 14 }]}
+                  style={[styles.amountInput, { minHeight: 60, paddingTop: 10, textAlignVertical: 'top', backgroundColor: '#0D0D0D', borderRadius: 14, color: '#F5F5F5', padding: 14, fontSize: 16 }]}
                   placeholder={f.ph}
                   placeholderTextColor="#333"
                   value={f.val}
@@ -1569,67 +2147,140 @@ window.addEventListener('message', e => {
                 />
               </View>
             ))}
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#4CAF50' }]} onPress={handleSaveSummary}>
-              <Ionicons name="checkmark" size={18} color="#fff" />
-              <Text style={[styles.actionBtnText, { color: '#fff' }]}>Guardar resumen</Text>
+            {/* 🔴 Este botón era verde y con letra blanca; el barrido de color lo
+                dejó amarillo pero la letra siguió en blanco: amarillo con blanco
+                encima no se lee (Maxi). Sobre amarillo va negro, como todos los
+                botones principales de la app. */}
+            <TouchableOpacity style={styles.actionBtn} onPress={handleSaveSummary}>
+              <Ionicons name="checkmark" size={18} color="#0D0D0D" />
+              <Text style={styles.actionBtnText}>Guardar resumen</Text>
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Header */}
-      <View style={styles.header}>
-        {onBack && (
-          <TouchableOpacity onPress={onBack} style={styles.minimizeBtn} accessibilityRole="button" accessibilityLabel="Volver al inicio (el trabajo sigue activo)">
-            <Ionicons name="chevron-down" size={24} color="#F5F5F5" />
-          </TouchableOpacity>
+      {/* El mapa es el diferencial: va arriba de todo, a sangre, y el header se
+          apoya encima. Está SIEMPRE — antes desaparecía cuando el profesional no
+          iba en camino y en su lugar quedaba un cuadro con un candado que se
+          comía media pantalla para no mostrar nada (Maxi, 8-ago-2026). Si
+          todavía no hay a quién seguir se ve igual, con el pin del domicilio:
+          que su ubicación sólo se comparta yendo en camino (migración 054) no
+          cambia — lo que no se dibuja es su marcador, no el mapa.
+
+          El trabajador también lo tiene: es el domicilio al que va, y hasta ahora
+          no había ninguna forma de ver dónde queda ni de arrancar el GPS.
+
+          El WebView va en absoluteFill dentro de un View con altura fija: si no,
+          a veces no se expande y queda un bloque negro. */}
+      <View style={styles.mapWrap}>
+        <WebView
+          ref={webRef}
+          style={StyleSheet.absoluteFill}
+          source={{ html: mapHtml }}
+          javaScriptEnabled
+          scrollEnabled={false}
+          originWhitelist={['*']}
+        />
+        {/* Sombra arriba para que el header se lea sobre cualquier calle. */}
+        <View style={styles.mapTopShade} pointerEvents="none" />
+        {/* Una línea, no una tarjeta: por qué todavía no hay a quién seguir. */}
+        {!isWorker && !enCamino && ['accepted','arrived','in_progress'].includes(job.status) && (
+          <View style={styles.mapNote} pointerEvents="none">
+            <Ionicons name="lock-closed" size={11} color="#8A8A8A" />
+            <Text style={styles.mapNoteText} numberOfLines={1}>
+              {job.status === 'accepted'
+                ? 'Lo vas a ver acá cuando salga'
+                : `${workerFirstName} ya está en tu domicilio`}
+            </Text>
+          </View>
         )}
-        <Animated.View style={[styles.statusDot, { backgroundColor: statusInfo.color, transform: [{ scale: pulseAnim }] }]} />
-        <Text style={styles.headerStatus}>{statusInfo.label}</Text>
-        {/* 🔴 Estaba sólo en 'pending' y 'awaiting_payment'. Entre medio —aceptado,
-            llegó, trabajando— no había forma de cancelar: ni acá ni en el menú de
-            ayuda, que en esos estados sólo deja reportar problemas. El cliente
-            quedaba encerrado en la pantalla. A Mariana le pasó en la web y le
-            quedaron tres trabajos abiertos dos meses (Maxi, 1-ago). Nunca se le
-            saca a alguien la salida de una pantalla. */}
-        {['pending', 'accepted', 'arrived', 'in_progress', 'awaiting_payment'].includes(job.status) && (
-          <TouchableOpacity onPress={handleCancel} style={styles.cancelBtn}>
-            <Text style={styles.cancelBtnText}>Cancelar</Text>
-          </TouchableOpacity>
-        )}
-        {/* Favorito (solo cliente cuando hay profesional asignado) */}
-        {!isWorker && job.professional_id && ['accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
-          <TouchableOpacity onPress={handleFavoriteToggle} style={styles.favBtn} disabled={favLoading}>
-            <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={22} color={isFav ? '#ff4444' : '#444'} />
-          </TouchableOpacity>
-        )}
-        {/* Chat button */}
-        <TouchableOpacity onPress={() => setShowChat(true)} style={styles.chatHeaderBtn}>
-          <Ionicons name="chatbubble-outline" size={20} color="#F5F5F5" />
-          {unreadCount > 0 && (
-            <View style={styles.chatBadge}>
-              <Text style={styles.chatBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        {['accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
-          <TouchableOpacity onPress={handleEmergency} style={styles.emergencyBtn} accessibilityRole="button" accessibilityLabel="Emergencia: llamar al 911">
-            <Ionicons name="call" size={18} color="#ff4444" />
-            <Text style={styles.emergencyBtnText}>911</Text>
+        {/* Abrir el domicilio en la app de mapas del teléfono. Es lo primero que
+            hace cualquiera al aceptar un trabajo, y hasta ahora lo tenía que
+            copiar a mano. */}
+        {isWorker && !!(job.client_lat && job.client_lng) && (
+          <TouchableOpacity
+            style={styles.comoLlegar}
+            onPress={() => abrirEnMapas()}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir el domicilio en la aplicación de mapas"
+          >
+            <Ionicons name="navigate" size={15} color="#0D0D0D" />
+            <Text style={styles.comoLlegarText}>Cómo llegar</Text>
           </TouchableOpacity>
         )}
       </View>
 
+      {/* Header.
+          🔴 8-ago-2026 — el título salía partido letra por letra ("El p / rofes
+          / ional"). El Text tenía flex:1, pero en React Native los hermanos NO
+          se encogen solos (flexShrink por defecto es 0): entre Cancelar, ♥, chat
+          y el 911 se comían la fila entera y al texto le quedaban 40 px, que
+          rellenaba rompiendo palabras. Ahora arriba va el pedido y el oficio —el
+          estado se dice UNA vez, en el dato grande de la hoja— y lo que gritaba
+          (911, cancelar) está en el menú de tres puntos. */}
+      <View style={styles.header}>
+        {onBack && (
+          <TouchableOpacity onPress={onBack} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Volver al inicio (el trabajo sigue activo)">
+            <Ionicons name="arrow-back" size={22} color="#F5F5F5" />
+          </TouchableOpacity>
+        )}
+        <View style={styles.headerTitleCol}>
+          <Text style={styles.headerEyebrow} numberOfLines={1}>Pedido #{nroPedido}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {job.professions?.name || 'Servicio a domicilio'}
+          </Text>
+        </View>
+        {/* Favorito (solo cliente cuando hay profesional asignado) */}
+        {!isWorker && job.professional_id && ['accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
+          <TouchableOpacity onPress={handleFavoriteToggle} style={styles.iconBtn} disabled={favLoading} accessibilityLabel="Guardar como favorito">
+            <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={21} color={isFav ? '#F5F5F5' : '#5C5C5C'} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => setMenuOpen(true)} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Más opciones">
+          <Ionicons name="ellipsis-vertical" size={20} color="#F5F5F5" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Menú de opciones. Acá adentro va todo lo que antes gritaba desde el
+          header: cancelar, reportar un problema y la emergencia. El 911 era lo
+          más grande de la pantalla — le gritaba EMERGENCIA a alguien que espera
+          un pintor (Maxi, 8-ago-2026). Sigue a dos toques, que para una urgencia
+          real alcanza y sobra. */}
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuOpen(false)}>
+          <TouchableOpacity style={styles.menuBox} activeOpacity={1} onPress={() => {}}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); setProblemModal(true); }}>
+              <Ionicons name="alert-circle-outline" size={19} color="#F5F5F5" />
+              <Text style={styles.menuItemText}>Tengo un problema</Text>
+            </TouchableOpacity>
+            {['pending', 'accepted', 'arrived', 'in_progress', 'awaiting_payment'].includes(job.status) && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); handleCancel(); }}>
+                <Ionicons name="close-circle-outline" size={19} color="#F5F5F5" />
+                <Text style={styles.menuItemText}>
+                  {isWorker ? 'Cancelar este trabajo' : 'Cancelar el pedido'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); handleEmergency(); }}>
+              <Ionicons name="call" size={19} color="#E5484D" />
+              <Text style={[styles.menuItemText, { color: '#E5484D' }]}>Emergencia · llamar al 911</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Alerta de proximidad */}
       {nearbyAlert && !isWorker && (
         <View style={styles.nearbyAlert}>
-          <Ionicons name="locate" size={18} color="#4CAF50" />
-          <Text style={styles.nearbyAlertText}>El profesional está muy cerca — ¡ya llega!</Text>
+          <Ionicons name="locate" size={16} color="#FFD600" />
+          <Text style={styles.nearbyAlertText}>Está muy cerca — ya llega</Text>
         </View>
       )}
 
-      {/* Barra de estado siempre visible */}
-      {['pending','accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
+      {/* Barra de estado. Para el cliente la reemplaza el bloque grande del
+          panel (abajo): decía lo mismo en letra de 11 px y repetido dos veces. */}
+      {(isWorker || job.status === 'pending') && ['pending','accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
         <View style={styles.infoStrip}>
           <View style={styles.infoStripItem}>
             <Text style={styles.infoStripLabel}>ESTADO</Text>
@@ -1673,424 +2324,163 @@ window.addEventListener('message', e => {
       {/* Alerta de inactividad */}
       {inactivityAlert && (
         <View style={styles.inactivityAlert}>
-          <Ionicons name="warning-outline" size={15} color="#FF9800" />
+          <Ionicons name="warning-outline" size={14} color="#8A8A8A" />
           <Text style={styles.inactivityAlertText}>
-            No recibimos actividad reciente del profesional. Estamos verificando la situación.
+            Sin novedades del profesional. Estamos verificando.
           </Text>
         </View>
       )}
 
-      {/* Barra de progreso del trabajo */}
-      {job.status !== 'cancelled' && (
-        <View style={styles.progressWrap}>
-          {PROGRESS_STEPS.map((s, i) => {
-            const isDone    = s.step < currentStep;
-            const isCurrent = s.step === currentStep;
-            const isLast    = i === PROGRESS_STEPS.length - 1;
-            return (
-              <React.Fragment key={s.step}>
-                <View style={styles.progressNode}>
-                  <View style={[
-                    styles.progressCircle,
-                    isDone    && styles.progressCircleDone,
-                    isCurrent && styles.progressCircleCurrent,
-                  ]}>
-                    {isDone    && <Ionicons name="checkmark" size={9} color="#0A0A0A" />}
-                    {isCurrent && <View style={styles.progressInnerDot} />}
-                  </View>
-                  <Text style={[
-                    styles.progressLabel,
-                    isDone    && styles.progressLabelDone,
-                    isCurrent && styles.progressLabelCurrent,
-                  ]} numberOfLines={2}>
-                    {s.label}
-                  </Text>
-                </View>
-                {!isLast && (
-                  <View style={[
-                    styles.progressLine,
-                    isDone    && styles.progressLineDone,
-                    isCurrent && styles.progressLineCurrent,
-                  ]} />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Mapa — envuelto en un View flex:1 con el WebView en absoluteFill para que
-          SIEMPRE ocupe todo el espacio entre la línea de tiempo y el panel (si no,
-          el WebView a veces no se expande y queda un bloque negro abajo).
-
-          🔴 Se muestra SÓLO mientras el profesional va en camino (migración 054).
-          Antes la única condición era !isWorker, o sea que el mapa seguía vivo
-          después de que llegaba, mientras trabajaba y al día siguiente. Al
-          desmontarse el WebView se va también el marcador, que en el HTML no se
-          borraba nunca (ver el manejador de WORKER_MOVE). */}
-      {verMapa && (
-        <View style={{ flex: 1, minHeight: 280 }}>
-          <WebView
-            ref={webRef}
-            style={StyleSheet.absoluteFill}
-            source={{ html: mapHtml }}
-            javaScriptEnabled
-            scrollEnabled={false}
-            originWhitelist={['*']}
-          />
-        </View>
-      )}
-
-      {/* Sin mapa hay que DECIR por qué, o el cliente cree que se rompió algo.
-          Y de paso explica la regla nueva, que juega a favor de los dos: nadie
-          comparte dónde está cuando no está yendo a ningún lado. */}
-      {!isWorker && !enCamino && ['accepted', 'arrived', 'in_progress'].includes(job.status) && (
-        <View style={styles.sinMapa}>
-          <Ionicons name="lock-closed-outline" size={22} color="#444" />
-          <Text style={styles.sinMapaTitulo}>
-            {job.status === 'accepted'
-              ? 'Vas a poder seguirlo cuando salga'
-              : `${workerFirstName} ya está en tu domicilio`}
-          </Text>
-          <Text style={styles.sinMapaTexto}>
-            {job.status === 'accepted'
-              ? `Cuando ${workerFirstName} salga para tu casa te avisamos y vas a ver el mapa en vivo hasta que llegue.`
-              : 'El mapa se muestra sólo mientras viene en camino.'}
-          </Text>
-        </View>
-      )}
-
-      {/* Panel inferior. Para el cliente usamos flexShrink:1 para que el panel se
-          AJUSTE a su contenido (antes reservaba ~52% fijo y dejaba un bloque negro
-          vacío abajo cuando el contenido era corto). El mapa (flex:1) llena el resto.
-          Sin mapa no hay nada que llene ese resto: por eso el panel pasa a flex:1
-          y no queda un bloque negro abajo. */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={(isWorker || !verMapa) ? { flex: 1 } : { flexShrink: 1 }}
+      {/* Panel inferior — la misma hoja para los dos. Arranca tapando la mitad
+          de abajo y se sube con el dedo (o tocando el asa). Colapsada muestra lo
+          único que importa: al cliente, cuánto falta y a quién llamar; al
+          trabajador, adónde va y qué le toca hacer ahora. Subiéndola aparecen
+          los pasos y el detalle. */}
+      <Animated.View
+        style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}
+        {...sheetPan.panHandlers}
       >
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => moverHoja(!hojaArriba)}
+          style={styles.gripZone}
+          accessibilityRole="button"
+          accessibilityLabel={hojaArriba ? 'Bajar el detalle y ver el mapa' : 'Subir para ver los pasos y el detalle'}
+        >
+          <View style={styles.grip} />
+        </TouchableOpacity>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
         <ScrollView
-          style={isWorker ? [styles.panel, { flex: 1 }] : [styles.panel, styles.panelClient]}
+          ref={panelScrollRef}
+          style={[styles.panel, styles.panelClient]}
           contentContainerStyle={styles.panelContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          scrollEnabled={hojaArriba}
+          onScroll={e => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
         >
 
-          {/* Timeline viva — solo para el cliente */}
-          {!isWorker && events.length > 0 && (
-            <View style={styles.timeline}>
-              <Text style={styles.timelineTitle}>Estado en tiempo real</Text>
-              {events.map((ev, i) => {
-                const isLast = i === events.length - 1;
-                const evInfo = EVENT_ICONS[ev.event_type] || { icon: 'ellipse-outline', color: '#555' };
-                const time = new Date(ev.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-                return (
-                  <View key={ev.id || i} style={styles.timelineItem}>
-                    <View style={styles.timelineIconCol}>
-                      <View style={[styles.timelineLineTop, i === 0 && { opacity: 0 }]} />
-                      <View style={[styles.timelineDot, isLast && styles.timelineDotActive]} />
-                      <View style={[styles.timelineLineBot, isLast && { opacity: 0 }]} />
-                    </View>
-                    <View style={styles.timelineTextCol}>
-                      <Text style={[styles.timelineMsg, isLast && styles.timelineMsgActive]} numberOfLines={2}>
-                        {ev.message}
-                      </Text>
-                      <Text style={styles.timelineTime}>{time}</Text>
-                    </View>
+          {/* Cuando el mismo usuario es el cliente Y el profesional (probando el
+              circuito con una cuenta sola, o un pedido a uno mismo por error),
+              se muestran las acciones del profesional —son las únicas que hacen
+              avanzar el trabajo— pero hay que decir por qué se ve así. */}
+          {isWorker && userId === clientId && (
+            <View style={styles.mismaCuenta}>
+              <Ionicons name="information-circle-outline" size={17} color="#8A8A8A" />
+              <Text style={styles.mismaCuentaTexto}>
+                Este trabajo lo pediste y lo tomaste con la misma cuenta. Te mostramos el lado del
+                profesional, que es el que puede avanzarlo.
+              </Text>
+            </View>
+          )}
+
+          {/* ─── Cabecera de la hoja, lado trabajador ───────────────────────
+              Mismo esqueleto que el del cliente: quién está del otro lado, el
+              dato protagonista en 32 px y dos botones. Cambia el contenido, no
+              la forma — el cliente quiere saber cuánto falta; el trabajador,
+              adónde va. */}
+          {isWorker && ['pending','accepted','arrived','in_progress','awaiting_payment'].includes(job.status) && (
+            <>
+              <View style={styles.proCard}>
+                <View style={styles.proAvatar}>
+                  <Ionicons name="person" size={22} color="#8A8A8A" />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.proName} numberOfLines={1}>Cliente</Text>
+                  <View style={styles.proMetaRow}>
+                    <Text style={styles.proMeta} numberOfLines={1}>
+                      {job.professions?.name || 'Trabajo a domicilio'}
+                      {chargesInApp() ? ` · visita $${(job.visit_amount ?? 30000).toLocaleString('es-AR')}` : ''}
+                    </Text>
                   </View>
-                );
-              })}
-            </View>
+                </View>
+              </View>
+
+              <View style={styles.hero}>
+                <Text style={styles.heroLabel}>{heroInfo.label}</Text>
+                <Text style={styles.heroValue}>{heroInfo.value}</Text>
+                <Text style={styles.heroSub}>{heroInfo.sub}</Text>
+              </View>
+
+              <View style={styles.proActions}>
+                {!!(job.client_lat && job.client_lng) && (
+                  <TouchableOpacity
+                    style={[styles.proActionBtn, styles.proActionGhost]}
+                    onPress={abrirEnMapas}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cómo llegar al domicilio"
+                  >
+                    <Ionicons name="navigate-outline" size={17} color="#FFFFFF" />
+                    <Text style={styles.proActionGhostText}>Cómo llegar</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.proActionBtn, unreadCount > 0 ? styles.proActionNuevo : styles.proActionGhost]}
+                  onPress={() => setShowChat(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={unreadCount > 0
+                    ? `Leer los ${unreadCount} mensajes nuevos del cliente`
+                    : 'Escribirle al cliente'}
+                >
+                  <Ionicons
+                    name={unreadCount > 0 ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+                    size={17}
+                    color={unreadCount > 0 ? '#FFD600' : '#FFFFFF'}
+                  />
+                  <Text style={[styles.proActionGhostText, unreadCount > 0 && { color: '#FFD600' }]}>
+                    {unreadCount > 0 ? 'Leer' : 'Mensaje'}
+                  </Text>
+                  {unreadCount > 0 && (
+                    <View style={styles.msgBadge}>
+                      <Text style={styles.msgBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
           )}
 
-          {/* Tip contextual */}
-          {tip && (
-            <View style={styles.tipBar}>
-              <Text style={styles.tipText}>{tip}</Text>
-            </View>
-          )}
-
-          {/* Código de verificación — trabajador cuando llegó */}
-          {isWorker && job.status === 'arrived' && job.verification_code && (
+          {/* 🔴 10-ago-2026 — EL CÓDIGO DEL TRABAJADOR HABÍA DESAPARECIDO.
+              Se mostraba sólo con `status === 'arrived'`, y ese estado dejó de
+              existir en la práctica cuando "llegué" se fusionó con "empecé": el
+              trabajo salta de `accepted` a `in_progress` y el bloque no se
+              dibujaba nunca (Maxi: "ahora no aparece el código de verificación").
+              Ahora está desde que sale y mientras dura el trabajo, que es
+              cuando se necesita: al tocar el timbre. */}
+          {isWorker && !!job.verification_code &&
+           ['accepted', 'arrived', 'in_progress'].includes(job.status) && (
             <View style={styles.codeDisplay}>
               <Text style={styles.codeDisplayLabel}>Tu código de verificación</Text>
               <Text style={styles.codeDisplayNumber}>{job.verification_code}</Text>
-              <Text style={styles.codeDisplayHint}>Mostráselo al cliente antes de que te abra. Es obligatorio.</Text>
-            </View>
-          )}
-
-          {/* Respuesta del profesional — cliente cuando status = accepted */}
-          {!isWorker && job.status === 'accepted' && (job.arrival_estimate || job.pre_diagnosis || job.materials_needed || job.work_duration_est || job.diagnosis_structured) && (
-            <View style={styles.workerResponseCard}>
-              <Text style={styles.workerResponseTitle}>Respuesta del profesional</Text>
-              {job.arrival_estimate ? (
-                <View style={styles.workerResponseRow}>
-                  <Ionicons name="time-outline" size={15} color="#FFD600" />
-                  <Text style={styles.workerResponseText}>Llega en {job.arrival_estimate}</Text>
-                </View>
-              ) : null}
-              {job.work_duration_est ? (
-                <View style={styles.workerResponseRow}>
-                  <Ionicons name="calendar-outline" size={15} color="#4CAF50" />
-                  <Text style={styles.workerResponseText}>Duración estimada: {job.work_duration_est}</Text>
-                </View>
-              ) : null}
-              {job.pre_diagnosis ? (
-                <View style={styles.workerResponseRow}>
-                  <Ionicons name="bulb-outline" size={15} color="#FFD600" />
-                  <Text style={styles.workerResponseText}>Posible problema: "{job.pre_diagnosis}"</Text>
-                </View>
-              ) : null}
-              {job.diagnosis_structured?.confidence ? (
-                <View style={styles.workerResponseRow}>
-                  <Ionicons name="analytics-outline" size={15} color="#888" />
-                  <Text style={styles.workerResponseText}>
-                    Confianza en diagnóstico: {job.diagnosis_structured.confidence}
-                    {job.diagnosis_structured.cause ? ` · Causa: ${job.diagnosis_structured.cause}` : ''}
-                  </Text>
-                </View>
-              ) : null}
-              {job.diagnosis_structured?.cost_min ? (
-                <View style={styles.workerResponseRow}>
-                  <Ionicons name="cash-outline" size={15} color="#4CAF50" />
-                  <Text style={styles.workerResponseText}>
-                    Costo estimado: ${job.diagnosis_structured.cost_min.toLocaleString('es-AR')} — ${(job.diagnosis_structured.cost_max || job.diagnosis_structured.cost_min).toLocaleString('es-AR')}
-                  </Text>
-                </View>
-              ) : null}
-              {job.diagnosis_structured?.time_est ? (
-                <View style={styles.workerResponseRow}>
-                  <Ionicons name="timer-outline" size={15} color="#FF9800" />
-                  <Text style={styles.workerResponseText}>Tiempo estimado: {job.diagnosis_structured.time_est}</Text>
-                </View>
-              ) : null}
-              {job.materials_needed ? (
-                <View style={styles.workerResponseRow}>
-                  <Ionicons name="construct-outline" size={15} color="#FF9800" />
-                  <Text style={styles.workerResponseText}>Va a necesitar materiales para el trabajo</Text>
-                </View>
-              ) : null}
-              {job.diagnosis_structured?.materials?.length > 0 ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                  {job.diagnosis_structured.materials.map(m => (
-                    <View key={m} style={styles.diagMatChip}>
-                      <Text style={styles.diagMatChipText}>{m}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          )}
-
-          {/* ¿Vino? ¿Todo bien? — el seguimiento del día siguiente (044).
-              Se le PREGUNTA al cliente en vez de adivinar por GPS: el GPS en
-              segundo plano lo mata Android, gasta batería, y si se equivoca
-              (sin señal, un sótano) terminás acusando a alguien que sí fue.
-              Preguntar no falla y además destapa problemas temprano. */}
-          {!isWorker && jobService.tocaPreguntar(job) && !seguimientoHecho && (
-            <View style={styles.confirmCard}>
-              <Ionicons name="help-circle-outline" size={20} color="#FFD600" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.confirmCardTitle}>¿Cómo viene el trabajo?</Text>
-                <Text style={styles.confirmCardSub}>
-                  Pasó un día desde la última jornada. ¿{workerFirstName} vino y está todo bien?
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                  {[
-                    { key: 'vino_ok',       txt: '👍 Sí, todo bien' },
-                    { key: 'vino_problema', txt: '😕 Vino, pero…' },
-                    { key: 'no_vino',       txt: '❌ No vino' },
-                  ].map(op => (
-                    <TouchableOpacity
-                      key={op.key}
-                      style={styles.confirmCardBtn}
-                      onPress={() => responderSeguimiento(op.key)}
-                      disabled={loading}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.confirmCardBtnText}>{op.txt}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Cliente confirma el plan multi-día (#2) */}
-          {!isWorker && isMultiday && !job.multiday_confirmed && job.estimated_sessions && (
-            <View style={styles.confirmCard}>
-              <Ionicons name="calendar-outline" size={20} color="#FFD600" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.confirmCardTitle}>Plan de trabajo: {job.estimated_sessions} días</Text>
-                <Text style={styles.confirmCardSub}>
-                  {volt.chatMultidayConfirm(workerFirstName, `en ${job.estimated_sessions} días`)}
-                </Text>
-                <TouchableOpacity style={styles.confirmCardBtn} onPress={handleConfirmMultiday} disabled={loading}>
-                  {loading ? <ActivityIndicator size="small" color="#0A0A0A" /> : (
-                    <><Ionicons name="checkmark" size={16} color="#0A0A0A" /><Text style={styles.confirmCardBtnText}>Confirmar</Text></>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Progreso multi-día — visible para ambas partes */}
-          {isMultiday && ['accepted','arrived','in_progress'].includes(job.status) && (
-            <View style={styles.sessionCard}>
-              <View style={styles.sessionCardRow}>
-                <Ionicons name="calendar" size={18} color="#FFD600" />
-                {/* Sin plan de días (el multi-día ahora es sólo una marca) se
-                    cuenta la jornada y listo: "Jornada 2" en vez de "2 de ?". */}
-                <Text style={styles.sessionCardTitle}>
-                  {job.estimated_sessions
-                    ? `Sesión ${(job.completed_sessions || 0) + (inSession ? 1 : 0)} de ${job.estimated_sessions}`
-                    : `Jornada ${(job.completed_sessions || 0) + (inSession ? 1 : 0)}`}
-                </Text>
-
-              </View>
-              {job.estimated_hrs_session && (
-                <Text style={styles.sessionCardSub}>
-                  Estimado: {job.estimated_hrs_session} por día · {job.estimated_sessions} días total
-                </Text>
-              )}
-              {inSession && (
-                <View style={styles.sessionTimerRow}>
-                  <View style={styles.sessionTimerDot} />
-                  <Text style={styles.sessionTimerText}>Jornada en curso</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Contador de tiempo de trabajo — single-day, visible para ambas partes */}
-          {job.status === 'in_progress' && !isMultiday && (
-            <View style={styles.workTimerCard}>
-              <View style={styles.workTimerDot} />
-              <Text style={styles.workTimerLabel}>Trabajo en curso</Text>
-              <Text style={styles.workTimerValue}>{fmtTime(workElapsed)}</Text>
-            </View>
-          )}
-
-          {/* Fecha de regreso — cliente en trabajo multi-día entre jornadas */}
-          {!isWorker && isMultiday && job.status === 'arrived' && !inSession && job.scheduled_return && (
-            <View style={styles.returnCard}>
-              <Ionicons name="calendar" size={18} color="#FFD600" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.returnCardTitle}>El profesional regresa</Text>
-                <Text style={styles.returnCardDate}>
-                  {new Date(job.scheduled_return).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  {' a las '}
-                  {new Date(job.scheduled_return).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs
-                </Text>
-                <Text style={styles.returnCardSub}>
-                  Sesión {job.completed_sessions || 0} de {job.estimated_sessions || '?'} completada
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Comprando materiales — info para cliente */}
-          {!isWorker && job.status === 'arrived' && job.is_buying_materials && (
-            <View style={styles.buyingCard}>
-              <Ionicons name="cart-outline" size={20} color="#FF9800" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.buyingText}>El profesional está comprando materiales</Text>
-                {job.materials_eta && (
-                  <Text style={styles.buyingEta}>
-                    Vuelve estimado: {new Date(job.materials_eta).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs
-                  </Text>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Cliente aprueba materiales (#3) */}
-          {!isWorker && job.materials_status === 'proposed' && (
-            <View style={styles.matCard}>
-              <View style={styles.matCardHeader}>
-                <Ionicons name="cart-outline" size={20} color="#FF9800" />
-                <Text style={styles.matCardTitle}>Materiales para el trabajo</Text>
-              </View>
-              <Text style={styles.matCardDetail}>{job.materials_estimate_detail || 'Materiales'}</Text>
-              <Text style={styles.matCardEst}>
-                Costo estimado: ${(job.materials_estimate || 0).toLocaleString('es-AR')}
+              <Text style={styles.codeDisplayHint}>
+                Mostráselo al cliente antes de que te abra. Es lo que prueba que sos vos.
               </Text>
-              <Text style={styles.matCardNote}>
-                Los materiales se abonan aparte, directo al profesional (no van dentro del pago de la app). Es un estimado para que no te tome por sorpresa.
-              </Text>
-              <View style={styles.matCardBtns}>
-                <TouchableOpacity style={[styles.matBtn, styles.matBtnPrimary]} onPress={() => handleApproveMaterials('pro')} disabled={loading}>
-                  <Text style={styles.matBtnPrimaryText}>Que los compre él</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.matBtn, styles.matBtnSecondary]} onPress={() => handleApproveMaterials('client')} disabled={loading}>
-                  <Text style={styles.matBtnSecondaryText}>Los consigo yo</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           )}
-
-          {/* Botón verificar código — cliente cuando llegó el trabajador y NO está comprando */}
-          {!isWorker && job.status === 'arrived' && !job.is_buying_materials && (
-            <TouchableOpacity style={styles.verifyCodeBtn} accessibilityRole="button" accessibilityLabel="Verificar el código de identidad del profesional" onPress={() => { setEnteredCode(''); setCodeResult(null); setCodeModal(true); }}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#FFD600" />
-              <Text style={styles.verifyCodeBtnText}>Verificar código del profesional</Text>
-              <Ionicons name="chevron-forward" size={16} color="#FFD600" />
-            </TouchableOpacity>
-          )}
-
-          {/* Cliente: el profesional propuso un precio para el trabajo → aceptar/rechazar */}
-          {!isWorker && job.status === 'arrived' && job.work_price_status === 'proposed' && (
-            <View style={{ backgroundColor: '#15150f', borderWidth: 1.5, borderColor: '#FFD600', borderRadius: 16, padding: 18, marginTop: 4 }}>
-              <Text style={{ color: '#888', fontSize: 13, textAlign: 'center' }}>El profesional propone por la mano de obra</Text>
-              <Text style={{ color: '#FFD600', fontSize: 32, fontWeight: '900', textAlign: 'center', marginVertical: 4 }}>${(job.work_amount || 0).toLocaleString('es-AR')}</Text>
-              <Text style={{ color: '#777', fontSize: 11.5, textAlign: 'center', lineHeight: 16 }}>La visita ya está paga aparte. Si acuerdan materiales, se pagan por separado. Pagás recién al finalizar el trabajo.</Text>
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                <TouchableOpacity style={{ flex: 1, backgroundColor: '#2a1212', borderWidth: 1, borderColor: '#ff444450', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }} onPress={() => handleRespondPrice(false)} disabled={loading}>
-                  <Text style={{ color: '#ff6b6b', fontWeight: '700', fontSize: 14 }}>Rechazar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={{ flex: 2, flexDirection: 'row', gap: 8, backgroundColor: '#FFD600', borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }} onPress={() => handleRespondPrice(true)} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                    <><Ionicons name="checkmark-circle" size={18} color="#0A0A0A" /><Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 14 }}>Aceptar y comenzar</Text></>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Info del trabajo */}
-          <View style={styles.jobInfo}>
-            <Ionicons name={statusInfo.icon} size={22} color={statusInfo.color} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.jobInfoTitle}>
-                {isWorker ? `Cliente · ${job.address || 'Ver ubicación'}` : professionalName}
-              </Text>
-              {!isWorker && job.status !== 'pending' && (
-                <Text style={styles.jobInfoSub}>{job.address || ''}</Text>
-              )}
-              {chargesInApp() && job.work_amount && (
-                <Text style={styles.jobAmount}>Total: ${job.work_amount.toLocaleString('es-AR')}</Text>
-              )}
-            </View>
-            {chargesInApp() && (
-              <View style={styles.visitBadge}>
-                <Text style={styles.visitBadgeText}>Visita ${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>
-              </View>
-            )}
-          </View>
 
           {/* ─── Acciones del trabajador ─── */}
 
-          {/* Voy en camino — abre la ventana de ubicación (migración 054).
-              Aparece cuando NO está yendo: recién aceptó y quedó para otro día,
-              o ya fue una vez y vuelve. Mientras esté cerrada, el cliente no ve
-              dónde está. */}
-          {isWorker && ['accepted', 'arrived'].includes(job.status) && !enCamino && (
+          {/* 🔴 9-ago-2026 — DE CUATRO BOTONES A TRES, Y UNO MENOS PARA VOLVER.
+              Estaba: "voy en camino" → "llegué" → "iniciar" → "finalizar", y si
+              ya había ido una vez el primero cambiaba a "vuelvo al domicilio",
+              que además de no entenderse estaba mal armado (Maxi). Nadie va a
+              tocar cuatro botones para hacer un trabajo: cada toque de más es
+              un estado que va a quedar sin marcar y una pantalla que le va a
+              mentir al cliente.
+
+              Ahora: salgo → empiezo → termino. "Llegué" se fusionó con
+              "empecé", porque si empezaste obviamente llegaste; y el segundo
+              viaje ya no pide nada. */}
+          {isWorker && job.status === 'accepted' && !enCamino && (job.viajes || 0) === 0 && (
             <>
               <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('on_the_way')} disabled={loading}>
-                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                  <><Ionicons name="navigate" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>
-                    {(job.viajes || 0) > 0 ? 'Vuelvo al domicilio' : 'Voy en camino'}
-                  </Text></>
+                {loading ? <ActivityIndicator color="#0D0D0D" /> : (
+                  <><Ionicons name="navigate" size={18} color="#0D0D0D" />
+                    <Text style={styles.actionBtnText}>Voy en camino</Text></>
                 )}
               </TouchableOpacity>
               <Text style={styles.ventanaHint}>
@@ -2100,20 +2490,13 @@ window.addEventListener('message', e => {
             </>
           )}
 
-          {/* Llegué al domicilio — cierra la ventana de ubicación */}
-          {isWorker && job.status === 'accepted' && enCamino && (
-            <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('arrive')} disabled={loading}>
-              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                <><Ionicons name="home" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Llegué al domicilio</Text></>
-              )}
-            </TouchableOpacity>
-          )}
-
-          {/* arrived + single-day: iniciar el trabajo directo (el precio se coordina por chat) */}
-          {isWorker && job.status === 'arrived' && !isMultiday && !job.is_buying_materials && (
-            <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('start')} disabled={loading}>
-              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                <><Ionicons name="play" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Iniciar trabajo</Text></>
+          {/* Un solo botón para llegar y arrancar. Por dentro hace las dos
+              cosas: cierra la ventana de ubicación y pone el trabajo en curso. */}
+          {isWorker && ['accepted', 'arrived'].includes(job.status) && !isMultiday && !job.is_buying_materials && (
+            <TouchableOpacity style={styles.actionBtn} onPress={() => handleWorkerAction('llegue_y_empiezo')} disabled={loading}>
+              {loading ? <ActivityIndicator color="#0D0D0D" /> : (
+                <><Ionicons name="play" size={18} color="#0D0D0D" />
+                  <Text style={styles.actionBtnText}>Llegué, empiezo el trabajo</Text></>
               )}
             </TouchableOpacity>
           )}
@@ -2121,62 +2504,27 @@ window.addEventListener('message', e => {
           {/* arrived + comprando materiales */}
           {isWorker && job.status === 'arrived' && job.is_buying_materials && (
             <View style={styles.buyingCard}>
-              <Ionicons name="cart" size={22} color="#FF9800" />
+              <Ionicons name="cart" size={22} color="#8A8A8A" />
               <Text style={styles.buyingText}>Comprando materiales...</Text>
               <TouchableOpacity style={styles.actionBtn} onPress={() => jobService.returnedWithMaterials(job.id)} disabled={loading}>
-                <Ionicons name="checkmark-circle" size={18} color="#0A0A0A" />
+                <Ionicons name="checkmark-circle" size={18} color="#0D0D0D" />
                 <Text style={styles.actionBtnText}>Volví con los materiales</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {/* arrived + multi-día: iniciar sesión del día */}
-          {isWorker && job.status === 'arrived' && isMultiday && !inSession && (
-            <>
-              <TouchableOpacity style={styles.actionBtn} onPress={async () => {
-                setLoading(true);
-                try { await jobService.startSession(job.id); } catch { Alert.alert('Error', 'No se pudo iniciar la sesión.'); }
-                finally { setLoading(false); }
-              }} disabled={loading}>
-                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                  <><Ionicons name="play" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Iniciar sesión de hoy</Text></>
-                )}
-              </TouchableOpacity>
-
-              {/* Entre sesiones también se puede cerrar la obra: si no, para finalizar
-                  habría que arrancar una sesión de mentira primero. */}
-              <TouchableOpacity
-                style={styles.actionBtnSecondary}
-                onPress={() => {
-                  Alert.alert(
-                    '¿Finalizar el trabajo?',
-                    'Se cierra la obra completa, no solo el día de hoy. Esta acción no se puede deshacer.',
-                    [
-                      { text: 'Cancelar', style: 'cancel' },
-                      { text: 'Finalizar', style: 'destructive', onPress: handleFinishJob },
-                    ]
-                  );
-                }}
-                disabled={loading}
-              >
-                <Ionicons name="checkmark-done" size={18} color="#FFD600" />
-                <Text style={styles.actionBtnSecondaryText}>Finalizar trabajo (obra completa)</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
           {/* in_progress + single-day: cobrar */}
           {isWorker && job.status === 'in_progress' && !isMultiday && (
             <TouchableOpacity style={styles.summaryBtn} onPress={() => setSummaryModal(true)}>
-              <Ionicons name="clipboard-outline" size={16} color="#4CAF50" />
+              <Ionicons name="clipboard-outline" size={16} color="#FFD600" />
               <Text style={styles.summaryBtnText}>Completar resumen del trabajo (opcional)</Text>
-              <Ionicons name="chevron-forward" size={14} color="#4CAF50" />
+              <Ionicons name="chevron-forward" size={14} color="#FFD600" />
             </TouchableOpacity>
           )}
           {job.status === 'in_progress' && !isMultiday && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleFinishJob} disabled={loading}>
-              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                <><Ionicons name="checkmark-done" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Finalizar trabajo</Text></>
+              {loading ? <ActivityIndicator color="#0D0D0D" /> : (
+                <><Ionicons name="checkmark-done" size={18} color="#0D0D0D" /><Text style={styles.actionBtnText}>Finalizar trabajo</Text></>
               )}
             </TouchableOpacity>
           )}
@@ -2184,57 +2532,21 @@ window.addEventListener('message', e => {
           {/* Salida para trabajos trabados (estado viejo "esperando pago") — ambos pueden cerrarlo */}
           {!chargesInApp() && job.status === 'awaiting_payment' && (
             <TouchableOpacity style={styles.actionBtn} onPress={handleFinishJob} disabled={loading}>
-              {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                <><Ionicons name="checkmark-done" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Finalizar trabajo</Text></>
+              {loading ? <ActivityIndicator color="#0D0D0D" /> : (
+                <><Ionicons name="checkmark-done" size={18} color="#0D0D0D" /><Text style={styles.actionBtnText}>Finalizar trabajo</Text></>
               )}
             </TouchableOpacity>
-          )}
-
-          {/* in_progress + single-day: opción de convertir a multi-día */}
-          {isWorker && job.status === 'in_progress' && !isMultiday && (
-            <TouchableOpacity style={styles.actionBtnSecondary} onPress={() => setMultidayModal(true)}>
-              <Ionicons name="calendar-outline" size={18} color="#FFD600" />
-              <Text style={styles.actionBtnSecondaryText}>Este trabajo requiere varios días</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* in_progress + multi-día: terminar sesión de hoy o cobrar si es el último día */}
-          {isWorker && job.status === 'in_progress' && isMultiday && inSession && (
-            <View style={styles.sessionActions}>
-              <TouchableOpacity
-                style={styles.actionBtnSecondary}
-                onPress={() => {
-                  Alert.alert('¿Cuándo volvés?', 'Avisale al cliente cuándo regresás para continuar el trabajo.', [
-                    { text: 'Mañana',            onPress: handleEndSessionWithReturn(1) },
-                    { text: 'En 2 días',         onPress: handleEndSessionWithReturn(2) },
-                    { text: 'En 3 días',         onPress: handleEndSessionWithReturn(3) },
-                    { text: 'La semana que viene', onPress: handleEndSessionWithReturn(7) },
-                    { text: 'Cancelar', style: 'cancel' },
-                  ]);
-                }}
-                disabled={loading}
-              >
-                <Ionicons name="moon-outline" size={18} color="#FFD600" />
-                <Text style={styles.actionBtnSecondaryText}>Terminar por hoy · vuelvo mañana</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionBtn} onPress={handleFinishJob} disabled={loading}>
-                {loading ? <ActivityIndicator color="#0A0A0A" /> : (
-                  <><Ionicons name="checkmark-done" size={18} color="#0A0A0A" /><Text style={styles.actionBtnText}>Finalizar trabajo (obra completa)</Text></>
-                )}
-              </TouchableOpacity>
-            </View>
           )}
 
           {/* Trabajador esperando pago (solo en modo comisión) */}
           {isWorker && chargesInApp() && job.status === 'awaiting_payment' && (
             <View style={styles.waitingPayCard}>
               <View style={styles.waitingPayRow}>
-                <ActivityIndicator size="small" color="#4CAF50" />
+                <ActivityIndicator size="small" color="#FFD600" />
                 <Text style={styles.waitingPayText}>Esperando que el cliente pague...</Text>
               </View>
               <TouchableOpacity style={styles.cancelJobBtn} onPress={handleCancel} disabled={loading}>
-                <Ionicons name="close-circle-outline" size={16} color="#ff4444" />
+                <Ionicons name="close-circle-outline" size={16} color="#E5484D" />
                 <Text style={styles.cancelJobBtnText}>El cliente no quiere pagar — cancelar</Text>
               </TouchableOpacity>
             </View>
@@ -2254,7 +2566,7 @@ window.addEventListener('message', e => {
                     <Text style={styles.payRowLabel}>Visita / diagnóstico</Text>
                     {visitPaid ? (
                       <View style={styles.visitPaidBadge}>
-                        <Ionicons name="checkmark-circle" size={13} color="#4CAF50" />
+                        <Ionicons name="checkmark-circle" size={13} color="#FFD600" />
                         <Text style={styles.visitPaidText}>Ya pagada</Text>
                       </View>
                     ) : (
@@ -2287,14 +2599,14 @@ window.addEventListener('message', e => {
                 {/* Pago en 1 toque con tarjetas guardadas */}
                 {savedCards.map(c => (
                   <TouchableOpacity key={c.id} style={styles.savedPayBtn} onPress={() => setPayCard(c)} disabled={loading} activeOpacity={0.85}>
-                    <Ionicons name="card" size={18} color="#0A0A0A" />
+                    <Ionicons name="card" size={18} color="#0D0D0D" />
                     <Text style={styles.savedPayText}>Pagar con {c.brand} •••• {c.last_four}</Text>
-                    <Ionicons name="flash" size={15} color="#0A0A0A" />
+                    <Ionicons name="flash" size={15} color="#0D0D0D" />
                   </TouchableOpacity>
                 ))}
                 <TouchableOpacity style={styles.payBtn} onPress={handleClientPay} disabled={loading} accessibilityRole="button" accessibilityLabel="Pagar el trabajo completo">
-                  {loading ? <ActivityIndicator color="#fff" /> : (
-                    <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.payBtnText}>{savedCards.length ? 'Pagar con otra tarjeta' : `Pagar $${total.toLocaleString('es-AR')}`}</Text></>
+                  {loading ? <ActivityIndicator color="#0D0D0D" /> : (
+                    <><Ionicons name="card" size={18} color="#0D0D0D" /><Text style={styles.payBtnText}>{savedCards.length ? 'Pagar con otra tarjeta' : `Pagar $${total.toLocaleString('es-AR')}`}</Text></>
                   )}
                 </TouchableOpacity>
                 {isDemoMode() && (
@@ -2310,96 +2622,216 @@ window.addEventListener('message', e => {
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity style={styles.payProblemBtn} onPress={() => setProblemModal(true)}>
-                  <Ionicons name="warning-outline" size={14} color="#FF9800" />
+                  <Ionicons name="warning-outline" size={14} color="#8A8A8A" />
                   <Text style={styles.payProblemText}>¿Algo salió mal? Reportar un problema</Text>
                 </TouchableOpacity>
               </View>
             );
           })()}
 
-          {/* Botón TENGO UN PROBLEMA — siempre visible */}
+          {/* Ayuda. Ya no grita: es una línea al pie, del mismo peso que el
+              resto. Lo urgente (911) está en el menú del header, a dos toques. */}
           <TouchableOpacity style={styles.problemBtn} onPress={() => setProblemModal(true)}>
-            <Ionicons name="warning-outline" size={15} color="#FF9800" />
-            <Text style={styles.problemBtnText}>TENGO UN PROBLEMA</Text>
-            <Ionicons name="chevron-forward" size={14} color="#FF9800" />
+            <Ionicons name="help-circle-outline" size={17} color="#8A8A8A" />
+            <Text style={styles.problemBtnText}>Tengo un problema</Text>
+            <Ionicons name="chevron-forward" size={15} color="#5C5C5C" style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
 
         </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </Animated.View>
 
-      {/* Burbuja de chat flotante (estilo Messenger) — fácil de abrir en todo el flujo */}
-      {!showChat && ['accepted','arrived','in_progress'].includes(job.status) && (
-        <DraggableBubble icon="chatbubble-ellipses" onPress={() => setShowChat(true)} badgeCount={unreadCount} />
-      )}
+      {/* La burbuja de chat flotante se sacó: los dos tienen el botón "Mensaje"
+          a la vista en la hoja, con el contador de no leídos. Dos caminos al
+          mismo chat es un camino de más, y la burbuja tapaba contenido. */}
     </SafeAreaView>
   );
 };
 
+// ─── Sistema ──────────────────────────────────────────────────────────────────
+// Fondo #0D0D0D, superficies #161616, y un solo acento: el amarillo. El rojo
+// existe únicamente para la emergencia. Espaciado 8/16/24/32, radio 20 en las
+// tarjetas y 999 en pills y botones. Nada de bordes salvo que hagan falta.
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  // ─── Entrega del contacto (10-ago-2026) ─────────────────────────────────────
+  entregaScroll: { paddingHorizontal: 20, paddingBottom: 40 },
+  entregaTick: {
+    width: 56, height: 56, borderRadius: 999, backgroundColor: 'rgba(255,214,0,0.12)',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 20, marginTop: 8,
+  },
+  entregaTitulo: { fontSize: 30, lineHeight: 34, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.9, marginBottom: 10 },
+  displayEm:     { color: '#FFD600' },
+  entregaSub:    { fontSize: 15, color: '#8A8A8A', lineHeight: 22, marginBottom: 24 },
 
+  entregaBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    borderRadius: 999, paddingVertical: 18, marginBottom: 10,
+  },
+  entregaBtnPrimario:     { backgroundColor: '#FFD600' },
+  entregaBtnPrimarioText: { fontSize: 16, fontWeight: '600', color: '#0D0D0D' },
+  entregaBtnSec:          { backgroundColor: '#161616' },
+  entregaBtnSecText:      { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+
+  entregaCodigo: {
+    backgroundColor: '#161616', borderRadius: 20, padding: 20, alignItems: 'center',
+    marginTop: 8, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#FFD600',
+  },
+  entregaCodigoLabel: { fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase', color: '#5C5C5C', fontWeight: '600', marginBottom: 8 },
+  entregaCodigoNum:   { fontSize: 44, fontWeight: '700', color: '#FFD600', letterSpacing: 10 },
+  entregaCodigoHint:  { fontSize: 14, color: '#8A8A8A', textAlign: 'center', marginTop: 10, lineHeight: 20 },
+
+  entregaAviso: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#161616', borderRadius: 20, padding: 16, marginBottom: 12,
+  },
+  entregaAvisoTitulo: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  entregaAvisoTexto:  { fontSize: 14, color: '#8A8A8A', lineHeight: 20 },
+
+  entregaFila: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 18, borderTopWidth: 1, borderTopColor: '#262626',
+  },
+  entregaFilaText: { fontSize: 16, color: '#8A8A8A' },
+
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
+
+  // El header se apoya sobre el mapa (que va a sangre, detrás): sin fondo, sin
+  // borde y por encima en la pila.
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 36 : 12,
-    paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 32 : 8,
+    paddingBottom: 16,
+    // Por encima de la hoja: aunque esté subida del todo, el header se ve.
+    zIndex: 30, elevation: 30,
   },
-  minimizeBtn:    { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', marginLeft: -6 },
-  chatBubble: {
-    position: 'absolute', right: 16, bottom: 92, zIndex: 300,
-    width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFD600',
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 10, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
-  },
-  chatBubbleBadge: {
-    position: 'absolute', top: -2, right: -2, minWidth: 22, height: 22, borderRadius: 11,
-    backgroundColor: '#ff4444', alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 5, borderWidth: 2, borderColor: '#0A0A0A',
-  },
-  chatBubbleBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  statusDot:      { width: 10, height: 10, borderRadius: 5 },
-  headerStatus:   { flex: 1, fontSize: 15, fontWeight: '700', color: '#F5F5F5' },
-  cancelBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#ff444440' },
-  cancelBtnText: { color: '#ff4444', fontSize: 13, fontWeight: '600' },
-  emergencyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 10, borderWidth: 1.5, borderColor: '#ff444460',
-    backgroundColor: 'rgba(255,68,68,0.08)',
-  },
-  emergencyBtnText: { color: '#ff4444', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
+  iconBtn: { width: 36, height: 36, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
+  // minWidth:0 + flexShrink:1: sin eso, un texto largo empuja la fila en vez de
+  // recortarse, y los botones lo aplastan hasta partirlo por la mitad.
+  headerTitleCol: { flex: 1, minWidth: 0, flexShrink: 1, marginLeft: 4 },
+  headerEyebrow:  { fontSize: 14, letterSpacing: 1.8, textTransform: 'uppercase', color: '#5C5C5C', fontWeight: '600', marginBottom: 2 },
+  headerTitle:    { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  statusDot:      { width: 8, height: 8, borderRadius: 999 },
 
-  map: { flex: 1 },
+  // Menú de tres puntos
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', paddingTop: Platform.OS === 'android' ? 72 : 56, paddingRight: 16, alignItems: 'flex-end' },
+  menuBox:     { backgroundColor: '#161616', borderRadius: 20, paddingVertical: 8, minWidth: 248 },
+  menuItem:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  menuItemText:{ fontSize: 16, color: '#FFFFFF' },
+  menuDivider: { height: 1, backgroundColor: '#262626', marginVertical: 8, marginHorizontal: 16 },
+
+  // ─── Mapa ───────────────────────────────────────────────────────────────────
+  // Absoluto y a sangre: arranca en el borde de la pantalla y el header le queda
+  // encima. Se dibuja hasta un poco más abajo de donde apoya la hoja, así al
+  // arrastrarla no aparece un vacío negro detrás.
+  mapWrap: {
+    position: 'absolute', left: 0, right: 0, top: 0,
+    height: HOJA_ABAJO + 40, backgroundColor: '#0D0D0D',
+  },
+  mapTopShade: {
+    position: 'absolute', left: 0, right: 0, top: 0, height: 120,
+    backgroundColor: 'rgba(13,13,13,0.55)',
+  },
+  mapNote: {
+    position: 'absolute', left: 16, bottom: 56,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(13,13,13,0.88)', borderRadius: 999,
+    paddingHorizontal: 12, paddingVertical: 8, maxWidth: '86%',
+  },
+  mapNoteText: { fontSize: 14, color: '#8A8A8A', flexShrink: 1 },
+  comoLlegar: {
+    position: 'absolute', right: 16, bottom: 56,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFD600', borderRadius: 999,
+    paddingHorizontal: 16, paddingVertical: 10,
+  },
+  comoLlegarText: { fontSize: 16, color: '#0D0D0D', fontWeight: '600' },
+
+  // ─── La hoja ────────────────────────────────────────────────────────────────
+  sheet: {
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+    backgroundColor: '#0D0D0D',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: -8 },
+    elevation: 24,
+  },
+  gripZone: { paddingTop: 10, paddingBottom: 8, alignItems: 'center' },
+  grip:     { width: 36, height: 4, borderRadius: 999, backgroundColor: '#333' },
+
+  hero:           { marginBottom: 24 },
+  heroLabel:      { fontSize: 14, letterSpacing: 1.8, textTransform: 'uppercase', color: '#5C5C5C', fontWeight: '600', marginBottom: 8 },
+  heroValue:      { fontSize: 32, lineHeight: 37, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.6 },
+  heroValueTail:  { fontSize: 32, fontWeight: '700', color: '#FFD600' },
+  heroSub:        { fontSize: 16, color: '#8A8A8A', marginTop: 8, lineHeight: 20 },
+
+  proCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    marginBottom: 24,
+  },
+  proAvatar: {
+    width: 56, height: 56, borderRadius: 999, flexShrink: 0,
+    backgroundColor: '#161616', alignItems: 'center', justifyContent: 'center',
+  },
+  proAvatarImg:  { width: 56, height: 56, borderRadius: 999, flexShrink: 0, backgroundColor: '#161616' },
+  proAvatarText: { fontSize: 18, fontWeight: '700', color: '#8A8A8A' },
+  proName:       { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  proMetaRow:    { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
+  proMeta:       { fontSize: 16, color: '#8A8A8A' },
+
+  proActions:   { flexDirection: 'row', gap: 8, marginBottom: 24 },
+  proActionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 999, paddingVertical: 16,
+  },
+  proActionPrimary:     { backgroundColor: '#FFD600' },
+  proActionPrimaryText: { color: '#0D0D0D', fontSize: 16, fontWeight: '600' },
+  proActionGhost:       { backgroundColor: '#161616' },
+  // Con mensajes sin leer el botón no se disfraza de botón cualquiera: se
+  // enciende. El badge solo se pierde entre el resto (Maxi, 9-ago-2026).
+  proActionNuevo:       { backgroundColor: 'rgba(255,214,0,0.12)' },
+  proActionGhostText:   { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  msgBadge: {
+    minWidth: 20, height: 20, borderRadius: 999, backgroundColor: '#FFD600',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
+  },
+  msgBadgeText: { color: '#0D0D0D', fontSize: 14, fontWeight: '700' },
+
+  dataRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#161616', borderRadius: 20,
+    paddingVertical: 16, paddingHorizontal: 16, marginBottom: 16,
+  },
+  dataCell:    { flex: 1, minWidth: 0 },
+  dataValue:   { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  dataLabel:   { fontSize: 14, letterSpacing: 1.5, textTransform: 'uppercase', color: '#5C5C5C' },
+  dataDivider: { width: 1, alignSelf: 'stretch', backgroundColor: '#262626', marginHorizontal: 16 },
 
   panel: {
     backgroundColor: '#111',
-    borderTopWidth: 1, borderTopColor: '#1E1E1E',
-  },
-  panelClient: { flexShrink: 1 },
+    },
+  // La hoja ya es la superficie: adentro no va ni fondo distinto ni línea.
+  panelClient: { flex: 1, backgroundColor: 'transparent', borderTopWidth: 0 },
   panelContent: {
     padding: 16,
-    paddingBottom: Platform.OS === 'android' ? 64 : 28,
-    gap: 12,
+    paddingBottom: HOJA_ABAJO + 40,
+    gap: 0,
   },
 
   // Tip contextual
   tipBar: {
-    backgroundColor: '#0A0A0A', borderRadius: 12,
-    borderWidth: 1, borderColor: '#1E1E1E',
-    paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: '#161616', borderRadius: 20,
+    paddingVertical: 16, paddingHorizontal: 16, marginBottom: 16,
   },
-  tipText: { fontSize: 13, color: '#666', lineHeight: 18 },
+  tipText: { fontSize: 16, color: '#8A8A8A', lineHeight: 20 },
 
   // Código para el trabajador
   codeDisplay: {
-    backgroundColor: '#1A1A00', borderRadius: 14,
-    borderWidth: 2, borderColor: '#FFD600',
-    padding: 16, alignItems: 'center',
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 24, alignItems: 'center', marginBottom: 16,
   },
-  codeDisplayLabel: { fontSize: 11, color: '#888', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
-  codeDisplayNumber: { fontSize: 48, fontWeight: '900', color: '#FFD600', letterSpacing: 10 },
-  codeDisplayHint:   { fontSize: 12, color: '#888', marginTop: 8, textAlign: 'center' },
+  codeDisplayLabel: { fontSize: 14, color: '#5C5C5C', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8 },
+  codeDisplayNumber: { fontSize: 44, fontWeight: '700', color: '#FFD600', letterSpacing: 10 },
+  codeDisplayHint:   { fontSize: 14, color: '#888', marginTop: 8, textAlign: 'center' },
 
   // Botón verificar código para el cliente
   verifyCodeBtn: {
@@ -2408,45 +2840,38 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#FFD60060',
     paddingVertical: 14, paddingHorizontal: 16,
   },
-  verifyCodeBtnText: { flex: 1, fontSize: 14, fontWeight: '700', color: '#FFD600' },
+  verifyCodeBtnText: { flex: 1, fontSize: 16, fontWeight: '700', color: '#FFD600' },
 
   jobInfo: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#0A0A0A', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 16, marginBottom: 16,
   },
-  jobInfoTitle: { fontSize: 14, color: '#F5F5F5', fontWeight: '700' },
-  jobInfoSub:   { fontSize: 12, color: '#555', marginTop: 2 },
-  jobAmount:    { fontSize: 13, color: '#888', marginTop: 3 },
+  jobInfoTitle: { fontSize: 16, color: '#FFFFFF', fontWeight: '600' },
+  jobInfoSub:   { fontSize: 14, color: '#555', marginTop: 2 },
+  jobAmount:    { fontSize: 14, color: '#888', marginTop: 3 },
   visitBadge: {
     backgroundColor: '#1a1a1a', borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 4,
     borderWidth: 1, borderColor: '#2a2a1a',
   },
-  visitBadgeText: { color: '#FFD600', fontSize: 11, fontWeight: '700' },
+  visitBadgeText: { color: '#FFD600', fontSize: 12, fontWeight: '700' },
 
   actionBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: '#FFD600',
-    borderRadius: 14, paddingVertical: 16,
+    borderRadius: 999, paddingVertical: 16, marginBottom: 8,
   },
-  actionBtnText: { color: '#0A0A0A', fontSize: 15, fontWeight: '900' },
+  actionBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '600' },
   // Aclara qué pasa al tocar "Voy en camino": que su ubicación se comparte
   // recién ahí, y sólo hasta que llegue.
-  ventanaHint: { color: '#777', fontSize: 12, lineHeight: 17, textAlign: 'center',
-                 marginTop: 8, marginBottom: 4, paddingHorizontal: 8 },
-  // Ocupa el lugar del mapa cuando la ventana está cerrada, para que el cliente
-  // no crea que algo falló.
-  sinMapa:       { alignItems: 'center', justifyContent: 'center', gap: 8,
-                   paddingVertical: 30, paddingHorizontal: 34 },
-  sinMapaTitulo: { color: '#888', fontSize: 14.5, fontWeight: '800', textAlign: 'center' },
-  sinMapaTexto:  { color: '#555', fontSize: 12.5, lineHeight: 18, textAlign: 'center' },
-
+  ventanaHint: { color: '#5C5C5C', fontSize: 16, lineHeight: 20, textAlign: 'center',
+                 marginTop: 8, marginBottom: 16, paddingHorizontal: 8 },
   amountRow: { gap: 10 },
   amountInputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#0A0A0A', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 14, gap: 8,
+    backgroundColor: '#0D0D0D', borderRadius: 14,
+    padding: 14, gap: 8,
   },
   currency:    { color: '#F5F5F5', fontSize: 20, fontWeight: '700' },
   amountInput: { flex: 1, color: '#F5F5F5', fontSize: 20, fontWeight: '700' },
@@ -2456,23 +2881,22 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#FFD60020',
     padding: 12, gap: 4,
   },
-  amountPreviewLine: { fontSize: 13, color: '#BBBBBB' },
-  amountPreviewNote: { fontSize: 11, color: '#555' },
-  amountPreviewTotal: { fontSize: 15, fontWeight: '900', color: '#FFD600', marginTop: 4 },
+  amountPreviewLine: { fontSize: 14, color: '#BBBBBB' },
+  amountPreviewNote: { fontSize: 12, color: '#555' },
+  amountPreviewTotal: { fontSize: 16, fontWeight: '700', color: '#FFD600', marginTop: 4 },
 
   paySection:    { gap: 10 },
   payBreakdown: {
-    backgroundColor: '#0A0A0A', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#0D0D0D', borderRadius: 14,
     padding: 16, gap: 10,
   },
   payRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  payRowLabel:   { fontSize: 14, color: '#888' },
-  payRowNote:    { fontSize: 11, color: '#555', marginTop: 2 },
-  payRowVal:     { fontSize: 14, color: '#F5F5F5', fontWeight: '600' },
+  payRowLabel:   { fontSize: 16, color: '#888' },
+  payRowNote:    { fontSize: 12, color: '#555', marginTop: 2 },
+  payRowVal:     { fontSize: 16, color: '#F5F5F5', fontWeight: '600' },
   payDivider:    { height: 1, backgroundColor: '#1E1E1E' },
-  payTotalLabel: { fontSize: 16, fontWeight: '900', color: '#F5F5F5' },
-  payTotalVal:   { fontSize: 20, fontWeight: '900', color: '#FFD600' },
+  payTotalLabel: { fontSize: 16, fontWeight: '700', color: '#F5F5F5' },
+  payTotalVal:   { fontSize: 20, fontWeight: '700', color: '#FFD600' },
 
   cardOnlyBadge: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -2480,251 +2904,272 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,214,0,0.2)',
     borderRadius: 10, paddingVertical: 8,
   },
-  cardOnlyText: { color: '#FFD600', fontSize: 12, fontWeight: '600' },
+  cardOnlyText: { color: '#FFD600', fontSize: 14, fontWeight: '600' },
 
   payBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: '#4CAF50',
-    borderRadius: 14, paddingVertical: 18,
+    gap: 8, backgroundColor: '#FFD600',
+    borderRadius: 999, paddingVertical: 18,
   },
-  payBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  payBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '600' },
   savedPayBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: '#FFD600', borderRadius: 14, paddingVertical: 15, marginBottom: 8,
   },
-  savedPayText: { color: '#0A0A0A', fontSize: 15, fontWeight: '900' },
+  savedPayText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   // Modal de disponibilidad post-trabajo
   completedOverlay: {
+    // el paddingBottom lo pone `padBarra` en cada uso: el alto de la barra de
+    // abajo lo dice el sistema, acá quedaba en 0 para Android.
     flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
     alignItems: 'center', justifyContent: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
   },
   completedBox: {
-    width: '100%', backgroundColor: '#111',
+    width: '100%', maxHeight: '88%', backgroundColor: '#111',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: '#1E1E1E',
-    padding: 24, alignItems: 'center', gap: 8,
   },
-  completedTitle: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginTop: 4 },
-  completedSub:   { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20, marginBottom: 8 },
+  completedScroll:     { width: '100%' },
+  completedScrollBody: { padding: 24, alignItems: 'center', gap: 8 },
+  completedTitle: { fontSize: 22, fontWeight: '700', color: '#F5F5F5', marginTop: 4 },
+  completedSub:   { fontSize: 16, color: '#666', textAlign: 'center', lineHeight: 20, marginBottom: 8 },
   completedVolt:  { backgroundColor: '#0D0D00', borderRadius: 12, borderWidth: 1, borderColor: '#FFD60030', padding: 12, marginVertical: 4 },
-  completedVoltText: { fontSize: 13, color: '#cfcfcf', textAlign: 'center', lineHeight: 19 },
+  completedVoltText: { fontSize: 14, color: '#cfcfcf', textAlign: 'center', lineHeight: 19 },
   // Estrellas con las que el profesional califica al cliente
   clientStarsRow:  { flexDirection: 'row', gap: 10, justifyContent: 'center', marginBottom: 6 },
-  clientStarsHint: { fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 14, paddingHorizontal: 8 },
+  clientStarsHint: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 14, paddingHorizontal: 8 },
   completedOpt: {
     width: '100%', flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
   completedOptText: { flex: 1, fontSize: 16, color: '#F5F5F5', fontWeight: '600' },
 
+  mismaCuenta: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 14, marginBottom: 16,
+  },
+  mismaCuentaTexto: { flex: 1, fontSize: 14, color: '#8A8A8A', lineHeight: 20 },
+
+  // Aviso de seguridad cuando el profesional salió
+  avisoCodigo: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 16, marginBottom: 16,
+    borderLeftWidth: 3, borderLeftColor: '#FFD600',
+  },
+  avisoCodigoTitulo: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  avisoCodigoTexto:  { fontSize: 14, color: '#8A8A8A', lineHeight: 20 },
+  avisoCodigoNumero: {
+    fontSize: 40, fontWeight: '700', color: '#FFD600',
+    letterSpacing: 8, marginTop: 12,
+  },
+
   // Respuesta del profesional (cliente)
   workerResponseCard: {
-    backgroundColor: '#0A0F1A', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E2A3A',
-    padding: 14, gap: 10,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 16, gap: 12, marginBottom: 16,
   },
   workerResponseTitle: {
-    fontSize: 11, fontWeight: '800', color: '#FFD600',
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4,
+    fontSize: 14, fontWeight: '600', color: '#5C5C5C',
+    textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 4,
   },
-  workerResponseRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  workerResponseText: { flex: 1, fontSize: 13, color: '#BBBBBB', lineHeight: 18 },
+  workerResponseRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  workerResponseText: { flex: 1, fontSize: 16, color: '#FFFFFF', lineHeight: 20 },
 
   // Sesión multi-día
   sessionCard: {
-    backgroundColor: '#0A1500', borderRadius: 14,
-    borderWidth: 1.5, borderColor: '#FFD60030',
-    padding: 14, gap: 8,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 16, gap: 8, marginBottom: 16,
   },
   sessionCardRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sessionCardTitle: { flex: 1, fontSize: 14, fontWeight: '800', color: '#FFD600' },
-  sessionCardHours: { fontSize: 13, color: '#888', fontWeight: '600' },
-  sessionCardSub:   { fontSize: 12, color: '#555', lineHeight: 17 },
+  sessionCardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: '#FFD600' },
+  sessionCardHours: { fontSize: 14, color: '#888', fontWeight: '600' },
+  sessionCardSub:   { fontSize: 14, color: '#555', lineHeight: 17 },
   sessionTimerRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  sessionTimerDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
-  sessionTimerText: { fontSize: 13, color: '#4CAF50', fontWeight: '700' },
+  sessionTimerDot:  { width: 8, height: 8, borderRadius: 999, backgroundColor: '#FFD600' },
+  sessionTimerText: { fontSize: 14, color: '#FFD600', fontWeight: '700' },
 
   sessionActions: { gap: 10 },
   actionBtnSecondary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, borderRadius: 14, paddingVertical: 15,
-    borderWidth: 1.5, borderColor: '#FFD60030',
-    backgroundColor: 'rgba(255,214,0,0.06)',
+    gap: 8, borderRadius: 999, paddingVertical: 16, marginBottom: 8,
+    backgroundColor: '#161616',
   },
-  actionBtnSecondaryText: { color: '#FFD600', fontSize: 14, fontWeight: '800' },
+  actionBtnSecondaryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 
   // #2 Confirmación multi-día (cliente)
   confirmCard: {
-    flexDirection: 'row', gap: 12, alignItems: 'flex-start',
-    backgroundColor: '#06101F', borderRadius: 14,
-    borderWidth: 1, borderColor: '#FFD60040', padding: 14, marginBottom: 12,
+    flexDirection: 'row', gap: 16, alignItems: 'flex-start',
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 16, marginBottom: 16,
   },
-  confirmCardTitle: { fontSize: 14, fontWeight: '900', color: '#FFD600', marginBottom: 4 },
-  confirmCardSub:   { fontSize: 13, color: '#aaa', lineHeight: 19, marginBottom: 10 },
+  confirmCardTitle: { fontSize: 16, fontWeight: '700', color: '#FFD600', marginBottom: 4 },
+  confirmCardSub:   { fontSize: 14, color: '#aaa', lineHeight: 19, marginBottom: 10 },
   confirmCardBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     alignSelf: 'flex-start', backgroundColor: '#FFD600',
     borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10,
   },
-  confirmCardBtnText: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  confirmCardBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   // #3 Materiales (cliente aprueba)
   matCard: {
     backgroundColor: '#1A1200', borderRadius: 14,
-    borderWidth: 1, borderColor: '#FF980040', padding: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: '#8A8A8A40', padding: 14, marginBottom: 12,
   },
   matCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  matCardTitle:  { fontSize: 14, fontWeight: '900', color: '#FF9800' },
-  matCardDetail: { fontSize: 14, color: '#F5F5F5', fontWeight: '700', marginBottom: 2 },
-  matCardEst:    { fontSize: 14, color: '#FFD600', fontWeight: '800', marginBottom: 8 },
-  matCardNote:   { fontSize: 12, color: '#888', lineHeight: 17, marginBottom: 12 },
+  matCardTitle:  { fontSize: 16, fontWeight: '700', color: '#8A8A8A' },
+  matCardDetail: { fontSize: 16, color: '#F5F5F5', fontWeight: '700', marginBottom: 2 },
+  matCardEst:    { fontSize: 16, color: '#FFD600', fontWeight: '600', marginBottom: 8 },
+  matCardNote:   { fontSize: 14, color: '#888', lineHeight: 17, marginBottom: 12 },
   matCardBtns:   { flexDirection: 'row', gap: 10 },
   matBtn:        { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12 },
-  matBtnPrimary: { backgroundColor: '#FF9800' },
-  matBtnPrimaryText: { color: '#0A0A0A', fontSize: 13, fontWeight: '900' },
-  matBtnSecondary: { backgroundColor: '#111', borderWidth: 1, borderColor: '#333' },
-  matBtnSecondaryText: { color: '#aaa', fontSize: 13, fontWeight: '800' },
+  matBtnPrimary: { backgroundColor: '#8A8A8A' },
+  matBtnPrimaryText: { color: '#0D0D0D', fontSize: 14, fontWeight: '700' },
+  matBtnSecondary: { backgroundColor: '#111', },
+  matBtnSecondaryText: { color: '#aaa', fontSize: 14, fontWeight: '600' },
 
   // #3 Materiales (trabajador esperando / info)
   matWaitCard: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#111', borderRadius: 10,
-    borderWidth: 1, borderColor: '#222', padding: 12,
+    padding: 12,
   },
-  matWaitText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 18 },
+  matWaitText: { flex: 1, fontSize: 14, color: '#888', lineHeight: 18 },
 
   // Comprando materiales
   buyingCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#1A0D00', borderRadius: 14,
-    borderWidth: 1.5, borderColor: '#FF980040', padding: 14,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 16, marginBottom: 16,
   },
-  buyingText: { fontSize: 13, color: '#FF9800', fontWeight: '700', lineHeight: 18 },
-  buyingEta:  { fontSize: 12, color: '#FF980088', marginTop: 4 },
+  buyingText: { fontSize: 14, color: '#8A8A8A', fontWeight: '700', lineHeight: 18 },
+  buyingEta:  { fontSize: 14, color: '#8A8A8A88', marginTop: 4 },
 
   // Modal de verificación de código
   modalOverlay: {
+    // Igual que `completedOverlay`: el paddingBottom lo pone `padBarra` en cada
+    // uso. Dejar acá el `ios ? 34 : 0` era letra muerta —el del array siempre
+    // gana— y el próximo que lo tocara no vería ningún cambio en pantalla.
     flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
     alignItems: 'center', justifyContent: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
   },
   modalBox: {
     width: '100%', backgroundColor: '#111',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: '#1E1E1E',
     padding: 24, gap: 16,
   },
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  modalTitle:  { fontSize: 18, fontWeight: '900', color: '#F5F5F5' },
-  modalSub:    { fontSize: 14, color: '#666', lineHeight: 20 },
+  modalTitle:  { fontSize: 18, fontWeight: '700', color: '#F5F5F5' },
+  modalSub:    { fontSize: 16, color: '#666', lineHeight: 20 },
 
   codeInput: {
-    backgroundColor: '#0A0A0A', borderRadius: 14,
+    backgroundColor: '#0D0D0D', borderRadius: 14,
     borderWidth: 2, borderColor: '#FFD600',
-    color: '#FFD600', fontSize: 40, fontWeight: '900',
+    color: '#FFD600', fontSize: 40, fontWeight: '700',
     textAlign: 'center', paddingVertical: 18, letterSpacing: 16,
   },
   codeVerifyBtn: {
     backgroundColor: '#FFD600', borderRadius: 14,
     paddingVertical: 16, alignItems: 'center',
   },
-  codeVerifyBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  codeVerifyBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   codeOkBox: { alignItems: 'center', gap: 10, paddingVertical: 12 },
-  codeOkTitle: { fontSize: 20, fontWeight: '900', color: '#4CAF50' },
-  codeOkSub:   { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 },
-  codeCloseBtn: { backgroundColor: '#4CAF50', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32, marginTop: 8 },
-  codeCloseBtnText: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  codeOkTitle: { fontSize: 20, fontWeight: '700', color: '#FFD600' },
+  codeOkSub:   { fontSize: 16, color: '#666', textAlign: 'center', lineHeight: 20 },
+  codeCloseBtn: { backgroundColor: '#FFD600', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32, marginTop: 8 },
+  codeCloseBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   codeErrorBox: { alignItems: 'center', gap: 10, paddingVertical: 12 },
-  codeErrorTitle: { fontSize: 20, fontWeight: '900', color: '#ff4444' },
-  codeErrorSub:   { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 },
-  codeRetryBtn: { backgroundColor: 'rgba(255,68,68,0.12)', borderWidth: 1.5, borderColor: '#ff444450', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32, marginTop: 8 },
-  codeRetryBtnText: { color: '#ff4444', fontSize: 15, fontWeight: '900' },
+  codeErrorTitle: { fontSize: 20, fontWeight: '700', color: '#E5484D' },
+  codeErrorSub:   { fontSize: 16, color: '#666', textAlign: 'center', lineHeight: 20 },
+  codeRetryBtn: { backgroundColor: 'rgba(229,72,77,0.12)', borderWidth: 1.5, borderColor: '#E5484D50', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32, marginTop: 8 },
+  codeRetryBtnText: { color: '#E5484D', fontSize: 16, fontWeight: '700' },
 
   // Timer de trabajo en curso
   workTimerCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#0A1500', borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#4CAF5040',
+    borderWidth: 1.5, borderColor: '#FFD60040',
     paddingVertical: 12, paddingHorizontal: 14,
   },
-  workTimerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
-  workTimerLabel: { flex: 1, fontSize: 13, color: '#4CAF50', fontWeight: '700' },
-  workTimerValue: { fontSize: 20, fontWeight: '900', color: '#4CAF50', letterSpacing: 1 },
+  workTimerDot: { width: 8, height: 8, borderRadius: 999, backgroundColor: '#FFD600' },
+  workTimerLabel: { flex: 1, fontSize: 14, color: '#FFD600', fontWeight: '700' },
+  workTimerValue: { fontSize: 20, fontWeight: '700', color: '#FFD600', letterSpacing: 1 },
 
-  // Botón TENGO UN PROBLEMA
+  // Ayuda al pie
   problemBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, paddingHorizontal: 16,
-    borderRadius: 12, borderWidth: 1, borderColor: '#FF980030',
-    backgroundColor: 'rgba(255,152,0,0.05)',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 16, paddingHorizontal: 16,
+    borderRadius: 20, backgroundColor: '#161616',
   },
-  problemBtnText: { flex: 1, color: '#FF9800', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  problemBtnText: { color: '#8A8A8A', fontSize: 16 },
 
   // Modal TENGO UN PROBLEMA
   problemOverlay: {
+    // El paddingBottom lo pone `padBarra` en cada uso (ver `modalOverlay`).
     flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
   },
   problemBox: {
-    backgroundColor: '#111',
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: '#1E1E1E',
-    padding: 20, paddingBottom: Platform.OS === 'android' ? 36 : 20, gap: 2,
+    backgroundColor: '#161616',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, paddingBottom: Platform.OS === 'android' ? 32 : 24,
   },
   problemHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginBottom: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    marginBottom: 8,
   },
-  problemTitle: { flex: 1, fontSize: 17, fontWeight: '900', color: '#F5F5F5' },
+  problemTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
   problemItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#262626',
   },
-  problemItemText: { flex: 1, fontSize: 14, color: '#BBBBBB', lineHeight: 20 },
+  problemItemText: { flex: 1, fontSize: 16, color: '#FFFFFF', lineHeight: 22 },
   supportBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: 'rgba(37,211,102,0.08)',
-    borderWidth: 1, borderColor: 'rgba(37,211,102,0.25)',
-    borderRadius: 14, paddingVertical: 16, marginTop: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#1E1E1E', borderRadius: 999,
+    paddingVertical: 16, marginTop: 24,
   },
-  supportBtnText: { color: '#25D366', fontSize: 15, fontWeight: '800' },
+  supportBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  emergencyRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 16, marginTop: 8,
+  },
+  emergencyRowText: { color: '#E5484D', fontSize: 16, fontWeight: '600' },
 
   // Trabajador esperando pago
   waitingPayCard: {
-    backgroundColor: '#0A1200', borderRadius: 14,
-    borderWidth: 1, borderColor: '#4CAF5030',
-    padding: 14, gap: 12,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 16, gap: 12, marginBottom: 16,
   },
   waitingPayRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  waitingPayText: { flex: 1, fontSize: 14, color: '#4CAF50', fontWeight: '700' },
+  waitingPayText: { flex: 1, fontSize: 16, color: '#FFD600', fontWeight: '700' },
   cancelJobBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 11, borderRadius: 10,
-    borderWidth: 1, borderColor: '#ff444430',
-    backgroundColor: 'rgba(255,68,68,0.06)',
+    borderWidth: 1, borderColor: '#E5484D30',
+    backgroundColor: 'rgba(229,72,77,0.06)',
   },
-  cancelJobBtnText: { color: '#ff4444', fontSize: 13, fontWeight: '700' },
+  cancelJobBtnText: { color: '#E5484D', fontSize: 14, fontWeight: '700' },
 
   testPayBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, borderRadius: 10,
-    borderWidth: 1, borderColor: '#333', borderStyle: 'dashed',
+    borderStyle: 'dashed',
   },
-  testPayBtnText: { color: '#555', fontSize: 12, fontWeight: '600' },
+  testPayBtnText: { color: '#555', fontSize: 14, fontWeight: '600' },
 
   // Visita ya pagada badge (en breakdown de pago final)
   visitPaidBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(76,175,80,0.1)',
-    borderWidth: 1, borderColor: 'rgba(76,175,80,0.25)',
+    backgroundColor: 'rgba(255,214,0,0.10)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)',
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
   },
-  visitPaidText: { color: '#4CAF50', fontSize: 12, fontWeight: '700' },
+  visitPaidText: { color: '#FFD600', fontSize: 14, fontWeight: '700' },
 
   // Modal de pago de visita
   visitModalAmount: {
@@ -2733,8 +3178,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#FFD60030',
     paddingVertical: 16, paddingHorizontal: 18,
   },
-  visitModalAmountLabel: { fontSize: 14, color: '#888', fontWeight: '600' },
-  visitModalAmountValue: { fontSize: 22, fontWeight: '900', color: '#FFD600' },
+  visitModalAmountLabel: { fontSize: 16, color: '#888', fontWeight: '600' },
+  visitModalAmountValue: { fontSize: 22, fontWeight: '700', color: '#FFD600' },
 
   // Fecha de regreso del trabajador (cliente, multi-día)
   returnCard: {
@@ -2743,138 +3188,133 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#FFD60040',
     padding: 14,
   },
-  returnCardTitle: { fontSize: 11, fontWeight: '800', color: '#FFD600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
-  returnCardDate:  { fontSize: 15, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
-  returnCardSub:   { fontSize: 12, color: '#555' },
+  returnCardTitle: { fontSize: 12, fontWeight: '600', color: '#FFD600', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 4 },
+  returnCardDate:  { fontSize: 16, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
+  returnCardSub:   { fontSize: 14, color: '#555' },
 
   // Pago — opción de problema
   payProblemBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10,
   },
-  payProblemText: { color: '#FF9800', fontSize: 13, fontWeight: '600' },
+  payProblemText: { color: '#8A8A8A', fontSize: 14, fontWeight: '600' },
 
   // Chat header button
   chatHeaderBtn: {
-    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+    width: 34, height: 34, flexShrink: 0, alignItems: 'center', justifyContent: 'center',
   },
   chatBadge: {
     position: 'absolute', top: -2, right: -4,
-    backgroundColor: '#ff4444', borderRadius: 8,
+    backgroundColor: '#FFD600', borderRadius: 999,
     minWidth: 16, height: 16,
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  chatBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
+  chatBadgeText: { color: '#0D0D0D', fontSize: 12, fontWeight: '600' },
 
   // Favorito
-  favBtn: { padding: 6 },
+  favBtn: { padding: 6, flexShrink: 0 },
 
-  // Alerta de proximidad
+  // Alertas: van sobre el mapa, así que necesitan fondo propio y quedar por
+  // encima del WebView.
   nearbyAlert: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(76,175,80,0.12)',
-    borderBottomWidth: 1, borderBottomColor: '#4CAF5040',
-    paddingVertical: 10, paddingHorizontal: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 5,
+    backgroundColor: 'rgba(13,13,13,0.88)', marginHorizontal: 16, borderRadius: 999,
+    paddingVertical: 8, paddingHorizontal: 16,
   },
-  nearbyAlertText: { flex: 1, fontSize: 13, color: '#4CAF50', fontWeight: '700' },
+  nearbyAlertText: { flex: 1, fontSize: 16, color: '#FFD600', fontWeight: '600' },
 
   // Resumen del trabajo
   summaryBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingVertical: 12, paddingHorizontal: 14,
-    borderRadius: 12, borderWidth: 1, borderColor: '#4CAF5030',
-    backgroundColor: 'rgba(76,175,80,0.05)',
+    borderRadius: 12, borderWidth: 1, borderColor: '#FFD60030',
+    backgroundColor: 'rgba(255,214,0,0.05)',
   },
-  summaryBtnText: { flex: 1, fontSize: 13, color: '#4CAF50', fontWeight: '700' },
-  summaryFieldLabel: { fontSize: 12, fontWeight: '800', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  summaryBtnText: { flex: 1, fontSize: 14, color: '#FFD600', fontWeight: '700' },
+  summaryFieldLabel: { fontSize: 14, fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 6 },
 
   // Chips de materiales del diagnóstico (vista cliente)
   diagMatChip: {
-    backgroundColor: '#1A0D00', borderRadius: 12,
-    borderWidth: 1, borderColor: '#FF980040',
+    backgroundColor: '#161616', borderRadius: 12,
+    borderWidth: 1, borderColor: '#8A8A8A40',
     paddingHorizontal: 10, paddingVertical: 4,
   },
-  diagMatChipText: { fontSize: 11, color: '#FF9800', fontWeight: '600' },
+  diagMatChipText: { fontSize: 12, color: '#8A8A8A', fontWeight: '600' },
 
-  // Barra de progreso del trabajo
+  // Los pasos. Cuatro, dentro de la hoja, en gris salvo el que está pasando.
   progressWrap: {
     flexDirection: 'row', alignItems: 'flex-start',
-    paddingHorizontal: 10, paddingVertical: 10,
-    backgroundColor: '#0D0D0D',
-    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+    backgroundColor: '#161616', borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 16, marginBottom: 16,
   },
-  progressNode: { alignItems: 'center', width: 46, gap: 5 },
+  progressNode: { alignItems: 'center', flex: 1, minWidth: 0, gap: 8 },
   progressCircle: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 1.5, borderColor: '#222',
-    backgroundColor: '#0A0A0A',
+    width: 20, height: 20, borderRadius: 999,
+    borderWidth: 1.5, borderColor: '#2B2B2B',
+    backgroundColor: '#0D0D0D',
     alignItems: 'center', justifyContent: 'center',
   },
-  progressCircleDone:    { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
+  progressCircleDone:    { backgroundColor: '#4F4F4F', borderColor: '#4F4F4F' },
   progressCircleCurrent: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
-  progressInnerDot:      { width: 7, height: 7, borderRadius: 4, backgroundColor: '#0A0A0A' },
+  progressInnerDot:      { width: 7, height: 7, borderRadius: 999, backgroundColor: '#0D0D0D' },
   progressLabel: {
-    fontSize: 7.5, color: '#333', textAlign: 'center',
-    fontWeight: '600', lineHeight: 10,
+    fontSize: 12, color: '#5C5C5C', textAlign: 'center', fontWeight: '500',
   },
-  progressLabelDone:    { color: '#4CAF50' },
-  progressLabelCurrent: { color: '#FFD600', fontWeight: '800' },
+  progressLabelDone:    { color: '#8A8A8A' },
+  progressLabelCurrent: { color: '#FFD600', fontWeight: '600' },
   progressLine: {
-    flex: 1, height: 1.5, backgroundColor: '#1E1E1E', marginTop: 10,
+    width: 14, height: 1.5, backgroundColor: '#2B2B2B', marginTop: 9,
   },
-  progressLineDone:    { backgroundColor: '#4CAF50' },
-  progressLineCurrent: { backgroundColor: '#FFD600' },
+  progressLineDone:    { backgroundColor: '#4F4F4F' },
 
-  // Barra de estado siempre visible
+  // Barra de estado (trabajador, y cliente mientras el pedido está pendiente)
   infoStrip: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#0D0D0D',
+    flexDirection: 'row', alignItems: 'center', zIndex: 5,
+    backgroundColor: 'rgba(13,13,13,0.92)',
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
     paddingVertical: 10, paddingHorizontal: 4,
   },
   infoStripItem: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
   infoStripLabel: {
-    fontSize: 8, fontWeight: '800', color: '#333',
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4,
+    fontSize: 12, fontWeight: '600', color: '#5C5C5C',
+    textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 4,
   },
-  infoStripValue:    { fontSize: 11, fontWeight: '700', color: '#888' },
+  infoStripValue:    { fontSize: 12, fontWeight: '700', color: '#888' },
   infoStripValueRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  infoStripDot:      { width: 6, height: 6, borderRadius: 3 },
+  infoStripDot:      { width: 6, height: 6, borderRadius: 999 },
   infoStripSep:      { width: 1, height: 28, backgroundColor: '#1E1E1E' },
 
   // Alerta de inactividad
   inactivityAlert: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: 'rgba(255,152,0,0.07)',
-    borderBottomWidth: 1, borderBottomColor: '#FF980020',
-    paddingVertical: 10, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 5,
+    backgroundColor: 'rgba(13,13,13,0.88)', marginHorizontal: 16, borderRadius: 999,
+    paddingVertical: 8, paddingHorizontal: 16, marginTop: 8,
   },
   inactivityAlertText: {
-    flex: 1, fontSize: 12, color: '#FF9800', lineHeight: 17, fontWeight: '600',
+    flex: 1, fontSize: 16, color: '#8A8A8A',
   },
 
   // Timeline viva — minimalista
   timeline: {
-    paddingHorizontal: 4, paddingVertical: 2,
+    marginBottom: 16,
   },
   timelineTitle: {
-    fontSize: 10, fontWeight: '800', color: '#555',
-    textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 16,
+    fontSize: 14, fontWeight: '600', color: '#5C5C5C',
+    textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 16,
   },
-  timelineItem: { flexDirection: 'row', gap: 14 },
+  timelineItem: { flexDirection: 'row', gap: 16 },
   timelineIconCol: { width: 12, alignItems: 'center' },
   timelineLineTop: { width: 1.5, height: 8, backgroundColor: '#262626' },
   timelineLineBot: { flex: 1, width: 1.5, minHeight: 12, backgroundColor: '#262626' },
-  timelineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#3a3a3a' },
+  timelineDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: '#3a3a3a' },
   timelineDotActive: {
-    width: 11, height: 11, borderRadius: 6, backgroundColor: '#FFD600',
-    shadowColor: '#FFD600', shadowOpacity: 0.7, shadowRadius: 5, shadowOffset: { width: 0, height: 0 }, elevation: 4,
+    width: 11, height: 11, borderRadius: 999, backgroundColor: '#FFD600',
   },
   timelineTextCol: { flex: 1, paddingBottom: 16, marginTop: -3 },
-  timelineMsg:       { fontSize: 13.5, color: '#777', lineHeight: 19 },
-  timelineMsgActive: { color: '#F5F5F5', fontWeight: '800' },
-  timelineTime:      { fontSize: 11, color: '#444', marginTop: 2 },
+  timelineMsg:       { fontSize: 16, color: '#8A8A8A', lineHeight: 20 },
+  timelineMsgActive: { color: '#FFFFFF', fontWeight: '600' },
+  timelineTime:      { fontSize: 14, color: '#5C5C5C', marginTop: 4 },
 });
 
 export default JobTrackingScreen;

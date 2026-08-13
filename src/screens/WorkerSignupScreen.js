@@ -167,7 +167,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
         <TopBar onBack={onBack} />
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.okIconWrap}>
-            <Ionicons name="mail-open" size={40} color="#0A0A0A" />
+            <Ionicons name="mail-open" size={40} color="#0D0D0D" />
           </View>
           <Text style={styles.okTitle}>¡Ya estás en BOLT!</Text>
           <Text style={styles.okSub}>
@@ -209,7 +209,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="help-buoy-outline" size={14} color="#888" />
+            <Ionicons name="help-buoy-outline" size={14} color="#8A8A8A" />
             <Text style={styles.ayudaLinkText}>Cómo hacer que te lleguen trabajos</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -223,7 +223,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
       <TopBar onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.logoBadge}>
-          <Ionicons name="flash" size={30} color="#0A0A0A" />
+          <Ionicons name="flash" size={30} color="#0D0D0D" />
         </View>
         <Text style={styles.title}>Trabajá con <Text style={styles.titleY}>BOLT</Text></Text>
         <Text style={styles.subtitle}>
@@ -275,7 +275,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
 
         {status === 'error' && !!errorMsg && (
           <View style={styles.errorWrap}>
-            <Ionicons name="alert-circle-outline" size={16} color="#ff4444" />
+            <Ionicons name="alert-circle-outline" size={16} color="#E5484D" />
             <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         )}
@@ -287,7 +287,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
           activeOpacity={0.85}
         >
           {status === 'sending'
-            ? <ActivityIndicator color="#0A0A0A" />
+            ? <ActivityIndicator color="#0D0D0D" />
             : <Text style={styles.primaryBtnText}>Registrarme como profesional</Text>}
         </TouchableOpacity>
 
@@ -306,104 +306,101 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
 const TopBar = ({ onBack }) => (
   <View style={styles.topBar}>
     <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-      <Ionicons name="arrow-back" size={22} color="#888" />
+      <Ionicons name="arrow-back" size={22} color="#8A8A8A" />
       <Text style={styles.backText}>Volver</Text>
     </TouchableOpacity>
   </View>
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   topBar: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  backText: { color: '#555', fontSize: 14 },
+  backText: { color: '#5C5C5C', fontSize: 16 },
   content: { paddingHorizontal: 26, paddingBottom: 40, paddingTop: 12 },
 
   logoBadge: {
-    width: 60, height: 60, borderRadius: 18, backgroundColor: '#FFD600',
+    width: 60, height: 60, borderRadius: 999, backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center', marginBottom: 18,
   },
-  title: { fontSize: 30, fontWeight: '900', color: '#F5F5F5', marginBottom: 8 },
+  title: { fontSize: 30, fontWeight: '700', color: '#FFFFFF', marginBottom: 8 },
   titleY: { color: '#FFD600' },
-  subtitle: { fontSize: 15, color: '#999', lineHeight: 22, marginBottom: 24 },
+  subtitle: { fontSize: 16, color: '#999', lineHeight: 22, marginBottom: 24 },
 
   benefits: { gap: 12, marginBottom: 24 },
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   benefitIcon: {
-    width: 32, height: 32, borderRadius: 9, backgroundColor: '#141400',
+    width: 32, height: 32, borderRadius: 20, backgroundColor: '#141400',
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2a2a10',
   },
-  benefitText: { flex: 1, color: '#bbb', fontSize: 14, lineHeight: 20 },
+  benefitText: { flex: 1, color: '#bbb', fontSize: 16, lineHeight: 20 },
 
   acctCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#1E1E1E',
-    borderRadius: 14, padding: 14, marginBottom: 16,
+    backgroundColor: '#161616', borderRadius: 20, padding: 14, marginBottom: 16,
   },
-  googleG: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  googleGText: { fontSize: 15, fontWeight: '900', color: '#FFD600' },
-  acctLabel: { color: '#777', fontSize: 12, marginBottom: 2 },
-  acctEmail: { color: '#F5F5F5', fontSize: 15, fontWeight: '700' },
+  googleG: { width: 30, height: 30, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  googleGText: { fontSize: 16, fontWeight: '700', color: '#FFD600' },
+  acctLabel: { color: '#8A8A8A', fontSize: 14, marginBottom: 2 },
+  acctEmail: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 
   telCard: {
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#1E1E1E',
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16,
+    backgroundColor: '#161616', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16,
   },
-  telLabel: { color: '#777', fontSize: 12, marginBottom: 6 },
+  telLabel: { color: '#8A8A8A', fontSize: 14, marginBottom: 6 },
   telRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   telInput: {
-    flex: 1, color: '#F5F5F5', fontSize: 16, fontWeight: '700',
+    flex: 1, color: '#FFFFFF', fontSize: 16, fontWeight: '700',
     paddingVertical: 4, letterSpacing: 0.3,
   },
-  telHint: { color: '#555', fontSize: 11.5, marginTop: 7 },
+  telHint: { color: '#5C5C5C', fontSize: 12, marginTop: 7 },
 
-  explain: { color: '#888', fontSize: 13.5, lineHeight: 21, marginBottom: 12 },
+  explain: { color: '#8A8A8A', fontSize: 14, lineHeight: 21, marginBottom: 12 },
 
-  primaryBtn: { backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 12 },
-  primaryBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  primaryBtn: { backgroundColor: '#FFD600', borderRadius: 999, paddingVertical: 18, alignItems: 'center', marginTop: 12 },
+  primaryBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
-  terms: { fontSize: 11.5, color: '#444', textAlign: 'center', lineHeight: 17, marginTop: 16 },
+  terms: { fontSize: 12, color: '#444', textAlign: 'center', lineHeight: 17, marginTop: 16 },
 
   // Link de ayuda: discreto a propósito, no compite con el botón principal.
   ayudaLink: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, marginTop: 16,
   },
-  ayudaLinkText: { fontSize: 13, color: '#888', textDecorationLine: 'underline' },
+  ayudaLinkText: { fontSize: 14, color: '#8A8A8A', textDecorationLine: 'underline' },
 
   termsLink: { color: '#FFD600', textDecorationLine: 'underline' },
 
   errorWrap: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: 'rgba(255,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(255,68,68,0.25)',
-    borderRadius: 10, padding: 12, marginTop: 4, marginBottom: 4,
+    backgroundColor: 'rgba(229,72,77,0.08)', borderWidth: 1, borderColor: 'rgba(229,72,77,0.25)',
+    borderRadius: 20, padding: 12, marginTop: 4, marginBottom: 4,
   },
-  errorText: { color: '#ff4444', fontSize: 13, flex: 1, lineHeight: 18 },
+  errorText: { color: '#E5484D', fontSize: 14, flex: 1, lineHeight: 18 },
 
   // Éxito
   okIconWrap: {
     width: 72, height: 72, borderRadius: 22, backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 20, marginBottom: 18,
   },
-  okTitle: { fontSize: 26, fontWeight: '900', color: '#F5F5F5', textAlign: 'center', marginBottom: 10 },
-  okSub: { fontSize: 15, color: '#aaa', textAlign: 'center', lineHeight: 22, marginBottom: 22 },
+  okTitle: { fontSize: 26, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 10 },
+  okSub: { fontSize: 16, color: '#8A8A8A', textAlign: 'center', lineHeight: 22, marginBottom: 22 },
   mailCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#151500', borderWidth: 1, borderColor: 'rgba(255,214,0,0.3)',
-    borderRadius: 14, padding: 16, marginBottom: 22,
+    borderRadius: 20, padding: 16, marginBottom: 22,
   },
-  mailCardText: { flex: 1, color: '#bbb', fontSize: 13.5, lineHeight: 20 },
-  mailStrong: { color: '#FFD600', fontWeight: '800' },
+  mailCardText: { flex: 1, color: '#bbb', fontSize: 14, lineHeight: 20 },
+  mailStrong: { color: '#FFD600', fontWeight: '600' },
   faltaBox: {
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#1E1E1E',
-    borderRadius: 16, padding: 18, marginBottom: 8,
+    backgroundColor: '#161616', borderRadius: 20, padding: 18, marginBottom: 8,
   },
-  faltaTitle: { color: '#F5F5F5', fontWeight: '800', fontSize: 14, marginBottom: 12 },
+  faltaTitle: { color: '#FFFFFF', fontWeight: '600', fontSize: 16, marginBottom: 12 },
   faltaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   faltaBadge: { width: 22, height: 22, borderRadius: 6, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center' },
-  faltaBadgeText: { color: '#0A0A0A', fontWeight: '900', fontSize: 14 },
-  faltaText: { color: '#ccc', fontSize: 14, fontWeight: '600' },
-  faltaHint: { color: '#666', fontSize: 12.5, lineHeight: 18, marginTop: 8 },
+  faltaBadgeText: { color: '#0D0D0D', fontWeight: '700', fontSize: 16 },
+  faltaText: { color: '#ccc', fontSize: 16, fontWeight: '600' },
+  faltaHint: { color: '#5C5C5C', fontSize: 14, lineHeight: 18, marginTop: 8 },
 });
 
 export default WorkerSignupScreen;

@@ -8,13 +8,13 @@ import { supabase } from '../supabase';
 import { chargesInApp, isFreeMode } from '../config/monetization';
 
 const STATUS_INFO = {
-  pending:          { label: 'Pendiente',       color: '#888',    icon: 'time-outline' },
+  pending:          { label: 'Pendiente',       color: '#8A8A8A',    icon: 'time-outline' },
   accepted:         { label: 'En camino',        color: '#FFD600', icon: 'navigate-outline' },
   arrived:          { label: 'En domicilio',     color: '#FFD600', icon: 'home-outline' },
-  in_progress:      { label: 'En progreso',      color: '#FF9800', icon: 'construct-outline' },
-  awaiting_payment: { label: isFreeMode() ? 'Por finalizar' : 'Pago pendiente', color: '#4CAF50', icon: isFreeMode() ? 'checkmark-done-outline' : 'card-outline' },
-  completed:        { label: 'Completado',        color: '#4CAF50', icon: 'checkmark-circle-outline' },
-  cancelled:        { label: 'Cancelado',         color: '#ff4444', icon: 'close-circle-outline' },
+  in_progress:      { label: 'En progreso',      color: '#8A8A8A', icon: 'construct-outline' },
+  awaiting_payment: { label: isFreeMode() ? 'Por finalizar' : 'Pago pendiente', color: '#FFD600', icon: isFreeMode() ? 'checkmark-done-outline' : 'card-outline' },
+  completed:        { label: 'Completado',        color: '#FFD600', icon: 'checkmark-circle-outline' },
+  cancelled:        { label: 'Cancelado',         color: '#E5484D', icon: 'close-circle-outline' },
 };
 
 const HistoryScreen = ({ session, professional, onClose, onOpenJob }) => {
@@ -66,7 +66,7 @@ const HistoryScreen = ({ session, professional, onClose, onOpenJob }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mis trabajos</Text>
         <View style={{ width: 24 }} />
@@ -87,7 +87,7 @@ const HistoryScreen = ({ session, professional, onClose, onOpenJob }) => {
               <>
                 <View style={styles.summaryDiv} />
                 <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryVal, { color: isWorker ? '#4CAF50' : '#FFD600', fontSize: 16 }]}>
+                  <Text style={[styles.summaryVal, { color: isWorker ? '#FFD600' : '#FFD600', fontSize: 16 }]}>
                     ${(isWorker ? totalEarned : totalSpent).toLocaleString('es-AR')}
                   </Text>
                   <Text style={styles.summaryLbl}>{isWorker ? 'Ganado' : 'Gastado'}</Text>
@@ -115,7 +115,7 @@ const HistoryScreen = ({ session, professional, onClose, onOpenJob }) => {
           // 1-ago). Nadie tiene que salir a un domicilio por esto.
           const esperandoEleccion = j.quote_group_id && ['pending', 'accepted'].includes(j.status);
           const s = esperandoEleccion
-            ? { label: 'Esperando que te elijan', color: '#888', icon: 'hourglass-outline' }
+            ? { label: 'Esperando que te elijan', color: '#8A8A8A', icon: 'hourglass-outline' }
             : (STATUS_INFO[j.status] || STATUS_INFO.cancelled);
           const totalAmt = (j.visit_amount || 0) + (j.work_amount || 0);
           const earned   = isWorker && j.status === 'completed'
@@ -163,7 +163,7 @@ const HistoryScreen = ({ session, professional, onClose, onOpenJob }) => {
                 )}
                 {isActiveJob && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 'auto' }}>
-                    <Text style={{ color: s.color, fontSize: 12, fontWeight: '800' }}>Ver seguimiento</Text>
+                    <Text style={{ color: s.color, fontSize: 14, fontWeight: '600' }}>Ver seguimiento</Text>
                     <Ionicons name="chevron-forward" size={13} color={s.color} />
                   </View>
                 )}
@@ -177,7 +177,7 @@ const HistoryScreen = ({ session, professional, onClose, onOpenJob }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -186,47 +186,45 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 
   content: { padding: 16, paddingBottom: 40 },
 
   summaryCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 20, marginBottom: 16,
   },
   summaryItem: { flex: 1, alignItems: 'center' },
-  summaryVal:  { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
-  summaryLbl:  { fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+  summaryVal:  { fontSize: 22, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  summaryLbl:  { fontSize: 12, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8 },
   summaryDiv:  { width: 1, height: 36, backgroundColor: '#1E1E1E' },
 
   emptyWrap: { alignItems: 'center', paddingVertical: 64, gap: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: '#333' },
-  emptyText:  { fontSize: 14, color: '#444', textAlign: 'center', lineHeight: 20, maxWidth: 280 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#5C5C5C' },
+  emptyText:  { fontSize: 16, color: '#444', textAlign: 'center', lineHeight: 20, maxWidth: 280 },
 
   jobCard: {
-    backgroundColor: '#111', borderRadius: 16,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 14, marginBottom: 10,
   },
   jobCardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   jobIconWrap: {
-    width: 38, height: 38, borderRadius: 12,
+    width: 38, height: 38, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
-  jobProfession: { fontSize: 15, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
-  jobPerson:     { fontSize: 12, color: '#666' },
+  jobProfession: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 },
+  jobPerson:     { fontSize: 14, color: '#5C5C5C' },
 
-  statusBadge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText:  { fontSize: 11, fontWeight: '700' },
+  statusBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  statusText:  { fontSize: 12, fontWeight: '700' },
 
-  jobAddress:    { fontSize: 12, color: '#444', marginBottom: 8 },
+  jobAddress:    { fontSize: 14, color: '#444', marginBottom: 8 },
 
   jobCardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  jobDate:    { fontSize: 12, color: '#444' },
-  earnedAmt:  { fontSize: 15, fontWeight: '800', color: '#4CAF50' },
-  paidAmt:    { fontSize: 15, fontWeight: '800', color: '#888' },
+  jobDate:    { fontSize: 14, color: '#444' },
+  earnedAmt:  { fontSize: 16, fontWeight: '600', color: '#FFD600' },
+  paidAmt:    { fontSize: 16, fontWeight: '600', color: '#8A8A8A' },
 });
 
 export default HistoryScreen;

@@ -11,7 +11,7 @@ import { chargesInApp } from '../config/monetization';
 // se queda BOLT, porque BOLT no se queda con nada.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PanelIngresos = ({ jobs = [], professional, commission = 20, level = '', levelColor = '#888' }) => {
+const PanelIngresos = ({ jobs = [], professional, commission = 20, level = '', levelColor = '#8A8A8A' }) => {
   const completedJobs = jobs.filter(j => j.status === 'completed');
   const earningBase   = j => j.work_amount || j.visit_amount || 0;
   const commFactor    = j => 1 - (chargesInApp() ? (j.commission_pct || 20) : 0) / 100;
@@ -44,7 +44,7 @@ const PanelIngresos = ({ jobs = [], professional, commission = 20, level = '', l
           </View>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Vos recibís</Text>
-            <Text style={[styles.breakdownVal, { color: '#4CAF50' }]}>{100 - commission}% del trabajo</Text>
+            <Text style={[styles.breakdownVal, { color: '#FFD600' }]}>{100 - commission}% del trabajo</Text>
           </View>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Visita (${(professional?.min_price ?? 30000).toLocaleString('es-AR')})</Text>
@@ -78,33 +78,31 @@ const PanelIngresos = ({ jobs = [], professional, commission = 20, level = '', l
 const styles = StyleSheet.create({
   earningsSummary: {
     alignItems: 'center', paddingVertical: 28,
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     marginBottom: 12,
   },
-  earningsTotalLabel: { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
-  earningsTotalVal:   { fontSize: 36, fontWeight: '900', color: '#4CAF50', marginBottom: 4 },
-  earningsSub:        { fontSize: 13, color: '#555' },
+  earningsTotalLabel: { fontSize: 14, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8 },
+  earningsTotalVal:   { fontSize: 36, fontWeight: '700', color: '#FFD600', marginBottom: 4 },
+  earningsSub:        { fontSize: 14, color: '#5C5C5C' },
 
   earningsBreakdown: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 16, marginBottom: 12, gap: 12,
   },
-  breakdownTitle: { fontSize: 13, fontWeight: '800', color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  breakdownTitle: { fontSize: 14, fontWeight: '600', color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 4 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  breakdownLabel: { fontSize: 14, color: '#666' },
-  breakdownVal:   { fontSize: 14, fontWeight: '700', color: '#F5F5F5' },
+  breakdownLabel: { fontSize: 16, color: '#5C5C5C' },
+  breakdownVal:   { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 
   earningRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#111',
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#161616',
   },
-  earningProfession: { fontSize: 14, color: '#F5F5F5', fontWeight: '600', marginBottom: 2 },
-  earningDate:       { fontSize: 12, color: '#444' },
-  earningAmount:     { fontSize: 16, fontWeight: '800', color: '#4CAF50' },
+  earningProfession: { fontSize: 16, color: '#FFFFFF', fontWeight: '600', marginBottom: 2 },
+  earningDate:       { fontSize: 14, color: '#444' },
+  earningAmount:     { fontSize: 16, fontWeight: '600', color: '#FFD600' },
 
-  vacio: { color: '#444', fontSize: 13.5, textAlign: 'center', lineHeight: 19, paddingVertical: 24 },
+  vacio: { color: '#444', fontSize: 14, textAlign: 'center', lineHeight: 19, paddingVertical: 24 },
 });
 
 export default PanelIngresos;

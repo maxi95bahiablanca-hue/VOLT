@@ -23,7 +23,7 @@ class ErrorBoundary extends React.Component {
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <View style={styles.iconWrap}>
-            <Ionicons name="alert-circle" size={56} color="#ff4444" />
+            <Ionicons name="alert-circle" size={56} color="#E5484D" />
           </View>
           <Text style={styles.title}>Algo salió mal</Text>
           <Text style={styles.subtitle}>
@@ -39,7 +39,7 @@ class ErrorBoundary extends React.Component {
             onPress={() => this.setState({ hasError: false, error: null })}
             activeOpacity={0.85}
           >
-            <Ionicons name="refresh" size={18} color="#0A0A0A" />
+            <Ionicons name="refresh" size={18} color="#0D0D0D" />
             <Text style={styles.retryBtnText}>Reintentar</Text>
           </TouchableOpacity>
         </View>
@@ -49,37 +49,37 @@ class ErrorBoundary extends React.Component {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   content: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 32,
   },
   iconWrap: {
-    width: 96, height: 96, borderRadius: 48,
-    backgroundColor: 'rgba(255,68,68,0.1)',
-    borderWidth: 1, borderColor: 'rgba(255,68,68,0.3)',
+    width: 96, height: 96, borderRadius: 999,
+    backgroundColor: 'rgba(229,72,77,0.1)',
+    borderWidth: 1, borderColor: 'rgba(229,72,77,0.3)',
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 24,
   },
   title: {
-    fontSize: 24, fontWeight: '900', color: '#F5F5F5',
+    fontSize: 24, fontWeight: '700', color: '#FFFFFF',
     textAlign: 'center', marginBottom: 12,
   },
   subtitle: {
-    fontSize: 14, color: '#666', textAlign: 'center',
+    fontSize: 16, color: '#5C5C5C', textAlign: 'center',
     lineHeight: 22, marginBottom: 24,
   },
   errorDetail: {
-    fontSize: 11, color: '#444', fontFamily: 'monospace',
-    backgroundColor: '#111', borderRadius: 8, padding: 12,
+    fontSize: 12, color: '#444', fontFamily: 'monospace',
+    backgroundColor: '#161616', borderRadius: 20, padding: 12,
     marginBottom: 24, width: '100%',
   },
   retryBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FFD600', borderRadius: 16,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingVertical: 16, paddingHorizontal: 32,
   },
-  retryBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  retryBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 });
 
 export default ErrorBoundary;

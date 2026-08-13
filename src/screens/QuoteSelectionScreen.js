@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   ScrollView, ActivityIndicator, Alert, Platform, Image, Modal, AppState,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import jobService from '../services/jobService';
@@ -12,6 +13,7 @@ import professionalService from '../services/professionalService';
 import paymentService from '../services/paymentService';
 import { chargesInApp, isFreeMode } from '../config/monetization';
 import ReputationCard from '../components/ReputationCard';
+import { GaleriaTrabajos } from '../components/PerfilProfesional';
 import volt from '../utils/voltVoice';
 import { isDemoMode } from '../demo/demoMode';
 import demoJobService from '../demo/demoJobService';
@@ -107,7 +109,7 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
       {/* Comentario destacado (diagnóstico del profesional) */}
       {job.pre_diagnosis ? (
         <View style={styles.quoteBox}>
-          <Ionicons name="chatbubble-outline" size={13} color="#888" />
+          <Ionicons name="chatbubble-outline" size={13} color="#8A8A8A" />
           <Text style={styles.quoteText}>"{job.pre_diagnosis}"</Text>
         </View>
       ) : (
@@ -143,7 +145,7 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
       {/* Botones secundarios */}
       <View style={styles.secondaryBtns}>
         <TouchableOpacity style={styles.secondaryBtn} onPress={() => onViewProfile(job)} activeOpacity={0.8}>
-          <Ionicons name="person-outline" size={14} color="#888" />
+          <Ionicons name="person-outline" size={14} color="#8A8A8A" />
           <Text style={styles.secondaryBtnText}>Ver perfil</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -152,7 +154,7 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
           disabled={compareDisabled && !inCompare}
           activeOpacity={0.8}
         >
-          <Ionicons name="git-compare-outline" size={14} color={inCompare ? '#FFD600' : '#888'} />
+          <Ionicons name="git-compare-outline" size={14} color={inCompare ? '#FFD600' : '#8A8A8A'} />
           <Text style={[styles.secondaryBtnText, inCompare && { color: '#FFD600' }]}>
             {inCompare ? 'Quitar' : 'Comparar'}
           </Text>
@@ -167,10 +169,10 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
         activeOpacity={0.85}
       >
         {selecting
-          ? <ActivityIndicator color="#0A0A0A" size="small" />
+          ? <ActivityIndicator color="#0D0D0D" size="small" />
           : (
             <>
-              <Ionicons name="checkmark-circle" size={18} color="#0A0A0A" />
+              <Ionicons name="checkmark-circle" size={18} color="#0D0D0D" />
               <Text style={styles.selectBtnText}>Seleccionar</Text>
             </>
           )
@@ -182,6 +184,9 @@ const ProposalCard = ({ job, onSelect, onCompare, onViewProfile, selecting, inCo
 
 // ─── Modal: perfil completo ────────────────────────────────────────────────
 const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
+  // 🔴 11-ago-2026 — el hook va ANTES del `if (!job)`: si sale primero el return,
+  // React se queja de que cambió la cantidad de hooks entre renders.
+  const insets = useSafeAreaInsets();
   if (!job) return null;
   const prof     = job.professionals;
   const rating   = parseFloat(prof?.effective_rating ?? prof?.avg_rating) || 0;
@@ -190,14 +195,17 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
+        {/* 🔴 11-ago-2026 — el SafeAreaView de react-native no hace nada en Android:
+            con edge-to-edge la flecha de volver quedaba abajo de la barra de estado
+            y el título se pisaba con la hora. */}
+        <View style={[styles.modalHeader, Platform.OS === 'android' && { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-            <Ionicons name="arrow-back" size={22} color="#F5F5F5" />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Perfil del profesional</Text>
           <View style={{ width: 40 }} />
         </View>
-        <ScrollView contentContainerStyle={styles.modalContent}>
+        <ScrollView contentContainerStyle={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}>
           {/* Foto grande */}
           <View style={styles.modalAvatarWrap}>
             {prof?.avatar_url
@@ -238,7 +246,7 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
             )}
             {job.work_duration_est && (
               <View style={styles.modalJobRow}>
-                <Ionicons name="time-outline" size={16} color="#888" />
+                <Ionicons name="time-outline" size={16} color="#8A8A8A" />
                 <Text style={styles.modalJobText}>Duración estimada: {job.work_duration_est}</Text>
               </View>
             )}
@@ -252,6 +260,11 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
             </View>
           )}
 
+          {/* Sus trabajos: fotos y videos. Es lo que decide de verdad —ver cómo
+              le quedó un trabajo pesa más que un 4,8 sin contexto— y hasta hoy
+              el cliente no los veía por ningún lado. */}
+          <GaleriaTrabajos prof={prof} />
+
           {/* Reputación completa */}
           <ReputationCard prof={prof} />
 
@@ -262,10 +275,10 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
             activeOpacity={0.85}
           >
             {selecting
-              ? <ActivityIndicator color="#0A0A0A" size="small" />
+              ? <ActivityIndicator color="#0D0D0D" size="small" />
               : (
                 <>
-                  <Ionicons name="checkmark-circle" size={18} color="#0A0A0A" />
+                  <Ionicons name="checkmark-circle" size={18} color="#0D0D0D" />
                   <Text style={styles.selectBtnText}>Seleccionar este profesional</Text>
                 </>
               )
@@ -279,6 +292,7 @@ const ProfileModal = ({ job, onClose, onSelect, selecting }) => {
 
 // ─── Modal: comparación lado a lado ───────────────────────────────────────
 const CompareModal = ({ jobs, onClose, onSelect, selecting }) => {
+  const insets = useSafeAreaInsets();
   const METRICS = [
     { key: 'arrival',   label: 'Llega en',      get: j => j.arrival_estimate || '—' },
     ...(!isFreeMode() ? [{ key: 'price', label: 'Visita', get: j => `$${(j.visit_amount ?? 30000).toLocaleString('es-AR')}` }] : []),
@@ -299,14 +313,19 @@ const CompareModal = ({ jobs, onClose, onSelect, selecting }) => {
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
+        {/* 🔴 11-ago-2026 — mismo caso que el modal de perfil: en Android la X de
+            cerrar arrancaba a 12dp, abajo de la barra de estado. */}
+        <View style={[styles.modalHeader, Platform.OS === 'android' && { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-            <Ionicons name="close" size={22} color="#F5F5F5" />
+            <Ionicons name="close" size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Comparar profesionales</Text>
           <View style={{ width: 40 }} />
         </View>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 16 }}
+        >
           {/* Fotos */}
           <View style={styles.compareHeaderRow}>
             <View style={styles.compareMetricLabel} />
@@ -409,23 +428,25 @@ const VoltCard = ({ message }) => (
 const voltCardStyles = StyleSheet.create({
   wrap: {
     width: '100%',
-    backgroundColor: '#0A0D15', borderRadius: 14,
+    backgroundColor: '#0A0D15', borderRadius: 20,
     borderWidth: 1, borderColor: '#FFD60030',
     paddingHorizontal: 16, paddingVertical: 14,
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     marginBottom: 4,
   },
   badge: {
-    backgroundColor: '#FFD60020', borderRadius: 10,
+    backgroundColor: '#FFD60020', borderRadius: 999,
     borderWidth: 1, borderColor: '#FFD60040',
     paddingHorizontal: 8, paddingVertical: 4,
   },
-  badgeText: { fontSize: 10, fontWeight: '900', color: '#FFD600', letterSpacing: 0.8 },
-  message:   { flex: 1, fontSize: 13, color: '#BBBBBB', lineHeight: 19 },
+  badgeText: { fontSize: 12, fontWeight: '700', color: '#FFD600', letterSpacing: 0.8 },
+  message:   { flex: 1, fontSize: 14, color: '#FFFFFF', lineHeight: 19 },
 });
 
 // ─── Modal: resumen antes de confirmar ────────────────────────────────────
 const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
+  // 🔴 11-ago-2026 — el hook va ANTES del `if (!job)`, igual que en ProfileModal.
+  const insets = useSafeAreaInsets();
   if (!job) return null;
   const prof      = job.professionals;
   const rating    = parseFloat(prof?.effective_rating ?? prof?.avg_rating) || 0;
@@ -437,14 +458,19 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
     { icon: 'construct-outline',  label: 'Servicio',           val: job.professions?.name || '—',                       color: '#FFD600' },
     { icon: 'navigate-outline',   label: 'Llegada estimada',   val: job.arrival_estimate || '—',                        color: '#FFD600' },
     ...(!isFreeMode() ? [{ icon: 'card-outline', label: 'Visita', val: `$${(job.visit_amount ?? 30000).toLocaleString('es-AR')}`, color: '#FFD600' }] : []),
-    { icon: 'cart-outline',       label: 'Materiales',         val: hasMats ? 'No incluidos' : 'No necesarios',         color: hasMats ? '#FF9800' : '#4CAF50' },
-    { icon: 'time-outline',       label: 'Duración estimada',  val: duration || 'A confirmar al llegar',                color: '#888' },
+    { icon: 'cart-outline',       label: 'Materiales',         val: hasMats ? 'No incluidos' : 'No necesarios',         color: hasMats ? '#8A8A8A' : '#FFD600' },
+    { icon: 'time-outline',       label: 'Duración estimada',  val: duration || 'A confirmar al llegar',                color: '#8A8A8A' },
   ];
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onCancel}>
       <View style={cmStyles.overlay}>
-        <View style={cmStyles.sheet}>
+        {/* 🔴 11-ago-2026 — la app es edge-to-edge y los Modal de Android también
+            (gradle.properties: edgeToEdgeEnabled=true), así que esta hoja llega
+            hasta el borde real de la pantalla: con la barra de 3 botones (48dp)
+            los 28dp fijos dejaban "Cancelar" abajo de la barra, sin poder tocarlo.
+            En iOS 34+6 = 40, exactamente el valor que ya tenía: no cambia nada. */}
+        <View style={[cmStyles.sheet, { paddingBottom: Math.max(insets.bottom + 6, Platform.OS === 'ios' ? 40 : 28) }]}>
           <View style={cmStyles.handle} />
 
           {/* Profesional seleccionado */}
@@ -491,7 +517,7 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
           {/* Nota de materiales */}
           {hasMats && (
             <View style={cmStyles.matsNote}>
-              <Ionicons name="information-circle-outline" size={14} color="#FF9800" />
+              <Ionicons name="information-circle-outline" size={14} color="#8A8A8A" />
               <Text style={cmStyles.matsNoteText}>
                 El costo de materiales se agrega al monto final y lo confirmará el profesional al llegar.
               </Text>
@@ -499,13 +525,13 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
           )}
 
           {/* Aviso de pago: escrow (modo comisión) o pago directo (modo gratis) */}
-          <View style={{ flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: '#0d1a10', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#33d17a40' }}>
+          <View style={{ flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: '#0d1a10', borderRadius: 20, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#33d17a40' }}>
             <Ionicons name={chargesInApp() ? 'lock-closed' : 'information-circle-outline'} size={16} color="#33d17a" />
-            <Text style={{ flex: 1, color: '#9fcaa9', fontSize: 12.5, lineHeight: 18 }}>
+            <Text style={{ flex: 1, color: '#9fcaa9', fontSize: 14, lineHeight: 18 }}>
               {chargesInApp() ? (
-                <>Al confirmar abonás la visita de <Text style={{ fontWeight: '800', color: '#fff' }}>${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>. El dinero queda <Text style={{ fontWeight: '800', color: '#33d17a' }}>retenido por BOLT</Text> y se libera al profesional recién cuando finalizás el trabajo.</>
+                <>Al confirmar abonás la visita de <Text style={{ fontWeight: '600', color: '#fff' }}>${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>. El dinero queda <Text style={{ fontWeight: '600', color: '#33d17a' }}>retenido por BOLT</Text> y se libera al profesional recién cuando finalizás el trabajo.</>
               ) : (
-                <>El precio lo acordás <Text style={{ fontWeight: '800', color: '#fff' }}>directamente con el profesional</Text>. El pago es entre ustedes (efectivo, transferencia, lo que prefieran). BOLT te conecta, sin intermediar el cobro.</>
+                <>El precio lo acordás <Text style={{ fontWeight: '600', color: '#fff' }}>directamente con el profesional</Text>. El pago es entre ustedes (efectivo, transferencia, lo que prefieran). BOLT te conecta, sin intermediar el cobro.</>
               )}
             </Text>
           </View>
@@ -518,10 +544,10 @@ const ConfirmModal = ({ job, onConfirm, onCancel, selecting }) => {
             activeOpacity={0.85}
           >
             {selecting
-              ? <ActivityIndicator color="#0A0A0A" />
+              ? <ActivityIndicator color="#0D0D0D" />
               : (
                 <>
-                  <Ionicons name="checkmark-circle" size={20} color="#0A0A0A" />
+                  <Ionicons name="checkmark-circle" size={20} color="#0D0D0D" />
                   <Text style={cmStyles.confirmBtnText}>Confirmar contratación</Text>
                 </>
               )
@@ -543,9 +569,8 @@ const cmStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#111',
+    backgroundColor: '#161616',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: '#1E1E1E',
     padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 28, gap: 16,
   },
   handle: {
@@ -554,28 +579,28 @@ const cmStyles = StyleSheet.create({
   },
 
   profRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  profAvatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: '#FFD600' },
+  profAvatar: { width: 52, height: 52, borderRadius: 999 },
   profAvatarPlaceholder: {
-    width: 52, height: 52, borderRadius: 26,
+    width: 52, height: 52, borderRadius: 999,
     backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
-  profAvatarInitial: { fontSize: 20, fontWeight: '900', color: '#FFD600' },
+  profAvatarInitial: { fontSize: 20, fontWeight: '700', color: '#FFD600' },
   profInfo: { flex: 1 },
-  profName: { fontSize: 15, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
-  profRole: { fontSize: 12, color: '#555', marginBottom: 4 },
+  profName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 },
+  profRole: { fontSize: 14, color: '#5C5C5C', marginBottom: 4 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ratingVal:  { fontSize: 12, fontWeight: '800', color: '#FFD600' },
-  ratingJobs: { fontSize: 11, color: '#444' },
+  ratingVal:  { fontSize: 14, fontWeight: '600', color: '#FFD600' },
+  ratingJobs: { fontSize: 12, color: '#444' },
 
   title: {
-    fontSize: 11, fontWeight: '800', color: '#444',
-    textTransform: 'uppercase', letterSpacing: 1,
+    fontSize: 12, fontWeight: '600', color: '#444',
+    textTransform: 'uppercase', letterSpacing: 1.8,
   },
 
   rowsWrap: {
-    backgroundColor: '#0A0A0A', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E', overflow: 'hidden',
+    backgroundColor: '#161616', borderRadius: 20,
+    overflow: 'hidden',
   },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -583,29 +608,29 @@ const cmStyles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
   rowIcon: {
-    width: 28, height: 28, borderRadius: 8,
+    width: 28, height: 28, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
-  rowLabel: { flex: 1, fontSize: 13, color: '#666' },
-  rowVal:   { fontSize: 13, fontWeight: '700', color: '#F5F5F5', textAlign: 'right', maxWidth: '45%' },
+  rowLabel: { flex: 1, fontSize: 14, color: '#5C5C5C' },
+  rowVal:   { fontSize: 14, fontWeight: '700', color: '#FFFFFF', textAlign: 'right', maxWidth: '45%' },
 
   matsNote: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: 'rgba(255,152,0,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,152,0,0.2)',
-    borderRadius: 12, padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20, padding: 12,
   },
-  matsNoteText: { flex: 1, fontSize: 12, color: '#FF9800', lineHeight: 17 },
+  matsNoteText: { flex: 1, fontSize: 14, color: '#8A8A8A', lineHeight: 17 },
 
   confirmBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: '#FFD600',
-    borderRadius: 16, paddingVertical: 18,
+    borderRadius: 999, paddingVertical: 18,
   },
-  confirmBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  confirmBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   cancelBtn: { alignItems: 'center', paddingVertical: 8 },
-  cancelBtnText: { fontSize: 14, color: '#444' },
+  cancelBtnText: { fontSize: 16, color: '#444' },
 });
 
 // ─── SCREEN PRINCIPAL ─────────────────────────────────────────────────────
@@ -616,6 +641,7 @@ const restante = (deadline) =>
   deadline ? Math.max(0, Math.round((deadline - Date.now()) / 1000)) : TIMEOUT_SEC;
 
 const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSelected, onExpired, onMinimize, onBack }) => {
+  const insets                    = useSafeAreaInsets();
   const [jobs, setJobs]           = useState(initialJobs || []);
   const [timeLeft, setTimeLeft]   = useState(() => restante(deadline));
   const [selecting, setSelecting] = useState(false);
@@ -803,7 +829,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
     ]);
   };
 
-  const urgencyColor = timeLeft <= 30 ? '#ff4444' : timeLeft <= 60 ? '#FF9800' : '#FFD600';
+  const urgencyColor = timeLeft <= 30 ? '#E5484D' : timeLeft <= 60 ? '#8A8A8A' : '#FFD600';
 
   // Nadie respondió: el pedido NO se pierde. Pasa a una persona del equipo.
   if (expired && respondedJobs.length === 0) {
@@ -822,7 +848,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
           <Text style={styles.expiredTitle}>Lo tomamos nosotros</Text>
           <Text style={styles.expiredSub}>
             Ningún profesional estaba libre en este momento, así que tu pedido pasó a
-            {' '}<Text style={{ color: '#F5F5F5', fontWeight: '700' }}>una persona del equipo</Text>,
+            {' '}<Text style={{ color: '#FFFFFF', fontWeight: '700' }}>una persona del equipo</Text>,
             que te va a buscar uno a mano.{'\n\n'}Escribinos por WhatsApp y lo resolvemos ahora.
           </Text>
 
@@ -831,7 +857,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
             onPress={() => rescueService.abrirWhatsApp(datosRescate, rescateIdRef.current)}
             activeOpacity={0.85}
           >
-            <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+            <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
             <Text style={styles.waBtnText}>Hablar con un encargado</Text>
           </TouchableOpacity>
 
@@ -874,13 +900,13 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.closeBtn} onPress={handleBack}>
-          <Ionicons name="close" size={22} color="#888" />
+          <Ionicons name="close" size={22} color="#8A8A8A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Elegí tu profesional</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}>
 
         {/* Timer / Banner */}
         {!expired ? (
@@ -911,7 +937,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
           </View>
         ) : (
           <View style={styles.expiredBanner}>
-            <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+            <Ionicons name="checkmark-circle" size={18} color="#FFD600" />
             <Text style={styles.expiredBannerText}>
               {respondedJobs.length === 1 ? '1 profesional disponible' : `${respondedJobs.length} profesionales disponibles`}
             </Text>
@@ -919,7 +945,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
         )}
 
         <View style={styles.sectionBadge}>
-          <Ionicons name="people" size={14} color="#0A0A0A" />
+          <Ionicons name="people" size={14} color="#0D0D0D" />
           <Text style={styles.sectionBadgeText}>PROPUESTAS</Text>
         </View>
 
@@ -949,7 +975,10 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
 
       {/* Barra de comparación (fija al fondo) */}
       {compareList.length >= 2 && (
-        <View style={styles.compareBar}>
+        // 🔴 11-ago-2026 — esta pantalla NO tiene TabBar abajo, así que bottom:0 es
+        // el borde real: con la barra de 3 botones de Android (48dp) el botón "Ver
+        // comparación" quedaba con 3dp tocables y el cliente se salía de la elección.
+        <View style={[styles.compareBar, { paddingBottom: Math.max(insets.bottom + 8, Platform.OS === 'ios' ? 28 : 22) }]}>
           <View style={styles.compareBarLeft}>
             {compareJobs.map(j => (
               <View key={j.id} style={styles.compareBarAvatar}>
@@ -970,7 +999,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
             </Text>
           </View>
           <TouchableOpacity style={styles.compareBarBtn} onPress={() => setShowCompare(true)} activeOpacity={0.85}>
-            <Ionicons name="git-compare-outline" size={16} color="#0A0A0A" />
+            <Ionicons name="git-compare-outline" size={16} color="#0D0D0D" />
             <Text style={styles.compareBarBtnText}>Ver comparación</Text>
           </TouchableOpacity>
         </View>
@@ -980,7 +1009,7 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   // ── Header ───────────────────────────────────────────────────────────────────
   header: {
@@ -991,161 +1020,159 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
   closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 
   content: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 },
 
   // ── Timer ────────────────────────────────────────────────────────────────────
   timerWrap: { alignItems: 'center', marginBottom: 20 },
   timerRing: {
-    width: 72, height: 72, borderRadius: 36, borderWidth: 3,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: '#111',
+    width: 72, height: 72, borderRadius: 999, borderWidth: 3,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#161616',
   },
-  timerNum: { fontSize: 26, fontWeight: '900' },
-  timerSec: { fontSize: 9, color: '#555', marginTop: -2 },
-  timerSub: { color: '#555', fontSize: 13, marginTop: 8, textAlign: 'center' },
-  timerHint: { color: '#3d3d3d', fontSize: 11, marginTop: 6, textAlign: 'center', lineHeight: 16, paddingHorizontal: 24 },
+  timerNum: { fontSize: 26, fontWeight: '700' },
+  timerSec: { fontSize: 12, color: '#5C5C5C', marginTop: -2 },
+  timerSub: { color: '#5C5C5C', fontSize: 14, marginTop: 8, textAlign: 'center' },
+  timerHint: { color: '#5C5C5C', fontSize: 12, marginTop: 6, textAlign: 'center', lineHeight: 16, paddingHorizontal: 24 },
 
   keepUsingBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     marginTop: 14, paddingVertical: 10, paddingHorizontal: 18,
-    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,214,0,0.35)',
+    borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,214,0,0.35)',
     backgroundColor: 'rgba(255,214,0,0.07)',
   },
-  keepUsingText: { color: '#FFD600', fontSize: 12, fontWeight: '900', letterSpacing: 0.4 },
+  keepUsingText: { color: '#FFD600', fontSize: 14, fontWeight: '600' },
 
   expiredBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(76,175,80,0.1)',
-    borderWidth: 1, borderColor: 'rgba(76,175,80,0.3)',
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20,
+    backgroundColor: 'rgba(255,214,0,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.3)',
+    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 20,
   },
-  expiredBannerText: { color: '#4CAF50', fontSize: 13, fontWeight: '700' },
+  expiredBannerText: { color: '#FFD600', fontSize: 14, fontWeight: '700' },
 
   sectionBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFD600', borderRadius: 20,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingHorizontal: 14, paddingVertical: 7, marginBottom: 16,
   },
-  sectionBadgeText: { color: '#0A0A0A', fontWeight: '900', fontSize: 11, letterSpacing: 1.2 },
+  sectionBadgeText: { color: '#0D0D0D', fontWeight: '600', fontSize: 12, letterSpacing: 1.8 },
 
-  hint: { fontSize: 12, color: '#2a2a2a', textAlign: 'center', marginTop: 8, lineHeight: 18 },
+  hint: { fontSize: 14, color: '#5C5C5C', textAlign: 'center', marginTop: 8, lineHeight: 18 },
 
   // ── ProposalCard ──────────────────────────────────────────────────────────────
   card: {
-    width: '100%', backgroundColor: '#111',
-    borderRadius: 18, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 16, marginBottom: 14, gap: 12,
+    width: '100%', backgroundColor: '#161616',
+    borderRadius: 20, padding: 16, marginBottom: 14, gap: 12,
   },
-  cardCompared: { borderColor: '#FFD60060', backgroundColor: '#0A0D15' },
+  cardCompared: { borderWidth: 1.5, borderColor: '#FFD600', backgroundColor: '#161616' },
 
   compareBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,214,0,0.12)',
     borderWidth: 1, borderColor: 'rgba(255,214,0,0.3)',
-    borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
   },
-  compareBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFD600' },
+  compareBadgeText: { fontSize: 12, fontWeight: '600', color: '#FFD600' },
 
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatarWrap: { position: 'relative' },
-  avatarImg: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: '#FFD600' },
+  avatarImg: { width: 56, height: 56, borderRadius: 999, backgroundColor: '#161616' },
   avatarPlaceholder: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#FFD600',
+    width: 56, height: 56, borderRadius: 999,
+    backgroundColor: '#1E1E1E',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarInitial: { fontSize: 20, fontWeight: '900', color: '#FFD600' },
+  avatarInitial: { fontSize: 20, fontWeight: '700', color: '#8A8A8A' },
 
   cardInfo: { flex: 1 },
-  profName: { fontSize: 16, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
-  profRole: { fontSize: 12, color: '#555', marginBottom: 5 },
+  profName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 },
+  profRole: { fontSize: 14, color: '#5C5C5C', marginBottom: 5 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  ratingVal:  { fontSize: 12, fontWeight: '800', color: '#FFD600', marginLeft: 4 },
-  ratingJobs: { fontSize: 11, color: '#444', marginLeft: 2 },
+  ratingVal:  { fontSize: 14, fontWeight: '600', color: '#FFD600', marginLeft: 4 },
+  ratingJobs: { fontSize: 12, color: '#444', marginLeft: 2 },
 
   priceWrap:  { alignItems: 'flex-end' },
-  priceLabel: { fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-  priceVal:   { fontSize: 18, fontWeight: '900', color: '#FFD600' },
+  priceLabel: { fontSize: 12, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 2 },
+  priceVal:   { fontSize: 18, fontWeight: '700', color: '#FFD600' },
 
   arrivalRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: 'rgba(255,214,0,0.08)',
     borderWidth: 1, borderColor: 'rgba(255,214,0,0.2)',
-    borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6,
     alignSelf: 'flex-start',
   },
-  arrivalText: { fontSize: 13, fontWeight: '700', color: '#FFD600' },
+  arrivalText: { fontSize: 14, fontWeight: '700', color: '#FFD600' },
 
   quoteBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#0c0c00', borderRadius: 12,
+    backgroundColor: '#0c0c00', borderRadius: 20,
     borderWidth: 1, borderColor: '#2a2a10', padding: 12,
   },
-  quoteText: { flex: 1, fontSize: 13, color: '#ccc', lineHeight: 19, fontStyle: 'italic' },
-  noDiag: { fontSize: 12, color: '#333' },
+  quoteText: { flex: 1, fontSize: 14, color: '#ccc', lineHeight: 19, fontStyle: 'italic' },
+  noDiag: { fontSize: 14, color: '#333' },
 
   // Tira de trabajos hechos
   fotosRow:   { flexDirection: 'row', gap: 6, marginTop: 12 },
-  fotoWrap:   { flex: 1, aspectRatio: 1, borderRadius: 10, overflow: 'hidden', backgroundColor: '#111' },
+  fotoWrap:   { flex: 1, aspectRatio: 1, borderRadius: 20, overflow: 'hidden', backgroundColor: '#161616' },
   fotoThumb:  { width: '100%', height: '100%' },
   fotoMas:    { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000b3', alignItems: 'center', justifyContent: 'center' },
-  fotoMasTxt: { color: '#FFD600', fontWeight: '800', fontSize: 15 },
-  fotosPie:   { fontSize: 11, color: '#777', marginTop: 6, marginBottom: 2 },
+  fotoMasTxt: { color: '#FFD600', fontWeight: '600', fontSize: 16 },
+  fotosPie:   { fontSize: 12, color: '#8A8A8A', marginTop: 6, marginBottom: 2 },
 
   secondaryBtns: { flexDirection: 'row', gap: 8 },
   secondaryBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: '#0A0A0A', borderRadius: 10,
-    borderWidth: 1, borderColor: '#1E1E1E', paddingVertical: 10,
+    backgroundColor: '#161616', borderRadius: 999,
+    paddingVertical: 10,
   },
   secondaryBtnActive: { borderColor: 'rgba(255,214,0,0.4)', backgroundColor: 'rgba(255,214,0,0.06)' },
   secondaryBtnDisabled: { opacity: 0.35 },
-  secondaryBtnText: { fontSize: 13, color: '#888', fontWeight: '600' },
+  secondaryBtnText: { fontSize: 14, color: '#8A8A8A', fontWeight: '600' },
 
   selectBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: '#FFD600',
-    borderRadius: 14, paddingVertical: 14,
+    borderRadius: 999, paddingVertical: 14,
   },
   selectBtnOff: { opacity: 0.5 },
-  selectBtnText: { color: '#0A0A0A', fontSize: 15, fontWeight: '900' },
+  selectBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   waitingCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, paddingVertical: 20,
   },
-  waitingName: { color: '#333', fontSize: 14 },
+  waitingName: { color: '#333', fontSize: 16 },
 
   // ── Barra de comparación (fija) ───────────────────────────────────────────────
   compareBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#111', borderTopWidth: 1, borderTopColor: '#1E1E1E',
-    paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: '#161616', paddingHorizontal: 16, paddingVertical: 12,
     paddingBottom: Platform.OS === 'ios' ? 28 : 14,
     gap: 12,
   },
   compareBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   compareBarAvatar: { marginRight: -8 },
-  compareBarAvatarImg: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: '#111' },
+  compareBarAvatarImg: { width: 36, height: 36, borderRadius: 999, borderWidth: 2, borderColor: '#161616' },
   compareBarAvatarPlaceholder: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#111',
+    width: 36, height: 36, borderRadius: 999,
+    backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#161616',
     alignItems: 'center', justifyContent: 'center',
   },
-  compareBarAvatarInitial: { fontSize: 13, fontWeight: '900', color: '#FFD600' },
-  compareBarText: { fontSize: 13, color: '#888', fontWeight: '600', marginLeft: 16 },
+  compareBarAvatarInitial: { fontSize: 14, fontWeight: '700', color: '#FFD600' },
+  compareBarText: { fontSize: 14, color: '#8A8A8A', fontWeight: '600', marginLeft: 16 },
   compareBarBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFD600', borderRadius: 12,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingHorizontal: 16, paddingVertical: 10,
   },
-  compareBarBtnText: { fontSize: 13, fontWeight: '900', color: '#0A0A0A' },
+  compareBarBtnText: { fontSize: 14, fontWeight: '700', color: '#0D0D0D' },
 
   // ── Modal: perfil ─────────────────────────────────────────────────────────────
-  modalContainer: { flex: 1, backgroundColor: '#0A0A0A' },
+  modalContainer: { flex: 1, backgroundColor: '#0D0D0D' },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16,
@@ -1154,35 +1181,35 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
   modalCloseBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: '#F5F5F5' },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
   modalContent: { padding: 20, gap: 16, alignItems: 'center' },
 
   modalAvatarWrap: { alignItems: 'center' },
-  modalAvatarImg: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#FFD600' },
+  modalAvatarImg: { width: 100, height: 100, borderRadius: 999, borderWidth: 3, borderColor: '#FFD600' },
   modalAvatarPlaceholder: {
-    width: 100, height: 100, borderRadius: 50,
+    width: 100, height: 100, borderRadius: 999,
     backgroundColor: '#1A1A00', borderWidth: 3, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
-  modalAvatarInitial: { fontSize: 38, fontWeight: '900', color: '#FFD600' },
-  modalProfName: { fontSize: 22, fontWeight: '900', color: '#F5F5F5' },
-  modalProfRole: { fontSize: 14, color: '#555' },
+  modalAvatarInitial: { fontSize: 38, fontWeight: '700', color: '#FFD600' },
+  modalProfName: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
+  modalProfRole: { fontSize: 16, color: '#5C5C5C' },
   modalRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  modalRatingVal: { fontSize: 16, fontWeight: '800', color: '#FFD600', marginLeft: 6 },
+  modalRatingVal: { fontSize: 16, fontWeight: '600', color: '#FFD600', marginLeft: 6 },
 
   modalJobInfo: {
-    width: '100%', backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 14, gap: 10,
+    width: '100%', backgroundColor: '#161616', borderRadius: 20,
+    padding: 14, gap: 10,
   },
   modalJobRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  modalJobText: { fontSize: 14, color: '#BBBBBB' },
+  modalJobText: { fontSize: 16, color: '#FFFFFF' },
 
   modalQuoteBox: {
     width: '100%', backgroundColor: '#0c0c00',
-    borderRadius: 14, borderWidth: 1, borderColor: '#2a2a10', padding: 14, gap: 6,
+    borderRadius: 20, borderWidth: 1, borderColor: '#2a2a10', padding: 14, gap: 6,
   },
-  modalQuoteLabel: { fontSize: 10, fontWeight: '800', color: '#555', textTransform: 'uppercase', letterSpacing: 0.8 },
-  modalQuoteText: { fontSize: 14, color: '#ccc', lineHeight: 20, fontStyle: 'italic' },
+  modalQuoteLabel: { fontSize: 12, fontWeight: '600', color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8 },
+  modalQuoteText: { fontSize: 16, color: '#ccc', lineHeight: 20, fontStyle: 'italic' },
 
   // ── Modal: comparación ────────────────────────────────────────────────────────
   compareHeaderRow: {
@@ -1192,47 +1219,46 @@ const styles = StyleSheet.create({
   },
   compareCol: { flex: 1, alignItems: 'center', gap: 6, paddingHorizontal: 4 },
   compareMetricLabel: { width: 100, paddingLeft: 12 },
-  compareMetricText: { fontSize: 12, color: '#555' },
+  compareMetricText: { fontSize: 14, color: '#5C5C5C' },
 
-  compareAvatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: '#FFD600' },
+  compareAvatar: { width: 44, height: 44, borderRadius: 999 },
   compareAvatarPlaceholder: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 999,
     backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
-  compareAvatarInitial: { fontSize: 16, fontWeight: '900', color: '#FFD600' },
-  compareName: { fontSize: 11, fontWeight: '700', color: '#888', textAlign: 'center' },
+  compareAvatarInitial: { fontSize: 16, fontWeight: '700', color: '#FFD600' },
+  compareName: { fontSize: 12, fontWeight: '700', color: '#8A8A8A', textAlign: 'center' },
 
   compareRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 12, paddingVertical: 14,
   },
   compareRowAlt: { backgroundColor: '#0D0D0D' },
-  compareVal: { fontSize: 14, fontWeight: '700', color: '#F5F5F5', textAlign: 'center' },
+  compareVal: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
 
   compareSelectRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: '#1a1a1a',
-  },
+    paddingHorizontal: 12, },
   compareSelectBtn: {
-    backgroundColor: '#FFD600', borderRadius: 10,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingHorizontal: 14, paddingVertical: 10,
   },
-  compareSelectBtnText: { fontSize: 13, fontWeight: '900', color: '#0A0A0A' },
+  compareSelectBtnText: { fontSize: 14, fontWeight: '700', color: '#0D0D0D' },
 
   // ── Sin respuestas ────────────────────────────────────────────────────────────
   expiredWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  expiredTitle: { fontSize: 24, fontWeight: '900', color: '#F5F5F5', marginTop: 20, marginBottom: 12 },
-  expiredSub: { fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 22, marginBottom: 36 },
-  retryBtn: { backgroundColor: '#1a1a1a', borderRadius: 16, paddingHorizontal: 36, paddingVertical: 15, marginTop: 12 },
-  retryBtnText: { color: '#888', fontSize: 15, fontWeight: '800' },
+  expiredTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF', marginTop: 20, marginBottom: 12 },
+  expiredSub: { fontSize: 16, color: '#5C5C5C', textAlign: 'center', lineHeight: 22, marginBottom: 36 },
+  retryBtn: { backgroundColor: '#1a1a1a', borderRadius: 999, paddingHorizontal: 36, paddingVertical: 15, marginTop: 12 },
+  retryBtnText: { color: '#8A8A8A', fontSize: 16, fontWeight: '600' },
 
   waBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#25D366', borderRadius: 16, paddingHorizontal: 30, paddingVertical: 17,
+    backgroundColor: '#8A8A8A', borderRadius: 999, paddingHorizontal: 30, paddingVertical: 17,
     alignSelf: 'stretch',
   },
-  waBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  waBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 });
 
 export default QuoteSelectionScreen;

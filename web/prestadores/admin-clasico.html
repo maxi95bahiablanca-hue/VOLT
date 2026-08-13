@@ -711,12 +711,19 @@ Cualquier duda escribime por acá. ¡Gracias!`;
 
   /** Le pregunta al trabajador. Si no contesta, el trabajo sigue apareciendo
    *  aca: no se pierde de vista hasta que alguien lo resuelve. */
+  // 🔴 11-ago-2026 — auditoria: acá decia "Listo, le preguntamos" pase lo que
+  // pase. `functions.invoke` NO tira excepcion con un 403 ni con un 500:
+  // devuelve { data, error } y el catch no corria nunca. Y aunque conteste 200,
+  // la funcion avisa si el push no salio ({ sent:false }). Un aviso que no
+  // salio NO se informa como enviado.
   async function preguntarAlTrabajador(jobId, userId, motivo){
     const m = MOTIVOS[motivo] || {};
     try {
-      await sb.functions.invoke('send-push', {
+      const { data: resp, error } = await sb.functions.invoke('send-push', {
         body: { userId, title: '⚡ BOLT te pregunta', body: m.pregunta, data: { jobId, screen: 'tracking' } },
       });
+      if (error){ alert('No se pudo avisar: ' + (error.message || 'error de la funcion')); return; }
+      if (resp && resp.sent === false){ alert('NO le llego: ' + (resp.reason || 'el push no salio') + '. Llamalo.'); return; }
       alert('Listo, le preguntamos. Si no contesta, el trabajo sigue apareciendo en esta lista.');
     } catch (e) { alert('No se pudo avisar: ' + e.message); }
   }

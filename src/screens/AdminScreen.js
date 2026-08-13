@@ -143,7 +143,7 @@ const AdminScreen = ({ session, onClose }) => {
 
       // Push + Email al trabajador via Edge Function
       const { data: { session: s } } = await supabase.auth.getSession();
-      await supabase.functions.invoke('send-worker-notification', {
+      const { data: aviso, error: aErr } = await supabase.functions.invoke('send-worker-notification', {
         body: {
           userId:        professional.user_id,
           action,
@@ -153,7 +153,38 @@ const AdminScreen = ({ session, onClose }) => {
         headers: { Authorization: `Bearer ${s?.access_token}` },
       });
 
-      showSuccess('El trabajador fue notificado.', action === 'approved' ? '¡Aprobado! ✅' : 'Rechazado');
+      // 🔴 11-ago-2026 — acá estaba la mentira que quedaba a la vista: el
+      //    resultado del invoke se tiraba a la basura y el cartel decía "El
+      //    trabajador fue notificado" pasara lo que pasara. Arreglar la Edge
+      //    Function para que conteste { ok, push, mail, motivo } no sirve de
+      //    nada si el panel no lo lee. Y no es un detalle de prolijidad: si
+      //    Macarena no se entera de que la aprobaron, no prende el radar y
+      //    queda invisible (el agujero de "aprobado pero fantasma"). Cuando el
+      //    aviso no sale, lo único que lo salva es que Maxi la llame — y para
+      //    eso tiene que saber que no salió.
+      //
+      //    OJO con el contrato: la función contesta 502 cuando no salió ni el
+      //    push ni el mail, y supabase-js convierte todo lo que no sea 2xx en
+      //    `error` con `data` en null. Por eso el motivo se busca primero en
+      //    data y, si vino por el camino del error, en el cuerpo de la
+      //    respuesta que queda colgado en error.context.
+      let motivo = aviso?.motivo || '';
+      if (aErr && !motivo) {
+        try { motivo = (await aErr.context?.json())?.motivo || ''; } catch { /* no vino cuerpo */ }
+      }
+
+      const titulo = action === 'approved' ? '¡Aprobado! ✅' : 'Rechazado';
+      if (!aErr && aviso?.ok) {
+        const por = [aviso.push ? 'push' : null, aviso.mail ? 'mail' : null].filter(Boolean).join(' + ');
+        showSuccess(`Avisado por ${por}.`, titulo);
+      } else {
+        // El estado ya quedó guardado en la base: esto NO se deshace, se avisa.
+        showError(
+          `Quedó ${action === 'approved' ? 'aprobado' : 'rechazado'}, pero NO se le pudo avisar: llamalo. ` +
+          (motivo || aErr?.message || 'sin detalle'),
+          'Sin aviso ⚠️',
+        );
+      }
       loadAll();
     } catch {
       showError('No se pudo actualizar el estado.');
@@ -168,8 +199,8 @@ const AdminScreen = ({ session, onClose }) => {
     });
 
   const STATUS_JOB = {
-    pending:'#888', accepted:'#FFD600', arrived:'#FFD600',
-    in_progress:'#FF9800', awaiting_payment:'#4CAF50', completed:'#4CAF50', cancelled:'#ff4444',
+    pending:'#8A8A8A', accepted:'#FFD600', arrived:'#FFD600',
+    in_progress:'#8A8A8A', awaiting_payment:'#FFD600', completed:'#FFD600', cancelled:'#E5484D',
   };
 
   return (
@@ -220,7 +251,7 @@ const AdminScreen = ({ session, onClose }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>Panel BOLT</Text>
@@ -265,11 +296,11 @@ const AdminScreen = ({ session, onClose }) => {
                     <Text style={styles.kpiLabel}>Trabajadores activos</Text>
                   </View>
                   <View style={styles.kpiCard}>
-                    <Text style={[styles.kpiVal, { color: '#4CAF50' }]}>{summary.activeWorkers ?? 0}</Text>
+                    <Text style={[styles.kpiVal, { color: '#FFD600' }]}>{summary.activeWorkers ?? 0}</Text>
                     <Text style={styles.kpiLabel}>En línea ahora</Text>
                   </View>
                   <View style={styles.kpiCard}>
-                    <Text style={[styles.kpiVal, { color: summary.pendingCount > 0 ? '#FF9800' : '#555' }]}>{summary.pendingCount ?? 0}</Text>
+                    <Text style={[styles.kpiVal, { color: summary.pendingCount > 0 ? '#8A8A8A' : '#5C5C5C' }]}>{summary.pendingCount ?? 0}</Text>
                     <Text style={styles.kpiLabel}>Pendientes</Text>
                   </View>
                   <View style={styles.kpiCard}>
@@ -277,7 +308,7 @@ const AdminScreen = ({ session, onClose }) => {
                     <Text style={styles.kpiLabel}>Trabajos totales</Text>
                   </View>
                   <View style={styles.kpiCard}>
-                    <Text style={[styles.kpiVal, { color: '#4CAF50' }]}>{summary.completedJobs ?? 0}</Text>
+                    <Text style={[styles.kpiVal, { color: '#FFD600' }]}>{summary.completedJobs ?? 0}</Text>
                     <Text style={styles.kpiLabel}>Completados</Text>
                   </View>
                   <View style={[styles.kpiCard, { borderColor: '#FFD60030' }]}>
@@ -287,9 +318,9 @@ const AdminScreen = ({ session, onClose }) => {
                 </View>
                 {(summary.pendingCount ?? 0) > 0 && (
                   <TouchableOpacity style={styles.pendingAlert} onPress={() => setTab('pending')}>
-                    <Ionicons name="alert-circle" size={18} color="#FF9800" />
+                    <Ionicons name="alert-circle" size={18} color="#8A8A8A" />
                     <Text style={styles.pendingAlertText}>Tenés {summary.pendingCount} solicitud{summary.pendingCount > 1 ? 'es' : ''} pendiente{summary.pendingCount > 1 ? 's' : ''} de revisión</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#FF9800" />
+                    <Ionicons name="chevron-forward" size={16} color="#8A8A8A" />
                   </TouchableOpacity>
                 )}
               </>
@@ -301,7 +332,7 @@ const AdminScreen = ({ session, onClose }) => {
           ) : tab === 'pending' ? (
             pending.length === 0 ? (
               <View style={styles.emptyWrap}>
-                <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
+                <Ionicons name="checkmark-circle" size={48} color="#FFD600" />
                 <Text style={styles.emptyText}>No hay solicitudes pendientes</Text>
               </View>
             ) : pending.map(p => (
@@ -376,7 +407,7 @@ const AdminScreen = ({ session, onClose }) => {
                         </>
                       );
                     })()}
-                    <Text style={[styles.docInfoRow, { color: p.criminal_record_confirmed ? '#4CAF50' : '#ff4444' }]}>
+                    <Text style={[styles.docInfoRow, { color: p.criminal_record_confirmed ? '#FFD600' : '#E5484D' }]}>
                       {p.criminal_record_confirmed ? '✓ Dec. jurada' : '✗ Sin declaración'}
                     </Text>
                   </View>
@@ -388,7 +419,7 @@ const AdminScreen = ({ session, onClose }) => {
                     style={styles.rejectBtn}
                     onPress={() => handleVerify(p, 'rejected')}
                   >
-                    <Ionicons name="close" size={18} color="#ff4444" />
+                    <Ionicons name="close" size={18} color="#E5484D" />
                     <Text style={styles.rejectBtnText}>Rechazar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -398,7 +429,7 @@ const AdminScreen = ({ session, onClose }) => {
                       { text: 'Aprobar', onPress: () => handleVerify(p, 'approved') },
                     ])}
                   >
-                    <Ionicons name="checkmark" size={18} color="#0A0A0A" />
+                    <Ionicons name="checkmark" size={18} color="#0D0D0D" />
                     <Text style={styles.approveBtnText}>Aprobar</Text>
                   </TouchableOpacity>
                 </View>
@@ -426,10 +457,10 @@ const AdminScreen = ({ session, onClose }) => {
                     </View>
                   </View>
                   <View style={[styles.statusPill, {
-                    backgroundColor: p.verification_status === 'approved' ? '#4CAF5020' : '#ff444420',
-                    borderColor: p.verification_status === 'approved' ? '#4CAF5050' : '#ff444450',
+                    backgroundColor: p.verification_status === 'approved' ? '#FFD60020' : '#E5484D20',
+                    borderColor: p.verification_status === 'approved' ? '#FFD60050' : '#E5484D50',
                   }]}>
-                    <Text style={{ color: p.verification_status === 'approved' ? '#4CAF50' : '#ff4444', fontSize: 11, fontWeight: '800' }}>
+                    <Text style={{ color: p.verification_status === 'approved' ? '#FFD600' : '#E5484D', fontSize: 12, fontWeight: '600' }}>
                       {p.verification_status === 'approved' ? 'ACTIVO' : 'RECHAZADO'}
                     </Text>
                   </View>
@@ -453,13 +484,13 @@ const AdminScreen = ({ session, onClose }) => {
               <View key={j.id} style={styles.jobCard}>
                 <View style={styles.jobCardTop}>
                   <Text style={styles.jobProfession}>{j.professions?.name || 'Trabajo'}</Text>
-                  <View style={[styles.jobStatusPill, { backgroundColor: (STATUS_JOB[j.status] || '#888') + '20', borderColor: (STATUS_JOB[j.status] || '#888') + '40' }]}>
-                    <Text style={[styles.jobStatusText, { color: STATUS_JOB[j.status] || '#888' }]}>{j.status}</Text>
+                  <View style={[styles.jobStatusPill, { backgroundColor: (STATUS_JOB[j.status] || '#8A8A8A') + '20', borderColor: (STATUS_JOB[j.status] || '#8A8A8A') + '40' }]}>
+                    <Text style={[styles.jobStatusText, { color: STATUS_JOB[j.status] || '#8A8A8A' }]}>{j.status}</Text>
                   </View>
                 </View>
                 {j.professionals && (
                   <Text style={styles.jobWorker}>
-                    <Ionicons name="construct-outline" size={11} color="#555" /> Trabajador: {j.professionals.first_name} {j.professionals.last_name}
+                    <Ionicons name="construct-outline" size={11} color="#5C5C5C" /> Trabajador: {j.professionals.first_name} {j.professionals.last_name}
                   </Text>
                 )}
                 <Text style={styles.jobAddress}>{j.address || 'Sin dirección'}</Text>
@@ -500,7 +531,7 @@ const AdminScreen = ({ session, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -509,120 +540,118 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  headerTitle: { fontSize: 17, fontWeight: '900', color: '#F5F5F5' },
-  headerSub:   { fontSize: 11, color: '#555' },
-  adminBadge:  { backgroundColor: '#FFD600', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 'auto' },
-  adminBadgeText: { color: '#0A0A0A', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  headerSub:   { fontSize: 12, color: '#5C5C5C' },
+  adminBadge:  { backgroundColor: '#FFD600', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 'auto' },
+  adminBadgeText: { color: '#0D0D0D', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
 
   tabsScroll: { borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
   tabsContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
-  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#222', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabActive: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
-  tabText: { fontSize: 13, fontWeight: '700', color: '#555' },
-  tabTextActive: { color: '#0A0A0A' },
-  tabBadge: { backgroundColor: '#ff4444', borderRadius: 10, width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
-  tabBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  tabText: { fontSize: 14, fontWeight: '700', color: '#5C5C5C' },
+  tabTextActive: { color: '#0D0D0D' },
+  tabBadge: { backgroundColor: '#E5484D', borderRadius: 999, width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
+  tabBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 
   content: { padding: 16, gap: 12 },
 
   emptyWrap: { alignItems: 'center', paddingVertical: 64, gap: 12 },
-  emptyText: { color: '#444', fontSize: 15 },
+  emptyText: { color: '#444', fontSize: 16 },
 
   workerCard: {
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 16,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 16,
   },
   workerCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  workerAvatar: { width: 52, height: 52, borderRadius: 26 },
+  workerAvatar: { width: 52, height: 52, borderRadius: 999 },
   workerAvatarPlaceholder: {
-    width: 52, height: 52, borderRadius: 26,
+    width: 52, height: 52, borderRadius: 999,
     backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
-  workerName:  { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 2 },
-  workerPhone: { fontSize: 13, color: '#666', marginBottom: 2 },
-  workerDate:  { fontSize: 11, color: '#444' },
+  workerName:  { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 2 },
+  workerPhone: { fontSize: 14, color: '#5C5C5C', marginBottom: 2 },
+  workerDate:  { fontSize: 12, color: '#444' },
   workerStatsRow: { flexDirection: 'row', gap: 12 },
-  workerStat: { fontSize: 12, color: '#666' },
+  workerStat: { fontSize: 14, color: '#5C5C5C' },
 
   workerServices: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  servicePill: { backgroundColor: '#1A1A00', borderWidth: 1, borderColor: '#FFD60030', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  servicePillText: { color: '#FFD600', fontSize: 12, fontWeight: '600' },
+  servicePill: { backgroundColor: '#1A1A00', borderWidth: 1, borderColor: '#FFD60030', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  servicePillText: { color: '#FFD600', fontSize: 14, fontWeight: '600' },
 
   docsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  docThumb: { width: 64, height: 64, borderRadius: 10, overflow: 'hidden', backgroundColor: '#0A0A0A', borderWidth: 1, borderColor: '#222', alignItems: 'center', justifyContent: 'center' },
-  docThumbMissing: { borderColor: '#ff444430' },
-  docLabel: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#00000088', fontSize: 9, color: '#fff', textAlign: 'center', paddingVertical: 2 },
+  docThumb: { width: 64, height: 64, borderRadius: 20, overflow: 'hidden', backgroundColor: '#0D0D0D', alignItems: 'center', justifyContent: 'center' },
+  docThumbMissing: { borderColor: '#E5484D30' },
+  docLabel: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#00000088', fontSize: 12, color: '#fff', textAlign: 'center', paddingVertical: 2 },
   docInfoCol: { flex: 1, justifyContent: 'center', gap: 4 },
-  docInfoRow: { fontSize: 11, color: '#555' },
+  docInfoRow: { fontSize: 12, color: '#5C5C5C' },
 
   actionRow: { flexDirection: 'row', gap: 10 },
   rejectBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: 'rgba(255,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(255,68,68,0.25)',
+    gap: 6, paddingVertical: 12, borderRadius: 999,
+    backgroundColor: 'rgba(229,72,77,0.08)', borderWidth: 1, borderColor: 'rgba(229,72,77,0.25)',
   },
-  rejectBtnText: { color: '#ff4444', fontWeight: '700', fontSize: 14 },
+  rejectBtnText: { color: '#E5484D', fontWeight: '700', fontSize: 16 },
   approveBtn: {
     flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: '#FFD600',
+    gap: 6, paddingVertical: 12, borderRadius: 999, backgroundColor: '#FFD600',
   },
-  approveBtnText: { color: '#0A0A0A', fontWeight: '900', fontSize: 14 },
+  approveBtnText: { color: '#0D0D0D', fontWeight: '700', fontSize: 16 },
 
-  statusPill: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  reactivateBtn: { marginTop: 8, paddingVertical: 10, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#4CAF5040' },
-  reactivateBtnText: { color: '#4CAF50', fontSize: 13, fontWeight: '700' },
+  statusPill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
+  reactivateBtn: { marginTop: 8, paddingVertical: 10, alignItems: 'center', borderRadius: 999, borderWidth: 1, borderColor: '#FFD60040' },
+  reactivateBtnText: { color: '#FFD600', fontSize: 14, fontWeight: '700' },
 
   // KPI summary
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   kpiCard: {
     flex: 1, minWidth: '45%',
-    backgroundColor: '#111', borderRadius: 16,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 18, alignItems: 'center',
   },
-  kpiVal:   { fontSize: 30, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
-  kpiLabel: { fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
+  kpiVal:   { fontSize: 30, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  kpiLabel: { fontSize: 12, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, textAlign: 'center' },
   pendingAlert: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FF980015', borderWidth: 1, borderColor: '#FF980040',
-    borderRadius: 14, padding: 14, marginTop: 4,
+    backgroundColor: '#8A8A8A15', borderWidth: 1, borderColor: '#8A8A8A40',
+    borderRadius: 20, padding: 14, marginTop: 4,
   },
-  pendingAlertText: { flex: 1, color: '#FF9800', fontSize: 14, fontWeight: '600' },
+  pendingAlertText: { flex: 1, color: '#8A8A8A', fontSize: 16, fontWeight: '600' },
 
   jobCard: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 14,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 14,
   },
   jobCardTop:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  jobProfession: { fontSize: 14, fontWeight: '700', color: '#F5F5F5' },
-  jobStatusPill: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  jobStatusText: { fontSize: 11, fontWeight: '700' },
-  jobWorker:     { fontSize: 12, color: '#555', marginBottom: 2 },
-  jobAddress:    { fontSize: 12, color: '#444', marginBottom: 8 },
+  jobProfession: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  jobStatusPill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  jobStatusText: { fontSize: 12, fontWeight: '700' },
+  jobWorker:     { fontSize: 14, color: '#5C5C5C', marginBottom: 2 },
+  jobAddress:    { fontSize: 14, color: '#444', marginBottom: 8 },
   jobCardBottom: { flexDirection: 'row', justifyContent: 'space-between' },
-  jobDate:   { fontSize: 12, color: '#444' },
-  jobAmount: { fontSize: 14, fontWeight: '700', color: '#FFD600' },
+  jobDate:   { fontSize: 14, color: '#444' },
+  jobAmount: { fontSize: 16, fontWeight: '700', color: '#FFD600' },
 
   revenueCard: {
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 24, alignItems: 'center', marginBottom: 8,
   },
-  revenueTotalLabel: { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
-  revenueTotalVal:   { fontSize: 40, fontWeight: '900', color: '#4CAF50', marginBottom: 4 },
-  revenueMonthLabel: { fontSize: 14, color: '#666' },
+  revenueTotalLabel: { fontSize: 14, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8 },
+  revenueTotalVal:   { fontSize: 40, fontWeight: '700', color: '#FFD600', marginBottom: 4 },
+  revenueMonthLabel: { fontSize: 16, color: '#5C5C5C' },
 
-  sectionTitle: { fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginTop: 8, marginBottom: 4 },
+  sectionTitle: { fontSize: 14, color: '#444', textTransform: 'uppercase', letterSpacing: 1.8, marginTop: 8, marginBottom: 4 },
   revenueRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#111', borderRadius: 12,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 14,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 14,
   },
-  revenueRank: { fontSize: 18, fontWeight: '900', color: '#333', width: 24, textAlign: 'center' },
-  revenueName:  { fontSize: 14, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
-  revenueCount: { fontSize: 12, color: '#555' },
-  revenueComm:  { fontSize: 16, fontWeight: '900', color: '#FFD600' },
+  revenueRank: { fontSize: 18, fontWeight: '700', color: '#5C5C5C', width: 24, textAlign: 'center' },
+  revenueName:  { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 },
+  revenueCount: { fontSize: 14, color: '#5C5C5C' },
+  revenueComm:  { fontSize: 16, fontWeight: '700', color: '#FFD600' },
 
   // Image viewer
   imgViewerOverlay: {
@@ -634,7 +663,7 @@ const styles = StyleSheet.create({
   },
   imgViewerImg: { width: '90%', height: '70%' },
   imgViewerLabel: {
-    marginTop: 16, fontSize: 14, color: '#888', fontWeight: '600',
+    marginTop: 16, fontSize: 16, color: '#8A8A8A', fontWeight: '600',
   },
 
   // Modal rechazo
@@ -643,23 +672,21 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', padding: 24,
   },
   modalBox: {
-    backgroundColor: '#111', borderRadius: 20,
-    borderWidth: 1, borderColor: '#222',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 24, width: '100%',
   },
-  modalTitle: { fontSize: 17, fontWeight: '900', color: '#F5F5F5', marginBottom: 6 },
-  modalSub:   { fontSize: 13, color: '#555', marginBottom: 16 },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 6 },
+  modalSub:   { fontSize: 14, color: '#5C5C5C', marginBottom: 16 },
   modalInput: {
-    backgroundColor: '#0A0A0A', borderRadius: 12,
-    borderWidth: 1, borderColor: '#1E1E1E',
-    color: '#F5F5F5', fontSize: 15, padding: 14,
+    backgroundColor: '#161616', borderRadius: 20,
+    color: '#FFFFFF', fontSize: 16, padding: 14,
     minHeight: 80, textAlignVertical: 'top', marginBottom: 16,
   },
   modalActions:    { flexDirection: 'row', gap: 10 },
-  modalCancelBtn:  { flex: 1, paddingVertical: 13, alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: '#333' },
-  modalCancelText: { color: '#888', fontWeight: '700' },
-  modalConfirmBtn: { flex: 2, paddingVertical: 13, alignItems: 'center', borderRadius: 12, backgroundColor: '#ff4444' },
-  modalConfirmText:{ color: '#fff', fontWeight: '900' },
+  modalCancelBtn:  { flex: 1, paddingVertical: 13, alignItems: 'center', borderRadius: 999, },
+  modalCancelText: { color: '#8A8A8A', fontWeight: '700' },
+  modalConfirmBtn: { flex: 2, paddingVertical: 13, alignItems: 'center', borderRadius: 999, backgroundColor: '#E5484D' },
+  modalConfirmText:{ color: '#fff', fontWeight: '700' },
 });
 
 export default AdminScreen;

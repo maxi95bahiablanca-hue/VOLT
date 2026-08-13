@@ -16,6 +16,7 @@ android/app/google-services.json
 
 # Archivos de trabajo, no van al repo ni al sitio
 _chk.cjs
+_chk_ts.cjs
 _tmp.html
 web/_tmp.html
 web/pedir/_tmp.html

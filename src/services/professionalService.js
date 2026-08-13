@@ -123,14 +123,35 @@ const professionalService = {
   },
 
   getNearbyWorkers: async (professionId, lat, lng, limit = 20) => {
-    const { data, error } = await supabase.rpc('nearby_workers', {
-      p_profession_id: professionId,
-      p_lat: lat,
-      p_lng: lng,
-      p_limit: limit,
-    });
-    if (error) throw error;
-    return data ?? [];
+    const buscar = async (id) => {
+      const { data, error } = await supabase.rpc('nearby_workers', {
+        p_profession_id: id,
+        p_lat: lat,
+        p_lng: lng,
+        p_limit: limit,
+      });
+      if (error) throw error;
+      return data ?? [];
+    };
+
+    const encontrados = await buscar(professionId);
+    if (encontrados.length) return encontrados;
+
+    // Oficios finos con respaldo en el oficio grande.
+    //
+    // Maxi, 10-ago-2026: *"que cuando diga caldera lo encuentre a él, y si él no
+    // puede, a un gasista"*. Un oficio angosto acierta mejor —el que arregla
+    // calderas no quiere garrafas— pero al principio lo hace una sola persona:
+    // si está ocupada o apagada, el pedido no puede morir ahí. Primero el
+    // especialista; si no hay ninguno cerca, el rubro que también lo cubre.
+    const RESPALDO = {
+      20: 3,   // Calderas → Gasista
+    };
+    const alternativo = RESPALDO[professionId];
+    if (!alternativo) return encontrados;
+
+    const deRespaldo = await buscar(alternativo).catch(() => []);
+    return deRespaldo.map((w) => ({ ...w, por_respaldo: true }));
   },
 
   getNearestAvailable: async (lat, lng) => {
@@ -162,15 +183,21 @@ const professionalService = {
     } catch { return []; }   // sin fotos nunca puede romper una pantalla
   },
 
-  /** Sube una foto de trabajo. Queda PENDIENTE hasta que la revisen. */
+  /** Sube una foto O un video de trabajo. Queda PENDIENTE hasta que lo revisen.
+   *
+   *  El tipo no se guarda en una columna: viaja en la extensión de la url, que
+   *  es lo que ya se conserva. Así no hay migración de por medio y una url
+   *  vieja sigue leyéndose igual. Ver `esVideo` en PerfilProfesional.js. */
   subirFoto: async (professionalId, uri, descripcion = null) => {
     const FileSystem = await import('expo-file-system/legacy');
-    const ext = (uri.split('.').pop() || 'jpg').toLowerCase();
+    const ext = (uri.split('.').pop() || 'jpg').toLowerCase().replace(/\?.*$/, '');
+    const VIDEOS = { mp4: 'video/mp4', mov: 'video/quicktime', m4v: 'video/x-m4v', webm: 'video/webm', '3gp': 'video/3gpp' };
+    const contentType = VIDEOS[ext] || `image/${ext === 'jpg' ? 'jpeg' : ext}`;
     const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const path = `trabajos/${professionalId}/${Date.now()}.${ext}`;
     const { error: e1 } = await supabase.storage.from('avatars')
-      .upload(path, bytes, { upsert: true, contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}` });
+      .upload(path, bytes, { upsert: true, contentType });
     if (e1) throw e1;
     const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
     const { data, error } = await supabase.from('professional_photos')

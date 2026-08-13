@@ -26,26 +26,26 @@ import { chargesInApp, isFreeMode } from '../config/monetization';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_LABEL = {
-  pending:          { label: 'Pendiente',    color: '#888' },
+  pending:          { label: 'Pendiente',    color: '#8A8A8A' },
   accepted:         { label: 'En camino',    color: '#FFD600' },
   arrived:          { label: 'En domicilio', color: '#FFD600' },
-  in_progress:      { label: 'Trabajando',   color: '#FF9800' },
-  awaiting_payment: { label: isFreeMode() ? 'Finalizando' : 'Cobrando', color: '#4CAF50' },
-  completed:        { label: 'Completado',   color: '#4CAF50' },
-  cancelled:        { label: 'Cancelado',    color: '#ff4444' },
+  in_progress:      { label: 'Trabajando',   color: '#8A8A8A' },
+  awaiting_payment: { label: isFreeMode() ? 'Finalizando' : 'Cobrando', color: '#FFD600' },
+  completed:        { label: 'Completado',   color: '#FFD600' },
+  cancelled:        { label: 'Cancelado',    color: '#E5484D' },
 };
 
 // El desenlace, dicho como se lo diría un compañero: en segunda persona y sin
 // tecnicismos. "expired" no le explica nada a nadie.
 const DESENLACE = {
   recibido:        { label: 'Esperando tu respuesta', color: '#FFD600' },
-  aceptado:        { label: 'Lo tomaste',             color: '#4CAF50' },
-  completado:      { label: 'Terminado',              color: '#4CAF50' },
-  rechazado:       { label: 'Lo rechazaste',          color: '#ff4444' },
-  vencido:         { label: 'No contestaste',         color: '#FF9800' },
-  paso_a_otro:     { label: 'Se le pasó a otro',      color: '#FF9800' },
-  no_te_eligieron: { label: 'Eligieron a otro',       color: '#888'    },
-  cancelado:       { label: 'Lo canceló el cliente',  color: '#888'    },
+  aceptado:        { label: 'Lo tomaste',             color: '#FFD600' },
+  completado:      { label: 'Terminado',              color: '#FFD600' },
+  rechazado:       { label: 'Lo rechazaste',          color: '#E5484D' },
+  vencido:         { label: 'No contestaste',         color: '#8A8A8A' },
+  paso_a_otro:     { label: 'Se le pasó a otro',      color: '#8A8A8A' },
+  no_te_eligieron: { label: 'Eligieron a otro',       color: '#8A8A8A'    },
+  cancelado:       { label: 'Lo canceló el cliente',  color: '#8A8A8A'    },
 };
 
 // "6 ago, 19:42" — la hora importa: sin ella no se puede reconstruir si el push
@@ -89,7 +89,7 @@ const PanelTrabajos = ({ jobs = [], actividad = null, professional, loading = fa
         </View>
         <View style={styles.statDiv} />
         <View style={styles.statBox}>
-          <Text style={[styles.statVal, { color: '#4CAF50', fontSize: 16 }]}>
+          <Text style={[styles.statVal, { color: '#FFD600', fontSize: 16 }]}>
             ${Math.round(thisMonthEarned).toLocaleString('es-AR')}
           </Text>
           <Text style={styles.statLbl}>Este{'\n'}mes</Text>
@@ -178,7 +178,7 @@ const PanelTrabajos = ({ jobs = [], actividad = null, professional, loading = fa
         // decía "En camino": no es cierto y confunde.
         const esperandoEleccion = j.quote_group_id && ['pending', 'accepted'].includes(j.status);
         const s = esperandoEleccion
-          ? { label: 'Esperando que te elijan', color: '#888' }
+          ? { label: 'Esperando que te elijan', color: '#8A8A8A' }
           : (STATUS_LABEL[j.status] || STATUS_LABEL.cancelled);
         const earned = j.status === 'completed' && j.work_amount
           ? Math.round(j.work_amount * (1 - (chargesInApp() ? (j.commission_pct || 20) : 0) / 100))
@@ -210,46 +210,45 @@ const PanelTrabajos = ({ jobs = [], actividad = null, professional, loading = fa
 const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row', alignItems: 'center', marginBottom: 12,
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 20,
+    backgroundColor: '#161616', borderRadius: 20,
+    padding: 20,
   },
   statBox: { flex: 1, alignItems: 'center' },
-  statVal: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginBottom: 6 },
-  statLbl: { fontSize: 11, color: '#555', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 15 },
-  statOnTime: { fontSize: 10, color: '#4CAF50', fontWeight: '700', marginTop: 4, textAlign: 'center' },
+  statVal: { fontSize: 22, fontWeight: '700', color: '#FFFFFF', marginBottom: 6 },
+  statLbl: { fontSize: 12, color: '#5C5C5C', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1.8, lineHeight: 15 },
+  statOnTime: { fontSize: 12, color: '#FFD600', fontWeight: '700', marginTop: 4, textAlign: 'center' },
   statDiv: { width: 1, height: 36, backgroundColor: '#1E1E1E' },
 
   nextLevelCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     marginBottom: 12, padding: 14,
-    backgroundColor: '#0D0D00', borderRadius: 14,
+    backgroundColor: '#0D0D00', borderRadius: 20,
     borderWidth: 1, borderColor: '#2a2a00',
   },
-  nextLevelTitle: { fontSize: 13, fontWeight: '700', color: '#FFD600', marginBottom: 3 },
-  nextLevelSub:   { fontSize: 12, color: '#666' },
+  nextLevelTitle: { fontSize: 14, fontWeight: '700', color: '#FFD600', marginBottom: 3 },
+  nextLevelSub:   { fontSize: 14, color: '#5C5C5C' },
 
   emptyWrap:  { alignItems: 'center', paddingVertical: 48, gap: 12 },
-  emptyTitle: { fontSize: 17, fontWeight: '800', color: '#333' },
-  emptyText:  { fontSize: 13.5, color: '#444', textAlign: 'center', lineHeight: 19, maxWidth: 300 },
+  emptyTitle: { fontSize: 17, fontWeight: '600', color: '#333' },
+  emptyText:  { fontSize: 14, color: '#444', textAlign: 'center', lineHeight: 19, maxWidth: 300 },
 
   jobCard: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 14, marginBottom: 10,
   },
   jobCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  jobProfession: { fontSize: 15, fontWeight: '700', color: '#F5F5F5' },
-  jobStatusBadge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  jobStatusText: { fontSize: 11, fontWeight: '700' },
-  jobAddress: { fontSize: 13, color: '#555', marginBottom: 8 },
-  jobMotivo:  { fontSize: 12.5, color: '#777', lineHeight: 17, marginBottom: 8, marginTop: -4 },
+  jobProfession: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  jobStatusBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  jobStatusText: { fontSize: 12, fontWeight: '700' },
+  jobAddress: { fontSize: 14, color: '#5C5C5C', marginBottom: 8 },
+  jobMotivo:  { fontSize: 14, color: '#8A8A8A', lineHeight: 17, marginBottom: 8, marginTop: -4 },
   listaTitulo: {
-    fontSize: 12, color: '#555', fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10, marginTop: 4,
+    fontSize: 14, color: '#5C5C5C', fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 10, marginTop: 4,
   },
   jobCardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  jobDate: { fontSize: 12, color: '#444' },
-  jobEarned: { fontSize: 15, fontWeight: '800', color: '#4CAF50' },
+  jobDate: { fontSize: 14, color: '#444' },
+  jobEarned: { fontSize: 16, fontWeight: '600', color: '#FFD600' },
 });
 
 export default PanelTrabajos;

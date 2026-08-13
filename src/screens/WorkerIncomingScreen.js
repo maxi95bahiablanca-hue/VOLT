@@ -13,6 +13,10 @@ import volt from '../utils/voltVoice';
 import { isDemoMode } from '../demo/demoMode';
 import { isFreeMode } from '../config/monetization';
 import { showInfo } from '../utils/toast';
+import { preguntarCuandoVoy } from '../utils/cuandoVoy';
+import { conTiempo } from '../utils/conTiempo';
+import { fotoDeOficio } from '../utils/fotosOficios';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const REJECTION_REASONS = [
   { key: 'too_far',      icon: 'navigate-outline',    label: 'Queda muy lejos',         note: 'La distancia supera mi zona de trabajo.' },
@@ -21,6 +25,17 @@ const REJECTION_REASONS = [
   { key: 'pricing',      icon: 'cash-outline',         label: 'No me conviene',           note: 'No me conviene tomar este trabajo.' },
   { key: 'personal',     icon: 'alert-circle-outline', label: 'Motivo personal',          note: 'Tengo un inconveniente personal.' },
 ];
+
+// Lo máximo que la pantalla espera a que la base confirme la respuesta. Pasado
+// eso el botón se destraba igual: entre "no sé si entró" y "el botón gira para
+// siempre", lo segundo es peor. 🔴 11-ago-2026.
+const RESPUESTA_TIMEOUT_MS = 12000;
+// Y si aun así algo quedara girando, a los 20 segundos el botón atrás vuelve a
+// funcionar. Nunca puede no haber salida.
+const SALIDA_DE_EMERGENCIA_MS = 20000;
+// Objeto propio para distinguir "no volvió / falló" de "salió bien" (accept
+// devuelve undefined cuando anda, así que un null no alcanzaría).
+const SIN_RESPUESTA = Object.freeze({ sinRespuesta: true });
 
 const CONFIDENCE_LEVELS = ['Alta', 'Media', 'Baja'];
 const MATERIAL_CHIPS = ['Cable', 'Llave térmica', 'Disyuntor', 'Cañería', 'Sellador', 'Tornillos', 'Pintura', 'Cemento', 'Membrana', 'Otro'];
@@ -35,7 +50,7 @@ const ARRIVAL_OPTIONS  = ['~15 min', '~30 min', '~45 min', '~1 hora', '+1 hora']
 const DURATION_OPTIONS = ['~30 min', '~1 hora', '~2 horas', '~3 horas', '+3 horas'];
 // Verde de 4 para arriba, amarillo en el medio, rojo abajo de 3: el profesional
 // tiene que poder leerlo de un vistazo, con la alarma sonando.
-const colorEstrellas = (n) => (n >= 4 ? '#4CAF50' : n >= 3 ? '#FF9800' : '#ff4444');
+const colorEstrellas = (n) => (n >= 4 ? '#FFD600' : n >= 3 ? '#8A8A8A' : '#E5484D');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FASE 1: Pantalla de alerta (alarma activa, mínima info)
@@ -56,7 +71,7 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
     ])).start();
   }, []);
 
-  const urgencyColor = timeLeft <= 30 ? '#ff4444' : timeLeft <= 60 ? '#FF9800' : '#FFD600';
+  const urgencyColor = timeLeft <= 30 ? '#E5484D' : timeLeft <= 60 ? '#8A8A8A' : '#FFD600';
   const ringScale  = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] });
   const ringOpacity = ringAnim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.4, 0] });
 
@@ -67,7 +82,7 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
         {/* Anillo pulsante de fondo */}
         <View style={alertStyles.ringWrap}>
           <Animated.View style={[alertStyles.ring, { transform: [{ scale: ringScale }], opacity: ringOpacity, borderColor: urgencyColor }]} />
-          <Animated.View style={[alertStyles.ring, { transform: [{ scale: ringScale }], opacity: ringOpacity, borderColor: urgencyColor, width: 160, height: 160, borderRadius: 80 }]} />
+          <Animated.View style={[alertStyles.ring, { transform: [{ scale: ringScale }], opacity: ringOpacity, borderColor: urgencyColor, width: 160, height: 160, borderRadius: 999 }]} />
 
           {/* Timer central */}
           <View style={[alertStyles.timerCircle, { borderColor: urgencyColor }]}>
@@ -78,7 +93,7 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
 
         {/* Badge */}
         <View style={alertStyles.badge}>
-          <Ionicons name="flash" size={18} color="#0A0A0A" />
+          <Ionicons name="flash" size={18} color="#0D0D0D" />
           <Text style={alertStyles.badgeText}>NUEVO TRABAJO</Text>
         </View>
 
@@ -101,14 +116,14 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
           onPress={() => onAutoAccept({ arrivalEst: '~30 min', workDuration: '~1 hora' })}
           activeOpacity={0.85}
         >
-          <Ionicons name="checkmark-circle" size={22} color="#0A0A0A" />
+          <Ionicons name="checkmark-circle" size={22} color="#0D0D0D" />
           <Text style={alertStyles.quickAcceptBtnText}>ACEPTAR AHORA</Text>
         </TouchableOpacity>
 
         {/* Ver detalles */}
         <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%' }}>
           <TouchableOpacity style={alertStyles.viewBtn} onPress={onView} activeOpacity={0.85}>
-            <Ionicons name="eye-outline" size={20} color="#0A0A0A" />
+            <Ionicons name="eye-outline" size={20} color="#0D0D0D" />
             <Text style={alertStyles.viewBtnText}>Ver detalles</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -129,9 +144,13 @@ const DetailsPhase = ({
   const [rejectModal, setRejectModal]     = useState(false);
   const [showDiag, setShowDiag]           = useState(false);
   const [diagnosis, setDiagnosis]         = useState('');
-  const [arrivalEst, setArrivalEst]       = useState('~30 min');
-  const [workDuration, setWorkDuration]   = useState('~1 hora');
-  const [isMultiday, setIsMultiday]       = useState(false);
+  // 🔴 Estos tres eran tres formularios antes de poder aceptar un pedido que
+  //    vence en tres minutos. Ahora arrancan con un valor razonable y se
+  //    ajustan por el chat —que es donde se ajustan igual—; "varios días"
+  //    también se marca después, desde el trabajo.
+  const [arrivalEst]   = useState('~30 min');
+  const [workDuration] = useState('~1 hora');
+  const [isMultiday]   = useState(false);
   const [confidence, setConfidence]       = useState('Media');
   const [probableCause, setProbableCause] = useState('');
   const [selectedMaterials, setSelectedMaterials] = useState([]);
@@ -139,6 +158,10 @@ const DetailsPhase = ({
   const [costMax, setCostMax]             = useState('');
   const [timeEst, setTimeEst]             = useState('');
   const [repuCliente, setRepuCliente]     = useState({ promedio: null, cantidad: 0 });
+  const fotoOficio = fotoDeOficio(job.professions?.name);
+  // El alto de la barra de botones del teléfono lo dice el sistema: con un
+  // número fijo, Aceptar y Rechazar quedaban tapados.
+  const insets = useSafeAreaInsets();
 
   // La reputación del cliente se pide una sola vez al abrir los detalles. Si
   // falla queda en "cliente nuevo": nunca puede demorar ni romper la pantalla
@@ -151,7 +174,7 @@ const DetailsPhase = ({
     return () => { vivo = false; };
   }, [job.client_id]);
 
-  const urgencyColor = timeLeft <= 30 ? '#ff4444' : timeLeft <= 60 ? '#FF9800' : '#4CAF50';
+  const urgencyColor = timeLeft <= 30 ? '#E5484D' : timeLeft <= 60 ? '#8A8A8A' : '#FFD600';
 
   const toggleMaterial = (mat) =>
     setSelectedMaterials(prev => prev.includes(mat) ? prev.filter(m => m !== mat) : [...prev, mat]);
@@ -175,7 +198,7 @@ const DetailsPhase = ({
         <TouchableOpacity style={styles.rejectOverlay} activeOpacity={1} onPress={() => setRejectModal(false)}>
           <TouchableOpacity style={styles.rejectModalBox} activeOpacity={1} onPress={() => {}}>
             <View style={styles.rejectModalHeader}>
-              <Ionicons name="close-circle-outline" size={24} color="#ff4444" />
+              <Ionicons name="close-circle-outline" size={24} color="#E5484D" />
               <Text style={styles.rejectModalTitle}>¿Por qué rechazás?</Text>
             </View>
             <Text style={styles.rejectModalSub}>Esto nos ayuda a mejorar el sistema.</Text>
@@ -186,7 +209,7 @@ const DetailsPhase = ({
                 onPress={() => { setRejectModal(false); onRejectWithReason(r); }}
                 activeOpacity={0.8}
               >
-                <Ionicons name={r.icon} size={18} color="#555" />
+                <Ionicons name={r.icon} size={18} color="#5C5C5C" />
                 <Text style={styles.rejectOptionText}>{r.label}</Text>
                 <Ionicons name="chevron-forward" size={14} color="#333" />
               </TouchableOpacity>
@@ -198,7 +221,10 @@ const DetailsPhase = ({
         </TouchableOpacity>
       </Modal>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 28 }]}
+        keyboardShouldPersistTaps="handled"
+      >
 
         {/* Timer mudo en la parte superior */}
         <View style={styles.quietTimer}>
@@ -208,142 +234,82 @@ const DetailsPhase = ({
           </Text>
         </View>
 
-        {/* Detalles del trabajo */}
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.rowIcon}><Ionicons name="construct-outline" size={20} color="#FFD600" /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowLabel}>Servicio</Text>
-              <Text style={styles.rowVal}>{job.professions?.name || 'Servicio técnico'}</Text>
-            </View>
+        {/* ───────────────────────────────────────────────────────────────
+            🔴 9-ago-2026 — REDISEÑO. La pantalla que decide si tomás un trabajo
+            era una lista de filas con rótulos chiquitos, y lo único escrito en
+            amarillo —el color de la acción— era el texto del cliente, que no es
+            una acción: es lo que hay que LEER. Encima, antes de poder aceptar
+            había que elegir en cuánto llegás, cuánto tarda y si es de varios
+            días: tres formularios para contestar un pedido que vence en tres
+            minutos (Maxi).
+
+            Ahora manda el problema, en blanco y grande. Los tiempos se acuerdan
+            por el chat, que es donde se acuerdan igual. Y aceptar es un botón.
+            ─────────────────────────────────────────────────────────────── */}
+
+        {/* La foto del oficio de portada: la misma que usa el Home. */}
+        <View style={styles.portada}>
+          {fotoOficio
+            ? <Image source={{ uri: fotoOficio }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            : null}
+          <View style={styles.portadaVelo} />
+          <View style={styles.portadaTexto}>
+            <Text style={styles.portadaEyebrow}>Nuevo pedido</Text>
+            <Text style={styles.portadaOficio}>{job.professions?.name || 'Servicio técnico'}</Text>
           </View>
+        </View>
+
+        {/* Lo que hay que leer para decidir. */}
+        {job.notes ? (
+          <View style={styles.bloque}>
+            <Text style={styles.bloqueEyebrow}>El problema</Text>
+            <Text style={styles.problema}>{job.notes}</Text>
+          </View>
+        ) : null}
+
+        {/* Fotos del cliente. `problem_photos` puede traer varias (migración
+            033); si el cliente tiene la app vieja, viene sólo la de siempre. */}
+        {(() => {
+          const fotos = job.problem_photos?.length ? job.problem_photos : (job.problem_photo_url ? [job.problem_photo_url] : []);
+          if (!fotos.length) return null;
+          return fotos.length === 1 ? (
+            <Image source={{ uri: fotos[0] }} style={styles.problemPhoto} resizeMode="cover" />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
+              {fotos.map((u, i) => (
+                <Image key={i} source={{ uri: u }} style={styles.problemPhotoMulti} resizeMode="cover" />
+              ))}
+            </ScrollView>
+          );
+        })()}
+
+        {/* Dónde. Es lo segundo que se mira: si queda lejos, no importa el resto. */}
+        <View style={styles.bloque}>
+          <Text style={styles.bloqueEyebrow}>Dónde</Text>
+          <Text style={styles.direccion}>{job.address || 'Ver en el mapa'}</Text>
           {!isFreeMode() && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.row}>
-                <View style={styles.rowIcon}><Ionicons name="cash-outline" size={20} color="#FFD600" /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowLabel}>Cobro por visita</Text>
-                  <Text style={styles.rowVal}>${(job.visit_amount ?? 30000).toLocaleString('es-AR')}</Text>
-                </View>
-              </View>
-            </>
+            <Text style={styles.visita}>
+              Cobrás ${(job.visit_amount ?? 30000).toLocaleString('es-AR')} por la visita
+            </Text>
           )}
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <View style={styles.rowIcon}><Ionicons name="location-outline" size={20} color="#FFD600" /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowLabel}>Dirección</Text>
-              <Text style={styles.rowVal}>{job.address || 'Ver en mapa'}</Text>
-            </View>
-          </View>
-
-          {/* Cómo viene calificado el CLIENTE (migración 043). Va ANTES de
-              aceptar, que es el único momento en que sirve: después ya viajó.
-              Si nadie lo calificó todavía se dice así, sin inventar un número:
-              "sin calificaciones" no es lo mismo que "malo". */}
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <View style={styles.rowIcon}>
-              <Ionicons name="person-circle-outline" size={20} color="#FFD600" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowLabel}>Quien pide</Text>
-              {repuCliente.cantidad > 0 ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="star" size={14} color={colorEstrellas(repuCliente.promedio)} />
-                  <Text style={[styles.rowVal, { color: colorEstrellas(repuCliente.promedio) }]}>
-                    {repuCliente.promedio.toFixed(1)}
-                  </Text>
-                  <Text style={[styles.rowLabel, { marginTop: 0 }]}>
-                    ({repuCliente.cantidad} {repuCliente.cantidad === 1 ? 'trabajo' : 'trabajos'})
-                  </Text>
-                </View>
-              ) : (
-                <Text style={[styles.rowVal, { color: '#777' }]}>Cliente nuevo — sin calificaciones</Text>
-              )}
-            </View>
-          </View>
-          {job.notes ? (
-            <>
-              <View style={styles.divider} />
-              <View style={[styles.row, { backgroundColor: '#0D0D00' }]}>
-                <View style={styles.rowIcon}><Ionicons name="chatbubble-outline" size={20} color="#FFD600" /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowLabel}>El cliente dice</Text>
-                  <Text style={[styles.rowVal, { color: '#FFD600' }]}>"{job.notes}"</Text>
-                </View>
-              </View>
-            </>
-          ) : null}
-          {/* Fotos del cliente. `problem_photos` puede traer varias (migración
-              033); si el cliente tiene la app vieja, viene sólo la de siempre. */}
-          {(() => {
-            const fotos = job.problem_photos?.length ? job.problem_photos : (job.problem_photo_url ? [job.problem_photo_url] : []);
-            if (!fotos.length) return null;
-            return (
-              <>
-                <View style={styles.divider} />
-                {fotos.length === 1 ? (
-                  <Image source={{ uri: fotos[0] }} style={styles.problemPhoto} resizeMode="cover" />
-                ) : (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                    {fotos.map((u, i) => (
-                      <Image key={i} source={{ uri: u }} style={styles.problemPhotoMulti} resizeMode="cover" />
-                    ))}
-                  </ScrollView>
-                )}
-              </>
-            );
-          })()}
         </View>
 
-        {/* Tiempo estimado de llegada */}
-        <View style={styles.arrivalCard}>
-          <Text style={styles.arrivalTitle}>¿En cuánto llegás?</Text>
-          <Text style={styles.arrivalHint}>El cliente lo verá cuando aceptes.</Text>
-          <View style={styles.arrivalOptions}>
-            {ARRIVAL_OPTIONS.map(opt => (
-              <TouchableOpacity key={opt} style={[styles.arrivalOpt, arrivalEst === opt && styles.arrivalOptActive]} onPress={() => setArrivalEst(opt)} activeOpacity={0.8}>
-                <Text style={[styles.arrivalOptText, arrivalEst === opt && styles.arrivalOptTextActive]}>{opt}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Duración */}
-        <View style={styles.arrivalCard}>
-          <Text style={styles.arrivalTitle}>¿Cuánto va a durar el trabajo?</Text>
-          <Text style={styles.arrivalHint}>El cliente lo verá y podrá organizar su día.</Text>
-          <View style={styles.arrivalOptions}>
-            {DURATION_OPTIONS.map(opt => (
-              <TouchableOpacity key={opt} style={[styles.arrivalOpt, workDuration === opt && styles.arrivalOptActive]} onPress={() => setWorkDuration(opt)} activeOpacity={0.8}>
-                <Text style={[styles.arrivalOptText, workDuration === opt && styles.arrivalOptTextActive]}>{opt}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Trabajo de varios días — SOLO una marca.
-            Antes esto abría un cuestionario: cuántos días y cuántas horas por
-            día. El profesional lo contestaba ANTES de ver el trabajo, o sea
-            adivinando, y esos números no los usaba nadie después (Maxi,
-            1-ago-2026). Alcanza con dejar registrado que es de varios días:
-            el resto lo arreglan por chat, que para eso ya se conocen. */}
-        <View style={styles.arrivalCard}>
-          <View style={styles.multidayRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.arrivalTitle}>¿Es un trabajo de varios días?</Text>
-              <Text style={styles.arrivalHint}>
-                {isMultiday
-                  ? 'Queda anotado. Los días y horarios los arreglás con el cliente por el chat.'
-                  : 'Pintura, remodelación, instalaciones grandes.'}
+        {/* Quién pide. Va ANTES de aceptar, que es el único momento en que
+            sirve: después ya viajaste. Si nadie lo calificó todavía se dice
+            así, sin inventar un número: "sin calificaciones" no es "malo". */}
+        <View style={styles.bloque}>
+          <Text style={styles.bloqueEyebrow}>Quién pide</Text>
+          {repuCliente.cantidad > 0 ? (
+            <View style={styles.clienteRow}>
+              <Ionicons name="star" size={17} color={colorEstrellas(repuCliente.promedio)} />
+              <Text style={styles.clienteNota}>{repuCliente.promedio.toFixed(1).replace('.', ',')}</Text>
+              <Text style={styles.clienteSub}>
+                · {repuCliente.cantidad} {repuCliente.cantidad === 1 ? 'trabajo' : 'trabajos'} con BOLT
               </Text>
             </View>
-            <TouchableOpacity style={[styles.multidayToggle, isMultiday && styles.multidayToggleOn]} onPress={() => setIsMultiday(v => !v)} activeOpacity={0.8}>
-              <Text style={[styles.multidayToggleText, isMultiday && styles.multidayToggleTextOn]}>{isMultiday ? 'Sí' : 'No'}</Text>
-            </TouchableOpacity>
-          </View>
+          ) : (
+            <Text style={styles.clienteSub}>Cliente nuevo — todavía no lo calificó nadie</Text>
+          )}
         </View>
 
         {/* Diagnóstico opcional (avanzado) */}
@@ -377,7 +343,7 @@ const DetailsPhase = ({
             <Text style={styles.materialsLabel}>Nivel de confianza</Text>
             <View style={styles.materialsRow}>
               {CONFIDENCE_LEVELS.map(lvl => {
-                const color = lvl === 'Alta' ? '#4CAF50' : lvl === 'Media' ? '#FF9800' : '#ff4444';
+                const color = lvl === 'Alta' ? '#FFD600' : lvl === 'Media' ? '#8A8A8A' : '#E5484D';
                 const active = confidence === lvl;
                 return (
                   <TouchableOpacity key={lvl}
@@ -404,7 +370,7 @@ const DetailsPhase = ({
             <Text style={[styles.materialsLabel, { marginTop: 12 }]}>Rango estimado de costo (opcional)</Text>
             <View style={styles.costRangeRow}>
               <TextInput style={[styles.diagInput, { flex: 1, minHeight: 44 }]} placeholder="$ mín" placeholderTextColor="#333" value={costMin} onChangeText={v => setCostMin(v.replace(/\D/g, ''))} keyboardType="numeric" />
-              <Text style={{ color: '#555', fontSize: 16, marginHorizontal: 8 }}>—</Text>
+              <Text style={{ color: '#5C5C5C', fontSize: 16, marginHorizontal: 8 }}>—</Text>
               <TextInput style={[styles.diagInput, { flex: 1, minHeight: 44 }]} placeholder="$ máx" placeholderTextColor="#333" value={costMax} onChangeText={v => setCostMax(v.replace(/\D/g, ''))} keyboardType="numeric" />
             </View>
 
@@ -427,7 +393,7 @@ const DetailsPhase = ({
         {/* Botones */}
         {timedOut ? (
           <TouchableOpacity style={styles.timedOutBtn} onPress={() => onRejectWithReason({ key: 'timeout', note: 'Tiempo agotado' })} disabled={loading}>
-            <Ionicons name="home" size={20} color="#F5F5F5" />
+            <Ionicons name="home" size={20} color="#FFFFFF" />
             <Text style={styles.timedOutBtnText}>{loading ? 'Liberando...' : 'Volver al inicio'}</Text>
           </TouchableOpacity>
         ) : (
@@ -440,7 +406,7 @@ const DetailsPhase = ({
               disabled={loading}
               activeOpacity={0.8}
             >
-              <Ionicons name="close" size={22} color="#ff4444" />
+              <Ionicons name="close" size={22} color="#E5484D" />
               <Text style={styles.rejectBtnText}>Rechazar</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -461,8 +427,8 @@ const DetailsPhase = ({
               activeOpacity={0.85}
             >
               {loading
-                ? <ActivityIndicator color="#0A0A0A" />
-                : <><Ionicons name="checkmark" size={22} color="#0A0A0A" /><Text style={styles.acceptBtnText}>Aceptar</Text></>
+                ? <ActivityIndicator color="#0D0D0D" />
+                : <><Ionicons name="checkmark" size={22} color="#0D0D0D" /><Text style={styles.acceptBtnText}>Aceptar</Text></>
               }
             </TouchableOpacity>
           </View>
@@ -475,62 +441,6 @@ const DetailsPhase = ({
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
-/** Aceptar NO quiere decir "salgo ahora": el 90% de las veces se coordina para
- *  otro momento. Sin esta pregunta, jobs.scheduled_for queda vacío, el cliente
- *  ve "va en camino" cuando nadie salió, y el trabajo termina en la lista de
- *  trabados como "aceptó y no fue" (Maxi, 31-jul-2026). */
-const preguntarCuandoVoy = (jobId) => {
-  const guardar = async (campos, aviso) => {
-    try {
-      await jobService.setSchedule(jobId, campos);
-      if (aviso) chatService.sendSystemMessage(jobId, aviso).catch(() => {});
-    } catch (e) { /* que no frene nada: el vigilante lo va a levantar igual */ }
-  };
-  const enHoras = (h) => new Date(Date.now() + h * 3600000).toISOString();
-  const enDiasALas = (dias, hora) => {
-    const d = new Date();
-    d.setDate(d.getDate() + dias);
-    d.setHours(hora, 0, 0, 0);
-    return d.toISOString();
-  };
-
-  // Segundo paso: sólo si no va hoy. Va aparte porque en Android Alert.alert
-  // muestra COMO MUCHO 3 botones (positive/negative/neutral): el cuarto no se
-  // dibuja. Encadenar dos alerts nativos es la única forma de dar las cuatro
-  // opciones sin un modal propio — y un modal propio acá no sirve, porque la
-  // pantalla se desmonta apenas acepta y se lo llevaría puesto.
-  const preguntarQueDia = () => {
-    Alert.alert(
-      '¿Qué día vas?',
-      'Después ajustan la hora exacta por el chat.',
-      [
-        { text: 'Mañana', onPress: () => guardar(
-            { scheduled_for: enDiasALas(1, 10) }, 'Quedó en ir mañana. Coordinen la hora por acá 👇') },
-        { text: 'Pasado mañana', onPress: () => guardar(
-            { scheduled_for: enDiasALas(2, 10) }, 'Quedó en ir pasado mañana. Coordinen la hora por acá 👇') },
-        // Sin fecha elegida: se agenda a 3 días para que el vigilante no lo dé
-        // por trabado, y el aviso deja claro que el día se define en el chat.
-        { text: 'Lo arreglo por chat', onPress: () => guardar(
-            { scheduled_for: enDiasALas(3, 10) }, 'El profesional va a coordinar el día con vos por acá 👇') },
-      ],
-      { cancelable: false }
-    );
-  };
-
-  Alert.alert(
-    '¿Cuándo vas?',
-    'El cliente lo ve en su pantalla. Si vas ahora, decíselo; si es para más tarde, también.',
-    [
-      { text: 'Voy ahora', onPress: () => guardar(
-          { on_the_way_at: new Date().toISOString() }, 'El profesional ya salió para tu domicilio 🚗') },
-      { text: 'Hoy más tarde', onPress: () => guardar(
-          { scheduled_for: enHoras(4) }, 'Quedó en ir hoy más tarde. Coordinen la hora por acá 👇') },
-      { text: 'Otro día…', onPress: preguntarQueDia },
-    ],
-    { cancelable: false }
-  );
-};
-
 // 🔴 Cuándo se vence ESTE pedido, contado desde que el cliente lo hizo.
 //
 // Antes acá decía `Date.now() + TIMEOUT_SEC*1000`: el reloj arrancaba cuando se
@@ -579,6 +489,27 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   // el estado de vencido tiene que estar en un ref y no sólo en useState.
   const timedOutRef = useRef(restanteInicial === 0);
 
+  // 🔴 11-ago-2026 — Desde que el profesional toca ACEPTAR, este pedido NO se
+  // rechaza más por tiempo, pase lo que pase.
+  //
+  // El caso real: el `accept` entra (el trabajo ya es suyo en la base, el
+  // cliente lee "aceptado") pero el push que va después se cuelga sin señal. El
+  // profesional aprieta Home y vuelve; al volver, `mirarReloj` ve el reloj
+  // vencido y el auto-rechazo dispara `jobService.reject(...,'timeout')` sobre
+  // un trabajo YA ACEPTADO: lo pasa a `cancelled` y le dice que llegó tarde. El
+  // cliente ve aceptado y después cancelado, sin que nadie haya hecho nada.
+  //
+  // Por eso el candado no se levanta ni siquiera si el accept falla: si el
+  // pedido de verdad quedó sin tomar, el que lo vence es el servidor (la
+  // cascada / el cron de la 065), que sí sabe cómo quedó. Esta pantalla no
+  // puede cancelar un trabajo que quizás entró.
+  const intentoAceptarRef = useRef(false);
+  // Cuándo empezó a girar el botón, para la salida de emergencia del "atrás".
+  const cargandoDesdeRef = useRef(null);
+  // El tick del reloj vive dentro del efecto; se guarda acá para poder
+  // reanudarlo si la respuesta falla y el profesional se queda en la pantalla.
+  const mirarRelojRef = useRef(null);
+
   const stopAlarm = async () => {
     Vibration.cancel();
     if (soundRef.current) {
@@ -595,8 +526,15 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     // que no se salga sin querer con un trabajo esperando respuesta. Antes lo
     // bloqueaba siempre, así que con el pedido vencido la pantalla quedaba sin
     // ninguna salida y había que matar la app (Maxi, 6-ago-2026).
+    //
+    // 🔴 11-ago-2026 — y también se destraba si el botón lleva más de 20
+    // segundos girando: si la respuesta se colgó, la pantalla no puede quedar
+    // sin salida (era eso o matar la app). Salir acá no toca la base: sólo
+    // vuelve al home, y si el trabajo entró, el pin lo trae de vuelta.
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (timedOutRef.current) { onRejected && onRejected(); return true; }
+      const colgado = cargandoDesdeRef.current &&
+        Date.now() - cargandoDesdeRef.current > SALIDA_DE_EMERGENCIA_MS;
+      if (timedOutRef.current || colgado) { onRejected && onRejected(); return true; }
       return true;
     });
 
@@ -622,6 +560,11 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     startSound();
 
     const mirarReloj = () => {
+      // Mientras la respuesta está viajando, el reloj de esta pantalla no manda:
+      // el profesional ya contestó, el que tarda es el teléfono. Sin esto,
+      // volver de segundo plano en medio de un "Aceptar" marca el pedido como
+      // vencido y dispara el auto-rechazo de un trabajo que ya es suyo.
+      if (cargandoDesdeRef.current) return;
       const restante = Math.max(0, Math.round((venceRef.current - Date.now()) / 1000));
       setTimeLeft(restante);
       if (restante === 0) {
@@ -630,6 +573,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         setTimedOut(true);
       }
     };
+    mirarRelojRef.current = mirarReloj;
     // Cada medio segundo: el número no depende de que el tick sea puntual, pero
     // se ve fluido igual y el segundo cambia cuando tiene que cambiar.
     timerRef.current = setInterval(mirarReloj, 500);
@@ -652,8 +596,21 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     if (!timedOut) return;
     stopAlarm();
     const doReject = async () => {
+      // Si ya tocó ACEPTAR, no se cancela nada: ver el comentario de
+      // `intentoAceptarRef`. Se sale avisando, sin tocar la base.
+      if (intentoAceptarRef.current) {
+        showInfo(
+          'Si tu respuesta llegó a entrar, lo vas a ver en Mi negocio → Trabajos.',
+          'Se te pasó el tiempo de este pedido'
+        );
+        onRejected();
+        return;
+      }
       try {
-        await jobService.reject(job.id, professional?.id, 'timeout', 'No respondió a tiempo');
+        await conTiempo(
+          jobService.reject(job.id, professional?.id, 'timeout', 'No respondió a tiempo'),
+          RESPUESTA_TIMEOUT_MS,
+        );
       } catch {}
       // Que no desaparezca en silencio. Entrar por el push, ver la pantalla
       // cerrarse sola y volver al home sin ninguna explicación es lo que hizo
@@ -679,6 +636,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   }) => {
     if (loading) return;
     clearInterval(timerRef.current);
+    stopAlarm(); // que la alarma no siga sonando mientras se confirma
     // En demo: aceptamos sin tocar el backend y pasamos directo al seguimiento
     if (isDemoMode()) {
       onAccepted({ ...job, status: 'accepted', arrival_estimate: arrivalEst || '~12 min',
@@ -686,46 +644,92 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         pre_diagnosis: diagnosis || job.pre_diagnosis });
       return;
     }
+    intentoAceptarRef.current = true;
+    cargandoDesdeRef.current = Date.now();
     setLoading(true);
     try {
       const isQuote = !!job.quote_group_id; // es parte de un grupo de presupuestos
-      await jobService.accept(job.id, diagnosis, arrivalEst, materialsNeeded, workDuration);
+
+      // 🔴 11-ago-2026 — Lo ÚNICO que puede frenar esta pantalla es que la base
+      // confirme el trabajo, y aun eso con reloj. Todo lo demás (el push, el
+      // chat, los renglones del historial) es accesorio: si se cuelga, que se
+      // cuelgue solo. Antes eran 6 llamadas encadenadas sin vencimiento con el
+      // botón atrás bloqueado a propósito: si una no volvía, la única salida
+      // era matar la app — en la pantalla que decide si cobra el trabajo.
+      let fallo = null;
+      const r = await conTiempo(
+        jobService.accept(job.id, diagnosis, arrivalEst, materialsNeeded, workDuration)
+          .catch((e) => { fallo = e; return SIN_RESPUESTA; }),
+        RESPUESTA_TIMEOUT_MS,
+        SIN_RESPUESTA,
+      );
+      if (r === SIN_RESPUESTA) {
+        throw new Error(fallo?.message || 'la conexión no respondió a tiempo');
+      }
+
       if (isMultiday) {
         // Sólo la marca: is_multiday = true. Los días y las horas ya no se
         // preguntan (eran una adivinanza y no las miraba nadie). Se manda null
         // para no dejar números viejos dando vueltas en la base.
-        await jobService.setMultidayConfig(job.id, null, null).catch(() => {});
+        jobService.setMultidayConfig(job.id, null, null).catch(() => {});
       }
       if (diagData && (diagData.summary || diagData.cause || (diagData.materials?.length > 0))) {
-        await jobService.setStructuredDiagnosis(job.id, diagData).catch(() => {});
+        jobService.setStructuredDiagnosis(job.id, diagData).catch(() => {});
       }
       const firstName = professional?.first_name || 'El profesional';
       if (isQuote) {
         // PRESUPUESTO: el cliente todavía no eligió. Solo registramos la propuesta.
         // La notificación de "voy en camino" y los eventos de viaje se disparan
         // recién cuando el cliente lo elige (en JobTrackingScreen).
-        await jobService.addEvent(job.id, 'quote_sent', `Revisó tu pedido 👀`).catch(() => {});
+        jobService.addEvent(job.id, 'quote_sent', `Revisó tu pedido 👀`).catch(() => {});
       } else {
-        // TRABAJO DIRECTO: arranca el viaje ya.
-        await notificationService.sendToUser(clientUserId, {
-          title: '⚡ ESTÁ POR LLEGAR UN BOLT',
-          body:  `POR FAVOR PEDILE EL CÓDIGO ANTES DE ABRIR LA PUERTA. Llega en ${arrivalEst}.`,
+        // TRABAJO DIRECTO: queda confirmado. 🔴 Que lo acepte no es que haya
+        // salido: el "va en camino" lo dispara la respuesta a "¿cuándo vas?" o
+        // el botón "Voy en camino". Antes se anunciaba el viaje acá mismo y el
+        // cliente leía "en camino a tu domicilio 🚗" de alguien que iba mañana.
+        notificationService.sendToUser(clientUserId, {
+          title: '✅ Tu pedido fue aceptado',
+          body:  `${firstName} tomó tu pedido. Te avisamos cuando salga: pedile el código antes de abrir la puerta.`,
           data:  { jobId: job.id, screen: 'tracking' },
         }).catch(() => {});
         chatService.sendSystemMessage(job.id, volt.chatAccepted).catch(() => {});
-        chatService.sendSystemMessage(job.id, volt.chatInTransit).catch(() => {});
-        await jobService.addEvent(job.id, 'accepted',      `Aceptó tu pedido ✅`).catch(() => {});
-        await jobService.addEvent(job.id, 'reviewing',     `Revisando los detalles del trabajo.`).catch(() => {});
-        if (job.problem_photo_url) {
-          await jobService.addEvent(job.id, 'photo_reviewed', `Revisó las fotos que enviaste 📷`).catch(() => {});
-        }
-        await jobService.addEvent(job.id, 'estimated',    `Llega en aprox. ${arrivalEst}.`).catch(() => {});
-        await jobService.addEvent(job.id, 'trip_started', `En camino a tu domicilio 🚗`).catch(() => {});
+        // Encadenados entre sí (para que el historial del cliente quede en
+        // orden) pero SIN await: la pantalla no los espera.
+        (async () => {
+          await jobService.addEvent(job.id, 'accepted',  `Aceptó tu pedido ✅`).catch(() => {});
+          await jobService.addEvent(job.id, 'reviewing', `Revisando los detalles del trabajo.`).catch(() => {});
+          if (job.problem_photo_url) {
+            await jobService.addEvent(job.id, 'photo_reviewed', `Revisó las fotos que enviaste 📷`).catch(() => {});
+          }
+          await jobService.addEvent(job.id, 'estimated', `Llega en aprox. ${arrivalEst}.`).catch(() => {});
+        })();
       }
-      preguntarCuandoVoy(job.id);
+      // 🔴 Sólo en trabajo directo. En un presupuesto todavía no hay trabajo: si
+      //    acá tocaba "Voy ahora" se escribía `on_the_way_at` sin que el cliente
+      //    lo hubiera elegido, y después —ya elegido— la app lo daba por salido:
+      //    desaparecía el botón "Voy en camino" y el cliente veía "está en
+      //    camino" con nadie en la calle (Maxi, 8-ago-2026). En presupuestos la
+      //    pregunta se hace al ser elegido, en JobTrackingScreen.
+      if (!isQuote) preguntarCuandoVoy(job.id);
       onAccepted({ ...job, status: 'accepted' });
     } catch (e) {
-      Alert.alert('Error', 'No se pudo aceptar el trabajo: ' + (e?.message || 'probá de nuevo'));
+      Alert.alert(
+        'No pudimos confirmarlo',
+        `No se pudo aceptar el trabajo: ${e?.message || 'probá de nuevo'}.\n\n` +
+        'Si tenés poca señal puede haber entrado igual: fijate en Mi negocio → Trabajos antes de darlo por perdido.'
+      );
+      // El reloj vuelve a correr para que vea cuánto le queda, pero este pedido
+      // ya no se auto-rechaza (ver `intentoAceptarRef`): al llegar a cero sale
+      // sin cancelar nada, y de la reasignación se ocupa el servidor.
+      if (mirarRelojRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = setInterval(mirarRelojRef.current, 500);
+      }
+    } finally {
+      // 🔴 Pase lo que pase, el botón se destraba. El `finally` es la mitad del
+      // arreglo: sin él, cualquier camino que no pasara por el catch dejaba el
+      // spinner girando con Aceptar y Rechazar deshabilitados.
+      cargandoDesdeRef.current = null;
       setLoading(false);
     }
   };
@@ -733,18 +737,29 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
   const handleRejectWithReason = async (reason) => {
     if (loading) return;
     clearInterval(timerRef.current);
+    stopAlarm();
+    cargandoDesdeRef.current = Date.now();
     setLoading(true);
     try {
-      await jobService.reject(job.id, professional?.id, reason.key, reason.note);
+      // Mismo criterio que al aceptar: con reloj, y el aviso al cliente sin
+      // esperarlo. Antes esto podía quedar en "Liberando…" para siempre.
+      await conTiempo(
+        jobService.reject(job.id, professional?.id, reason.key, reason.note),
+        RESPUESTA_TIMEOUT_MS,
+      );
       if (reason.key !== 'timeout') {
-        await notificationService.sendToUser(clientUserId, {
+        notificationService.sendToUser(clientUserId, {
           title: 'El profesional no está disponible',
           body:  'No te preocupes, estamos buscando otro profesional cercano.',
           data:  { jobId: job.id },
         }).catch(() => {});
       }
-      onRejected();
     } catch {
+      // Rechazar siempre sale: quedarse acá trabado es peor que un rechazo que
+      // no llegó a anotarse (el turno se le vence solo en el servidor).
+    } finally {
+      cargandoDesdeRef.current = null;
+      setLoading(false);
       onRejected();
     }
   };
@@ -784,158 +799,186 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
 // ESTILOS — FASE 1 (alerta)
 // ─────────────────────────────────────────────────────────────────────────────
 const alertStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#0D0D0D', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 18 },
 
   ringWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   ring: {
     position: 'absolute',
-    width: 200, height: 200, borderRadius: 100,
+    width: 200, height: 200, borderRadius: 999,
     borderWidth: 2,
   },
   timerCircle: {
-    width: 120, height: 120, borderRadius: 60,
+    width: 120, height: 120, borderRadius: 999,
     borderWidth: 3,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: '#161616',
     alignItems: 'center', justifyContent: 'center',
     shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 12,
   },
-  timerNum: { fontSize: 48, fontWeight: '900', lineHeight: 52 },
-  timerSec: { fontSize: 12, color: '#555', fontWeight: '600', marginTop: -4 },
+  timerNum: { fontSize: 48, fontWeight: '700', lineHeight: 52 },
+  timerSec: { fontSize: 14, color: '#5C5C5C', fontWeight: '600', marginTop: -4 },
 
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FFD600', borderRadius: 20,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingHorizontal: 20, paddingVertical: 10,
   },
-  badgeText: { color: '#0A0A0A', fontWeight: '900', fontSize: 14, letterSpacing: 1.5 },
+  badgeText: { color: '#0D0D0D', fontWeight: '700', fontSize: 16, letterSpacing: 1.5 },
 
-  profession: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', textAlign: 'center' },
-  address:    { fontSize: 14, color: '#888', textAlign: 'center', lineHeight: 20 },
+  profession: { fontSize: 22, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
+  address:    { fontSize: 16, color: '#8A8A8A', textAlign: 'center', lineHeight: 20 },
   visitAmt:   { fontSize: 16, color: '#FFD600', fontWeight: '700' },
 
   viewBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 12, backgroundColor: '#FFD600',
-    borderRadius: 20, paddingVertical: 20, width: '100%',
+    borderRadius: 999, paddingVertical: 20, width: '100%',
   },
-  viewBtnText: { color: '#0A0A0A', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
-  hint: { fontSize: 12, color: '#444', textAlign: 'center' },
+  viewBtnText: { color: '#0D0D0D', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
+  hint: { fontSize: 14, color: '#444', textAlign: 'center' },
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ESTILOS — FASE 2 (detalles)
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  // ─── Pedido entrante, rediseñado (9-ago-2026) ───────────────────────────────
+  portada: {
+    height: 132, borderRadius: 20, overflow: 'hidden',
+    backgroundColor: '#161616', justifyContent: 'flex-end',
+    padding: 16, marginBottom: 12,
+  },
+  portadaVelo: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
+  portadaTexto: { position: 'relative' },
+  portadaEyebrow: {
+    fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase',
+    color: '#FFD600', fontWeight: '600', marginBottom: 4,
+  },
+  portadaOficio: { fontSize: 28, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.8 },
+
+  bloque: { backgroundColor: '#161616', borderRadius: 20, padding: 16, marginBottom: 12 },
+  bloqueEyebrow: {
+    fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase',
+    color: '#5C5C5C', fontWeight: '600', marginBottom: 10,
+  },
+  // El problema es lo que hay que leer para decidir: en blanco y grande.
+  problema:  { fontSize: 18, lineHeight: 26, color: '#FFFFFF' },
+  direccion: { fontSize: 20, lineHeight: 26, fontWeight: '600', color: '#FFFFFF' },
+  visita:    { fontSize: 14, color: '#8A8A8A', marginTop: 8 },
+
+  clienteRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  clienteNota: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
+  clienteSub:  { fontSize: 16, color: '#8A8A8A' },
+
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   content: {
-    alignItems: 'center', paddingHorizontal: 20,
+    // 🔴 9-ago-2026 — acá decía `alignItems: 'center'`: cada tarjeta se encogía
+    //    al ancho de su texto y quedaban centradas, flotando, en vez de ser
+    //    tarjetas de verdad. El único que quiere estar centrado es el reloj, y
+    //    se centra solo (Maxi).
+    alignItems: 'stretch', paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 36 : 16,
-    paddingBottom: 36, gap: 12,
+    gap: 12,
   },
 
   quietTimer: {
+    alignSelf: 'center',
     flexDirection: 'row', alignItems: 'center', gap: 7,
     alignSelf: 'flex-start',
-    backgroundColor: '#111', borderRadius: 20,
+    backgroundColor: '#161616', borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#1E1E1E',
-  },
-  quietTimerDot:  { width: 8, height: 8, borderRadius: 4 },
-  quietTimerText: { fontSize: 13, fontWeight: '700' },
+    },
+  quietTimerDot:  { width: 8, height: 8, borderRadius: 999 },
+  quietTimerText: { fontSize: 14, fontWeight: '700' },
 
   quickAcceptBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, backgroundColor: '#FFD600',
-    borderRadius: 18, paddingVertical: 18, width: '100%',
+    borderRadius: 999, paddingVertical: 18, width: '100%',
   },
-  quickAcceptBtnText: { color: '#0A0A0A', fontSize: 17, fontWeight: '900', letterSpacing: 0.5 },
+  quickAcceptBtnText: { color: '#0D0D0D', fontSize: 17, fontWeight: '700', letterSpacing: 0.5 },
 
   card: {
-    width: '100%', backgroundColor: '#111',
-    borderRadius: 20, borderWidth: 1, borderColor: '#1E1E1E',
-    overflow: 'hidden',
+    width: '100%', backgroundColor: '#161616',
+    borderRadius: 20, overflow: 'hidden',
   },
   row:      { flexDirection: 'row', alignItems: 'flex-start', padding: 16, gap: 12 },
-  rowIcon:  { width: 36, height: 36, borderRadius: 10, backgroundColor: '#1A1A00', alignItems: 'center', justifyContent: 'center' },
-  rowLabel: { fontSize: 11, color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
-  rowVal:   { fontSize: 15, color: '#F5F5F5', fontWeight: '600' },
+  rowIcon:  { width: 36, height: 36, borderRadius: 20, backgroundColor: '#1A1A00', alignItems: 'center', justifyContent: 'center' },
+  rowLabel: { fontSize: 12, color: '#5C5C5C', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 3 },
+  rowVal:   { fontSize: 16, color: '#FFFFFF', fontWeight: '600' },
   divider:  { height: 1, backgroundColor: '#1a1a1a', marginHorizontal: 16 },
   problemPhoto: { width: '100%', height: 160, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  problemPhotoMulti: { width: 150, height: 150, borderRadius: 12, marginBottom: 10 },
+  problemPhotoMulti: { width: 150, height: 150, borderRadius: 20, marginBottom: 10 },
 
   arrivalCard: {
-    width: '100%', backgroundColor: '#111',
-    borderRadius: 18, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 16,
+    width: '100%', backgroundColor: '#161616',
+    borderRadius: 20, padding: 16,
   },
-  arrivalTitle:       { fontSize: 14, fontWeight: '800', color: '#F5F5F5', marginBottom: 4 },
-  arrivalHint:        { fontSize: 12, color: '#555', marginBottom: 14 },
+  arrivalTitle:       { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  arrivalHint:        { fontSize: 14, color: '#5C5C5C', marginBottom: 14 },
   arrivalOptions:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  arrivalOpt:         { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, borderWidth: 1.5, borderColor: '#2a2a2a', backgroundColor: '#0A0A0A' },
+  arrivalOpt:         { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, backgroundColor: '#0D0D0D' },
   arrivalOptActive:   { borderColor: '#FFD600', backgroundColor: '#1A1A00' },
-  arrivalOptText:     { fontSize: 13, color: '#555', fontWeight: '600' },
+  arrivalOptText:     { fontSize: 14, color: '#5C5C5C', fontWeight: '600' },
   arrivalOptTextActive: { color: '#FFD600' },
 
   multidayRow:          { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  multidayToggle:       { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#222', backgroundColor: '#0D0D0D', minWidth: 52, alignItems: 'center' },
+  multidayToggle:       { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: '#0D0D0D', minWidth: 52, alignItems: 'center' },
   multidayToggleOn:     { borderColor: '#FFD60060', backgroundColor: '#1A1500' },
-  multidayToggleText:   { fontSize: 14, fontWeight: '800', color: '#444' },
+  multidayToggleText:   { fontSize: 16, fontWeight: '600', color: '#444' },
   multidayToggleTextOn: { color: '#FFD600' },
 
   diagToggle:     { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 4 },
-  diagToggleText: { color: '#FFD600', fontSize: 13, fontWeight: '600', flex: 1 },
+  diagToggleText: { color: '#FFD600', fontSize: 14, fontWeight: '600', flex: 1 },
   diagSection:    { width: '100%' },
-  diagHint:       { fontSize: 12, color: '#555', marginBottom: 8, lineHeight: 17 },
+  diagHint:       { fontSize: 14, color: '#5C5C5C', marginBottom: 8, lineHeight: 17 },
   diagInput: {
-    backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1E1E1E',
-    color: '#F5F5F5', fontSize: 14, padding: 14, minHeight: 90,
+    backgroundColor: '#161616', borderRadius: 20, color: '#FFFFFF', fontSize: 16, padding: 14, minHeight: 90,
   },
-  diagCounter:    { fontSize: 11, color: '#333', textAlign: 'right', marginTop: 4, marginBottom: 14 },
-  materialsLabel: { fontSize: 13, fontWeight: '700', color: '#888', marginBottom: 8 },
+  diagCounter:    { fontSize: 12, color: '#333', textAlign: 'right', marginTop: 4, marginBottom: 14 },
+  materialsLabel: { fontSize: 14, fontWeight: '700', color: '#8A8A8A', marginBottom: 8 },
   materialsRow:   { flexDirection: 'row', gap: 10 },
-  matBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: '#222', backgroundColor: '#0D0D0D' },
-  matBtnText:     { fontSize: 13, fontWeight: '700', color: '#444' },
+  matBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 999, backgroundColor: '#0D0D0D' },
+  matBtnText:     { fontSize: 14, fontWeight: '700', color: '#444' },
   chipsWrap:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  chip:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: '#2a2a2a', backgroundColor: '#0A0A0A' },
-  chipActive:     { borderColor: '#FF980060', backgroundColor: '#1A0D00' },
-  chipText:       { fontSize: 12, color: '#555', fontWeight: '600' },
-  chipTextActive: { color: '#FF9800' },
+  chip:           { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: '#0D0D0D' },
+  chipActive:     { borderColor: '#8A8A8A60', backgroundColor: '#1A0D00' },
+  chipText:       { fontSize: 14, color: '#5C5C5C', fontWeight: '600' },
+  chipTextActive: { color: '#8A8A8A' },
   costRangeRow:   { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
 
   penaltyNote: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 },
-  penaltyText: { fontSize: 12, color: '#444', flex: 1 },
+  penaltyText: { fontSize: 14, color: '#444', flex: 1 },
 
   btnRow:    { flexDirection: 'row', gap: 12, width: '100%' },
   rejectBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, width: 120,
-    backgroundColor: 'rgba(255,68,68,0.08)', borderWidth: 1.5, borderColor: 'rgba(255,68,68,0.3)',
-    borderRadius: 16, paddingVertical: 18,
+    backgroundColor: 'rgba(229,72,77,0.08)', borderWidth: 1.5, borderColor: 'rgba(229,72,77,0.3)',
+    borderRadius: 999, paddingVertical: 18,
   },
-  rejectBtnText: { color: '#ff4444', fontSize: 15, fontWeight: '700' },
+  rejectBtnText: { color: '#E5484D', fontSize: 16, fontWeight: '700' },
   acceptBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 18,
+    gap: 8, backgroundColor: '#FFD600', borderRadius: 999, paddingVertical: 18,
   },
-  acceptBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  acceptBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
   timedOutBtn: {
     width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, backgroundColor: '#1a1a1a', borderRadius: 16, paddingVertical: 20,
-    borderWidth: 1, borderColor: '#333',
-  },
-  timedOutBtnText: { color: '#F5F5F5', fontSize: 16, fontWeight: '700' },
+    gap: 10, backgroundColor: '#1a1a1a', borderRadius: 999, paddingVertical: 20,
+    },
+  timedOutBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 
   /* Modal rechazo */
   rejectOverlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  rejectModalBox:    { backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
+  rejectModalBox:    { backgroundColor: '#161616', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
   rejectModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-  rejectModalTitle:  { fontSize: 16, fontWeight: '800', color: '#F5F5F5' },
-  rejectModalSub:    { fontSize: 13, color: '#555', marginBottom: 16 },
+  rejectModalTitle:  { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  rejectModalSub:    { fontSize: 14, color: '#5C5C5C', marginBottom: 16 },
   rejectOption:      { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
-  rejectOptionText:  { flex: 1, fontSize: 14, color: '#F5F5F5' },
-  rejectCancel:      { marginTop: 16, paddingVertical: 14, borderRadius: 14, backgroundColor: '#1a1a1a', alignItems: 'center' },
-  rejectCancelText:  { color: '#555', fontSize: 14, fontWeight: '700' },
+  rejectOptionText:  { flex: 1, fontSize: 16, color: '#FFFFFF' },
+  rejectCancel:      { marginTop: 16, paddingVertical: 14, borderRadius: 20, backgroundColor: '#1a1a1a', alignItems: 'center' },
+  rejectCancelText:  { color: '#5C5C5C', fontSize: 16, fontWeight: '700' },
 });
 
 export default WorkerIncomingScreen;

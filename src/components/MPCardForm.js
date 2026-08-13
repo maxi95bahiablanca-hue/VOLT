@@ -31,14 +31,14 @@ const MPCardForm = ({ visible, onClose, mode = 'new', cardId = '', brand = '', o
 <script src="https://sdk.mercadopago.com/js/v2"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
-  body{background:#0A0A0A;color:#F5F5F5;padding:18px}
+  body{background:#0D0D0D;color:#F5F5F5;padding:18px}
   h2{font-size:18px;font-weight:900;margin-bottom:4px}
   .sub{color:#888;font-size:13px;margin-bottom:18px}
   label{display:block;font-size:12px;color:#888;font-weight:700;margin:12px 0 5px}
   input{width:100%;background:#161616;border:1px solid #222;border-radius:11px;padding:13px;color:#fff;font-size:15px;outline:none}
   input:focus{border-color:#FFD60080}
   .row{display:flex;gap:10px}.row>div{flex:1}
-  .btn{width:100%;background:#FFD600;color:#0A0A0A;border:0;border-radius:13px;padding:15px;font-weight:900;font-size:16px;margin-top:20px}
+  .btn{width:100%;background:#FFD600;color:#0D0D0D;border:0;border-radius:13px;padding:15px;font-weight:900;font-size:16px;margin-top:20px}
   .btn:disabled{opacity:.5}
   .err{color:#ff5577;font-size:13px;margin-top:12px;min-height:18px;text-align:center}
   .cancel{text-align:center;color:#666;font-size:14px;margin-top:14px;font-weight:700}
@@ -103,7 +103,7 @@ ${PUBLIC_KEY ? `
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.wrap}>
         <View style={styles.bar}>
-          <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color="#F5F5F5" /></TouchableOpacity>
+          <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color="#FFFFFF" /></TouchableOpacity>
           <Text style={styles.barTitle}>Mercado Pago</Text>
           <View style={{ width: 24 }} />
         </View>
@@ -114,7 +114,7 @@ ${PUBLIC_KEY ? `
           originWhitelist={['*']}
           javaScriptEnabled
           domStorageEnabled
-          style={{ flex: 1, backgroundColor: '#0A0A0A' }}
+          style={{ flex: 1, backgroundColor: '#0D0D0D' }}
         />
       </View>
     </Modal>
@@ -122,13 +122,13 @@ ${PUBLIC_KEY ? `
 };
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: '#0A0A0A' },
+  wrap: { flex: 1, backgroundColor: '#0D0D0D' },
   bar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: Platform.OS === 'android' ? 34 : 12, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  barTitle: { fontSize: 15, fontWeight: '800', color: '#F5F5F5' },
+  barTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
 });
 
 export default MPCardForm;

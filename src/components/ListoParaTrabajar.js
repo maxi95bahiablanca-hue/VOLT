@@ -131,44 +131,44 @@ const s = StyleSheet.create({
   },
   iconoWrap: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
   onda: {
-    position: 'absolute', width: 68, height: 68, borderRadius: 34,
+    position: 'absolute', width: 68, height: 68, borderRadius: 999,
     borderWidth: 1.5, borderColor: '#FFD600',
   },
   iconoCirculo: {
-    width: 68, height: 68, borderRadius: 34, backgroundColor: '#FFD600',
+    width: 68, height: 68, borderRadius: 999, backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
   titulo: {
-    color: '#F7F5F0', fontSize: 22, fontWeight: '900',
+    color: '#F7F5F0', fontSize: 22, fontWeight: '700',
     textAlign: 'center', letterSpacing: -0.4,
   },
   bajada: {
-    color: '#A8A196', fontSize: 15, lineHeight: 22,
+    color: '#A8A196', fontSize: 16, lineHeight: 22,
     textAlign: 'center', marginTop: 10,
   },
-  bajadaFuerte: { color: '#FFD600', fontWeight: '800' },
+  bajadaFuerte: { color: '#FFD600', fontWeight: '600' },
 
   explica: {
-    width: '100%', backgroundColor: '#1C1917', borderRadius: 16,
+    width: '100%', backgroundColor: '#1C1917', borderRadius: 20,
     paddingVertical: 6, paddingHorizontal: 14, marginTop: 22,
   },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 12 },
-  filaTexto: { flex: 1, color: '#8A8377', fontSize: 13.5, lineHeight: 19 },
+  filaTexto: { flex: 1, color: '#8A8377', fontSize: 14, lineHeight: 19 },
   filaTextoOn: { color: '#D6D0C4' },
   divisor: { height: 1, backgroundColor: '#242019' },
 
   btn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
-    width: '100%', backgroundColor: '#FFD600', borderRadius: 16,
+    width: '100%', backgroundColor: '#FFD600', borderRadius: 999,
     paddingVertical: 17, marginTop: 22,
   },
   btnOff: { opacity: 0.55 },
-  btnTexto: { color: '#0A0908', fontSize: 16, fontWeight: '900', letterSpacing: -0.2 },
+  btnTexto: { color: '#0A0908', fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
 
   secundario: { marginTop: 16, paddingVertical: 4 },
-  secundarioTexto: { color: '#6E685E', fontSize: 14, fontWeight: '600' },
+  secundarioTexto: { color: '#6E685E', fontSize: 16, fontWeight: '600' },
 
-  pie: { color: '#544F47', fontSize: 11.5, textAlign: 'center', marginTop: 14 },
+  pie: { color: '#544F47', fontSize: 12, textAlign: 'center', marginTop: 14 },
 });
 
 export default ListoParaTrabajar;

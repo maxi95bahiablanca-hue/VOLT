@@ -159,13 +159,13 @@ const styles = StyleSheet.create({
   },
   professionName: {
     fontSize: 26,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#1a1a1a',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
-  subtitle: { fontSize: 14, color: '#888888', fontWeight: '500' },
+  subtitle: { fontSize: 16, color: '#888888', fontWeight: '500' },
 
   center: {
     flex: 1,
@@ -174,9 +174,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     gap: 16,
   },
-  loadingText: { fontSize: 14, color: '#888888', marginTop: 12 },
+  loadingText: { fontSize: 16, color: '#888888', marginTop: 12 },
   emptyText: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#888888',
     textAlign: 'center',
     lineHeight: 22,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: '#fafafa',
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: '#eeeeee',
     padding: 16,
@@ -201,27 +201,27 @@ const styles = StyleSheet.create({
   cardRank: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 20,
     backgroundColor: '#6200ee',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardRankText: { color: '#ffffff', fontWeight: '800', fontSize: 16 },
+  cardRankText: { color: '#ffffff', fontWeight: '600', fontSize: 16 },
 
   cardInfo: { flex: 1 },
   cardName: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
-  cardPrice: { fontSize: 13, color: '#666666', marginTop: 2, fontWeight: '500' },
+  cardPrice: { fontSize: 14, color: '#666666', marginTop: 2, fontWeight: '500' },
 
   cardDistanceBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
     backgroundColor: '#f3eeff',
-    borderRadius: 8,
+    borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  cardDistanceText: { fontSize: 13, color: '#6200ee', fontWeight: '700' },
+  cardDistanceText: { fontSize: 14, color: '#6200ee', fontWeight: '700' },
 
   waButton: {
     flexDirection: 'row',
@@ -229,10 +229,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#25d366',
-    borderRadius: 10,
+    borderRadius: 999,
     paddingVertical: 10,
   },
-  waButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
+  waButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 16 },
 });
 
 export default ProfessionalsScreen;

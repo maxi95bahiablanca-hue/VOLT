@@ -94,10 +94,40 @@ serve(async (req) => {
           : `${quien} no siguió adelante con el N°${p.numero}.`,
         data: { screen: 'miNegocio', presupuestoId: p.id },
         sound: 'default',
+        // 🔴 11-ago-2026 — este emisor se había quedado afuera de la pasada de
+        //    canales: no mandaba channelId NINGUNO. En Android eso no es
+        //    "el canal por defecto de BOLT", es el canal comodín que arma
+        //    expo-notifications ('Otros'/Miscellaneous), sin sonido ni
+        //    prioridad. Justo el aviso que le dice al profesional que le
+        //    aceptaron un presupuesto — plata arriba de la mesa — llegaba mudo.
+        //    El único canal que la app crea de verdad es 'bolt-urgent-v3'
+        //    (src/services/notificationService.js:155).
+        channelId: 'bolt-urgent-v3',
         priority: acepta ? 'high' : 'normal',
       }),
     });
-    const expoData = await expoRes.json().catch(() => ({}));
+    const expoData = await expoRes.json().catch(() => ({})) as { data?: unknown };
+
+    // 🔴 11-ago-2026 — antes devolvía `sent: true` sin mirar nada, aunque Expo
+    //    hubiera rebotado el envío: exp.host contesta 200 con
+    //    {data:{status:'error', details:{error:'DeviceNotRegistered'}}} cuando
+    //    el token ya no sirve. Mismo criterio que send-push.
+    const d = expoData?.data;
+    const ticket = (Array.isArray(d) ? d[0] : d) as
+      { status?: string; message?: string; details?: { error?: string } } | undefined;
+
+    if (!expoRes.ok) {
+      return json({ ok: true, cambio: true, sent: false, reason: `expo respondió ${expoRes.status}`, expo: expoData });
+    }
+    if (ticket?.status !== 'ok') {
+      const motivo = ticket?.details?.error || ticket?.message || 'respuesta de expo inesperada';
+      // Token de un teléfono que ya no existe: si queda guardado, TODOS los
+      // avisos futuros de este profesional fallan en silencio.
+      if (ticket?.details?.error === 'DeviceNotRegistered') {
+        await admin.from('push_tokens').delete().eq('token', tok.token);
+      }
+      return json({ ok: true, cambio: true, sent: false, reason: motivo, expo: expoData });
+    }
 
     return json({ ok: true, cambio: true, sent: true, expo: expoData });
   } catch (err) {

@@ -18,13 +18,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { chargesInApp, isFreeMode } from '../config/monetization';
 
 const STATUS_LABEL = {
-  pending:          { label: 'Pendiente',    color: '#888' },
+  pending:          { label: 'Pendiente',    color: '#8A8A8A' },
   accepted:         { label: 'En camino',    color: '#FFD600' },
   arrived:          { label: 'En domicilio', color: '#FFD600' },
-  in_progress:      { label: 'Trabajando',   color: '#FF9800' },
-  awaiting_payment: { label: isFreeMode() ? 'Finalizando' : 'Cobrando', color: '#4CAF50' },
-  completed:        { label: 'Completado',   color: '#4CAF50' },
-  cancelled:        { label: 'Cancelado',    color: '#ff4444' },
+  in_progress:      { label: 'Trabajando',   color: '#8A8A8A' },
+  awaiting_payment: { label: isFreeMode() ? 'Finalizando' : 'Cobrando', color: '#FFD600' },
+  completed:        { label: 'Completado',   color: '#FFD600' },
+  cancelled:        { label: 'Cancelado',    color: '#E5484D' },
 };
 
 const formatHour = (isoStr) => {
@@ -75,7 +75,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
   const commission = commissionForBilled(billed30, professional.avg_rating);
   const level      = levelLabel(commission);
   const levelColor = level === 'Elite' ? '#FFD600' : level === 'Pro' ? '#FFD600'
-    : level === 'Activo' ? '#4CAF50' : '#888';
+    : level === 'Activo' ? '#FFD600' : '#8A8A8A';
   const step       = nextCommissionStep(billed30);
 
   // ── VOLT socio: mensaje según el momento del trabajador ──────────────────
@@ -213,7 +213,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mi panel</Text>
         <View style={{ width: 24 }} />
@@ -228,14 +228,14 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setShowPay(true)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFD600', margin: 16, marginBottom: 0, padding: 14, borderRadius: 14 }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFD600', margin: 16, marginBottom: 0, padding: 14, borderRadius: 20 }}
           >
-            <Ionicons name="card-outline" size={24} color="#0A0A0A" />
+            <Ionicons name="card-outline" size={24} color="#0D0D0D" />
             <View style={{ flex: 1 }}>
-              <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 14 }}>Completá tus datos para cobrar</Text>
-              <Text style={{ color: '#0A0A0A', fontSize: 12, opacity: 0.8, marginTop: 2 }}>Cargá tu CUIT y CBU. Tocá para hacerlo ahora.</Text>
+              <Text style={{ color: '#0D0D0D', fontWeight: '600', fontSize: 16 }}>Completá tus datos para cobrar</Text>
+              <Text style={{ color: '#0D0D0D', fontSize: 14, opacity: 0.8, marginTop: 2 }}>Cargá tu CUIT y CBU. Tocá para hacerlo ahora.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#0A0A0A" />
+            <Ionicons name="chevron-forward" size={20} color="#0D0D0D" />
           </TouchableOpacity>
         )}
 
@@ -260,7 +260,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
                   : <Ionicons name="person" size={32} color="#FFD600" />}
               </View>
               <View style={styles.profileAvatarBadge}>
-                <Ionicons name="camera" size={10} color="#0A0A0A" />
+                <Ionicons name="camera" size={10} color="#0D0D0D" />
               </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleChangeAvatar} disabled={uploadingAvatar} activeOpacity={0.7} style={styles.profileChangePhotoBtn}>
@@ -278,12 +278,12 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
           <View style={styles.commBox}>
             {chargesInApp() ? (
               <>
-                <Text style={[styles.commPct, { color: '#4CAF50' }]}>{commission}%</Text>
+                <Text style={[styles.commPct, { color: '#FFD600' }]}>{commission}%</Text>
                 <Text style={styles.commLabel}>comisión</Text>
               </>
             ) : (
               <>
-                <Text style={[styles.commPct, { color: '#4CAF50' }]}>100%</Text>
+                <Text style={[styles.commPct, { color: '#FFD600' }]}>100%</Text>
                 <Text style={styles.commLabel}>para vos</Text>
               </>
             )}
@@ -308,9 +308,9 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
         </View>
 
         {/* Guía: próximo paso (acompaña al trabajador) */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,214,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)', borderRadius: 14, padding: 14, marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,214,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)', borderRadius: 20, padding: 14, marginBottom: 12 }}>
           <Ionicons name={available ? 'checkmark-circle' : 'arrow-forward-circle'} size={20} color="#FFD600" />
-          <Text style={{ flex: 1, color: '#e8e8e8', fontSize: 13, lineHeight: 18 }}>
+          <Text style={{ flex: 1, color: '#e8e8e8', fontSize: 14, lineHeight: 18 }}>
             {available
               ? 'Listo, estás activo. Te avisamos apenas entre un trabajo cerca tuyo — mantené la app abierta.'
               : 'Próximo paso: tocá “Disponible” acá abajo para empezar a recibir trabajos.'}
@@ -324,9 +324,9 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
           disabled={savingAvail}
           activeOpacity={0.85}
         >
-          <View style={[styles.availDot, { backgroundColor: available ? '#4CAF50' : '#ff4444' }]} />
+          <View style={[styles.availDot, { backgroundColor: available ? '#FFD600' : '#E5484D' }]} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.availText, { color: available ? '#4CAF50' : '#ff4444' }]}>
+            <Text style={[styles.availText, { color: available ? '#FFD600' : '#E5484D' }]}>
               {available ? 'Disponible para trabajos' : availableAt ? `Disponible a las ${formatHour(availableAt)}` : 'No disponible'}
             </Text>
             <Text style={styles.availSub}>
@@ -334,8 +334,8 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
             </Text>
           </View>
           {savingAvail
-            ? <ActivityIndicator size="small" color={available ? '#4CAF50' : '#ff4444'} />
-            : <Ionicons name={available ? 'pause-circle-outline' : 'play-circle-outline'} size={22} color={available ? '#4CAF50' : '#ff4444'} />
+            ? <ActivityIndicator size="small" color={available ? '#FFD600' : '#E5484D'} />
+            : <Ionicons name={available ? 'pause-circle-outline' : 'play-circle-outline'} size={22} color={available ? '#FFD600' : '#E5484D'} />
           }
         </TouchableOpacity>
 
@@ -357,7 +357,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
                   onPress={() => handleSetUnavailable(opt.hours)}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name={opt.icon} size={18} color="#888" />
+                  <Ionicons name={opt.icon} size={18} color="#8A8A8A" />
                   <Text style={styles.availModalOptText}>{opt.label}</Text>
                   <Ionicons name="chevron-forward" size={16} color="#333" />
                 </TouchableOpacity>
@@ -387,7 +387,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statBox}>
-            <Text style={[styles.statVal, { color: '#4CAF50', fontSize: 16 }]}>
+            <Text style={[styles.statVal, { color: '#FFD600', fontSize: 16 }]}>
               ${Math.round(thisMonthEarned).toLocaleString('es-AR')}
             </Text>
             <Text style={styles.statLbl}>Este{'\n'}mes</Text>
@@ -437,7 +437,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
               // todavía no eligió sigue en 'accepted' y decía "En camino".
               const esperandoEleccion = j.quote_group_id && ['pending', 'accepted'].includes(j.status);
               const s = esperandoEleccion
-                ? { label: 'Esperando que te elijan', color: '#888' }
+                ? { label: 'Esperando que te elijan', color: '#8A8A8A' }
                 : (STATUS_LABEL[j.status] || STATUS_LABEL.cancelled);
               const earned = j.status === 'completed' && j.work_amount
                 ? Math.round(j.work_amount * (1 - (j.commission_pct || 20) / 100))
@@ -491,7 +491,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
                 </View>
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Vos recibís</Text>
-                  <Text style={[styles.breakdownVal, { color: '#4CAF50' }]}>{100 - commission}% del trabajo</Text>
+                  <Text style={[styles.breakdownVal, { color: '#FFD600' }]}>{100 - commission}% del trabajo</Text>
                 </View>
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Visita (${(professional.min_price ?? 30000).toLocaleString('es-AR')})</Text>
@@ -528,7 +528,7 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -537,64 +537,63 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 
   profileCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     margin: 16, padding: 16,
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
-  },
+    backgroundColor: '#161616', borderRadius: 20,
+    },
   profileAvatarWrap: { alignItems: 'center', gap: 4 },
   profileAvatar: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 56, height: 56, borderRadius: 999,
     backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
   profileAvatarBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 20, height: 20, borderRadius: 10,
+    width: 20, height: 20, borderRadius: 999,
     backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
   profileChangePhotoBtn: { paddingVertical: 2, paddingHorizontal: 4 },
-  profileChangePhotoText: { fontSize: 10, color: '#FFD600', fontWeight: '700' },
+  profileChangePhotoText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
   profileAvatarImg: { width: '100%', height: '100%' },
-  profileName: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 6 },
-  levelBadge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-  levelText: { fontSize: 11, fontWeight: '800' },
+  profileName: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 6 },
+  levelBadge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  levelText: { fontSize: 12, fontWeight: '600' },
   commBox: { alignItems: 'center' },
-  commPct: { fontSize: 22, fontWeight: '900' },
-  commLabel: { fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+  commPct: { fontSize: 22, fontWeight: '700' },
+  commLabel: { fontSize: 12, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8 },
 
   // VOLT socio
   voltCard: {
     flexDirection: 'row', gap: 12,
     marginHorizontal: 16, marginBottom: 12, padding: 14,
-    backgroundColor: '#0D0D00', borderRadius: 16,
+    backgroundColor: '#0D0D00', borderRadius: 20,
     borderWidth: 1, borderColor: '#FFD60030',
   },
   voltAvatar: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 36, height: 36, borderRadius: 999,
     backgroundColor: '#FFD60018', borderWidth: 1, borderColor: '#FFD60050',
     alignItems: 'center', justifyContent: 'center',
   },
   voltBolt: { fontSize: 18 },
-  voltName: { fontSize: 12, fontWeight: '900', color: '#FFD600', letterSpacing: 1, marginBottom: 3 },
-  voltMsg:  { fontSize: 13, color: '#cfcfcf', lineHeight: 19 },
-  voltMsgSub: { fontSize: 12, color: '#888', lineHeight: 18, marginTop: 6 },
+  voltName: { fontSize: 14, fontWeight: '700', color: '#FFD600', letterSpacing: 1, marginBottom: 3 },
+  voltMsg:  { fontSize: 14, color: '#cfcfcf', lineHeight: 19 },
+  voltMsgSub: { fontSize: 14, color: '#8A8A8A', lineHeight: 18, marginTop: 6 },
 
   availCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginBottom: 12, padding: 14,
-    borderRadius: 16, borderWidth: 1.5,
+    borderRadius: 20, borderWidth: 1.5,
   },
-  availCardOn:  { backgroundColor: '#0A1A0A', borderColor: '#4CAF5040' },
-  availCardOff: { backgroundColor: '#1A0A0A', borderColor: '#ff444440' },
-  availDot: { width: 10, height: 10, borderRadius: 5 },
-  availText: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
-  availSub:  { fontSize: 11, color: '#444' },
+  availCardOn:  { backgroundColor: '#0A1A0A', borderColor: '#FFD60040' },
+  availCardOff: { backgroundColor: '#1A0A0A', borderColor: '#E5484D40' },
+  availDot: { width: 10, height: 10, borderRadius: 999 },
+  availText: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
+  availSub:  { fontSize: 12, color: '#444' },
 
   availOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
@@ -602,99 +601,94 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 34 : 0,
   },
   availModalBox: {
-    width: '100%', backgroundColor: '#111',
+    width: '100%', backgroundColor: '#161616',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: '#1E1E1E',
     padding: 24, gap: 4,
   },
-  availModalTitle: { fontSize: 18, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
-  availModalSub:   { fontSize: 13, color: '#555', marginBottom: 12 },
+  availModalTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  availModalSub:   { fontSize: 14, color: '#5C5C5C', marginBottom: 12 },
   availModalOpt: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  availModalOptText: { flex: 1, fontSize: 15, color: '#F5F5F5', fontWeight: '600' },
+  availModalOptText: { flex: 1, fontSize: 16, color: '#FFFFFF', fontWeight: '600' },
   availModalCancel: { alignItems: 'center', paddingVertical: 16, marginTop: 4 },
-  availModalCancelText: { fontSize: 15, color: '#555', fontWeight: '700' },
+  availModalCancelText: { fontSize: 16, color: '#5C5C5C', fontWeight: '700' },
 
   statsRow: {
     flexDirection: 'row', alignItems: 'center',
     marginHorizontal: 16, marginBottom: 12,
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 20,
   },
   statBox: { flex: 1, alignItems: 'center' },
-  statVal: { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginBottom: 6 },
-  statLbl: { fontSize: 11, color: '#555', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 15 },
-  statOnTime: { fontSize: 10, color: '#4CAF50', fontWeight: '700', marginTop: 4, textAlign: 'center' },
+  statVal: { fontSize: 22, fontWeight: '700', color: '#FFFFFF', marginBottom: 6 },
+  statLbl: { fontSize: 12, color: '#5C5C5C', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1.8, lineHeight: 15 },
+  statOnTime: { fontSize: 12, color: '#FFD600', fontWeight: '700', marginTop: 4, textAlign: 'center' },
   statDiv: { width: 1, height: 36, backgroundColor: '#1E1E1E' },
 
   nextLevelCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     marginHorizontal: 16, marginBottom: 12, padding: 14,
-    backgroundColor: '#0D0D00', borderRadius: 14,
+    backgroundColor: '#0D0D00', borderRadius: 20,
     borderWidth: 1, borderColor: '#2a2a00',
   },
-  nextLevelTitle: { fontSize: 13, fontWeight: '700', color: '#FFD600', marginBottom: 3 },
-  nextLevelSub:   { fontSize: 12, color: '#666' },
+  nextLevelTitle: { fontSize: 14, fontWeight: '700', color: '#FFD600', marginBottom: 3 },
+  nextLevelSub:   { fontSize: 14, color: '#5C5C5C' },
 
   tabs: {
     flexDirection: 'row', marginHorizontal: 16, marginBottom: 8,
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 4,
+    backgroundColor: '#161616', borderRadius: 999,
+    padding: 4,
   },
-  tab:           { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+  tab:           { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 999 },
   tabActive:     { backgroundColor: '#FFD600' },
-  tabText:       { fontSize: 14, fontWeight: '700', color: '#555' },
-  tabTextActive: { color: '#0A0A0A' },
+  tabText:       { fontSize: 16, fontWeight: '700', color: '#5C5C5C' },
+  tabTextActive: { color: '#0D0D0D' },
 
   listWrap: { paddingHorizontal: 16 },
 
   emptyWrap: { alignItems: 'center', paddingVertical: 48, gap: 12 },
-  emptyText: { color: '#333', fontSize: 14 },
+  emptyText: { color: '#333', fontSize: 16 },
 
   jobCard: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 14, marginBottom: 10,
   },
   jobCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  jobProfession: { fontSize: 15, fontWeight: '700', color: '#F5F5F5' },
-  jobStatusBadge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  jobStatusText: { fontSize: 11, fontWeight: '700' },
-  jobAddress: { fontSize: 13, color: '#555', marginBottom: 8 },
+  jobProfession: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  jobStatusBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  jobStatusText: { fontSize: 12, fontWeight: '700' },
+  jobAddress: { fontSize: 14, color: '#5C5C5C', marginBottom: 8 },
   jobCardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  jobDate: { fontSize: 12, color: '#444' },
-  jobEarned: { fontSize: 15, fontWeight: '800', color: '#4CAF50' },
+  jobDate: { fontSize: 14, color: '#444' },
+  jobEarned: { fontSize: 16, fontWeight: '600', color: '#FFD600' },
 
   earningsSummary: {
     alignItems: 'center', paddingVertical: 28,
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     marginBottom: 12,
   },
-  earningsTotalLabel: { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
-  earningsTotalVal:   { fontSize: 36, fontWeight: '900', color: '#4CAF50', marginBottom: 4 },
-  earningsSub:        { fontSize: 13, color: '#555' },
+  earningsTotalLabel: { fontSize: 14, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8 },
+  earningsTotalVal:   { fontSize: 36, fontWeight: '700', color: '#FFD600', marginBottom: 4 },
+  earningsSub:        { fontSize: 14, color: '#5C5C5C' },
 
   earningsBreakdown: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     padding: 16, marginBottom: 12, gap: 12,
   },
-  breakdownTitle: { fontSize: 13, fontWeight: '800', color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  breakdownTitle: { fontSize: 14, fontWeight: '600', color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 4 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  breakdownLabel: { fontSize: 14, color: '#666' },
-  breakdownVal:   { fontSize: 14, fontWeight: '700', color: '#F5F5F5' },
+  breakdownLabel: { fontSize: 16, color: '#5C5C5C' },
+  breakdownVal:   { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 
   earningRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#111',
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#161616',
   },
-  earningProfession: { fontSize: 14, color: '#F5F5F5', fontWeight: '600', marginBottom: 2 },
-  earningDate:       { fontSize: 12, color: '#444' },
-  earningAmount:     { fontSize: 16, fontWeight: '800', color: '#4CAF50' },
+  earningProfession: { fontSize: 16, color: '#FFFFFF', fontWeight: '600', marginBottom: 2 },
+  earningDate:       { fontSize: 14, color: '#444' },
+  earningAmount:     { fontSize: 16, fontWeight: '600', color: '#FFD600' },
 });
 
 export default WorkerDashboardScreen;

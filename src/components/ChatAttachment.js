@@ -54,7 +54,7 @@ const Reproductor = ({ url, duracion, mine }) => {
   };
 
   const avance = total > 0 ? Math.min(pos / total, 1) : 0;
-  const color = mine ? '#0A0A0A' : '#FFD600';
+  const color = mine ? '#0D0D0D' : '#FFD600';
 
   return (
     <TouchableOpacity style={est.audioRow} onPress={alternar} activeOpacity={0.8}>
@@ -65,7 +65,7 @@ const Reproductor = ({ url, duracion, mine }) => {
         <View style={[est.audioBarraFondo, { backgroundColor: mine ? 'rgba(0,0,0,0.18)' : '#2a2a33' }]} />
         <View style={[est.audioBarraLlena, { width: `${avance * 100}%`, backgroundColor: color }]} />
       </View>
-      <Text style={[est.audioTiempo, { color: mine ? 'rgba(0,0,0,0.6)' : '#888' }]}>
+      <Text style={[est.audioTiempo, { color: mine ? 'rgba(0,0,0,0.6)' : '#8A8A8A' }]}>
         {total ? mmss(sonando || pos > 0 ? pos : total) : '▶'}
       </Text>
     </TouchableOpacity>
@@ -113,7 +113,7 @@ const ChatAttachment = ({ msg, mine }) => {
             useNativeControls={false}
           />
           <View style={est.videoPlay}>
-            <Ionicons name="play" size={26} color="#0A0A0A" />
+            <Ionicons name="play" size={26} color="#0D0D0D" />
           </View>
         </TouchableOpacity>
         <Modal visible={visor} transparent animationType="fade" onRequestClose={() => setVisor(false)}>
@@ -141,18 +141,18 @@ const ChatAttachment = ({ msg, mine }) => {
       onPress={() => Linking.openURL(url).catch(() => Alert.alert('Ups', 'No pudimos abrir el archivo.'))}
       activeOpacity={0.8}
     >
-      <Ionicons name="document-text-outline" size={22} color={mine ? '#0A0A0A' : '#FFD600'} />
+      <Ionicons name="document-text-outline" size={22} color={mine ? '#0D0D0D' : '#FFD600'} />
       <View style={{ flex: 1 }}>
-        <Text numberOfLines={1} style={[est.archivoNombre, { color: mine ? '#0A0A0A' : '#F5F5F5' }]}>
+        <Text numberOfLines={1} style={[est.archivoNombre, { color: mine ? '#0D0D0D' : '#FFFFFF' }]}>
           {msg.attachment_name || 'Archivo'}
         </Text>
         {!!msg.attachment_size && (
-          <Text style={[est.archivoPeso, { color: mine ? 'rgba(0,0,0,0.55)' : '#888' }]}>
+          <Text style={[est.archivoPeso, { color: mine ? 'rgba(0,0,0,0.55)' : '#8A8A8A' }]}>
             {pesoLegible(msg.attachment_size)}
           </Text>
         )}
       </View>
-      <Ionicons name="download-outline" size={18} color={mine ? 'rgba(0,0,0,0.5)' : '#666'} />
+      <Ionicons name="download-outline" size={18} color={mine ? 'rgba(0,0,0,0.5)' : '#5C5C5C'} />
     </TouchableOpacity>
   );
 };
@@ -163,7 +163,7 @@ const est = StyleSheet.create({
   videoTapa: { position: 'relative' },
   videoPlay: {
     position: 'absolute', top: '50%', left: '50%', marginLeft: -22, marginTop: -22,
-    width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,214,0,0.92)',
+    width: 44, height: 44, borderRadius: 999, backgroundColor: 'rgba(255,214,0,0.92)',
     alignItems: 'center', justifyContent: 'center',
   },
 
@@ -171,14 +171,14 @@ const est = StyleSheet.create({
   audioBarra: { flex: 1, height: 4, justifyContent: 'center' },
   audioBarraFondo: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2 },
   audioBarraLlena: { position: 'absolute', left: 0, height: 4, borderRadius: 2 },
-  audioTiempo: { fontSize: 11, fontWeight: '700', minWidth: 32, textAlign: 'right' },
+  audioTiempo: { fontSize: 12, fontWeight: '700', minWidth: 32, textAlign: 'right' },
 
   archivo: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, minWidth: 200,
   },
-  archivoNombre: { fontSize: 13.5, fontWeight: '700' },
-  archivoPeso: { fontSize: 11, marginTop: 1 },
+  archivoNombre: { fontSize: 14, fontWeight: '700' },
+  archivoPeso: { fontSize: 12, marginTop: 1 },
 
   visor: { flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', alignItems: 'center', justifyContent: 'center' },
   visorImg: { width: W, height: H * 0.8 },

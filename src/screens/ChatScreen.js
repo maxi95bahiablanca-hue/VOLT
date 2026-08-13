@@ -28,12 +28,12 @@ const STATUS_LABELS = {
 };
 
 const STATUS_COLORS = {
-  pending:          '#888',
+  pending:          '#8A8A8A',
   accepted:         '#FFD600',
   arrived:          '#FFD600',
-  in_progress:      '#FF9800',
-  awaiting_payment: '#4CAF50',
-  completed:        '#4CAF50',
+  in_progress:      '#8A8A8A',
+  awaiting_payment: '#FFD600',
+  completed:        '#FFD600',
 };
 
 const WORKER_QUICK = [
@@ -267,7 +267,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
               <Ionicons
                 name={item.read_by_other ? 'checkmark-done' : 'checkmark'}
                 size={12}
-                color={item.read_by_other ? '#FFD600' : '#888'}
+                color={item.read_by_other ? '#FFD600' : '#8A8A8A'}
                 style={{ marginLeft: 3 }}
               />
             )}
@@ -277,7 +277,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
     );
   };
 
-  const statusColor = STATUS_COLORS[job.status] || '#888';
+  const statusColor = STATUS_COLORS[job.status] || '#8A8A8A';
   const statusLabel = STATUS_LABELS[job.status] || job.status;
 
   const profName = !isWorker
@@ -308,14 +308,14 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
           )}
           {job.diagnosis_structured?.cause && (
             <View style={styles.contextRow}>
-              <Ionicons name="analytics-outline" size={14} color="#888" />
+              <Ionicons name="analytics-outline" size={14} color="#8A8A8A" />
               <Text style={styles.contextText}>Causa probable: {job.diagnosis_structured.cause}</Text>
             </View>
           )}
           {hasMats && (
             <View style={styles.contextRow}>
-              <Ionicons name="cart-outline" size={14} color="#FF9800" />
-              <Text style={[styles.contextText, { color: '#FF9800' }]}>
+              <Ionicons name="cart-outline" size={14} color="#8A8A8A" />
+              <Text style={[styles.contextText, { color: '#8A8A8A' }]}>
                 {job.diagnosis_structured?.materials?.length > 0
                   ? `Materiales: ${job.diagnosis_structured.materials.join(', ')}`
                   : 'Podría necesitar materiales'
@@ -349,17 +349,17 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
 
     if (job.status === 'in_progress') {
       return (
-        <View style={[styles.contextCard, { borderColor: '#FF980025' }]}>
+        <View style={[styles.contextCard, { borderColor: '#8A8A8A25' }]}>
           <Text style={styles.contextCardTitle}>Trabajo en curso</Text>
           <View style={styles.contextRow}>
             <View style={styles.workingDot} />
-            <Text style={[styles.contextText, { color: '#FF9800' }]}>
+            <Text style={[styles.contextText, { color: '#8A8A8A' }]}>
               El profesional está trabajando ahora mismo.
             </Text>
           </View>
           {job.work_summary?.solution && (
             <View style={styles.contextRow}>
-              <Ionicons name="checkmark-circle-outline" size={14} color="#4CAF50" />
+              <Ionicons name="checkmark-circle-outline" size={14} color="#FFD600" />
               <Text style={styles.contextText}>{job.work_summary.solution}</Text>
             </View>
           )}
@@ -376,9 +376,19 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
     <SafeAreaView style={styles.container}>
 
       {/* Header: foto + nombre + profesión + estado + llegada estimada */}
-      <View style={styles.header}>
+      {/* 🔴 11-ago-2026 — el chat se abre como <Modal> a pantalla completa y en Android
+          pinta abajo de la barra de estado (el SafeAreaView de react-native ahí no hace nada):
+          el reloj tapaba la flecha de volver y el nombre del profesional. En iOS el
+          SafeAreaView sí baja el contenido, así que ahí se deja el padding como estaba.
+          El +12 es el mismo respiro que ya declaraba el estilo para Android (paddingTop: 12),
+          sólo que ahora se cuenta desde abajo del reloj y no desde el borde de la pantalla:
+          así no se corre ni un píxel el diseño. Mismo patrón que QuoteSelectionScreen. */}
+      <View style={[
+        styles.header,
+        Platform.OS === 'android' && { paddingTop: insets.top + 12 },
+      ]}>
         <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
 
         <View style={styles.headerAvatar}>
@@ -461,14 +471,14 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
           {grabando ? (
             <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
               <TouchableOpacity style={styles.cancelarGrab} onPress={() => detenerAudio(true)} activeOpacity={0.8}>
-                <Ionicons name="trash-outline" size={20} color="#ff4444" />
+                <Ionicons name="trash-outline" size={20} color="#E5484D" />
               </TouchableOpacity>
               <View style={styles.grabandoWrap}>
                 <View style={styles.grabandoDot} />
                 <Text style={styles.grabandoTxt}>Grabando {mmss(segundos)}</Text>
               </View>
               <TouchableOpacity style={styles.sendBtn} onPress={() => detenerAudio(false)} activeOpacity={0.8}>
-                <Ionicons name="send" size={18} color="#0A0A0A" />
+                <Ionicons name="send" size={18} color="#0D0D0D" />
               </TouchableOpacity>
             </View>
           ) : (
@@ -504,8 +514,8 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
                 activeOpacity={0.8}
               >
                 {sending
-                  ? <ActivityIndicator size="small" color="#0A0A0A" />
-                  : <Ionicons name={text.trim() ? 'send' : 'mic'} size={18} color="#0A0A0A" />
+                  ? <ActivityIndicator size="small" color="#0D0D0D" />
+                  : <Ionicons name={text.trim() ? 'send' : 'mic'} size={18} color="#0D0D0D" />
                 }
               </TouchableOpacity>
             </View>
@@ -517,7 +527,7 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#121212' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
@@ -531,56 +541,56 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
 
   headerAvatar: { position: 'relative', width: 46, height: 46 },
-  headerAvatarImg: { width: 46, height: 46, borderRadius: 23 },
+  headerAvatarImg: { width: 46, height: 46, borderRadius: 999 },
   headerAvatarPlaceholder: {
-    width: 46, height: 46, borderRadius: 23,
+    width: 46, height: 46, borderRadius: 999,
     backgroundColor: '#1A1A00',
     borderWidth: 1.5, borderColor: '#FFD60040',
     alignItems: 'center', justifyContent: 'center',
   },
-  headerAvatarInitial: { fontSize: 18, fontWeight: '900', color: '#FFD600' },
+  headerAvatarInitial: { fontSize: 18, fontWeight: '700', color: '#FFD600' },
   headerStatusDot: {
     position: 'absolute', bottom: 1, right: 1,
-    width: 12, height: 12, borderRadius: 6,
-    borderWidth: 2, borderColor: '#0A0A0A',
+    width: 12, height: 12, borderRadius: 999,
+    borderWidth: 2, borderColor: '#0D0D0D',
   },
 
   headerInfo: { flex: 1 },
-  headerName: { fontSize: 15, fontWeight: '800', color: '#F5F5F5', marginBottom: 1 },
-  headerRole: { fontSize: 12, color: '#555', marginBottom: 5 },
+  headerName: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 1 },
+  headerRole: { fontSize: 14, color: '#5C5C5C', marginBottom: 5 },
 
   headerStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   statusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1, borderRadius: 20,
+    borderWidth: 1, borderRadius: 999,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  statusPillDot:  { width: 6, height: 6, borderRadius: 3 },
-  statusPillText: { fontSize: 11, fontWeight: '700' },
+  statusPillDot:  { width: 6, height: 6, borderRadius: 999 },
+  statusPillText: { fontSize: 12, fontWeight: '700' },
 
   arrivalPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(255,214,0,0.1)',
     borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)',
-    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
   },
-  arrivalPillText: { fontSize: 11, fontWeight: '700', color: '#FFD600' },
+  arrivalPillText: { fontSize: 12, fontWeight: '700', color: '#FFD600' },
 
   // ── Tarjeta de contexto ──────────────────────────────────────────────────────
   contextCard: {
     marginHorizontal: 16, marginTop: 12, marginBottom: 4,
     backgroundColor: '#0D0D0D',
-    borderRadius: 14, borderWidth: 1, borderColor: '#FFD60020',
+    borderRadius: 20, borderWidth: 1, borderColor: '#FFD60020',
     padding: 14, gap: 10,
   },
   contextCardTitle: {
-    fontSize: 11, fontWeight: '800', color: '#555',
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2,
+    fontSize: 12, fontWeight: '600', color: '#5C5C5C',
+    textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 2,
   },
   contextRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  contextText: { flex: 1, fontSize: 13, color: '#888', lineHeight: 18 },
+  contextText: { flex: 1, fontSize: 14, color: '#8A8A8A', lineHeight: 18 },
   workingDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF9800',
+    width: 8, height: 8, borderRadius: 999, backgroundColor: '#8A8A8A',
     marginTop: 5,
   },
 
@@ -588,85 +598,82 @@ const styles = StyleSheet.create({
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   listContent: { padding: 16, paddingBottom: 8, flexGrow: 1 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40, gap: 12 },
-  emptyText: { color: '#444', fontSize: 14, textAlign: 'center', lineHeight: 22, paddingHorizontal: 24 },
+  emptyText: { color: '#444', fontSize: 16, textAlign: 'center', lineHeight: 22, paddingHorizontal: 24 },
   voltEmptyBadge: {
     backgroundColor: 'rgba(255,214,0,0.1)',
     borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)',
-    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6,
   },
-  voltEmptyBadgeText: { fontSize: 11, fontWeight: '900', color: '#FFD600', letterSpacing: 1 },
+  voltEmptyBadgeText: { fontSize: 12, fontWeight: '700', color: '#FFD600', letterSpacing: 1 },
 
   systemRow: { alignItems: 'center', marginVertical: 8 },
   systemText: {
-    fontSize: 12, color: '#555', backgroundColor: '#111',
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12,
+    fontSize: 14, color: '#5C5C5C', backgroundColor: '#161616',
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
   },
 
   msgRow:      { marginBottom: 6, maxWidth: '80%' },
   msgRowMine:  { alignSelf: 'flex-end' },
   msgRowOther: { alignSelf: 'flex-start' },
 
-  bubble:      { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
+  bubble:      { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
   // Con adjunto se achica el padding: la imagen o el reproductor mandan la forma
   bubbleAdjunto: { paddingHorizontal: 6, paddingVertical: 6 },
   bubbleMine:  { backgroundColor: '#FFD600', borderBottomRightRadius: 4 },
   bubbleOther: { backgroundColor: '#2a2a2a', borderBottomLeftRadius: 4 },
 
-  bubbleText:      { fontSize: 14, lineHeight: 20 },
-  bubbleTextMine:  { color: '#0A0A0A' },
-  bubbleTextOther: { color: '#F5F5F5' },
+  bubbleText:      { fontSize: 16, lineHeight: 20 },
+  bubbleTextMine:  { color: '#0D0D0D' },
+  bubbleTextOther: { color: '#FFFFFF' },
 
   bubbleMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 3 },
-  bubbleTime:     { fontSize: 10, color: '#888' },
-  bubbleTimeMine: { color: '#0A0A0A88' },
+  bubbleTime:     { fontSize: 12, color: '#8A8A8A' },
+  bubbleTimeMine: { color: '#0D0D0D88' },
 
   // ── Acciones rápidas ─────────────────────────────────────────────────────────
   quickList: { paddingHorizontal: 12, paddingVertical: 7, gap: 7 },
   quickChip: {
-    backgroundColor: '#1c1c1c', borderRadius: 13,
-    borderWidth: 1, borderColor: '#333',
+    backgroundColor: '#1c1c1c', borderRadius: 999,
     paddingHorizontal: 11, paddingVertical: 5,
   },
-  quickChipText: { fontSize: 12, color: '#bbb', fontWeight: '600' },
+  quickChipText: { fontSize: 14, color: '#bbb', fontWeight: '600' },
 
   // ── Input ────────────────────────────────────────────────────────────────────
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     paddingHorizontal: 12, paddingTop: 10, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: '#2a2a2a',
     backgroundColor: '#161616',
   },
   input: {
     flex: 1, backgroundColor: '#1f1f1f',
-    borderRadius: 22, borderWidth: 1, borderColor: '#333',
-    color: '#F5F5F5', fontSize: 14,
+    borderRadius: 22, color: '#FFFFFF', fontSize: 16,
     paddingHorizontal: 16, paddingVertical: 10,
     maxHeight: 100,
   },
   sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 999,
     backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
 
   adjuntarBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 999,
     backgroundColor: '#1f1f1f', borderWidth: 1, borderColor: '#2e2e2e',
     alignItems: 'center', justifyContent: 'center',
   },
   cancelarGrab: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,68,68,0.10)', borderWidth: 1, borderColor: 'rgba(255,68,68,0.3)',
+    width: 44, height: 44, borderRadius: 999,
+    backgroundColor: 'rgba(229,72,77,0.10)', borderWidth: 1, borderColor: 'rgba(229,72,77,0.3)',
     alignItems: 'center', justifyContent: 'center',
   },
   grabandoWrap: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9,
     height: 44, paddingHorizontal: 16,
     backgroundColor: '#1f1f1f', borderRadius: 22,
-    borderWidth: 1, borderColor: 'rgba(255,68,68,0.35)',
+    borderWidth: 1, borderColor: 'rgba(229,72,77,0.35)',
   },
-  grabandoDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#ff4444' },
-  grabandoTxt: { color: '#F5F5F5', fontSize: 14, fontWeight: '700' },
+  grabandoDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#E5484D' },
+  grabandoTxt: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   sendBtnDisabled: { opacity: 0.4 },
 });
 

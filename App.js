@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator, AppState, Linking } from 'react-native';
+import { View, ActivityIndicator, AppState, Linking, Alert, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import * as Notifications from 'expo-notifications';
 import Toast from 'react-native-toast-message';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import DraggableBubble from './src/components/DraggableBubble';
 import { toastConfig, showInfo } from './src/utils/toast';
 import { supabase } from './src/supabase';
 import notificationService from './src/services/notificationService';
@@ -25,9 +26,17 @@ import WorkerIncomingScreen from './src/screens/WorkerIncomingScreen';
 import JobTrackingScreen from './src/screens/JobTrackingScreen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RatingScreen from './src/screens/RatingScreen';
+import ChatsScreen from './src/screens/ChatsScreen';
+import ChatScreen from './src/screens/ChatScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import MiNegocioScreen from './src/screens/MiNegocioScreen';
+import TabBar from './src/components/TabBar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import chatService from './src/services/chatService';
 import {
   useFonts,
-  Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
+  Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { applyGlobalFont } from './src/globalFont';
 
@@ -76,8 +85,11 @@ export default function App() {
   const [loading, setLoading]           = useState(true);
   // Sólo los 4 cortes que usa el mapeo de globalFont.js. Cada uno pesa ~335 kB
   // y viaja en el OTA, así que cargar de más se paga en datos del usuario.
+  // 9-ago-2026: se cambiaron ExtraBold y Black por Regular y Medium. Los dos
+  // pesos gordos ya no los usa nadie —el sistema visual no pasa de 700— y
+  // faltaban los finos, que son los que hacen que el texto respire.
   const [fontsLoaded] = useFonts({
-    Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
+    Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold,
   });
   const [screen, setScreen]             = useState('home');
   const [professional, setProfessional] = useState(null);
@@ -92,6 +104,14 @@ export default function App() {
   //  del celular, o con:
   //    adb shell am start -a android.intent.action.VIEW -d "bolt://nuevo-presupuesto"
   const [atajo, setAtajo] = useState(null);   // 'nuevoPresupuesto' | null
+  // La pestaña de abajo. La navegación dejó de vivir en el menú lateral:
+  // cuatro pestañas a la vista dicen lo que la app hace sin que nadie tenga
+  // que abrir la hamburguesa y adivinar (9-ago-2026).
+  const [tab, setTab] = useState('home');
+  // La conversación que se está mirando desde la bandeja.
+  const [chatJob, setChatJob] = useState(null);
+  const [modoTrabajo, setModoTrabajo] = useState(false);
+  const [sinLeer, setSinLeer] = useState(0);
 
   useEffect(() => {
     // El login de Google vuelve por bolt://login-callback y lo maneja
@@ -108,6 +128,7 @@ export default function App() {
   const [jobRequestData, setJobRequestData] = useState(null);
   const [assistantLoc, setAssistantLoc]     = useState(null);
   const [assistantMode, setAssistantMode]   = useState('text');
+  const [assistantOficio, setAssistantOficio] = useState(null);
   const [quoteGroupId, setQuoteGroupId]     = useState(null);
   const [quoteJobs, setQuoteJobs]           = useState([]);
   // Espera del presupuesto: el reloj vive acá (no adentro de la pantalla) para
@@ -191,29 +212,62 @@ export default function App() {
     notificationService.setup(userId);
     loadProfessionalAndJobs(userId);
 
+    // Adónde lleva una notificación cuando la tocás.
+    //
+    // 🔴 Antes esto exigía que el push trajera `screen`. Los avisos que le
+    //    llegan a la dirección —el vigilante ("BOLT necesita una mano") y los
+    //    del recorrido del pedido— mandan `jobId` pero NO mandan `screen`, así
+    //    que al tocarlos no pasaba nada y quedabas en la pantalla de inicio sin
+    //    saber qué tocar. Maxi, 7-ago-2026: "es como que se pierde la
+    //    notificación push porque te lleva a donde no tiene que llevar".
+    //
+    //    Ahora el destino se DEDUCE del trabajo: alcanza con que el push traiga
+    //    `jobId`. `screen` sigue valiendo cuando viene, pero ya no hace falta —
+    //    así un aviso nuevo que alguien agregue mañana funciona igual aunque se
+    //    olvide de mandarlo.
+    const abrirTrabajo = (jobId, screenPedida) => {
+      jobService.getById(jobId).then(job => {
+        if (!job) {
+          // El trabajo ya no existe (lo cancelaron, lo borraron). Decirlo es
+          // mejor que dejar a la persona mirando el inicio sin entender.
+          Alert.alert('Ese trabajo ya no está', 'Puede que se haya cancelado o completado.');
+          return;
+        }
+        // Un trabajo que todavía se puede tomar abre la pantalla de aceptar,
+        // pero SÓLO para el profesional al que se le ofreció: al resto —la
+        // dirección, por ejemplo— mostrarle "Aceptar" sería mentirle.
+        const soyElProfesional =
+          professionalRef.current && job.professional_id === professionalRef.current.id;
+        if (job.status === 'pending' && soyElProfesional && screenPedida !== 'tracking') {
+          setIncomingJob(job);
+          setScreen('workerIncoming');
+          return;
+        }
+        // Todo lo demás va al seguimiento: es la pantalla que tiene el estado
+        // real del trabajo y las acciones para moverlo, que es lo que se
+        // necesita cuando un aviso dice que algo está trabado.
+        minimizedJobRef.current = false;
+        setActiveJob(job);
+        setScreen('jobTracking');
+      }).catch(() => {
+        Alert.alert('No se pudo abrir el trabajo', 'Fijate que tengas internet y probá de nuevo.');
+      });
+    };
+
     const handleNotifData = (data) => {
       if (!data) return;
       disableDemo(); // un job real (desde notificación) nunca debe abrirse en modo demo
-      if (data.screen === 'tracking' && data.jobId) {
-        jobService.getById(data.jobId).then(job => {
-          if (job) { minimizedJobRef.current = false; setActiveJob(job); setScreen('jobTracking'); }
-        }).catch(() => {});
-      }
-      if (data.screen === 'worker_incoming' && data.jobId) {
-        jobService.getById(data.jobId).then(job => {
-          if (!job) return;
-          // Todavía se puede tomar → la pantalla del trabajo entrante.
-          if (job.status === 'pending') { setIncomingJob(job); setScreen('workerIncoming'); return; }
-          // Ya lo respondió (o lo tomó otro): abrirle la pantalla de aceptar
-          // sería mentirle. Se lo lleva al seguimiento, que es donde está la
-          // verdad de ese trabajo, en vez de dejarlo en la pantalla de inicio
-          // sin entender qué pasó (Maxi, 1-ago).
-          if (['accepted', 'arrived', 'in_progress', 'awaiting_payment'].includes(job.status)) {
-            minimizedJobRef.current = false;
-            setActiveJob(job);
-            setScreen('jobTracking');
-          }
-        }).catch(() => {});
+
+      if (data.jobId) { abrirTrabajo(data.jobId, data.screen); return; }
+
+      // Un rescate es un cliente que buscó y no encontró a nadie: no hay
+      // trabajo que abrir todavía. Al menos se dice qué pasó, en vez de dejar
+      // la app en el inicio como si el aviso no hubiera existido.
+      if (data.rescateId) {
+        Alert.alert(
+          'Un cliente quedó esperando',
+          'Buscó y no había nadie disponible. Miralo en el panel para asignarle un profesional.',
+        );
       }
     };
 
@@ -376,9 +430,12 @@ export default function App() {
   const handleIncomingJob = (job) => { setIncomingJob(job); setScreen('workerIncoming'); };
 
   // ─── Asistente IA (entrada conversacional) ────────────
-  const handleOpenAssistant = (userLocation, mode = 'text') => {
+  // El tercer parámetro es el oficio que tocó en el home: el asistente arranca
+  // con la frase empezada en vez de con la hoja en blanco.
+  const handleOpenAssistant = (userLocation, mode = 'text', oficio = null) => {
     setAssistantLoc(userLocation || null);
     setAssistantMode(mode);
+    setAssistantOficio(oficio);
     setScreen('assistant');
   };
 
@@ -406,7 +463,16 @@ export default function App() {
 
   // ─── Callbacks de QuoteSelectionScreen ───────────────
   const handleWorkerSelected = (job) => {
-    limpiarQuote(); setActiveJob(job); setScreen('jobTracking');
+    limpiarQuote();
+    // 🔴 10-ago-2026 — el job que llega acá viene de la lista de presupuestos y
+    //    TODAVÍA trae `quote_group_id`: en la base ya se borró, pero este objeto
+    //    es una copia vieja. La pantalla de entrega del contacto pide que no
+    //    haya grupo, así que durante un instante mostraba el seguimiento y
+    //    recién cuando llegaba el realtime cambiaba: se veía un parpadeo
+    //    (Maxi: "se abren y se cierran en un milisegundo").
+    //    Se limpia acá, que es donde ya sabemos que fue elegido.
+    setActiveJob({ ...job, quote_group_id: null, status: job.status || 'accepted' });
+    setScreen('jobTracking');
   };
 
   const handleQuoteExpired = () => { disableDemo(); limpiarQuote(); setScreen('home'); };
@@ -492,6 +558,28 @@ export default function App() {
   // ─── Callbacks de RatingScreen ────────────────────────
   const handleRatingDone = () => { disableDemo(); setCompletedJob(null); setScreen('home'); };
 
+  // El modo lo cambia el usuario desde el Home y queda guardado. Acá se lee
+  // para saber qué pestañas mostrar, y se relee cada vez que se vuelve al home.
+  useEffect(() => {
+    if (screen !== 'home') return;
+    AsyncStorage.getItem('bolt.modo')
+      .then(v => setModoTrabajo(v === 'trabajo'))
+      .catch(() => {});
+  }, [screen, tab]);
+
+  // El contador de la pestaña Chats. Cada 20 s alcanza: los mensajes de un
+  // trabajo abierto ya llegan por su propio canal.
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const traer = () => chatService
+      .getConversaciones(session.user.id, professional?.id)
+      .then(cs => setSinLeer(cs.reduce((a, c) => a + c.sinLeer, 0)))
+      .catch(() => {});
+    traer();
+    const t = setInterval(traer, 20000);
+    return () => clearInterval(t);
+  }, [session?.user?.id, professional?.id, tab]);
+
   // ─── Render ───────────────────────────────────────────
   const renderScreen = () => {
     // En el demo del lado trabajador fingimos un profesional para ver su vista
@@ -510,6 +598,7 @@ export default function App() {
           clientId={session.user.id}
           userLocation={assistantLoc}
           mode={assistantMode}
+          oficio={assistantOficio}
           onReady={handleAssistantReady}
           onBack={() => setScreen('home')}
         />
@@ -554,6 +643,22 @@ export default function App() {
         />
       );
     }
+    // 🔴 10-ago-2026 — un pedido en `pending` es uno que el profesional TODAVÍA
+    //    no contestó: su pantalla es la del contador, no la del seguimiento.
+    //    Si llegaba acá —por una notificación, por el pin, por el polling—
+    //    quedaba colgado sin poder aceptarlo (Maxi). Se lo manda a donde va.
+    if (screen === 'jobTracking' && activeJob?.status === 'pending' &&
+        effProfessional && activeJob.professional_id === effProfessional.id) {
+      return (
+        <WorkerIncomingScreen
+          job={activeJob}
+          professional={effProfessional}
+          clientUserId={activeJob.client_id}
+          onAccepted={handleWorkerAccepted}
+          onRejected={handleWorkerRejected}
+        />
+      );
+    }
     if (screen === 'jobTracking' && activeJob) {
       return (
         <JobTrackingScreen
@@ -576,6 +681,49 @@ export default function App() {
         />
       );
     }
+    // ── Las pestañas ──────────────────────────────────────────────────────
+    if (tab === 'chats') {
+      return (
+        <ChatsScreen
+          session={session}
+          professional={effProfessional}
+          // 🔴 10-ago-2026 — tocar una conversación abría la pantalla del
+          //    TRABAJO, y si ese trabajo ya estaba terminado esa pantalla
+          //    dispara sola la calificación: entrabas a leer un mensaje y te
+          //    aparecía "¿cómo estuvo el trabajo?" (Maxi). Una conversación se
+          //    abre en el chat y nada más.
+          onOpenChat={(job) => setChatJob(job)}
+        />
+      );
+    }
+    if (tab === 'pedidos') {
+      return (
+        <HistoryScreen
+          session={session}
+          professional={effProfessional}
+          onOpenJob={(job) => { setActiveJob(job); minimizedJobRef.current = false; setScreen('jobTracking'); }}
+          onClose={() => setTab('home')}
+        />
+      );
+    }
+    if (tab === 'negocio' && effProfessional) {
+      return (
+        <MiNegocioScreen
+          professional={effProfessional}
+          session={session}
+          onClose={() => setTab('home')}
+        />
+      );
+    }
+    if (tab === 'cuenta') {
+      return (
+        <ProfileScreen
+          session={session}
+          professional={effProfessional}
+          onClose={() => setTab('home')}
+        />
+      );
+    }
     return (
       <HomeScreen
         session={session}
@@ -587,19 +735,75 @@ export default function App() {
         onActiveJob={handleActiveJob}
         onIncomingJob={handleIncomingJob}
         activeJob={activeJob}
-        onResumeJob={() => { minimizedJobRef.current = false; setScreen('jobTracking'); }}
-        quoteWaiting={quoteMinimized && !!quoteGroupId}
-        quoteDeadline={quoteDeadline}
-        quoteResponded={quoteJobs.filter(j => j.status === 'accepted').length}
-        onResumeQuote={handleQuoteResume}
       />
     );
   };
 
+  // La barra sólo va en las pestañas. En medio de un pedido —eligiendo
+  // presupuesto, aceptando un trabajo, calificando— cambiar de pantalla de un
+  // toque sería perder lo que estás haciendo.
+  const mostrarTabs = !!session && !loading && fontsLoaded &&
+    ['home'].includes(screen);
+
+  // ─── El pin del trabajo en curso ───────────────────────────────────────────
+  // 🔴 8-ago-2026 — vivía adentro del Home, así que minimizar el seguimiento y
+  //    entrar a cualquier otra pantalla te dejaba sin forma de volver: había que
+  //    salir al home primero. Ahora vive acá arriba y se ve en TODAS, menos en
+  //    la del propio trabajo y en las que no se pueden interrumpir (aceptar un
+  //    pedido, elegir presupuesto, calificar): ahí un pin encima sería una
+  //    trampa para el dedo.
+  //    Recuerda dónde lo dejó el usuario (`storageKey`) y se pega al borde.
+  const jobEnCurso = activeJob && ['pending','accepted','arrived','in_progress','awaiting_payment'].includes(activeJob.status);
+  const SIN_PIN = ['jobTracking', 'workerIncoming', 'quoteSelection', 'rating'];
+  const mostrarPinJob   = !!jobEnCurso && !SIN_PIN.includes(screen);
+  const mostrarPinQuote = quoteMinimized && !!quoteGroupId && !SIN_PIN.includes(screen);
+
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        {renderScreen()}
+        <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
+          {renderScreen()}
+          {chatJob && (
+          <Modal visible animationType="slide" onRequestClose={() => setChatJob(null)}>
+            <ChatScreen
+              job={chatJob}
+              userId={session?.user?.id}
+              isWorker={
+                !!chatJob.professional_id &&
+                session?.user?.id !== chatJob.client_id
+              }
+              onClose={() => setChatJob(null)}
+            />
+          </Modal>
+        )}
+        {mostrarTabs && (
+            <TabBar
+              tab={tab}
+              modoTrabajo={modoTrabajo && !!professional}
+              sinLeer={sinLeer}
+              onChange={setTab}
+            />
+          )}
+        </View>
+        {mostrarPinJob && (
+          <DraggableBubble
+            icon="navigate"
+            storageKey="bolt.pin.trabajo"
+            dotColor="#FFD600"
+            onPress={() => { minimizedJobRef.current = false; setScreen('jobTracking'); }}
+          />
+        )}
+        {/* El de los presupuestos lleva el reloj adentro: si se vence sin que
+            vuelva, pierde las respuestas. Por eso va separado y con contador. */}
+        {mostrarPinQuote && (
+          <DraggableBubble
+            icon="hourglass"
+            storageKey="bolt.pin.presupuesto"
+            deadline={quoteDeadline}
+            badgeCount={quoteJobs.filter(j => j.status === 'accepted').length}
+            onPress={handleQuoteResume}
+          />
+        )}
         <StatusBar style="light" />
         <Toast config={toastConfig} />
       </ErrorBoundary>

@@ -12,6 +12,10 @@ import { tocaOfrecerPantallaCompleta, abrirAjustesPantallaCompleta } from '../se
 import * as Location from 'expo-location';
 import favoriteService from '../services/favoriteService';
 import ReputationCard from '../components/ReputationCard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import MisDirecciones from '../components/MisDirecciones';
+import { fotoDeOficio } from '../utils/fotosOficios';
+import { conTiempo } from '../utils/conTiempo';
 import DemoToggle from '../components/DemoToggle';
 import { isDemoMode, toggleDemo, setDemoRole } from '../demo/demoMode';
 import { DEMO_PROFESSIONAL, DEMO_QUOTE_JOBS, DEMO_JOB } from '../demo/demoData';
@@ -27,17 +31,18 @@ import HowItWorksScreen from './HowItWorksScreen';
 import HistoryScreen from './HistoryScreen';
 import MiNegocioScreen from './MiNegocioScreen';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
+import CalculadoraScreen from './CalculadoraScreen';
+import AsesoramientoScreen from './AsesoramientoScreen';
 import DrawerMenu from '../components/DrawerMenu';
-import DraggableBubble from '../components/DraggableBubble';
 import { abrirAyudaUbicacion } from '../utils/ayuda';
 
 const { height: SCREEN_H } = Dimensions.get('window');
+
+// El minimapa del domicilio no muestra profesionales: sólo tu punto.
+const SIN_TRABAJADORES = [];
 const BUTTON_SIZE = 64;
 const CARD_H = 400;
 
-const PANEL_FULL   = 330;
-const PANEL_PEEK   = 155;
-const PANEL_HIDDEN = PANEL_FULL - PANEL_PEEK;
 
 // Centro de Bahía Blanca (fallback hasta tener ubicación del usuario)
 const BAHIA_CENTER = { latitude: -38.7183, longitude: -62.2663 };
@@ -76,107 +81,9 @@ const FALLBACK_PROFS = [
   { id: 17, name: 'Alarmas / Cámaras' },
   { id: 18, name: 'Durlock' },
   { id: 19, name: 'Herrero' },
+  { id: 20, name: 'Calderas' },
 ];
 
-// Oficios para los pines ambientales del mapa (percepción de actividad)
-const AMBIENT_PROFS = [
-  { emoji: '🔧', name: 'Electricista' },
-  { emoji: '🚰', name: 'Plomero' },
-  { emoji: '🔥', name: 'Gasista' },
-  { emoji: '❄️', name: 'Aire acondicionado' },
-  { emoji: '🎨', name: 'Pintor' },
-  { emoji: '🔒', name: 'Cerrajero' },
-  { emoji: '📹', name: 'Alarmas / Cámaras' },
-  { emoji: '🧱', name: 'Albañil' },
-  { emoji: '🔨', name: 'Durlock' },
-];
-
-// Genera pines representativos alrededor de un centro, repartidos en anillos.
-// Son decorativos (no abren ficha): comunican cobertura/actividad sin inventar identidades.
-const buildAmbientWorkers = (center) => {
-  const base = center || BAHIA_CENTER;
-  const N = 11;
-  return Array.from({ length: N }).map((_, i) => {
-    const angle  = (i / N) * Math.PI * 2 + i * 0.6;
-    const radius = 0.0025 + (i % 3) * 0.002;           // ~0.25–0.65 km (pegado al usuario)
-    const state  = i % 6 === 0 ? 'busy' : (i % 6 === 3 ? 'oncoming' : 'available');
-    const prof   = AMBIENT_PROFS[i % AMBIENT_PROFS.length];
-    return {
-      id: `ambient-${i}`,
-      ambient: true,
-      emoji: prof.emoji,
-      profession_name: prof.name,
-      state,
-      lat: base.latitude  + Math.cos(angle) * radius,
-      lng: base.longitude + Math.sin(angle) * radius * 1.3,
-    };
-  });
-};
-
-// Ubica los pines ambientales sobre CALLES reales cercanas (vía OpenStreetMap),
-// para que NUNCA caigan en el agua/mar. Si no hay internet o falla, devuelve null
-// y se usa buildAmbientWorkers como fallback.
-const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-];
-
-const buildAmbientOnStreets = async (center) => {
-  if (!center?.latitude) return null;
-  const { latitude: lat, longitude: lng } = center;
-  const query =
-    `[out:json][timeout:8];` +
-    `way(around:1500,${lat},${lng})[highway~"^(residential|living_street|tertiary|secondary|unclassified|primary)$"];` +
-    `out geom 80;`;
-  for (const url of OVERPASS_ENDPOINTS) {
-    try {
-      const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), 9000);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(query),
-        signal: ctrl.signal,
-      });
-      clearTimeout(to);
-      if (!res.ok) continue;
-      const json = await res.json();
-      const pts = [];
-      for (const el of json.elements || []) {
-        if (el.geometry) for (const g of el.geometry) pts.push({ lat: g.lat, lng: g.lon });
-      }
-      if (pts.length < 6) continue;
-      const N = 11;
-      const step = Math.max(1, Math.floor(pts.length / N));
-      const chosen = [];
-      for (let i = 0; i < pts.length && chosen.length < N; i += step) chosen.push(pts[i]);
-      return chosen.map((p, i) => {
-        const prof  = AMBIENT_PROFS[i % AMBIENT_PROFS.length];
-        const state = i % 6 === 0 ? 'busy' : (i % 6 === 3 ? 'oncoming' : 'available');
-        return {
-          id: `ambient-${i}`, ambient: true, emoji: prof.emoji,
-          profession_name: prof.name, state, lat: p.lat, lng: p.lng,
-        };
-      });
-    } catch { /* probar el siguiente endpoint */ }
-  }
-  return null;
-};
-
-const CLIENT_TIPS = [
-  { icon: 'shield-checkmark-outline', color: '#4CAF50', text: 'Siempre pedí el código de verificación antes de abrir la puerta' },
-  { icon: 'star-outline',             color: '#FFD600', text: 'Calificá al profesional para ayudar a la comunidad BOLT' },
-  { icon: 'cash-outline',             color: '#FFD600', text: 'El pago lo coordinás directo con el profesional, como prefieran' },
-  { icon: 'people-outline',           color: '#FF9800', text: 'Todos los trabajadores tienen antecedentes verificados' },
-  { icon: 'pricetag-outline',         color: '#888',    text: 'Acordá el precio con el profesional antes de que empiece el trabajo' },
-];
-
-const WORKER_TIPS = [
-  { icon: 'trending-up-outline', color: '#4CAF50', text: '¡Más calificación = menor comisión! Apuntá al nivel Elite' },
-  { icon: 'id-card-outline',     color: '#FFD600', text: 'Mostrá siempre tu código de verificación al llegar al domicilio' },
-  { icon: 'flash-outline',       color: '#FFD600', text: 'Respondé rápido — los clientes eligen al primer disponible' },
-  { icon: 'thumbs-up-outline',   color: '#FF9800', text: 'Un buen pre-diagnóstico genera más confianza y mejores calificaciones' },
-];
 
 // ─── Helper: fecha relativa ────────────────────────────────────────────────
 const formatRelativeDate = (isoDate) => {
@@ -269,7 +176,7 @@ const MisProfesionalesCard = ({ w, onHire, selectedProfession, userLocation }) =
         }}
         activeOpacity={0.85}
       >
-        <Ionicons name="flash" size={16} color={w.available ? '#0A0A0A' : '#444'} />
+        <Ionicons name="flash" size={16} color={w.available ? '#0D0D0D' : '#444'} />
         <Text style={[styles.misProBtnText, !w.available && styles.misProBtnTextOff]}>
           {w.available ? 'Solicitar nuevamente' : 'No disponible ahora'}
         </Text>
@@ -362,7 +269,7 @@ const EmergencyModal = ({ worker, onConfirm, onClose, loading }) => {
                 <View style={emStyles.metricDiv} />
                 <View style={emStyles.metric}>
                   <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
-                  <Text style={[emStyles.metricVal, { color: '#4CAF50', fontSize: 12 }]}>
+                  <Text style={[emStyles.metricVal, { color: '#4CAF50', fontSize: 14 }]}>
                     Disponible
                   </Text>
                   <Text style={emStyles.metricLabel}>Ahora mismo</Text>
@@ -418,14 +325,14 @@ const emStyles = StyleSheet.create({
     backgroundColor: '#ff4444',
     borderRadius: 20, paddingHorizontal: 20, paddingVertical: 9,
   },
-  headerBadgeText: { fontSize: 14, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
+  headerBadgeText: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: 1.5 },
 
   headline: {
-    fontSize: 15, color: '#BBBBBB', textAlign: 'center', lineHeight: 22,
+    fontSize: 16, color: '#BBBBBB', textAlign: 'center', lineHeight: 22,
   },
 
   loadingWrap: { alignItems: 'center', gap: 12, paddingVertical: 20 },
-  loadingText: { fontSize: 14, color: '#555' },
+  loadingText: { fontSize: 16, color: '#555' },
 
   workerCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -433,24 +340,24 @@ const emStyles = StyleSheet.create({
     borderWidth: 1, borderColor: '#ff444425', padding: 14,
   },
   workerAvatar: { position: 'relative' },
-  workerAvatarImg: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: '#ff4444' },
+  workerAvatarImg: { width: 56, height: 56, borderRadius: 999 },
   workerAvatarPlaceholder: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 56, height: 56, borderRadius: 999,
     backgroundColor: '#2a0a0a', borderWidth: 2, borderColor: '#ff4444',
     alignItems: 'center', justifyContent: 'center',
   },
-  workerAvatarInitial: { fontSize: 22, fontWeight: '900', color: '#ff4444' },
+  workerAvatarInitial: { fontSize: 22, fontWeight: '700', color: '#ff4444' },
   availableDot: {
     position: 'absolute', bottom: 1, right: 1,
-    width: 14, height: 14, borderRadius: 7,
+    width: 14, height: 14, borderRadius: 999,
     backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#0D0505',
   },
   workerInfo:  { flex: 1 },
-  workerName:  { fontSize: 16, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
-  workerRole:  { fontSize: 12, color: '#666', marginBottom: 5 },
+  workerName:  { fontSize: 16, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
+  workerRole:  { fontSize: 14, color: '#666', marginBottom: 5 },
   ratingRow:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ratingVal:   { fontSize: 13, fontWeight: '800', color: '#FFD600' },
-  ratingJobs:  { fontSize: 11, color: '#444' },
+  ratingVal:   { fontSize: 14, fontWeight: '600', color: '#FFD600' },
+  ratingJobs:  { fontSize: 12, color: '#444' },
 
   metricsRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -459,20 +366,20 @@ const emStyles = StyleSheet.create({
   },
   metric:      { flex: 1, alignItems: 'center', gap: 6 },
   metricDiv:   { width: 1, height: 44, backgroundColor: '#2a1010' },
-  metricVal:   { fontSize: 16, fontWeight: '900', color: '#ff4444' },
-  metricLabel: { fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
+  metricVal:   { fontSize: 16, fontWeight: '700', color: '#ff4444' },
+  metricLabel: { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1.8, textAlign: 'center' },
 
-  priceNote: { fontSize: 12, color: '#444', textAlign: 'center' },
+  priceNote: { fontSize: 14, color: '#444', textAlign: 'center' },
 
   confirmBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: '#ff4444',
     borderRadius: 16, paddingVertical: 18,
   },
-  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   cancelBtn: { alignItems: 'center', paddingVertical: 8 },
-  cancelBtnText: { fontSize: 14, color: '#444' },
+  cancelBtnText: { fontSize: 16, color: '#444' },
 });
 
 // ─── Tarjeta del trabajador seleccionado (sube desde abajo) ───────────────
@@ -543,7 +450,7 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose, isFavorite }) => {
           <>
             <View style={styles.cardStatDiv} />
             <View style={styles.cardStat}>
-              <Text style={[styles.cardStatVal, { color: '#4CAF50' }]}>{onTimePct}%</Text>
+              <Text style={styles.cardStatVal}>{onTimePct}%</Text>
               <Text style={styles.cardStatLbl}>puntualidad</Text>
             </View>
           </>
@@ -577,7 +484,7 @@ const WorkerCard = ({ worker, slideAnim, onContact, onClose, isFavorite }) => {
       <ReputationCard prof={worker} compact />
 
       <TouchableOpacity style={styles.requestBtn} onPress={() => onContact(worker)} activeOpacity={0.85}>
-        <Ionicons name="flash" size={20} color="#0A0A0A" />
+        <Ionicons name="flash" size={20} color="#0D0D0D" />
         <Text style={styles.requestBtnText}>
           {chargesInApp() ? `Solicitar — $${(worker.min_price ?? 30000).toLocaleString('es-AR')} visita` : 'Solicitar'}
         </Text>
@@ -603,9 +510,9 @@ const RadarButton = ({ available, toggling, onPress, pulse1, pulse2, pulse3 }) =
         onPress={onPress} disabled={toggling} activeOpacity={0.8}
       >
         {toggling
-          ? <ActivityIndicator size="small" color={available ? '#0A0A0A' : '#FFD600'} />
+          ? <ActivityIndicator size="small" color={available ? '#0D0D0D' : '#FFD600'} />
           : <Ionicons name={available ? 'radio' : 'radio-outline'} size={26}
-              color={available ? '#0A0A0A' : '#888'} />
+              color={available ? '#0D0D0D' : '#888'} />
         }
       </TouchableOpacity>
     </View>
@@ -622,7 +529,7 @@ const RadarButton = ({ available, toggling, onPress, pulse1, pulse2, pulse3 }) =
 const PROBLEM_KEYWORDS = {
   1:  ['luz', 'electric', 'enchufe', 'corto', 'cortocircuito', 'tablero', 'termica', 'térmica', 'disyuntor', 'foco', 'lampara', 'lámpara', 'cable', 'toma', 'chispa', 'instalacion electrica', 'sin luz', 'se corto la luz'],
   2:  ['agua', 'caño', 'cano', 'perdida', 'pérdida', 'pierde', 'canilla', 'grifo', 'inodoro', 'baño', 'baño', 'cloaca', 'destap', 'filtracion', 'filtración', 'gotera', 'tanque', 'bomba de agua', 'cañeria', 'cañería', 'desagote', 'pinchadura'],
-  3:  ['gas', 'estufa', 'calefon', 'calefón', 'termotanque', 'cocina a gas', 'garrafa', 'olor a gas', 'caldera', 'calefaccion', 'calefacción'],
+  3:  ['gas', 'estufa', 'calefon', 'calefón', 'termotanque', 'cocina a gas', 'garrafa', 'olor a gas'],
   4:  ['pintar', 'pintura', 'pintor', 'latex', 'látex', 'esmalte', 'blanquear', 'empapelar', 'repintar'],
   5:  ['revoque', 'ladrillo', 'cemento', 'contrapiso', 'construccion', 'construcción', 'mamposteria', 'mampostería', 'grieta', 'pared rota', 'techo', 'mojinete', 'albañil', 'albanil', 'humedad'],
   7:  ['cerradura', 'llave', 'traba', 'candado', 'puerta trabada', 'me quede afuera', 'quedé afuera', 'bombin', 'bombín', 'cerrajer', 'no abre la puerta'],
@@ -635,54 +542,21 @@ const PROBLEM_KEYWORDS = {
   16: ['aire', 'aire acondicionado', 'split', 'climatizacion', 'climatización', 'carga de gas', 'frio', 'frío', 'instalacion de aire', 'instalación de aire', 'limpieza de aire', 'aire no anda', 'aire no enfria', 'ventilacion', 'ventilación'],
   17: ['alarma', 'camara', 'cámara', 'camaras', 'cámaras', 'seguridad', 'cctv', 'monitoreo', 'sensor', 'vigilancia', 'dvr', 'instalacion de camaras', 'instalación de cámaras', 'porton automatico', 'portón automático', 'cerco electrico'],
   18: ['durlock', 'placa de yeso', 'placas de yeso', 'tabique', 'cielorraso', 'cielo raso', 'yeso', 'pladur', 'steel framing', 'construccion en seco', 'construcción en seco', 'pared de durlock', 'division', 'división'],
+  // Calderas y calefacción salieron de Gasista (id 3) el 10-ago-2026: el que
+  // arregla una caldera no necesariamente destapa una garrafa. Si no hay ningún
+  // especialista cerca, `getNearbyWorkers` cae igual a Gasista.
+  // 'termografia' vive acá porque la hace el mismo: nadie la busca por su
+  // nombre, pero el que la escribe tiene que llegar a alguien.
+  20: ['caldera', 'calderas', 'calefaccion', 'calefacción', 'calefactor', 'calefactores', 'radiador', 'radiadores', 'piso radiante', 'losa radiante', 'termografia', 'termografía', 'no calienta la casa', 'no calienta el agua'],
 };
 
-// Burbuja flotante arrastrable (estilo Messenger) para volver al trabajo en curso.
-// Se arrastra a cualquier lado; un toque (sin arrastrar) abre el seguimiento.
-function ActiveJobBubble({ onPress }) {
-  const { width: W, height: H } = Dimensions.get('window');
-  const pos = useRef(new Animated.ValueXY({ x: W - 78, y: H - 260 })).current;
-  const moved = useRef(false);
-  const responder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5,
-    onPanResponderGrant: () => { moved.current = false; pos.extractOffset(); },
-    onPanResponderMove: (e, g) => {
-      if (Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5) moved.current = true;
-      pos.setValue({ x: g.dx, y: g.dy });
-    },
-    onPanResponderRelease: () => {
-      pos.flattenOffset();
-      if (!moved.current) onPress?.();
-    },
-  })).current;
-
-  return (
-    <Animated.View style={[bubbleStyles.bubble, { transform: pos.getTranslateTransform() }]} {...responder.panHandlers}>
-      <Ionicons name="navigate" size={24} color="#0A0A0A" />
-      <View style={bubbleStyles.pulse} />
-    </Animated.View>
-  );
-}
-
-const bubbleStyles = StyleSheet.create({
-  bubble: {
-    position: 'absolute', top: 0, left: 0, zIndex: 500,
-    width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFD600',
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 12, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
-    borderWidth: 2, borderColor: '#0A0A0A',
-  },
-  pulse: {
-    position: 'absolute', top: 3, right: 3, width: 13, height: 13, borderRadius: 7,
-    backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#FFD600',
-  },
-});
+// (Acá vivía una segunda burbuja arrastrable, copia de DraggableBubble y ya sin
+//  uso. El pin del trabajo en curso ahora es uno solo y vive en App.js, para que
+//  se vea en todas las pantallas.)
 
 const HomeScreen = ({
   session, professional, onRequestJob, onOpenAssistant, onActiveJob, onIncomingJob,
-  activeJob, onResumeJob,
-  quoteWaiting, quoteDeadline, quoteResponded = 0, onResumeQuote,
+  activeJob,
   atajo, onAtajoUsado,
 }) => {
   const userId = session?.user?.id;
@@ -694,7 +568,6 @@ const HomeScreen = ({
   // Mapa
   const [userLocation, setUserLocation]   = useState(null);
   const [workers, setWorkers]             = useState([]);
-  const [ambientWorkers, setAmbientWorkers] = useState(() => buildAmbientWorkers(null));
   const [selectedWorker, setSelectedWorker] = useState(null);
 
   // Búsqueda
@@ -711,12 +584,20 @@ const HomeScreen = ({
   // Un solo panel: "Mi negocio" absorbió al viejo panel de trabajador
   // (WorkerDashboardScreen), que ya no lo abre nadie.
   const [showNegocio, setShowNegocio]       = useState(false);
+  const [visibleEnBusquedas, setVisibleEnBusquedas] = useState(null);
+  const [verDirecciones, setVerDirecciones] = useState(false);
+  // El modo lo elige el usuario y se recuerda. Un profesional puede pedir un
+  // servicio sin dejar de ser profesional: son dos lados de la misma app.
+  const [modoTrabajo, setModoTrabajo]       = useState(false);
+  const [puertaModo, setPuertaModo]         = useState(false);
   // El acceso directo entra derecho a cargar el presupuesto, sin pasar por la
   // lista. Es todo el punto del atajo: sacar el celular y escribir.
   const [negocioEnNuevo, setNegocioEnNuevo] = useState(false);
   const [showAdmin, setShowAdmin]           = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [showPrivacy, setShowPrivacy]       = useState(false);
+  const [showCalculadora, setShowCalculadora]     = useState(false);
+  const [showAsesoramiento, setShowAsesoramiento] = useState(false);
   const newJobChannelRef = useRef(null);
 
   // "Estás listo para recibir trabajos" — se decide una sola vez por apertura de
@@ -726,7 +607,6 @@ const HomeScreen = ({
   const avisoYaEvaluado = useRef(false);
 
   // Tips rotativos
-  const [tipIndex, setTipIndex] = useState(0);
 
   // Banner de pago para clientes sin pago verificado
   const [paymentVerified, setPaymentVerified] = useState(true);
@@ -751,28 +631,43 @@ const HomeScreen = ({
   // Card animation
   const slideAnim = useRef(new Animated.Value(CARD_H)).current;
 
-  // Panel deslizante
-  const panelY    = useRef(new Animated.Value(0)).current; // arranca EXPANDIDO (visible)
-  const panelBase = useRef(0);
-  const panResponder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx),
-    onPanResponderGrant: () => {
-      panelY.setOffset(panelBase.current);
-      panelY.setValue(0);
-    },
-    onPanResponderMove: (_, g) => {
-      panelY.setValue(Math.min(PANEL_HIDDEN, Math.max(-20, g.dy)));
-    },
-    onPanResponderRelease: (_, g) => {
-      panelY.flattenOffset();
-      const approxPos = panelBase.current + g.dy;
-      const expand = g.vy < -0.5 || approxPos < PANEL_HIDDEN / 2;
-      const toValue = expand ? 0 : PANEL_HIDDEN;
-      panelBase.current = toValue;
-      Animated.spring(panelY, { toValue, useNativeDriver: true, tension: 60, friction: 12 }).start();
-    },
-  })).current;
+
+  // ── El modo (cliente / trabajo) ──────────────────────
+  const aprobado   = professional?.verification_status === 'approved';
+  const estadoAlta = aprobado ? 'aprobado' : (professional ? 'revision' : 'sin-alta');
+
+  useEffect(() => {
+    AsyncStorage.getItem('bolt.modo')
+      .then(v => { if (v === 'trabajo' && aprobado) setModoTrabajo(true); })
+      .catch(() => {});
+  }, [aprobado]);
+
+  // Si dejó de estar aprobado (o nunca lo estuvo), no puede quedar del lado del
+  // trabajo mirando una pantalla que no le corresponde.
+  useEffect(() => { if (!aprobado && modoTrabajo) setModoTrabajo(false); }, [aprobado, modoTrabajo]);
+
+  const cambiarModo = () => {
+    if (!aprobado) { setPuertaModo(true); return; }
+    const nuevo = !modoTrabajo;
+    setModoTrabajo(nuevo);
+    AsyncStorage.setItem('bolt.modo', nuevo ? 'trabajo' : 'cliente').catch(() => {});
+  };
+
+  const primerNombre = (
+    session?.user?.user_metadata?.full_name ||
+    session?.user?.email?.split('@')[0] ||
+    ''
+  ).split(' ')[0];
+
+  const hoyLargo = () => {
+    const d = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    return d.charAt(0).toUpperCase() + d.slice(1);
+  };
+
+  // Invisible en las búsquedas = no hay ubicación guardada en la base.
+  // Mientras no sabemos vale `null`, y no se avisa nada: un aviso que aparece
+  // porque el dato todavía no llegó es peor que no avisar.
+  const sinUbicacion = visibleEnBusquedas === false;
 
   // ─── Carga inicial ───────────────────────────────────
   useEffect(() => {
@@ -786,10 +681,23 @@ const HomeScreen = ({
     if (professional?.id && userId) {
       supabase
         .from('professionals')
-        .select('available, verification_status, first_name')
+        .select('available, verification_status, first_name, location')
         .eq('user_id', userId)
         .maybeSingle()
-        .then(({ data }) => { if (data) setAvailable(!!data.available); })
+        .then(({ data }) => {
+          if (!data) return;
+          setAvailable(!!data.available);
+          // 🔴 9-ago-2026 — el aviso "estás disponible pero no te ve nadie"
+          //    miraba el GPS de ESTA pantalla (userLocation), que al abrir la
+          //    app tarda en llegar y arranca en null. Resultado: el aviso salía
+          //    aunque en la base la ubicación estuviera guardada y el
+          //    profesional fuera perfectamente visible; desactivar y volver a
+          //    activar lo "arreglaba" porque forzaba el GPS (Maxi).
+          //    Lo que decide si te ven es la función nearby_workers, y pide
+          //    tres cosas: aprobado, disponible y **location no nula**. La
+          //    antigüedad no la mira. Así que el aviso se basa en eso y nada más.
+          setVisibleEnBusquedas(!!data.location);
+        })
         .catch(() => {});
     }
     // Verificar si el cliente (no trabajador) tiene pagos completados
@@ -805,13 +713,6 @@ const HomeScreen = ({
       favoriteService.getFavorites(userId).then(setFavorites).catch(() => {});
     }
   }, []);
-
-  // Rotación de tips cada 7 segundos
-  useEffect(() => {
-    const tips = professional ? WORKER_TIPS : CLIENT_TIPS;
-    const t = setInterval(() => setTipIndex(i => (i + 1) % tips.length), 7000);
-    return () => clearInterval(t);
-  }, [professional]);
 
   // Sincronizar available cuando llega professional desde App.js
   useEffect(() => {
@@ -839,9 +740,54 @@ const HomeScreen = ({
       .catch(() => {});
   }, [professional?.id, userId]);
 
+  // ─── La dirección fija ───────────────────────────────
+  //
+  // 🔴 10-ago-2026 — elegías tu dirección, la app la guardaba… y al volver a
+  // abrirla estaba de nuevo la que el GPS eligió mal. La causa: `initLocation()`
+  // corría siempre al arrancar y pisaba lo elegido, y lo que se guardaba en la
+  // cuenta no lo leía nadie al iniciar.
+  //
+  // Ahora la dirección elegida MANDA: se guarda en el teléfono (instantánea, sin
+  // esperar la red), se lee antes que nada, y el GPS sólo se pide si no hay
+  // ninguna guardada o si la pedís vos con "Usar mi ubicación actual".
+  const CLAVE_DIR = 'bolt.direccion.fija';
+
+  const guardarDireccionFija = (loc) => {
+    AsyncStorage.setItem(CLAVE_DIR, JSON.stringify({
+      latitude: loc.latitude, longitude: loc.longitude, address: loc.address || null,
+    })).catch(() => {});
+    supabase.auth.updateUser({
+      data: { direccion: loc.address, lat: loc.latitude, lng: loc.longitude },
+    }).catch(() => {});
+  };
+
+  const usarDireccionFija = (d) => {
+    const loc = {
+      latitude: d.latitude, longitude: d.longitude,
+      latitudeDelta: 0.04, longitudeDelta: 0.04,
+      address: d.address || null,
+    };
+    setUserLocation(loc);
+    return loc;
+  };
+
   // ─── Ubicación inicial y workers ─────────────────────
-  const initLocation = async () => {
+  // `forzar` = te pidió el GPS a propósito. Sin eso, una dirección fija guardada
+  // gana siempre: es una decisión que ya tomó el usuario.
+  const initLocation = async (forzar = false) => {
     try {
+      if (!forzar) {
+        const guardada = await AsyncStorage.getItem(CLAVE_DIR).catch(() => null);
+        if (guardada) {
+          const d = JSON.parse(guardada);
+          if (d?.latitude && d?.longitude) {
+            const loc = usarDireccionFija(d);
+            if (selectedProfession) fetchWorkers(selectedProfession.id, loc.latitude, loc.longitude);
+            return;
+          }
+        }
+      }
+
       const granted = await locationService.requestPermission();
       if (!granted) return;
 
@@ -873,9 +819,10 @@ const HomeScreen = ({
         address,
       };
       setUserLocation(loc);
-      setAmbientWorkers(buildAmbientWorkers({ latitude, longitude })); // fallback inmediato
+      // Si lo pediste vos, esa pasa a ser tu dirección fija: la próxima vez que
+      // abras la app te espera ahí y no hay que volver a pedir el GPS.
+      if (forzar) guardarDireccionFija(loc);
       buildAmbientOnStreets({ latitude, longitude })                   // y, si hay red, sobre calles reales
-        .then(streets => { if (streets?.length) setAmbientWorkers(streets); })
         .catch(() => {});
       if (selectedProfession) fetchWorkers(selectedProfession.id, latitude, longitude);
     } catch { /* silent */ }
@@ -1014,13 +961,6 @@ const HomeScreen = ({
     onRequestJob?.(worker, selectedProfession, userLocation);
   };
 
-  // Toca un pin ambiental (decorativo): muestra actividad de la zona
-  const handleAmbientPress = () => {
-    Alert.alert(
-      'Profesionales en tu zona',
-      'Hay profesionales activos cerca tuyo. Elegí un oficio y pedí tu presupuesto desde el panel de abajo.',
-    );
-  };
 
   // Inicia el demo del lado CLIENTE (sin datos reales)
   const startDemo = () => {
@@ -1036,12 +976,6 @@ const HomeScreen = ({
     onIncomingJob?.({ ...DEMO_JOB, status: 'pending' });
   };
 
-  // El mapa es SOLO visual/decorativo: muestra el "pulso" de la ciudad (pines
-  // ambientales) para dar sensación de actividad, pero NUNCA expone trabajadores
-  // reales. La selección del trabajador NO se hace por el mapa: al pedir el
-  // presupuesto se ofrecen 3 profesionales en el panel (JobRequestScreen), y la
-  // ubicación real recién se ve en el seguimiento del trabajo (tipo Uber).
-  const mapWorkers = ambientWorkers;
 
   // ─── Radar del trabajador ─────────────────────────────
   useEffect(() => {
@@ -1082,6 +1016,11 @@ const HomeScreen = ({
   // Divulgación prominente de ubicación en segundo plano (requisito de Google Play):
   // se muestra ANTES de pedir el permiso del sistema operativo.
   const pedirConsentimientoUbicacion = () => new Promise((resolve) => {
+    // `onDismiss` + una sola pasada: en Android el cartel se puede cerrar con el
+    // botón de atrás sin tocar ninguna opción, y ahí la promesa quedaba colgada
+    // para siempre — con el botón clavado en "Activando…".
+    let listo = false;
+    const contestar = (v) => { if (!listo) { listo = true; resolve(v); } };
     Alert.alert(
       '📍 Ubicación mientras trabajás',
       'BOLT usa tu ubicación —incluso en segundo plano y con la app minimizada— ' +
@@ -1090,12 +1029,16 @@ const HomeScreen = ({
       'No se rastrea tu ubicación cuando estás fuera de servicio. Podés desactivarla ' +
       'cuando quieras apagando tu disponibilidad.',
       [
-        { text: 'No, ahora no', style: 'cancel', onPress: () => resolve(false) },
-        { text: 'Entiendo, continuar', onPress: () => resolve(true) },
+        { text: 'No, ahora no', style: 'cancel', onPress: () => contestar(false) },
+        { text: 'Entiendo, continuar', onPress: () => contestar(true) },
       ],
-      { cancelable: false }
+      { cancelable: false, onDismiss: () => contestar(false) }
     );
   });
+
+  // `conTiempo` (el que salvó a "Activando…") ahora vive en src/utils/conTiempo.js:
+  // lo usa también la pantalla de aceptar un trabajo, y dos copias del mismo
+  // helper es exactamente cómo se arregla un lado y se olvida el otro.
 
   // `forzarEncendido` existe porque la pantalla de "ponete disponible" también
   // le sale a quien YA figura disponible pero nunca guardó su ubicación: para
@@ -1142,9 +1085,11 @@ const HomeScreen = ({
         // entera. Como quedó escrito en la migración 051 (1-ago-2026), ese
         // estado "es peor que estar apagado, porque parece que está todo bien"
         // — y es el motivo por el que 8 de 11 aprobados no le llegaban a nadie.
-        const granted = await locationService.requestPermission();
+        // Cada paso con su tiempo máximo: el diálogo de permisos del sistema y
+        // el GPS pueden no volver nunca, y eso dejaba el botón clavado.
+        const granted = await conTiempo(locationService.requestPermission(), 60000, false);
         const pos = granted
-          ? await locationService.getCurrentLocation().catch(() => null)
+          ? await conTiempo(locationService.getCurrentLocation(), 15000, null)
           : null;
         if (!pos) {
           setAvailable(false);
@@ -1163,16 +1108,33 @@ const HomeScreen = ({
           );
           return; // el finally libera el botón igual
         }
-        await professionalService.updateLocation(userId, pos.coords.latitude, pos.coords.longitude);
+        await conTiempo(
+          professionalService.updateLocation(userId, pos.coords.latitude, pos.coords.longitude),
+          15000, 'timeout'
+        );
       }
-      await professionalService.setAvailability(userId, next);
+
+      // Ésta es LA que importa: si no se marca disponible, no le entra ningún
+      // trabajo. Por eso es la única cuyo resultado se comprueba.
+      const guardado = await conTiempo(
+        professionalService.setAvailability(userId, next).then(() => 'ok'),
+        15000, null
+      );
+      if (guardado !== 'ok') throw new Error('no se pudo guardar la disponibilidad');
+
+      // El seguimiento en segundo plano es un extra: si tarda o falla, ya estás
+      // disponible igual. No puede frenar el encendido.
       if (next) {
-        await locationService.startBackgroundTracking();
+        conTiempo(locationService.startBackgroundTracking(), 10000).catch(() => {});
       } else {
-        await locationService.stopBackgroundTracking();
+        conTiempo(locationService.stopBackgroundTracking(), 10000).catch(() => {});
       }
     } catch {
       setAvailable(!next);
+      Alert.alert(
+        next ? 'No pudimos activarte' : 'No pudimos apagar tu disponibilidad',
+        'Puede ser la señal. Probá de nuevo en un momento — si sigue igual, escribinos y lo vemos.',
+      );
     } finally {
       setToggling(false);
     }
@@ -1227,6 +1189,14 @@ const HomeScreen = ({
     onOpenAssistant?.(loc || userLocation, mode);
   };
 
+  // Tocar un oficio abre el asistente con la frase empezada. Antes seleccionaba
+  // el oficio y pintaba el mapa, que no lleva a ningún lado: los profesionales
+  // NO se eligen desde el mapa. El camino real siempre fue contar el problema.
+  const abrirAsistenteConOficio = async (p) => {
+    const loc = await ensureLocation();
+    onOpenAssistant?.(loc || userLocation, 'text', p);
+  };
+
   // ─── Acceso directo: bolt://nuevo-presupuesto ────────
   //  Llega desde App.js. Sólo tiene sentido para un profesional aprobado: si
   //  lo toca cualquier otro, la app abre normal y no pasa nada raro.
@@ -1249,6 +1219,8 @@ const HomeScreen = ({
       case 'admin':       setShowAdmin(true);       break;
       case 'howItWorks':  setShowHowItWorks(true);  break;
       case 'privacy':     setShowPrivacy(true);     break;
+      case 'calculadora':   setShowCalculadora(true);   break;
+      case 'asesoramiento': setShowAsesoramiento(true); break;
     }
   };
 
@@ -1282,9 +1254,14 @@ const HomeScreen = ({
   if (showPrivacy) {
     return <PrivacyPolicyScreen onClose={() => setShowPrivacy(false)} />;
   }
+  if (showCalculadora) {
+    return <CalculadoraScreen onClose={() => setShowCalculadora(false)} />;
+  }
+  if (showAsesoramiento) {
+    return <AsesoramientoScreen onClose={() => setShowAsesoramiento(false)} />;
+  }
 
   // ─── RENDER ──────────────────────────────────────────
-  const hasActiveJob = activeJob && ['pending','accepted','arrived','in_progress','awaiting_payment'].includes(activeJob.status);
 
   return (
     <View style={styles.container}>
@@ -1299,276 +1276,317 @@ const HomeScreen = ({
         />
       )}
 
-      {/* MAPA */}
-      <VoltMap
-        userLocation={userLocation}
-        workers={mapWorkers}
-        onWorkerPress={handleAmbientPress}
-        onAmbientPress={handleAmbientPress}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* ─────────────────────────────────────────────────────────────────
+          🔴 9-ago-2026 — EL HOME SIN MAPA DE FONDO.
+          Antes el mapa ocupaba la pantalla entera y arriba flotaba todo. Se
+          veía cargado y, peor, mentía: los pines eran `buildAmbientWorkers`,
+          once puntos calculados con seno y coseno alrededor tuyo, y el cartel
+          decía "11 profesionales activos" —siempre 11, invenatdo—. En el
+          teléfono de un tester quedaban todos amontonados encima del nombre de
+          la ciudad, con los halos pisándose (Maxi, 9-ago).
 
-      {/* Burbuja arrastrable de trabajo en curso (volver al seguimiento) */}
-      {hasActiveJob && <DraggableBubble icon="navigate" onPress={onResumeJob} dotColor="#4CAF50" />}
+          Ahora el mapa aparece donde aporta y dice la verdad: chico, mostrando
+          TU domicilio, que es donde va a ir el que venga. Y el contenido va en
+          un scroll normal, así no queda el bloque negro vacío que dejaba el
+          panel de altura fija.
+          ───────────────────────────────────────────────────────────────── */}
 
-      {/* Burbuja de "esperando presupuesto": aparece cuando el cliente toca
-          SEGUIR USANDO LA APP. Muestra cuánto falta y cuántos respondieron, y
-          lo devuelve a las propuestas. Va más arriba para no taparse con la de
-          trabajo en curso. */}
-      {quoteWaiting && (
-        <DraggableBubble
-          icon="hourglass"
-          onPress={onResumeQuote}
-          deadline={quoteDeadline}
-          badgeCount={quoteResponded}
-          startY={SCREEN_H - 330}
-        />
-      )}
+      <SafeAreaView style={styles.topBar} pointerEvents="box-none">
+        <TouchableOpacity style={styles.iconBtn} onPress={() => setShowDrawer(true)}
+          accessibilityRole="button" accessibilityLabel="Abrir el menú">
+          <Ionicons name="menu" size={24} color="#FFD600" />
+        </TouchableOpacity>
 
-      {/* BARRA SUPERIOR */}
-      <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
-        {/* Fila 1 — marca (menú + logo) */}
-        <View style={styles.brandRow}>
-          {/* Hamburguesa */}
-          <TouchableOpacity style={styles.addBtn} onPress={() => setShowDrawer(true)}>
-            <Ionicons name="menu" size={24} color="#FFD600" />
-          </TouchableOpacity>
+        {/* Mantené apretado el logo 1,5 s para el modo demo */}
+        <TouchableOpacity
+          style={{ flex: 1, alignItems: 'center' }}
+          onLongPress={() => {
+            if (!isDemoMode()) toggleDemo();
+            setDemoOn(true);
+            Alert.alert(
+              '⚡ Modo demo',
+              'Mirá la app de punta a punta, sin datos reales. ¿Desde qué lado querés verla?',
+              [
+                { text: 'Salir', style: 'cancel', onPress: () => { if (isDemoMode()) toggleDemo(); setDemoOn(false); } },
+                { text: '🔧 Trabajador', onPress: startWorkerDemo },
+                { text: '👤 Cliente', onPress: startDemo },
+              ],
+            );
+          }}
+          delayLongPress={1500}
+          activeOpacity={1}
+        >
+          <Text style={[styles.logoText, demoOn && { opacity: 0.7 }]}>BOLT</Text>
+        </TouchableOpacity>
 
-          {/* Logo — mantené apretado 1.5s para el modo demo */}
-          <TouchableOpacity
-            onLongPress={() => {
-              if (!isDemoMode()) toggleDemo();
-              setDemoOn(true);
-              Alert.alert(
-                '⚡ Modo demo',
-                'Mirá la app de punta a punta, sin datos reales. ¿Desde qué lado querés verla?',
-                [
-                  { text: 'Salir', style: 'cancel', onPress: () => { if (isDemoMode()) toggleDemo(); setDemoOn(false); } },
-                  { text: '🔧 Trabajador', onPress: startWorkerDemo },
-                  { text: '👤 Cliente', onPress: startDemo },
-                ],
-              );
-            }}
-            delayLongPress={1500}
-            activeOpacity={1}
-          >
-            <Text style={[styles.logoText, demoOn && { color: '#FFD600', opacity: 0.7 }]}>BOLT</Text>
-          </TouchableOpacity>
-
-          {/* Espaciador para centrar el logo (mismo ancho que la hamburguesa) */}
-          <View style={{ width: 46 }} />
-        </View>
-
-        {/* Fila 2 — BUSCADOR protagonista: es la PUERTA al asistente conversacional */}
-        <View style={styles.searchBlock}>
-          <TouchableOpacity style={styles.searchWrap} activeOpacity={0.85} onPress={() => openAssistantWithLocation('text')}>
-            <Ionicons name="search" size={20} color="#FFD600" style={{ marginLeft: 14 }} />
-            <Text style={styles.searchPlaceholder}>¿Qué necesitás resolver?</Text>
-            <View style={styles.searchTools}>
-              <TouchableOpacity style={styles.searchTool} onPress={() => openAssistantWithLocation('audio')}>
-                <Ionicons name="mic-outline" size={19} color="#FFD600" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.searchTool} onPress={() => openAssistantWithLocation('camera')}>
-                <Ionicons name="camera-outline" size={19} color="#FFD600" />
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.searchHint}>Escribí · mandá un audio · o una foto</Text>
-        </View>
-
-        {/* Resultados del buscador */}
-        {results.length > 0 && (
-          <View style={styles.searchResults}>
-            {results.map(p => (
-              <TouchableOpacity key={p.id} style={styles.searchItem} onPress={() => { setQuery(''); onRequestJob?.(null, p, userLocation); }}>
-                <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFD600" />
-                <Text style={styles.searchItemText}>Contar mi problema y pedir {p.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Chip de actividad de la ciudad — pantalla inicial (sin oficio elegido) */}
-        {!selectedProfession && ambientWorkers.length > 0 && (
-          <View style={styles.countChip}>
-            <View style={styles.countDot} />
-            <Text style={styles.countChipText}>
-              ⚡ {ambientWorkers.length} profesionales activos cerca tuyo
-            </Text>
-          </View>
-        )}
-
-        {/* Chip de profesión seleccionada — invita a describir el problema
-            (NO expone el conteo real de trabajadores: el mapa es solo visual) */}
-        {selectedProfession && (
-          <View style={styles.countChip}>
-            <View style={styles.countDot} />
-            <Text style={styles.countChipText}>
-              Contá tu problema y te ofrecemos {selectedProfession.name.toLowerCase()}s de la zona
-            </Text>
-          </View>
-        )}
+        {/* El botón de modo. Al que no es profesional le abre la puerta del alta
+            en vez de no hacer nada: un botón que no lleva a ningún lado es peor
+            que no tenerlo. */}
+        <TouchableOpacity
+          style={[styles.modeBtn, modoTrabajo && styles.modeBtnOn]}
+          onPress={cambiarModo}
+          accessibilityRole="button"
+          accessibilityLabel={modoTrabajo ? 'Volver al modo cliente' : 'Pasar al modo trabajo'}
+        >
+          <Ionicons
+            name={modoTrabajo ? 'flash' : 'briefcase-outline'}
+            size={15}
+            color={modoTrabajo ? '#0D0D0D' : '#FFFFFF'}
+          />
+          <Text style={[styles.modeBtnText, modoTrabajo && styles.modeBtnTextOn]}>
+            {modoTrabajo ? 'Modo trabajo' : 'Trabajar'}
+          </Text>
+        </TouchableOpacity>
       </SafeAreaView>
 
-      {/* PANEL INFERIOR DESLIZANTE */}
-      {!selectedWorker && (
-        <Animated.View
-          style={[styles.bottomPanel, { transform: [{ translateY: panelY }] }]}
-          {...panResponder.panHandlers}
-        >
-          {/* Handle de arrastre */}
-          <View style={styles.panelHandle} />
+      <ScrollView
+        style={styles.homeScroll}
+        contentContainerStyle={styles.homeContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {!modoTrabajo ? (
+          /* ─────────────── LADO CLIENTE ─────────────── */
+          <>
+            <Text style={styles.eyebrow}>Hola {primerNombre}</Text>
+            <Text style={styles.display}>¿Qué se rompió <Text style={styles.displayEm}>hoy</Text>?</Text>
 
-          {/* Título del panel */}
-          <View style={styles.panelTitleRow}>
-            <Text style={styles.panelTitle}>¿Qué necesitás?</Text>
-          </View>
-
-          {/* Chips de profesiones — siempre visibles */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsContent}
-          >
-            {professions.map(p => {
-              const active = selectedProfession?.id === p.id;
-              return (
-                <TouchableOpacity
-                  key={p.id}
-                  style={[styles.profChip, active && styles.profChipActive]}
-                  onPress={() => active ? clearProfession() : selectProfession(p)}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons name="flash" size={15} color="#0A0A0A" />
-                  <Text style={[styles.profChipText, active && styles.profChipTextActive]}>{p.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* Botón solicitud directa — SIEMPRE que haya oficio elegido. Lleva a describir
-              el problema; los profesionales (hasta 3) se ofrecen dentro de JobRequestScreen,
-              NO se eligen acá ni por el mapa. */}
-          {selectedProfession && (
-            <TouchableOpacity
-              style={styles.directRequestBtn}
-              onPress={() => onRequestJob?.(null, selectedProfession, userLocation)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="chatbubble-ellipses" size={18} color="#0A0A0A" />
-              <Text style={styles.directRequestBtnText}>
-                Contar mi problema y pedir {selectedProfession.name}
-              </Text>
-              <Ionicons name="arrow-forward" size={18} color="#0A0A0A" />
+            <TouchableOpacity style={styles.buscador} activeOpacity={0.85}
+              onPress={() => openAssistantWithLocation('text')}>
+              <Ionicons name="search" size={19} color="#8A8A8A" />
+              <Text style={styles.buscadorTexto}>Ej: se me tapó el baño</Text>
             </TouchableOpacity>
-          )}
 
-          {/* (El método de pago del cliente se configura en Mi Perfil; antes había un
-              banner acá que tapaba los chips en el panel de altura fija. Removido.) */}
-
-          {/* Demo Mode — visible solo cuando está activo (se activa desde DemoToggle oculto por long-press) */}
-          {!professional && demoOn && (
-            <View style={styles.demoWrap}>
-              <DemoToggle onToggle={setDemoOn} />
-              <TouchableOpacity
-                style={styles.demoStartBtn}
-                onPress={() => {
-                  const prof = DEMO_PROFESSIONAL;
-                  const fakeProfession = { id: 1, name: 'Electricidad' };
-                  onRequestJob?.(prof, fakeProfession, userLocation || { latitude: -38.7196, longitude: -62.2724, address: 'Demo — Bahía Blanca' });
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.demoStartBtnText}>▶ Iniciar demo completo</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-
-          {/* (Botón de Emergencia removido del inicio. La emergencia/pánico va durante
-              el trabajo, cuando el profesional está en el domicilio — JobTrackingScreen.) */}
-
-          {/* Mis profesionales — red personal de confianza */}
-          {!professional && favorites.length > 0 && (
-            <View style={styles.misSectionWrap}>
-              <View style={styles.misSectionHeader}>
-                <Ionicons name="heart" size={16} color="#ff4444" />
-                <Text style={styles.misSectionTitle}>Mis profesionales</Text>
-                <Text style={styles.misSectionCount}>{favorites.length}</Text>
-              </View>
-              {favorites.map(w => (
-                <MisProfesionalesCard
-                  key={w.id}
-                  w={w}
-                  onHire={onRequestJob}
-                  selectedProfession={selectedProfession}
-                  userLocation={userLocation}
-                />
+            <View style={styles.modosRow}>
+              {[
+                { icon: 'create-outline', txt: 'Escribir', mode: 'text' },
+                { icon: 'mic-outline',    txt: 'Audio',    mode: 'audio' },
+                { icon: 'camera-outline', txt: 'Foto',     mode: 'camera' },
+              ].map(m => (
+                <TouchableOpacity key={m.mode} style={styles.modoBtn}
+                  onPress={() => openAssistantWithLocation(m.mode)} activeOpacity={0.85}>
+                  <Ionicons name={m.icon} size={17} color="#8A8A8A" />
+                  <Text style={styles.modoBtnText}>{m.txt}</Text>
+                </TouchableOpacity>
               ))}
             </View>
-          )}
 
-          {/* Tip rotativo — visible al expandir */}
-          {(() => {
-            const tips = professional ? WORKER_TIPS : CLIENT_TIPS;
-            const tip = tips[tipIndex % tips.length];
-            return (
+            {/* El mapa, chico y honesto: tu domicilio. Se toca para cambiarlo. */}
+            <TouchableOpacity style={styles.miniMapa} activeOpacity={0.9} onPress={() => setVerDirecciones(true)}>
+              <VoltMap
+                userLocation={userLocation}
+                workers={SIN_TRABAJADORES}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.miniMapaVelo} pointerEvents="none" />
+              <View style={styles.miniMapaPie} pointerEvents="none">
+                <Ionicons name="location" size={14} color="#8A8A8A" />
+                <Text style={styles.miniMapaDir} numberOfLines={1}>
+                  {userLocation?.address || 'Buscando tu ubicación…'}
+                </Text>
+                <Text style={styles.miniMapaCambiar}>Cambiar</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.confianza}>
+              <View style={styles.confianzaFila}>
+                <Ionicons name="shield-checkmark-outline" size={17} color="#8A8A8A" />
+                <Text style={styles.confianzaTexto}>
+                  <Text style={styles.confianzaFuerte}>Revisados</Text> uno por uno por BOLT
+                </Text>
+              </View>
+              <View style={styles.confianzaFila}>
+                <Ionicons name="key-outline" size={17} color="#8A8A8A" />
+                <Text style={styles.confianzaTexto}>
+                  Código en la puerta <Text style={styles.confianzaFuerte}>antes de abrirle</Text>
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.eyebrow}>Los oficios</Text>
+            <View style={styles.oficiosGrilla}>
+              {professions.map(pr => {
+                const foto = fotoDeOficio(pr.name);
+                return (
+                  <TouchableOpacity
+                    key={pr.id}
+                    style={styles.oficio}
+                    onPress={() => abrirAsistenteConOficio(pr)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pedir ${pr.name}: contale el problema al asistente`}
+                  >
+                    {foto
+                      ? <Image source={{ uri: foto }} style={styles.oficioFoto} />
+                      : <View style={[styles.oficioFoto, styles.oficioSinFoto]}>
+                          <Ionicons name="flash" size={22} color="#5C5C5C" />
+                        </View>}
+                    <View style={styles.oficioVelo} pointerEvents="none" />
+                    <Text style={styles.oficioNombre} numberOfLines={2}>{pr.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {favorites.length > 0 && (
+              <>
+                <Text style={[styles.eyebrow, { marginTop: 24 }]}>Mis profesionales</Text>
+                {favorites.map(w => (
+                  <MisProfesionalesCard
+                    key={w.id}
+                    w={w}
+                    onHire={onRequestJob}
+                    selectedProfession={selectedProfession}
+                    userLocation={userLocation}
+                  />
+                ))}
+              </>
+            )}
+          </>
+        ) : (
+          /* ─────────────── LADO TRABAJO ─────────────── */
+          <>
+            <Text style={styles.eyebrow}>{hoyLargo()}</Text>
+            <Text style={styles.display}>
+              Hola, <Text style={styles.displayEm}>{professional?.first_name || 'che'}</Text>
+            </Text>
+
+            <View style={styles.dispCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dispTitulo}>
+                  {available ? 'Estás disponible' : 'Estás en pausa'}
+                </Text>
+                <Text style={styles.dispSub}>
+                  {available
+                    ? (sinUbicacion ? 'Falta un paso para que te lleguen pedidos' : 'Recibís los pedidos de tu zona')
+                    : 'No te van a llegar pedidos'}
+                </Text>
+              </View>
               <TouchableOpacity
-                style={styles.tipCard}
-                onPress={() => setTipIndex(i => (i + 1) % tips.length)}
-                activeOpacity={0.8}
+                style={[styles.switch, available && styles.switchOn]}
+                onPress={() => handleToggle()}
+                disabled={toggling}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: !!available }}
+                accessibilityLabel={available ? 'Pausar disponibilidad' : 'Activar disponibilidad'}
               >
-                <Ionicons name={tip.icon} size={16} color={tip.color} />
-                <Text style={styles.tipText}>{tip.text}</Text>
-                <Ionicons name="chevron-forward" size={14} color="#333" />
+                {toggling
+                  ? <ActivityIndicator size="small" color={available ? '#0D0D0D' : '#8A8A8A'} />
+                  : <View style={[styles.switchBola, available && styles.switchBolaOn]} />}
               </TouchableOpacity>
-            );
-          })()}
+            </View>
 
-          {/* Botón disponibilidad trabajador — visible al expandir */}
-          {professional && (
-            <TouchableOpacity
-              style={[styles.workerToggleBtn, available && styles.workerToggleBtnOn]}
-              onPress={() => handleToggle()}
-              disabled={toggling}
-              activeOpacity={0.8}
-            >
-              {toggling ? (
-                <ActivityIndicator size="small" color={available ? '#0A0A0A' : '#FFD600'} />
-              ) : (
-                <Ionicons name={available ? 'radio' : 'radio-outline'} size={20} color={available ? '#0A0A0A' : '#FFD600'} />
-              )}
-              <Text style={[styles.workerToggleText, available && styles.workerToggleTextOn]}>
-                {toggling ? 'Actualizando...' : available ? 'Estás disponible · Tocá para pausar' : 'Activar disponibilidad'}
-              </Text>
-              {/* 🔴 Acá había un CRASH. Este botón llamaba a `setShowWorkerPanel`,
-                  que dejó de existir cuando se fusionaron los dos paneles en
-                  "Mi negocio" (6-ago-2026): tocarlo tiraba un ReferenceError y
-                  se caía la app. No lo agarró ningún chequeo porque los dos
-                  archivos parsean bien por separado — el que se rompe es el
-                  contrato entre ellos. */}
-              <TouchableOpacity onPress={() => setShowNegocio(true)} style={styles.dashboardLink} hitSlop={{ top:8, bottom:8, left:8, right:8 }}>
-                <Text style={styles.dashboardLinkText}>Mi negocio</Text>
-                <Ionicons name="chevron-forward" size={13} color={available ? '#0A0A0A' : '#FFD600'} />
+            {/* Disponible pero sin ubicación = invisible. Ya nos costó trabajos
+                que nadie vio; el interruptor solo no lo puede contar. */}
+            {available && sinUbicacion && (
+              <View style={styles.avisoUbic}>
+                <Ionicons name="warning-outline" size={17} color="#FFD600" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.avisoUbicTitulo}>Estás disponible, pero no te ve nadie</Text>
+                  <Text style={styles.avisoUbicTexto}>
+                    Falta el permiso de ubicación: sin eso no aparecés en las búsquedas.
+                  </Text>
+                  <TouchableOpacity onPress={() => abrirAyudaUbicacion()}>
+                    <Text style={styles.avisoUbicLink}>Cómo activarla</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.stats}>
+              <View style={styles.stat}>
+                <Text style={styles.statNum}>{professional?.completed_jobs ?? 0}</Text>
+                <Text style={styles.statTxt}>Trabajos</Text>
+              </View>
+              <View style={styles.statSep} />
+              <View style={styles.stat}>
+                <Text style={styles.statNum}>
+                  {professional?.avg_rating ? Number(professional.avg_rating).toFixed(1).replace('.', ',') : '—'}
+                </Text>
+                <Text style={styles.statTxt}>Puntaje</Text>
+              </View>
+              <View style={styles.statSep} />
+              <View style={styles.stat}>
+                <Text style={styles.statNum}>{professional?.on_time_completions ?? 0}</Text>
+                <Text style={styles.statTxt}>A tiempo</Text>
+              </View>
+            </View>
+
+            <Text style={styles.eyebrow}>Tu negocio</Text>
+            {[
+              { icon: 'briefcase-outline', t: 'Mi negocio', s: 'Trabajos, presupuestos y cobros', go: () => setShowNegocio(true) },
+              { icon: 'document-text-outline', t: 'Nuevo presupuesto', s: 'Para un cliente que te llegó por afuera',
+                go: () => { setShowNegocio(true); setNegocioEnNuevo(true); } },
+              { icon: 'help-buoy-outline', t: '¿No te llega ningún trabajo?', s: 'Revisá qué puede estar faltando',
+                go: () => abrirAyudaUbicacion() },
+            ].map(it => (
+              <TouchableOpacity key={it.t} style={styles.accesoCard} onPress={it.go} activeOpacity={0.85}>
+                <Ionicons name={it.icon} size={19} color="#8A8A8A" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.accesoTitulo}>{it.t}</Text>
+                  <Text style={styles.accesoSub}>{it.s}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#5C5C5C" />
               </TouchableOpacity>
-            </TouchableOpacity>
-          )}
+            ))}
+          </>
+        )}
+      </ScrollView>
 
-          {/* La duda número uno del profesional, justo al lado del control que la
-              causa. Discreto: informa sin competir con el botón de arriba. */}
-          {professional && (
-            <TouchableOpacity
-              style={styles.ayudaLink}
-              onPress={() => abrirAyudaUbicacion()}
-              activeOpacity={0.7}
-              hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
-            >
-              <Ionicons name="help-buoy-outline" size={13} color="#888" />
-              <Text style={styles.ayudaLinkText}>¿No te llega ningún trabajo?</Text>
+      {/* La puerta del modo trabajo: sin alta, en revisión o aprobado. */}
+      <Modal visible={puertaModo} transparent animationType="slide"
+        onRequestClose={() => setPuertaModo(false)}>
+        <TouchableOpacity style={styles.puertaFondo} activeOpacity={1} onPress={() => setPuertaModo(false)}>
+          <TouchableOpacity style={styles.puertaHoja} activeOpacity={1} onPress={() => {}}>
+            <View style={styles.puertaAsa} />
+            <View style={styles.puertaEmblema}>
+              <Ionicons name={estadoAlta === 'revision' ? 'time-outline' : 'briefcase-outline'}
+                size={24} color={estadoAlta === 'revision' ? '#8A8A8A' : '#FFD600'} />
+            </View>
+            <Text style={styles.eyebrow}>Modo trabajo</Text>
+
+            {estadoAlta === 'revision' ? (
+              <>
+                <Text style={styles.puertaTitulo}>
+                  Estamos revisando <Text style={styles.displayEm}>tu alta</Text>
+                </Text>
+                <Text style={styles.puertaTexto}>
+                  Ya recibimos tus datos. Cuando terminemos de verificarlos te avisamos por
+                  notificación y se te habilita el modo.
+                </Text>
+                <TouchableOpacity style={styles.puertaBtn} onPress={() => { setPuertaModo(false); setShowRegister(true); }}>
+                  <Text style={styles.puertaBtnText}>Ver qué falta</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.puertaTitulo}>
+                  Este lado es para los <Text style={styles.displayEm}>oficios</Text>
+                </Text>
+                <Text style={styles.puertaTexto}>
+                  Es donde llegan los pedidos. Si tenés un oficio, te das de alta y empezás a
+                  recibir trabajos de tu zona.
+                </Text>
+                {[
+                  ['briefcase-outline', 'Los trabajos y tu negocio: presupuestos, agenda y cobros'],
+                  ['time-outline',      'Elegís cuándo estás disponible'],
+                  ['shield-checkmark-outline', 'Te revisamos antes de habilitarte — para eso te eligen'],
+                ].map(([ic, tx]) => (
+                  <View key={tx} style={styles.puertaPunto}>
+                    <Ionicons name={ic} size={17} color="#8A8A8A" />
+                    <Text style={styles.puertaPuntoTexto}>{tx}</Text>
+                  </View>
+                ))}
+                <TouchableOpacity style={styles.puertaBtn} onPress={() => { setPuertaModo(false); setShowRegister(true); }}>
+                  <Text style={styles.puertaBtnText}>Quiero trabajar en BOLT</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity style={styles.puertaVolver} onPress={() => setPuertaModo(false)}>
+              <Text style={styles.puertaVolverText}>Volver</Text>
             </TouchableOpacity>
-          )}
-        </Animated.View>
-      )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* CARD del trabajador seleccionado */}
       {selectedWorker && (
@@ -1593,6 +1611,15 @@ const HomeScreen = ({
         onAhoraNo={() => setAvisoDisponible(false)}
       />
 
+      {/* Mis direcciones: escribir una, guardarla y elegir entre varias. */}
+      <MisDirecciones
+        visible={verDirecciones}
+        actual={userLocation}
+        onCerrar={() => setVerDirecciones(false)}
+        onUsarGPS={() => initLocation(true)}
+        onElegir={(d) => guardarDireccionFija(usarDireccionFija(d))}
+      />
+
       {/* DRAWER LATERAL */}
       <DrawerMenu
         visible={showDrawer}
@@ -1607,16 +1634,145 @@ const HomeScreen = ({
 
 // ─── ESTILOS ──────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
-  activeJobBanner: {
-    marginHorizontal: 14, marginTop: 6, marginBottom: 4,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16,
-    elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+  // ─── Home nuevo (9-ago-2026) ────────────────────────────────────────────────
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 32 : 8,
+    paddingBottom: 14,
   },
-  activeJobPulse: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#0A0A0A' },
-  activeJobTitle: { fontSize: 14, fontWeight: '900', color: '#0A0A0A' },
-  activeJobSub:   { fontSize: 12, fontWeight: '700', color: '#0A0A0A', opacity: 0.7 },
+  iconBtn: {
+    width: 38, height: 38, borderRadius: 999, backgroundColor: '#1E1E1E',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  modeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: '#1E1E1E', borderRadius: 999,
+    paddingHorizontal: 15, paddingVertical: 10,
+  },
+  modeBtnOn:      { backgroundColor: '#FFD600' },
+  modeBtnText:    { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  modeBtnTextOn:  { color: '#0D0D0D' },
+
+  homeScroll:  { flex: 1 },
+  homeContent: { paddingHorizontal: 20, paddingBottom: 48 },
+
+  eyebrow: {
+    fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase',
+    color: '#5C5C5C', fontWeight: '600', marginBottom: 8,
+  },
+  display:   { fontSize: 28, lineHeight: 32, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.8, marginBottom: 24 },
+  displayEm: { color: '#FFD600' },
+
+  buscador: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#161616', borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 18, marginBottom: 10,
+  },
+  buscadorTexto: { flex: 1, fontSize: 16, color: '#8A8A8A' },
+
+  modosRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
+  modoBtn: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 7,
+    backgroundColor: '#161616', borderRadius: 20, paddingVertical: 14,
+  },
+  modoBtnText: { fontSize: 12, color: '#FFFFFF', fontWeight: '500' },
+
+  miniMapa: {
+    height: 104, borderRadius: 20, overflow: 'hidden',
+    backgroundColor: '#161616', marginBottom: 24,
+  },
+  miniMapaVelo: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(13,13,13,0.25)' },
+  miniMapaPie: {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: 'rgba(13,13,13,0.92)',
+  },
+  miniMapaDir:     { flex: 1, fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  miniMapaCambiar: { fontSize: 14, fontWeight: '600', color: '#FFD600' },
+
+  confianza:      { gap: 12, marginBottom: 24 },
+  confianzaFila:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  confianzaTexto: { flex: 1, fontSize: 14, color: '#8A8A8A', lineHeight: 20 },
+  confianzaFuerte:{ color: '#FFFFFF', fontWeight: '600' },
+
+  oficiosGrilla: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  oficio: {
+    width: '48%', height: 112, borderRadius: 20, overflow: 'hidden',
+    backgroundColor: '#1A1A1A', justifyContent: 'flex-end', padding: 14,
+  },
+  oficioFoto:   { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
+  oficioSinFoto:{ alignItems: 'center', justifyContent: 'center', backgroundColor: '#1E1E1E' },
+  oficioVelo:   { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  oficioNombre: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', lineHeight: 19 },
+
+  // Lado trabajo
+  dispCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#161616', borderRadius: 20, padding: 18, marginBottom: 12,
+  },
+  dispTitulo: { fontSize: 18, fontWeight: '600', color: '#FFFFFF', marginBottom: 3 },
+  dispSub:    { fontSize: 14, color: '#8A8A8A', lineHeight: 20 },
+  switch: {
+    width: 52, height: 31, borderRadius: 999, backgroundColor: '#1E1E1E',
+    justifyContent: 'center', paddingHorizontal: 3,
+  },
+  switchOn:     { backgroundColor: '#FFD600' },
+  switchBola:   { width: 25, height: 25, borderRadius: 999, backgroundColor: '#5C5C5C' },
+  switchBolaOn: { backgroundColor: '#0D0D0D', alignSelf: 'flex-end' },
+
+  avisoUbic: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#161616', borderRadius: 20, padding: 16, marginBottom: 12,
+    borderLeftWidth: 3, borderLeftColor: '#FFD600',
+  },
+  avisoUbicTitulo: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  avisoUbicTexto:  { fontSize: 14, color: '#8A8A8A', lineHeight: 20 },
+  avisoUbicLink:   { fontSize: 14, color: '#FFD600', fontWeight: '600', marginTop: 8 },
+
+  stats: {
+    flexDirection: 'row', backgroundColor: '#161616', borderRadius: 20,
+    padding: 18, marginTop: 12, marginBottom: 24,
+  },
+  stat:    { flex: 1, alignItems: 'center' },
+  statNum: { fontSize: 22, fontWeight: '700', color: '#FFFFFF', marginBottom: 4, letterSpacing: -0.4 },
+  statTxt: { fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase', color: '#5C5C5C', fontWeight: '600' },
+  statSep: { width: 1, backgroundColor: '#262626' },
+
+  accesoCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#161616', borderRadius: 20, padding: 16, marginBottom: 10,
+  },
+  accesoTitulo: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  accesoSub:    { fontSize: 14, color: '#8A8A8A', marginTop: 3 },
+
+  // La puerta del modo trabajo
+  puertaFondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.62)', justifyContent: 'flex-end' },
+  puertaHoja: {
+    backgroundColor: '#0D0D0D',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingHorizontal: 22, paddingTop: 10,
+    paddingBottom: Platform.OS === 'android' ? 32 : 26,
+  },
+  puertaAsa: { width: 36, height: 4, borderRadius: 999, backgroundColor: '#333', alignSelf: 'center', marginBottom: 22 },
+  puertaEmblema: {
+    width: 52, height: 52, borderRadius: 999, backgroundColor: '#161616',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 18,
+  },
+  puertaTitulo: { fontSize: 26, lineHeight: 30, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.8, marginBottom: 10 },
+  puertaTexto:  { fontSize: 14, color: '#8A8A8A', lineHeight: 21, marginBottom: 24 },
+  puertaPunto:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  puertaPuntoTexto: { flex: 1, fontSize: 14, color: '#8A8A8A', lineHeight: 20 },
+  puertaBtn: {
+    backgroundColor: '#FFD600', borderRadius: 999, paddingVertical: 16,
+    alignItems: 'center', marginTop: 10,
+  },
+  puertaBtnText:   { fontSize: 16, fontWeight: '600', color: '#0D0D0D' },
+  puertaVolver:    { paddingVertical: 16, alignItems: 'center' },
+  puertaVolverText:{ fontSize: 16, color: '#8A8A8A' },
+
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   map: { ...StyleSheet.absoluteFillObject },
 
   // Barra superior
@@ -1632,55 +1788,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 6,
   },
   logoText: {
-    fontWeight: '900', fontSize: 20, color: '#FFD600', letterSpacing: 4,
+    fontWeight: '700', fontSize: 20, color: '#FFD600', letterSpacing: 4,
   },
   searchWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(18,18,18,0.96)',
-    borderRadius: 18, borderWidth: 1.5, borderColor: 'rgba(255,214,0,0.45)',
-    height: 58,
-    shadowColor: '#FFD600', shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.18, shadowRadius: 10, elevation: 6,
+    backgroundColor: 'rgba(22,22,22,0.96)',
+    borderRadius: 999, height: 60,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
   },
   searchInput: {
-    flex: 1, color: '#F5F5F5', fontSize: 15, fontWeight: '600',
+    flex: 1, color: '#F5F5F5', fontSize: 16, fontWeight: '600',
     paddingHorizontal: 10,
   },
   searchPlaceholder: {
-    flex: 1, color: '#777', fontSize: 15, fontWeight: '600',
+    flex: 1, color: '#8A8A8A', fontSize: 16,
     paddingHorizontal: 10,
   },
   searchTools: {
     flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 8,
   },
   searchTool: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: 'rgba(255,214,0,0.10)',
+    width: 40, height: 40, borderRadius: 999,
+    backgroundColor: '#1E1E1E',
     alignItems: 'center', justifyContent: 'center',
   },
   searchHint: {
-    fontSize: 11.5, color: '#666', fontWeight: '600',
-    marginTop: 9, marginLeft: 6,
+    fontSize: 16, color: '#5C5C5C',
+    marginTop: 8, marginLeft: 20,
   },
   addBtn: {
-    width: 46, height: 46, borderRadius: 14,
-    backgroundColor: 'rgba(15,15,15,0.95)',
-    borderWidth: 1, borderColor: '#222',
+    width: 46, height: 46, borderRadius: 999,
+    backgroundColor: 'rgba(22,22,22,0.96)',
     alignItems: 'center', justifyContent: 'center',
   },
 
   // Resultados búsqueda
   searchResults: {
-    marginHorizontal: 16, marginTop: 4,
-    backgroundColor: 'rgba(15,15,15,0.97)',
-    borderRadius: 14, borderWidth: 1, borderColor: '#222',
-    overflow: 'hidden',
+    marginHorizontal: 16, marginTop: 8,
+    backgroundColor: 'rgba(22,22,22,0.97)',
+    borderRadius: 20, overflow: 'hidden',
   },
   searchItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 16, borderBottomWidth: 1, borderBottomColor: '#262626',
   },
-  searchItemText: { color: '#F5F5F5', fontSize: 15, fontWeight: '500' },
+  searchItemText: { color: '#FFFFFF', fontSize: 16 },
 
   // Chips
   emptyChip: {
@@ -1688,18 +1841,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center', marginTop: 10,
     backgroundColor: 'rgba(15,15,15,0.9)',
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#222',
-  },
-  emptyChipText: { color: '#888', fontSize: 13 },
+    },
+  emptyChipText: { color: '#888', fontSize: 14 },
   countChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    alignSelf: 'center', marginTop: 10,
-    backgroundColor: 'rgba(15,15,15,0.9)',
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#1f2c1a',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    alignSelf: 'center', marginTop: 16,
+    backgroundColor: 'rgba(22,22,22,0.92)',
+    borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8,
   },
-  countDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
-  countChipText: { color: '#aaa', fontSize: 13 },
+  countDot: { width: 6, height: 6, borderRadius: 999, backgroundColor: '#FFD600' },
+  countChipText: { color: '#8A8A8A', fontSize: 16 },
 
   // Markers
   markerWrap: {
@@ -1708,7 +1859,7 @@ const styles = StyleSheet.create({
   },
   markerWrapSelected: {},
   markerDot: {
-    width: 34, height: 34, borderRadius: 17,
+    width: 34, height: 34, borderRadius: 999,
     backgroundColor: '#1A1A1A',
     borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
@@ -1718,64 +1869,21 @@ const styles = StyleSheet.create({
   },
   markerRing: {
     position: 'absolute',
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 999,
     borderWidth: 2, borderColor: '#FFD600',
     opacity: 0.4,
   },
 
-  // Panel inferior deslizante
-  bottomPanel: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    height: PANEL_FULL,
-    backgroundColor: 'rgba(10,10,10,0.97)',
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    borderTopWidth: 1, borderTopColor: '#1a1a1a',
-    paddingTop: 8, paddingBottom: Platform.OS === 'android' ? 52 : 28,
-    paddingHorizontal: 16,
-    gap: 10, zIndex: 10,
-  },
-  panelHandle: {
-    width: 44, height: 5, borderRadius: 3,
-    backgroundColor: '#2a2a2a', alignSelf: 'center',
-    marginBottom: 4,
-  },
 
-  // Botón principal de disponibilidad trabajador
-  workerToggleBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1.5, borderColor: '#222',
-    paddingVertical: 14, paddingHorizontal: 16,
-  },
-  workerToggleBtnOn: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
-  workerToggleText: { flex: 1, fontSize: 14, color: '#FFD600', fontWeight: '700' },
-  workerToggleTextOn: { color: '#0A0A0A' },
   dashboardLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  dashboardLinkText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
+  dashboardLinkText: { fontSize: 16, color: '#FFD600', fontWeight: '600' },
 
   // Link a la ayuda: gris y chico, se lee sólo si lo estás buscando.
   ayudaLink: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 2,
   },
-  ayudaLinkText: { fontSize: 12.5, color: '#888', textDecorationLine: 'underline' },
-
-  // Botón solicitud directa
-  directRequestBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FFD600', borderRadius: 14,
-    paddingVertical: 14, paddingHorizontal: 16,
-  },
-  directRequestBtnText: {
-    flex: 1, fontSize: 15, fontWeight: '900', color: '#0A0A0A',
-  },
-  directRequestCount: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
-  directRequestDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#0A0A0A' },
-  directRequestCountText: { fontSize: 11, color: '#0A0A0A', fontWeight: '700' },
+  ayudaLinkText: { fontSize: 16, color: '#5C5C5C' },
 
   // Banner pago
   paymentBanner: {
@@ -1784,42 +1892,28 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#FFD60030',
     paddingVertical: 10, paddingHorizontal: 12,
   },
-  paymentBannerTitle: { fontSize: 13, fontWeight: '700', color: '#FFD600' },
-  paymentBannerSub:   { fontSize: 11, color: '#888', marginTop: 1 },
+  paymentBannerTitle: { fontSize: 14, fontWeight: '700', color: '#FFD600' },
+  paymentBannerSub:   { fontSize: 12, color: '#888', marginTop: 1 },
 
-  // Tip rotativo
-  tipCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#0D0D0D', borderRadius: 12,
-    borderWidth: 1, borderColor: '#1a1a1a',
-    paddingVertical: 10, paddingHorizontal: 12,
-  },
-  tipText: { flex: 1, fontSize: 12, color: '#666', lineHeight: 17 },
 
   // Título + emergencias
   panelTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: {
-    fontSize: 13, fontWeight: '700', color: '#555',
-    textTransform: 'uppercase', letterSpacing: 0.5,
+    fontSize: 14, fontWeight: '600', color: '#5C5C5C',
+    textTransform: 'uppercase', letterSpacing: 1.8,
   },
   call911Btn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: 10, borderWidth: 1.5, borderColor: '#ff444460',
-    backgroundColor: 'rgba(255,68,68,0.09)',
+    backgroundColor: 'rgba(229,72,77,0.09)',
   },
-  call911Text: { color: '#ff4444', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  call911Text: { color: '#ff4444', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 
-  chipsContent: { gap: 8, paddingRight: 8 },
-  profChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FFD600', borderRadius: 14,
-    borderWidth: 2, borderColor: '#FFD600',
-    paddingVertical: 14, paddingHorizontal: 20,
-  },
-  profChipActive: { backgroundColor: '#FFD600', borderColor: '#0A0A0A' },
-  profChipText: { fontSize: 16, color: '#0A0A0A', fontWeight: '800', includeFontPadding: false, textAlignVertical: 'center' },
-  profChipTextActive: { color: '#0A0A0A' },
+  // 50 = 34 de la foto + 8 de padding arriba y abajo. Fijo a propósito.
+  // Sin este velo el nombre se pierde en las fotos claras.
+  profChipVelo: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
+  profChipText: { fontSize: 14, color: '#FFFFFF', fontWeight: '600', lineHeight: 18 },
 
   // Radar
   radarWrap: { alignItems: 'center' },
@@ -1835,7 +1929,6 @@ const styles = StyleSheet.create({
   radarBtn: {
     width: BUTTON_SIZE, height: BUTTON_SIZE, borderRadius: BUTTON_SIZE / 2,
     backgroundColor: '#1A1A1A',
-    borderWidth: 2, borderColor: '#333',
     alignItems: 'center', justifyContent: 'center',
     elevation: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
@@ -1847,7 +1940,7 @@ const styles = StyleSheet.create({
     shadowColor: '#FFD600', shadowOpacity: 0.5,
   },
   radarLabel: {
-    color: '#555', fontSize: 11, fontWeight: '600',
+    color: '#555', fontSize: 12, fontWeight: '600',
     marginTop: 6, textAlign: 'center', maxWidth: 120,
   },
   radarLabelOn: { color: '#FFD600' },
@@ -1856,9 +1949,8 @@ const styles = StyleSheet.create({
   card: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     zIndex: 20,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: '#161616',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: '#1E1E1E',
     padding: 20, paddingBottom: 34,
   },
   cardHandle: {
@@ -1873,28 +1965,28 @@ const styles = StyleSheet.create({
     width: 72, height: 72,
   },
   cardAvatarImg: {
-    width: 72, height: 72, borderRadius: 36,
+    width: 72, height: 72, borderRadius: 999,
     borderWidth: 2.5, borderColor: '#FFD600',
   },
   cardAvatarPlaceholder: {
-    width: 72, height: 72, borderRadius: 36,
+    width: 72, height: 72, borderRadius: 999,
     backgroundColor: '#1A1A00',
     borderWidth: 2.5, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
-  cardAvatarInitial: { fontSize: 28, fontWeight: '900', color: '#FFD600' },
+  cardAvatarInitial: { fontSize: 28, fontWeight: '700', color: '#FFD600' },
   cardOnlineDot: {
     position: 'absolute', bottom: 2, right: 2,
-    width: 14, height: 14, borderRadius: 7,
-    backgroundColor: '#4CAF50', borderWidth: 2, borderColor: '#111',
+    width: 14, height: 14, borderRadius: 999,
+    backgroundColor: '#FFD600', borderWidth: 2, borderColor: '#0D0D0D',
   },
 
   cardInfo: { flex: 1 },
-  cardName: { fontSize: 18, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
-  cardProfession: { fontSize: 13, color: '#888', marginBottom: 6 },
+  cardName: { fontSize: 18, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
+  cardProfession: { fontSize: 14, color: '#888', marginBottom: 6 },
   cardRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  cardRatingVal: { fontSize: 15, fontWeight: '800', color: '#FFD600' },
-  cardRatingJobs: { fontSize: 12, color: '#555' },
+  cardRatingVal: { fontSize: 16, fontWeight: '600', color: '#FFD600' },
+  cardRatingJobs: { fontSize: 14, color: '#555' },
 
   cardDistBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
@@ -1902,7 +1994,7 @@ const styles = StyleSheet.create({
     borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
     borderWidth: 1, borderColor: '#2a2a1a',
   },
-  cardDistText: { color: '#FFD600', fontSize: 13, fontWeight: '700' },
+  cardDistText: { color: '#FFD600', fontSize: 14, fontWeight: '700' },
 
   cardStats: {
     flexDirection: 'row', alignItems: 'center',
@@ -1910,24 +2002,23 @@ const styles = StyleSheet.create({
     padding: 14, marginBottom: 12,
   },
   cardStat: { flex: 1, alignItems: 'center' },
-  cardStatVal: { fontSize: 15, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
-  cardStatLbl: { fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+  cardStatVal: { fontSize: 16, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
+  cardStatLbl: { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1.8 },
   cardStatDiv: { width: 1, height: 32, backgroundColor: '#222' },
 
   cardBadgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
   cardBadge: {
     backgroundColor: '#1A1A1A', borderRadius: 20,
     paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#2a2a2a',
-  },
-  cardBadgeText: { fontSize: 12, color: '#BBBBBB', fontWeight: '600' },
+    },
+  cardBadgeText: { fontSize: 14, color: '#BBBBBB', fontWeight: '600' },
 
   requestBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, backgroundColor: '#FFD600',
     borderRadius: 14, paddingVertical: 16,
   },
-  requestBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 },
+  requestBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 
   // ── Demo Mode ─────────────────────────────────────────────────────────────────
   demoWrap:      { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
@@ -1936,66 +2027,65 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#FFD60040',
     paddingHorizontal: 14, paddingVertical: 7,
   },
-  demoStartBtnText: { fontSize: 12, fontWeight: '800', color: '#FFD600' },
+  demoStartBtnText: { fontSize: 14, fontWeight: '600', color: '#FFD600' },
 
   // ── Emergencia ────────────────────────────────────────────────────────────────
   emergencyBtn: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,68,68,0.07)',
-    borderWidth: 1, borderColor: 'rgba(255,68,68,0.22)',
+    backgroundColor: 'rgba(229,72,77,0.07)',
+    borderWidth: 1, borderColor: 'rgba(229,72,77,0.22)',
     borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, gap: 10,
   },
   emergencyBtnLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   emergencyBtnEmoji: { fontSize: 20 },
-  emergencyBtnTitle: { fontSize: 13.5, fontWeight: '800', color: '#ff4444', marginBottom: 1 },
-  emergencyBtnSub:   { fontSize: 11, color: '#884444' },
+  emergencyBtnTitle: { fontSize: 14, fontWeight: '600', color: '#ff4444', marginBottom: 1 },
+  emergencyBtnSub:   { fontSize: 12, color: '#884444' },
 
   // ── Mis profesionales ────────────────────────────────────────────────────────
   misSectionWrap: { gap: 10 },
   misSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  misSectionTitle: { flex: 1, fontSize: 14, fontWeight: '900', color: '#F5F5F5' },
+  misSectionTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#F5F5F5' },
   misSectionCount: {
-    fontSize: 11, fontWeight: '800', color: '#ff444488',
-    backgroundColor: 'rgba(255,68,68,0.1)',
+    fontSize: 12, fontWeight: '600', color: '#ff444488',
+    backgroundColor: 'rgba(229,72,77,0.1)',
     borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2,
-    borderWidth: 1, borderColor: 'rgba(255,68,68,0.2)',
+    borderWidth: 1, borderColor: 'rgba(229,72,77,0.2)',
   },
 
   misProCard: {
     backgroundColor: '#0D0D0D', borderRadius: 16,
-    borderWidth: 1, borderColor: '#1E1E1E',
     padding: 14, gap: 10,
   },
   misProHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  misProAvatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: '#FFD600' },
+  misProAvatar: { width: 52, height: 52, borderRadius: 999 },
   misProAvatarPlaceholder: {
-    width: 52, height: 52, borderRadius: 26,
+    width: 52, height: 52, borderRadius: 999,
     backgroundColor: '#1A1A00', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
-  misProAvatarInitial: { fontSize: 20, fontWeight: '900', color: '#FFD600' },
+  misProAvatarInitial: { fontSize: 20, fontWeight: '700', color: '#FFD600' },
   misProInfo: { flex: 1 },
-  misProName: { fontSize: 15, fontWeight: '900', color: '#F5F5F5', marginBottom: 2 },
-  misProRole: { fontSize: 12, color: '#555', marginBottom: 4 },
+  misProName: { fontSize: 16, fontWeight: '700', color: '#F5F5F5', marginBottom: 2 },
+  misProRole: { fontSize: 14, color: '#555', marginBottom: 4 },
   misProRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  misProRatingVal:  { fontSize: 13, fontWeight: '800', color: '#FFD600' },
-  misProRatingJobs: { fontSize: 11, color: '#444' },
+  misProRatingVal:  { fontSize: 14, fontWeight: '600', color: '#FFD600' },
+  misProRatingJobs: { fontSize: 12, color: '#444' },
   misProBusyBadge: {
-    backgroundColor: 'rgba(255,68,68,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,68,68,0.2)',
+    backgroundColor: 'rgba(229,72,77,0.08)',
+    borderWidth: 1, borderColor: 'rgba(229,72,77,0.2)',
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
   },
-  misProBusyText: { fontSize: 10, fontWeight: '800', color: '#ff4444' },
+  misProBusyText: { fontSize: 14, fontWeight: '600', color: '#8A8A8A' },
 
   misProLastJob: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#111', borderRadius: 8,
+    backgroundColor: '#161616', borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 6,
   },
-  misProLastJobText: { fontSize: 12, color: '#555', flex: 1 },
+  misProLastJobText: { fontSize: 14, color: '#555', flex: 1 },
 
   misProMyRating: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  misProMyRatingLabel: { fontSize: 12, color: '#444' },
+  misProMyRatingLabel: { fontSize: 14, color: '#444' },
   misProMyRatingStars: { flexDirection: 'row', gap: 2 },
 
   misProBtn: {
@@ -2004,37 +2094,36 @@ const styles = StyleSheet.create({
     borderRadius: 12, paddingVertical: 13,
   },
   misProBtnOff: { backgroundColor: '#1a1a1a' },
-  misProBtnText: { fontSize: 14, fontWeight: '900', color: '#0A0A0A' },
+  misProBtnText: { fontSize: 16, fontWeight: '700', color: '#0D0D0D' },
   misProBtnTextOff: { color: '#444' },
 
   // Favoritos (legacy — se pueden eliminar si no hay otros usos)
   favSectionTitle: {
-    fontSize: 11, fontWeight: '800', color: '#555',
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+    fontSize: 12, fontWeight: '600', color: '#555',
+    textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 10,
   },
   favCard: {
     width: 90, alignItems: 'center', gap: 4,
-    backgroundColor: '#111', borderRadius: 16,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 16,
     padding: 10,
   },
   favAvatar: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 999,
     backgroundColor: '#1A1A1A',
     borderWidth: 1.5, borderColor: '#FFD60060',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
   favAvatarImg: { width: '100%', height: '100%' },
-  favName:       { fontSize: 12, fontWeight: '700', color: '#F5F5F5', textAlign: 'center' },
+  favName:       { fontSize: 14, fontWeight: '700', color: '#F5F5F5', textAlign: 'center' },
   favRatingRow:  { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  favRating:     { fontSize: 11, color: '#888' },
+  favRating:     { fontSize: 12, color: '#888' },
   favRequestBtn: {
     backgroundColor: '#FFD600', borderRadius: 10,
     paddingHorizontal: 10, paddingVertical: 5, marginTop: 2,
   },
   favRequestBtnOff:     { backgroundColor: '#1a1a1a' },
-  favRequestBtnText:    { fontSize: 11, fontWeight: '900', color: '#0A0A0A' },
+  favRequestBtnText:    { fontSize: 12, fontWeight: '700', color: '#0D0D0D' },
   favRequestBtnTextOff: { color: '#444' },
 });
 

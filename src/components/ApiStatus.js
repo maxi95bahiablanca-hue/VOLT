@@ -16,7 +16,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   error: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#b00020',
     marginTop: 12,
   },

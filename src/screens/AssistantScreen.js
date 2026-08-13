@@ -28,7 +28,7 @@ const MAX_FOTOS = 3;
 // cargar una porque la IA casi siempre manda max_fotos: 1).
 const topeFotos = () => MAX_FOTOS;
 
-const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
+const AssistantScreen = ({ clientId, userLocation, mode, oficio, onReady, onBack }) => {
   const insets = useSafeAreaInsets();
 
   const [phase, setPhase]   = useState('ask');   // ask | analyzing | questions
@@ -46,13 +46,17 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
   const recRef     = useRef(null);
   const historyRef = useRef([]);   // [{ role:'user'|'model', text }]
   const startedRef = useRef(false);
+  const qScrollRef = useRef(null);   // para traer a la vista el campo de "Otro"
 
-  // Si entró por el botón de audio o cámara del buscador, lo disparamos directo
+  // Si entró por el botón de audio o cámara del buscador, lo disparamos directo.
+  // Y si vino tocando un oficio del home, la frase ya arranca escrita: el
+  // cliente sólo tiene que contar qué le pasa, no adivinar cómo empezar.
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
     if (mode === 'camera') setTimeout(attachPhoto, 350);
     else if (mode === 'audio') setTimeout(toggleRecord, 350);
+    else if (oficio?.name) setInput(`Necesito un ${oficio.name.toLowerCase()} porque `);
   }, []);
 
   // ─── Enviar el problema a la IA ─────────────────────────
@@ -228,7 +232,15 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
     const esFoto = preg.tipo === 'foto';
     const tope = topeFotos();
     return (
-      <ScrollView contentContainerStyle={styles.qScroll} keyboardShouldPersistTaps="handled">
+      // 🔴 11-ago-2026 — Mismo caso que la entrada: "Otro / lo escribo" abre un campo con
+      // autoFocus al final de la lista y el tilde de confirmar quedaba abajo del teclado.
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        ref={qScrollRef}
+        contentContainerStyle={[styles.qScroll, { paddingBottom: 40 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {/* Lo que ya entendió la IA */}
         {analysis.ya_entendi?.length > 0 && (
           <View style={styles.gotBox}>
@@ -282,7 +294,7 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.opt} activeOpacity={0.85} onPress={() => tomarFoto('galeria')}>
                   <Text style={styles.optTxt}>{fotos.length ? 'Elegir otra de mis fotos' : 'Elegir de mis fotos'}</Text>
-                  <Ionicons name="images-outline" size={18} color="#666" />
+                  <Ionicons name="images-outline" size={18} color="#5C5C5C" />
                 </TouchableOpacity>
                 <Text style={styles.fotoHint}>
                   {fotos.length
@@ -313,7 +325,7 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
           {opciones.map((op, i) => (
             <TouchableOpacity key={i} style={styles.opt} activeOpacity={0.85} onPress={() => answerCurrent(op)}>
               <Text style={styles.optTxt}>{op}</Text>
-              <Ionicons name="chevron-forward" size={18} color="#666" />
+              <Ionicons name="chevron-forward" size={18} color="#5C5C5C" />
             </TouchableOpacity>
           ))}
 
@@ -328,12 +340,20 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
               <TextInput
                 style={styles.otherInput}
                 placeholder="Escribí tu respuesta…"
-                placeholderTextColor="#666"
+                placeholderTextColor="#5C5C5C"
                 value={otherText}
                 onChangeText={setOtherText}
                 autoFocus
                 multiline
                 onSubmitEditing={confirmOther}
+                // 🔴 11-ago-2026 — Achicar la vista con el teclado no alcanza: el campo
+                // está al final de la lista de opciones, así que en un teléfono chico
+                // (4 opciones ya no entran) queda ABAJO del corte y el cliente escribe
+                // a ciegas, sin ver ni lo que tipea ni el tilde de confirmar. Lo
+                // traemos nosotros. El retardo espera a que el teclado termine de
+                // subir: recién ahí el KeyboardAvoidingView achicó el alto y
+                // scrollToEnd calcula bien adónde tiene que ir.
+                onFocus={() => setTimeout(() => qScrollRef.current?.scrollToEnd({ animated: true }), 400)}
               />
               <TouchableOpacity style={[styles.otherBtn, !otherText.trim() && { opacity: 0.5 }]} onPress={confirmOther} disabled={!otherText.trim()}>
                 <Ionicons name="checkmark" size={20} color="#10100A" />
@@ -343,13 +363,24 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
         </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     );
   };
 
   // ─── Render: contar el problema (entrada) ───────────────
   const renderAsk = () => (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.askScroll} keyboardShouldPersistTaps="handled">
+    // 🔴 11-ago-2026 — En Android el behavior venía en undefined: con edge-to-edge la
+    // ventana no se achica y el teclado tapaba Audio, Foto y el amarillo "Continuar",
+    // que quedaban abajo del borde sin poder traerlos con el dedo (el contenido entra
+    // casi entero, así que el ScrollView no tenía nada que scrollear). Con 'height' la
+    // vista se encoge y el botón vuelve a quedar alcanzable; on-drag deja bajar el
+    // teclado arrastrando, que era la única salida y nada en pantalla lo decía.
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        contentContainerStyle={[styles.askScroll, { paddingBottom: 40 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <View style={styles.boltBig}><Ionicons name="flash" size={28} color="#10100A" /></View>
         <Text style={styles.askTitle}>Contanos qué necesitás</Text>
         <Text style={styles.askSub}>
@@ -367,7 +398,7 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
           <TextInput
             style={styles.askInput}
             placeholder="Ej: se me pinchó un caño en el baño y pierde agua…"
-            placeholderTextColor="#666"
+            placeholderTextColor="#5C5C5C"
             value={input}
             onChangeText={setInput}
             multiline
@@ -377,7 +408,7 @@ const AssistantScreen = ({ clientId, userLocation, mode, onReady, onBack }) => {
 
         <View style={styles.askActions}>
           <TouchableOpacity style={[styles.askIcon, recording && styles.askIconRec]} onPress={toggleRecord}>
-            <Ionicons name={recording ? 'stop' : 'mic-outline'} size={22} color={recording ? '#ff4444' : '#FFD600'} />
+            <Ionicons name={recording ? 'stop' : 'mic-outline'} size={22} color={recording ? '#E5484D' : '#FFD600'} />
             <Text style={styles.askIconTxt}>{recording ? 'Grabando…' : 'Audio'}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.askIcon} onPress={attachPhoto}>
@@ -429,67 +460,67 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0B0E' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14, paddingBottom: 12, backgroundColor: '#141418', borderBottomWidth: 1, borderBottomColor: '#23252e' },
   backBtn: { padding: 2 },
-  avH: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center' },
-  hTitle: { fontSize: 15, fontWeight: '800', color: '#F5F5F5' },
-  hSub: { fontSize: 11.5, color: '#9a9a9a', marginTop: 1 },
+  avH: { width: 34, height: 34, borderRadius: 20, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center' },
+  hTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  hSub: { fontSize: 12, color: '#9a9a9a', marginTop: 1 },
 
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  analyzingTxt: { color: '#bbb', fontSize: 15, fontWeight: '600' },
+  analyzingTxt: { color: '#bbb', fontSize: 16, fontWeight: '600' },
 
   // ── Entrada (contar problema) ──
   askScroll: { padding: 22, paddingBottom: 40 },
-  boltBig: { width: 60, height: 60, borderRadius: 18, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
-  askTitle: { fontSize: 26, fontWeight: '900', color: '#F5F5F5', letterSpacing: -0.5 },
-  askSub: { fontSize: 14.5, color: '#9a9a9a', lineHeight: 21, marginTop: 8, marginBottom: 18 },
-  replyBox: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: 'rgba(255,214,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)', borderRadius: 14, padding: 13, marginBottom: 16 },
-  replyTxt: { flex: 1, color: '#EDEDED', fontSize: 14, lineHeight: 20 },
-  askInputWrap: { backgroundColor: '#16161B', borderWidth: 1, borderColor: '#2a2a33', borderRadius: 16, padding: 4 },
-  askInput: { minHeight: 120, color: '#F5F5F5', fontSize: 16, padding: 14, lineHeight: 22 },
+  boltBig: { width: 60, height: 60, borderRadius: 20, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
+  askTitle: { fontSize: 26, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.5 },
+  askSub: { fontSize: 16, color: '#9a9a9a', lineHeight: 21, marginTop: 8, marginBottom: 18 },
+  replyBox: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: 'rgba(255,214,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)', borderRadius: 20, padding: 13, marginBottom: 16 },
+  replyTxt: { flex: 1, color: '#EDEDED', fontSize: 16, lineHeight: 20 },
+  askInputWrap: { backgroundColor: '#16161B', borderWidth: 1, borderColor: '#2a2a33', borderRadius: 20, padding: 4 },
+  askInput: { minHeight: 120, color: '#FFFFFF', fontSize: 16, padding: 14, lineHeight: 22 },
   askActions: { flexDirection: 'row', gap: 12, marginTop: 14 },
-  askIcon: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#16161B', borderWidth: 1, borderColor: '#2a2a33', borderRadius: 14, paddingVertical: 14 },
-  askIconRec: { borderColor: '#ff4444', backgroundColor: 'rgba(255,68,68,0.08)' },
-  askIconTxt: { color: '#cfcfcf', fontSize: 14, fontWeight: '700' },
-  askSend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 17, marginTop: 20 },
+  askIcon: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#16161B', borderWidth: 1, borderColor: '#2a2a33', borderRadius: 20, paddingVertical: 14 },
+  askIconRec: { borderColor: '#E5484D', backgroundColor: 'rgba(229,72,77,0.08)' },
+  askIconTxt: { color: '#cfcfcf', fontSize: 16, fontWeight: '700' },
+  askSend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, backgroundColor: '#FFD600', borderRadius: 20, paddingVertical: 17, marginTop: 20 },
   askSendOff: { opacity: 0.5 },
-  askSendTxt: { color: '#10100A', fontSize: 16.5, fontWeight: '900' },
+  askSendTxt: { color: '#10100A', fontSize: 16.5, fontWeight: '700' },
 
   // ── Cuestionario (vista B) ──
   qScroll: { padding: 20, paddingBottom: 40 },
-  gotBox: { backgroundColor: 'rgba(255,214,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)', borderRadius: 14, padding: 13, marginBottom: 20 },
+  gotBox: { backgroundColor: 'rgba(255,214,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)', borderRadius: 20, padding: 13, marginBottom: 20 },
   gotHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 9 },
   boltMini: { width: 20, height: 20, borderRadius: 6, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center' },
-  gotTitle: { color: '#FFD600', fontSize: 12.5, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  gotTitle: { color: '#FFD600', fontSize: 14, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.8 },
   gotChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  gotChip: { backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: '#2e2e36', borderRadius: 14, paddingHorizontal: 11, paddingVertical: 6 },
-  gotChipTxt: { color: '#EDEDED', fontSize: 13, fontWeight: '700' },
+  gotChip: { backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: '#2e2e36', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6 },
+  gotChipTxt: { color: '#EDEDED', fontSize: 14, fontWeight: '700' },
 
   progRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
   progSeg: { flex: 1, height: 4, borderRadius: 3, backgroundColor: '#2c2c34' },
   progSegOn: { backgroundColor: '#FFD600' },
-  stepTxt: { color: '#9a9a9a', fontSize: 12, fontWeight: '700', marginBottom: 8 },
-  question: { color: '#F5F5F5', fontSize: 23, fontWeight: '900', lineHeight: 30, letterSpacing: -0.5, marginBottom: 20 },
+  stepTxt: { color: '#9a9a9a', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  question: { color: '#FFFFFF', fontSize: 23, fontWeight: '700', lineHeight: 30, letterSpacing: -0.5, marginBottom: 20 },
 
   opts: { gap: 10 },
-  opt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#16161B', borderWidth: 1, borderColor: '#2a2a33', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 16 },
-  optTxt: { flex: 1, color: '#F5F5F5', fontSize: 15.5, fontWeight: '700' },
-  optOther: { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: 'rgba(255,214,0,0.4)', borderStyle: 'dashed', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 15, marginTop: 2 },
-  optOtherTxt: { color: '#FFD600', fontSize: 15, fontWeight: '800' },
+  opt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#16161B', borderWidth: 1, borderColor: '#2a2a33', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 16 },
+  optTxt: { flex: 1, color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  optOther: { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: 'rgba(255,214,0,0.4)', borderStyle: 'dashed', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 15, marginTop: 2 },
+  optOtherTxt: { color: '#FFD600', fontSize: 16, fontWeight: '600' },
 
   // Pregunta de foto
-  optPrimary: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD600', borderRadius: 14, paddingVertical: 16, marginTop: 2 },
-  optPrimaryTxt: { color: '#10100A', fontSize: 15.5, fontWeight: '900' },
-  fotoHint: { color: '#5a5a5a', fontSize: 12, lineHeight: 17, marginTop: 2, marginBottom: 4 },
+  optPrimary: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD600', borderRadius: 20, paddingVertical: 16, marginTop: 2 },
+  optPrimaryTxt: { color: '#10100A', fontSize: 16, fontWeight: '700' },
+  fotoHint: { color: '#5a5a5a', fontSize: 14, lineHeight: 17, marginTop: 2, marginBottom: 4 },
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
   thumbWrap: { width: 84, height: 84 },
-  thumb: { width: 84, height: 84, borderRadius: 12, borderWidth: 1, borderColor: '#2a2a33' },
+  thumb: { width: 84, height: 84, borderRadius: 20, borderWidth: 1, borderColor: '#2a2a33' },
   thumbDel: {
-    position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12,
-    backgroundColor: '#ff4444', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#0A0A0A',
+    position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 20,
+    backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#0D0D0D',
   },
   otherBox: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 2 },
-  otherInput: { flex: 1, minHeight: 52, maxHeight: 120, backgroundColor: '#16161B', borderWidth: 1, borderColor: '#FFD600', borderRadius: 14, color: '#F5F5F5', fontSize: 15, paddingHorizontal: 14, paddingVertical: 12 },
-  otherBtn: { width: 50, height: 52, borderRadius: 14, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center' },
+  otherInput: { flex: 1, minHeight: 52, maxHeight: 120, backgroundColor: '#16161B', borderWidth: 1, borderColor: '#FFD600', borderRadius: 20, color: '#FFFFFF', fontSize: 16, paddingHorizontal: 14, paddingVertical: 12 },
+  otherBtn: { width: 50, height: 52, borderRadius: 999, backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center' },
 });
 
 export default AssistantScreen;

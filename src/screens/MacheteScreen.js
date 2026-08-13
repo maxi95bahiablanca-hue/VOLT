@@ -122,7 +122,7 @@ const MacheteScreen = ({ professional }) => {
                 <Text style={styles.sectionLabel}>Materiales necesarios</Text>
                 {item.materiales.map((mat, i) => (
                   <View key={i} style={styles.matRow}>
-                    <Ionicons name="checkmark-circle" size={14} color="#4CAF50" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <Ionicons name="checkmark-circle" size={14} color="#FFD600" style={{ marginTop: 2, flexShrink: 0 }} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.matText}>{typeof mat === 'string' ? mat : mat.item}</Text>
                       {typeof mat === 'object' && mat.marca && (
@@ -147,34 +147,32 @@ const styles = StyleSheet.create({
 
   introCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#0D0D00', borderRadius: 12,
+    backgroundColor: '#0D0D00', borderRadius: 20,
     borderWidth: 1, borderColor: '#2a2a00',
     padding: 12, marginBottom: 14,
   },
-  introText: { flex: 1, fontSize: 12, color: '#888', lineHeight: 18 },
+  introText: { flex: 1, fontSize: 14, color: '#8A8A8A', lineHeight: 18 },
 
   profScroll: { marginBottom: 6 },
   profScrollContent: { gap: 8, paddingRight: 4 },
   profChip: {
     paddingHorizontal: 14, paddingVertical: 7,
-    backgroundColor: '#111', borderRadius: 20,
-    borderWidth: 1, borderColor: '#222',
-  },
+    backgroundColor: '#161616', borderRadius: 999,
+    },
   profChipActive: { backgroundColor: '#FFD600', borderColor: '#FFD600' },
-  profChipText:       { fontSize: 13, color: '#555', fontWeight: '600' },
-  profChipTextActive: { color: '#0A0A0A' },
+  profChipText:       { fontSize: 14, color: '#5C5C5C', fontWeight: '600' },
+  profChipTextActive: { color: '#0D0D0D' },
 
   profTitle: {
-    fontSize: 16, fontWeight: '800', color: '#FFD600',
+    fontSize: 16, fontWeight: '600', color: '#FFD600',
     marginBottom: 10, marginTop: 4,
   },
 
   emptyWrap: { alignItems: 'center', paddingVertical: 48, gap: 12 },
-  emptyText: { color: '#333', fontSize: 14, textAlign: 'center' },
+  emptyText: { color: '#5C5C5C', fontSize: 16, textAlign: 'center' },
 
   problemCard: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E',
+    backgroundColor: '#161616', borderRadius: 20,
     marginBottom: 8, overflow: 'hidden',
   },
   problemCardOpen: { borderColor: '#FFD60040' },
@@ -183,40 +181,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14,
   },
-  problemTitle:     { flex: 1, fontSize: 14, fontWeight: '600', color: '#CCC', lineHeight: 20 },
-  problemTitleOpen: { color: '#F5F5F5', fontWeight: '700' },
+  problemTitle:     { flex: 1, fontSize: 16, fontWeight: '600', color: '#CCC', lineHeight: 20 },
+  problemTitleOpen: { color: '#FFFFFF', fontWeight: '700' },
 
   problemBody: {
     paddingHorizontal: 14, paddingBottom: 14,
-    borderTopWidth: 1, borderTopColor: '#1E1E1E',
     paddingTop: 12,
   },
 
   causaBox: {
-    backgroundColor: '#0A0A0A', borderRadius: 10, padding: 12, marginBottom: 14,
-    borderLeftWidth: 3, borderLeftColor: '#FF9800',
+    backgroundColor: '#161616', borderRadius: 20, padding: 12, marginBottom: 14,
+    borderLeftWidth: 3, borderLeftColor: '#8A8A8A',
   },
-  causaLabel: { fontSize: 10, color: '#FF9800', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
-  causaText:  { fontSize: 13, color: '#AAA', lineHeight: 19 },
+  causaLabel: { fontSize: 12, color: '#8A8A8A', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 5 },
+  causaText:  { fontSize: 14, color: '#AAA', lineHeight: 19 },
 
   sectionLabel: {
-    fontSize: 10, color: '#555', fontWeight: '800',
-    textTransform: 'uppercase', letterSpacing: 0.5,
+    fontSize: 12, color: '#5C5C5C', fontWeight: '600',
+    textTransform: 'uppercase', letterSpacing: 1.8,
     marginBottom: 8, marginTop: 14,
   },
 
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
   stepBubble: {
-    width: 22, height: 22, borderRadius: 11,
+    width: 22, height: 22, borderRadius: 20,
     backgroundColor: '#FFD600', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0, marginTop: 1,
   },
-  stepNum:  { fontSize: 11, fontWeight: '900', color: '#0A0A0A' },
-  stepText: { flex: 1, fontSize: 13, color: '#CCC', lineHeight: 19 },
+  stepNum:  { fontSize: 12, fontWeight: '700', color: '#0D0D0D' },
+  stepText: { flex: 1, fontSize: 14, color: '#CCC', lineHeight: 19 },
 
   matRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-  matText: { fontSize: 13, color: '#CCC', lineHeight: 18, fontWeight: '500' },
-  matSub:  { fontSize: 11, color: '#555', marginTop: 1 },
+  matText: { fontSize: 14, color: '#CCC', lineHeight: 18, fontWeight: '500' },
+  matSub:  { fontSize: 12, color: '#5C5C5C', marginTop: 1 },
 });
 
 export default MacheteScreen;

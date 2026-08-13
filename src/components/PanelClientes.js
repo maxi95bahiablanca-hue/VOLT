@@ -136,13 +136,13 @@ const PanelClientes = ({
   return (
     <View>
       <TouchableOpacity style={styles.addBtn} onPress={() => setShowForm(true)} activeOpacity={0.85}>
-        <Ionicons name="person-add" size={18} color="#0A0A0A" />
+        <Ionicons name="person-add" size={18} color="#0D0D0D" />
         <Text style={styles.addBtnText}>Agregar cliente</Text>
       </TouchableOpacity>
 
       {conBuscador && (
         <View style={styles.searchWrap}>
-          <Ionicons name="search" size={16} color="#555" />
+          <Ionicons name="search" size={16} color="#5C5C5C" />
           <TextInput
             style={styles.searchInput}
             value={q}
@@ -152,7 +152,7 @@ const PanelClientes = ({
           />
           {!!q && (
             <TouchableOpacity onPress={() => setQ('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={16} color="#555" />
+              <Ionicons name="close-circle" size={16} color="#5C5C5C" />
             </TouchableOpacity>
           )}
         </View>
@@ -193,7 +193,7 @@ const PanelClientes = ({
                   activeOpacity={0.85}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                  <Ionicons name="logo-whatsapp" size={19} color="#0A0A0A" />
+                  <Ionicons name="logo-whatsapp" size={19} color="#0D0D0D" />
                 </TouchableOpacity>
               )}
             </View>
@@ -230,7 +230,7 @@ const PanelClientes = ({
                 <View style={styles.sheetTop}>
                   <Text style={styles.sheetTitle} numberOfLines={1}>{ficha.nombre}</Text>
                   <TouchableOpacity onPress={() => setFicha(null)} style={{ padding: 4 }}>
-                    <Ionicons name="close" size={22} color="#555" />
+                    <Ionicons name="close" size={22} color="#5C5C5C" />
                   </TouchableOpacity>
                 </View>
 
@@ -245,7 +245,7 @@ const PanelClientes = ({
                   </View>
                   <View style={styles.fichaDiv} />
                   <View style={styles.fichaStat}>
-                    <Text style={[styles.fichaStatVal, { color: '#4CAF50', fontSize: 16 }]}>
+                    <Text style={[styles.fichaStatVal, { color: '#FFD600', fontSize: 16 }]}>
                       ${fichaResumen.facturado.toLocaleString('es-AR')}
                     </Text>
                     <Text style={styles.fichaStatLbl}>Facturado</Text>
@@ -254,7 +254,7 @@ const PanelClientes = ({
 
                 {!!ficha.telefono && (
                   <TouchableOpacity style={styles.waBtn} onPress={() => whatsApp(ficha)} activeOpacity={0.85}>
-                    <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+                    <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
                     <Text style={styles.waBtnText}>Escribirle por WhatsApp</Text>
                   </TouchableOpacity>
                 )}
@@ -290,7 +290,7 @@ const PanelClientes = ({
 
                           <View style={styles.trabajoBottom}>
                             <Text style={styles.trabajoNumero}>N°{p.numero}</Text>
-                            <Text style={[styles.trabajoTotal, hecho && { color: '#4CAF50' }]}>
+                            <Text style={[styles.trabajoTotal, hecho && { color: '#FFD600' }]}>
                               ${Number(p.total || 0).toLocaleString('es-AR')}
                             </Text>
                           </View>
@@ -317,7 +317,7 @@ const PanelClientes = ({
               <View style={styles.sheetTop}>
                 <Text style={styles.sheetTitle}>Nuevo cliente</Text>
                 <TouchableOpacity onPress={cerrarForm} style={{ padding: 4 }}>
-                  <Ionicons name="close" size={22} color="#555" />
+                  <Ionicons name="close" size={22} color="#5C5C5C" />
                 </TouchableOpacity>
               </View>
 
@@ -368,7 +368,7 @@ const PanelClientes = ({
                 activeOpacity={0.85}
               >
                 {saving
-                  ? <ActivityIndicator color="#0A0A0A" />
+                  ? <ActivityIndicator color="#0D0D0D" />
                   : <Text style={styles.guardarBtnText}>Guardar cliente</Text>}
               </TouchableOpacity>
 
@@ -386,58 +386,56 @@ const PanelClientes = ({
 const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
-    backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 16, marginBottom: 12,
+    backgroundColor: '#FFD600', borderRadius: 999, paddingVertical: 16, marginBottom: 12,
   },
-  addBtnText: { color: '#0A0A0A', fontSize: 15.5, fontWeight: '900' },
+  addBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#0A0A0A', borderRadius: 12, borderWidth: 1, borderColor: '#2a2a2a',
-    paddingHorizontal: 12, marginBottom: 12,
+    backgroundColor: '#161616', borderRadius: 20, paddingHorizontal: 12, marginBottom: 12,
   },
-  searchInput: { flex: 1, color: '#fff', fontSize: 14.5, paddingVertical: 11 },
+  searchInput: { flex: 1, color: '#fff', fontSize: 16, paddingVertical: 11 },
 
   card: {
-    backgroundColor: '#111', borderRadius: 16, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 14, marginBottom: 10,
+    backgroundColor: '#161616', borderRadius: 20, padding: 14, marginBottom: 10,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: '#1A1A1A',
+    width: 34, height: 34, borderRadius: 999, backgroundColor: '#1A1A1A',
     alignItems: 'center', justifyContent: 'center',
   },
-  nombre: { color: '#F5F5F5', fontSize: 15, fontWeight: '700' },
-  sub:    { color: '#666', fontSize: 12, marginTop: 2 },
+  nombre: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  sub:    { color: '#5C5C5C', fontSize: 14, marginTop: 2 },
   waMini: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: '#25D366',
+    width: 38, height: 38, borderRadius: 999, backgroundColor: '#8A8A8A',
     alignItems: 'center', justifyContent: 'center',
   },
 
   oficiosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   oficioChip: {
     backgroundColor: '#FFD60014', borderWidth: 1, borderColor: '#FFD60033',
-    borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4,
   },
   oficioChipSolo: {
     alignSelf: 'flex-start', marginTop: 8,
     backgroundColor: '#FFD60014', borderWidth: 1, borderColor: '#FFD60033',
-    borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4,
   },
-  oficioChipText: { color: '#FFD600', fontSize: 11, fontWeight: '800' },
+  oficioChipText: { color: '#FFD600', fontSize: 12, fontWeight: '600' },
 
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  meta:      { color: '#666', fontSize: 12 },
-  facturado: { color: '#4CAF50', fontSize: 14, fontWeight: '800' },
+  meta:      { color: '#5C5C5C', fontSize: 14 },
+  facturado: { color: '#FFD600', fontSize: 16, fontWeight: '600' },
 
   emptyWrap:  { alignItems: 'center', paddingVertical: 48, gap: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: '#333' },
-  emptyText:  { fontSize: 14, color: '#444', textAlign: 'center', lineHeight: 20, maxWidth: 300 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
+  emptyText:  { fontSize: 16, color: '#444', textAlign: 'center', lineHeight: 20, maxWidth: 300 },
   emptyBtn: {
-    borderWidth: 1, borderColor: '#FFD60055', borderRadius: 14,
+    borderWidth: 1, borderColor: '#FFD60055', borderRadius: 999,
     paddingHorizontal: 20, paddingVertical: 13, marginTop: 6,
   },
-  emptyBtnText: { color: '#FFD600', fontSize: 14, fontWeight: '800' },
-  sinResultados: { color: '#555', fontSize: 13.5, textAlign: 'center', paddingVertical: 32 },
+  emptyBtnText: { color: '#FFD600', fontSize: 16, fontWeight: '600' },
+  sinResultados: { color: '#5C5C5C', fontSize: 14, textAlign: 'center', paddingVertical: 32 },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: {
@@ -445,56 +443,53 @@ const styles = StyleSheet.create({
     padding: 22, maxHeight: '90%',
   },
   sheetTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 10 },
-  sheetTitle: { flex: 1, color: '#F5F5F5', fontSize: 19, fontWeight: '900' },
+  sheetTitle: { flex: 1, color: '#FFFFFF', fontSize: 19, fontWeight: '700' },
 
-  dato:  { color: '#ccc', fontSize: 14.5, marginBottom: 6 },
-  notas: { color: '#888', fontSize: 13.5, lineHeight: 19, marginTop: 4 },
+  dato:  { color: '#ccc', fontSize: 16, marginBottom: 6 },
+  notas: { color: '#8A8A8A', fontSize: 14, lineHeight: 19, marginTop: 4 },
 
   fichaStats: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#111', borderRadius: 16, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 16, marginTop: 16,
+    backgroundColor: '#161616', borderRadius: 20, padding: 16, marginTop: 16,
   },
   fichaStat: { flex: 1, alignItems: 'center' },
-  fichaStatVal: { fontSize: 20, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
-  fichaStatLbl: { fontSize: 10.5, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+  fichaStatVal: { fontSize: 20, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  fichaStatLbl: { fontSize: 12, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8 },
   fichaDiv: { width: 1, height: 32, backgroundColor: '#1E1E1E' },
 
   waBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
-    backgroundColor: '#25D366', borderRadius: 16, paddingVertical: 16, marginTop: 14,
+    backgroundColor: '#8A8A8A', borderRadius: 999, paddingVertical: 16, marginTop: 14,
   },
-  waBtnText: { color: '#0A0A0A', fontSize: 15.5, fontWeight: '900' },
+  waBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
-  histTitle: { color: '#F5F5F5', fontSize: 14, fontWeight: '800', marginTop: 22, marginBottom: 10 },
-  histVacio: { color: '#555', fontSize: 13, lineHeight: 19, paddingBottom: 8 },
+  histTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginTop: 22, marginBottom: 10 },
+  histVacio: { color: '#5C5C5C', fontSize: 14, lineHeight: 19, paddingBottom: 8 },
 
   trabajoCard: {
-    backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 13, marginBottom: 9,
+    backgroundColor: '#161616', borderRadius: 20, padding: 13, marginBottom: 9,
   },
   // Los aceptados son los trabajos que realmente hizo: se ven distinto.
-  trabajoCardHecho: { borderColor: '#4CAF5040', backgroundColor: '#0D140D' },
+  trabajoCardHecho: { borderColor: '#FFD60040', backgroundColor: '#0D140D' },
   trabajoTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  trabajoFecha: { color: '#666', fontSize: 12, fontWeight: '700' },
-  chip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  chipText: { fontSize: 11, fontWeight: '700' },
-  trabajoDesc: { color: '#999', fontSize: 13, lineHeight: 18, marginTop: 8 },
+  trabajoFecha: { color: '#5C5C5C', fontSize: 14, fontWeight: '700' },
+  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  chipText: { fontSize: 12, fontWeight: '700' },
+  trabajoDesc: { color: '#999', fontSize: 14, lineHeight: 18, marginTop: 8 },
   trabajoBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  trabajoNumero: { color: '#444', fontSize: 12, fontWeight: '700' },
-  trabajoTotal: { color: '#F5F5F5', fontSize: 15, fontWeight: '900' },
+  trabajoNumero: { color: '#444', fontSize: 14, fontWeight: '700' },
+  trabajoTotal: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 
-  label: { color: '#ccc', fontSize: 12.5, fontWeight: '700', marginBottom: 6, marginTop: 4 },
-  opcional: { color: '#666', fontSize: 12, fontWeight: '600' },
+  label: { color: '#ccc', fontSize: 14, fontWeight: '700', marginBottom: 6, marginTop: 4 },
+  opcional: { color: '#5C5C5C', fontSize: 14, fontWeight: '600' },
   input: {
-    backgroundColor: '#0A0A0A', borderRadius: 12, borderWidth: 1, borderColor: '#2a2a2a',
-    color: '#fff', fontSize: 15, padding: 14, marginBottom: 14,
+    backgroundColor: '#161616', borderRadius: 20, color: '#fff', fontSize: 16, padding: 14, marginBottom: 14,
   },
 
-  guardarBtn: { backgroundColor: '#FFD600', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 4 },
-  guardarBtnText: { color: '#0A0A0A', fontSize: 15.5, fontWeight: '900' },
+  guardarBtn: { backgroundColor: '#FFD600', borderRadius: 999, padding: 16, alignItems: 'center', marginTop: 4 },
+  guardarBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
   cancelarBtn: { paddingVertical: 14, alignItems: 'center' },
-  cancelarText: { color: '#666', fontSize: 14, fontWeight: '700' },
+  cancelarText: { color: '#5C5C5C', fontSize: 16, fontWeight: '700' },
 });
 
 export default PanelClientes;

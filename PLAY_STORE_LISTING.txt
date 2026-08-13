@@ -1,46 +1,70 @@
 ======================================================
-  VOLT — FICHA PARA GOOGLE PLAY STORE
+  BOLT — FICHA PARA GOOGLE PLAY STORE
 ======================================================
 
+🔴 11-ago-2026 — REESCRITA. La versión anterior prometía cuatro cosas que no
+existen y decía "VOLT" (la marca vieja). Lo que se sacó, y por qué:
+
+  · "en menos de 30 minutos" (estaba 3 veces) — no hay ningún cálculo ni
+    compromiso de tiempo de llegada: el estimado lo escribe a mano el
+    profesional al aceptar. La web ya había tomado la decisión contraria y la
+    dejó escrita: "distancia en línea recta, sin prometer minutos que no
+    podemos calcular".
+  · "🔒 SEGURIDAD GARANTIZADA" y "verificación de identidad (DNI + selfie)
+    antes de poder trabajar" — hoy el alta no exige ningún documento. Lo que sí
+    es cierto desde el 11-ago-2026 es que ningún profesional queda habilitado
+    solo: los aprueba una persona de BOLT, de a uno.
+  · "Pagá de forma segura con tarjeta — solo a través de la app" y "PAGOS 100%
+    DIGITALES" — la app está en modo 'free' (src/config/monetization.js): el
+    cliente le paga DIRECTO al profesional y BOLT no cobra comisión.
+  · "solo pagás comisión cuando cobrás / hasta el 10%" — mismo motivo.
+
+⚠️ Si la ficha que hoy está publicada en Play Console salió del archivo viejo,
+   esas promesas YA ESTÁN ONLINE: hay que corregirlas ahí también, no alcanza
+   con cambiar este archivo.
+
 NOMBRE DE LA APP (max 30 chars):
-  VOLT — Profesionales a domicilio
+  BOLT — Oficios a domicilio
 
 DESCRIPCIÓN CORTA (max 80 chars):
-  Electricistas, plomeros y más · verificados · en menos de 30 minutos
+  Electricistas, plomeros, gasistas y más, cerca tuyo
 
 DESCRIPCIÓN COMPLETA (max 4000 chars):
 ---
-⚡ VOLT conecta clientes con profesionales del hogar verificados, en minutos.
+⚡ BOLT te conecta con profesionales de oficio de tu ciudad.
 
-¿Se te rompió algo en casa? Con VOLT encontrás electricistas, plomeros, gasistas, pintores, cerrajeros y más — todos con antecedentes verificados — que llegan en menos de 30 minutos.
+¿Se te rompió algo en casa? Con BOLT encontrás electricistas, plomeros,
+gasistas, pintores, cerrajeros y más, cerca tuyo. Contás el problema, te
+responden los que están disponibles y elegís vos.
 
-🔒 SEGURIDAD GARANTIZADA
-Cada profesional pasa por verificación de identidad (DNI + selfie) antes de poder trabajar en la plataforma. Al llegar a tu casa, el profesional te muestra un código de 4 dígitos que debés verificar antes de abrir la puerta.
+🔑 EL CÓDIGO EN LA PUERTA
+Cuando el profesional llega, la app te muestra un código de 4 dígitos. Pediselo
+antes de abrir: si no coincide, no es tu profesional. Ningún profesional queda
+habilitado solo — los revisa una persona del equipo de BOLT, de a uno.
 
 ⚡ ASÍ FUNCIONA (para clientes):
-1. Elegí el tipo de servicio que necesitás
-2. La app te muestra hasta 3 profesionales disponibles cerca tuyo
-3. El profesional más rápido en aceptar llega en menos de 30 minutos
-4. Verificá su identidad con el código en la puerta
-5. Pagá de forma segura con tarjeta — solo a través de la app
+1. Contá qué se te rompió y dónde
+2. Le llega a los profesionales del oficio que estén disponibles cerca
+3. Te responden y elegís vos, viendo su perfil y sus calificaciones
+4. Seguís en el mapa cuando va en camino
+5. El precio y el pago los arreglás directo con el profesional: BOLT no cobra
+   comisión ni maneja tu plata
 
 💼 PARA PROFESIONALES:
-¿Sos electricista, plomero, gasista o cualquier otro profesional del hogar? Registrate en VOLT y empezá a recibir trabajos cerca tuyo.
-- Sin cuotas fijas: solo pagás comisión cuando cobrás
-- Mejor calificación = menor comisión (hasta el 10%)
-- Sistema justo: los materiales no se comisionan
-- Historial y estadísticas en tiempo real
+¿Sos electricista, plomero, gasista o de cualquier otro oficio? Registrate en
+BOLT y empezá a recibir trabajos cerca tuyo.
+- Gratis: hoy BOLT no cobra comisión ni cuota
+- Los trabajos te llegan al teléfono, con la dirección y lo que pasó
+- Presupuestos, historial de clientes y calificaciones, adentro de la app
+- Vos decidís qué aceptás: rechazar un trabajo no te baja la calificación
 
-💳 PAGOS 100% DIGITALES
-Todos los pagos se procesan de forma segura a través de Mercado Pago. Nunca necesitás efectivo.
-
-📍 DISPONIBLE EN BAHÍA BLANCA Y ALREDEDORES
-Expandiéndonos constantemente a nuevas ciudades.
+📍 BAHÍA BLANCA Y ALREDEDORES
+Es donde estamos hoy.
 
 📞 SOPORTE
-¿Problemas con un profesional? Nuestro equipo de soporte está disponible para ayudarte.
+¿Tuviste un problema con un profesional? Escribinos desde la app y lo miramos.
 
-Política de privacidad: https://maxi95bahiablanca-hue.github.io/VOLT/privacy.html
+Política de privacidad: https://bolt.com.ar/privacy.html
 ---
 
 CATEGORÍA:
@@ -56,10 +80,12 @@ EMAIL DE CONTACTO DEL DESARROLLADOR:
   maxi95.bahiablanca@gmail.com
 
 SITIO WEB:
-  https://maxi95bahiablanca-hue.github.io/VOLT/
+  https://bolt.com.ar
 
 POLÍTICA DE PRIVACIDAD:
-  https://maxi95bahiablanca-hue.github.io/VOLT/privacy.html
+  https://bolt.com.ar/privacy.html
+  ✅ Verificada el 11-ago-2026: responde 200. La anterior apuntaba a la página
+     vieja de GitHub Pages (maxi95bahiablanca-hue.github.io/VOLT).
 
 ======================================================
   CHECKLIST PLAY STORE
@@ -69,7 +95,7 @@ Antes de subir:
 [ ] Crear cuenta Google Play Console (play.google.com/console) — u$s 25 pago único
 [ ] Abrir GENERAR_FEATURE_GRAPHIC.html en Chrome → descargar feature-graphic.png
 [ ] Tomar capturas de pantalla del APK instalado (mínimo 2, recomendado 4-8)
-     - HomeScreen con mapa y trabajadores
+     - HomeScreen con los oficios
      - JobTrackingScreen con el mapa en vivo
      - WorkerIncoming (desde un dispositivo de test como trabajador)
      - RatingScreen post-trabajo
@@ -85,7 +111,7 @@ Antes de subir:
      - Datos compartidos: con otros usuarios (nombre y calificación del profesional)
      - Cifrado en tránsito: sí
 [ ] Calificación del contenido: completar cuestionario (resultado: "Para todos")
-[ ] Subir volt-aab (Android App Bundle) desde GitHub Actions → Artifacts → volt-aab
+[ ] Subir el AAB desde GitHub Actions → Artifacts
 [ ] Crear lanzamiento en "Pruebas internas" primero → probarlo → luego "Producción"
 
 PERMISOS ESPECIALES A DECLARAR:

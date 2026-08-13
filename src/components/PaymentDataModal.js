@@ -3,6 +3,7 @@ import {
   Modal, View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import { showSuccess, showError } from '../utils/toast';
@@ -22,6 +23,7 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
   const [cuit, setCuit] = useState(professional?.cuit || '');
   const [cbu, setCbu]   = useState(professional?.cbu || '');
   const [saving, setSaving] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const cuitDigits = cuit.replace(/\D/g, '');
   const valid = cuitDigits.length >= 11 && cbu.trim().length >= 6;
@@ -50,12 +52,22 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      {/* 🔴 11-ago-2026 — mismo problema que en CambiarPasswordModal: hoja pegada
+          abajo y behavior undefined en Android. Al tocar el CBU el teclado tapaba
+          "Guardar y empezar", y el trabajador nuevo se quedaba sin poder cargar
+          los datos con los que cobra. Con 'height' la hoja se encoge y el
+          ScrollView llega al botón; el paddingBottom por insets deja el último
+          botón por encima de la barra del sistema. */}
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.sheet}>
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 22) }]}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.iconWrap}>
               <Ionicons name="card" size={30} color="#FFD600" />
             </View>
@@ -75,7 +87,7 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
               value={cuit}
               onChangeText={setCuit}
               placeholder="20-12345678-9"
-              placeholderTextColor="#555"
+              placeholderTextColor="#5C5C5C"
               keyboardType="numbers-and-punctuation"
               maxLength={13}
             />
@@ -86,7 +98,7 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
               value={cbu}
               onChangeText={setCbu}
               placeholder="Tu CBU (22 dígitos) o alias.mp"
-              placeholderTextColor="#555"
+              placeholderTextColor="#5C5C5C"
               autoCapitalize="none"
             />
 
@@ -105,7 +117,7 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
               activeOpacity={0.85}
             >
               {saving
-                ? <ActivityIndicator color="#0A0A0A" />
+                ? <ActivityIndicator color="#0D0D0D" />
                 : <Text style={styles.saveBtnText}>Guardar y empezar</Text>}
             </TouchableOpacity>
 
@@ -129,19 +141,19 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#141414', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, maxHeight: '92%' },
-  iconWrap: { alignSelf: 'center', width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFD60018', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  title: { color: '#fff', fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  subtitle: { color: '#999', fontSize: 13.5, textAlign: 'center', lineHeight: 19, marginTop: 8, marginBottom: 18, paddingHorizontal: 6 },
-  label: { color: '#ccc', fontSize: 12.5, fontWeight: '700', marginBottom: 6, marginTop: 4 },
-  input: { backgroundColor: '#0A0A0A', borderRadius: 12, borderWidth: 1, borderColor: '#2a2a2a', color: '#fff', fontSize: 15, padding: 14, marginBottom: 14 },
-  infoBox: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: '#0d1a10', borderRadius: 12, padding: 12, marginBottom: 18 },
-  infoText: { flex: 1, color: '#9fcaa9', fontSize: 12, lineHeight: 17 },
-  saveBtn: { backgroundColor: '#FFD600', borderRadius: 14, padding: 16, alignItems: 'center' },
+  iconWrap: { alignSelf: 'center', width: 58, height: 58, borderRadius: 999, backgroundColor: '#FFD60018', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  title: { color: '#fff', fontSize: 20, fontWeight: '600', textAlign: 'center' },
+  subtitle: { color: '#999', fontSize: 14, textAlign: 'center', lineHeight: 19, marginTop: 8, marginBottom: 18, paddingHorizontal: 6 },
+  label: { color: '#ccc', fontSize: 14, fontWeight: '700', marginBottom: 6, marginTop: 4 },
+  input: { backgroundColor: '#161616', borderRadius: 20, color: '#fff', fontSize: 16, padding: 14, marginBottom: 14 },
+  infoBox: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: '#0d1a10', borderRadius: 20, padding: 12, marginBottom: 18 },
+  infoText: { flex: 1, color: '#9fcaa9', fontSize: 14, lineHeight: 17 },
+  saveBtn: { backgroundColor: '#FFD600', borderRadius: 999, padding: 16, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: '#0A0A0A', fontSize: 15.5, fontWeight: '800' },
+  saveBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '600' },
   laterBtn: { paddingVertical: 14, alignItems: 'center', marginTop: 4 },
-  laterText: { color: '#FFD600', fontSize: 14, fontWeight: '700' },
-  laterSub: { color: '#666', fontSize: 11.5, marginTop: 3 },
+  laterText: { color: '#FFD600', fontSize: 16, fontWeight: '700' },
+  laterSub: { color: '#5C5C5C', fontSize: 12, marginTop: 3 },
 });
 
 export default PaymentDataModal;

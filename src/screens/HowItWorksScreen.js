@@ -21,13 +21,13 @@ const STEPS = [
   },
   {
     icon: 'construct',
-    color: '#FF9800',
+    color: '#8A8A8A',
     title: 'El profesional va a tu domicilio',
     desc: 'Podés seguir su ubicación en el mapa en tiempo real. Al llegar, confirma el diagnóstico y empieza el trabajo.',
   },
   {
     icon: 'card',
-    color: '#4CAF50',
+    color: '#FFD600',
     title: chargesInApp() ? 'Pagás seguro con tarjeta' : 'Coordinás el pago directo',
     desc: chargesInApp()
       ? 'El pago se procesa dentro de la app con tarjeta de débito o crédito. El profesional recibe su pago solo cuando confirmás que el trabajo fue completado.'
@@ -47,7 +47,7 @@ const HowItWorksScreen = ({ onClose }) => (
   <SafeAreaView style={styles.container}>
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-        <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+        <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Cómo funciona</Text>
       <View style={{ width: 40 }} />
@@ -55,7 +55,7 @@ const HowItWorksScreen = ({ onClose }) => (
 
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.badge}>
-        <Ionicons name="flash" size={14} color="#0A0A0A" />
+        <Ionicons name="flash" size={14} color="#0D0D0D" />
         <Text style={styles.badgeText}>BOLT — SIMPLE Y SEGURO</Text>
       </View>
 
@@ -80,13 +80,13 @@ const HowItWorksScreen = ({ onClose }) => (
       ))}
 
       <View style={styles.securityBox}>
-        <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
+        <Ionicons name="shield-checkmark" size={20} color="#FFD600" />
         <View style={{ flex: 1 }}>
           <Text style={styles.securityTitle}>{chargesInApp() ? 'Tu dinero siempre protegido' : 'Tu seguridad es lo primero'}</Text>
           <Text style={styles.securityDesc}>
             {chargesInApp()
               ? 'BOLT retiene el pago hasta que confirmás que el trabajo está hecho. Ningún profesional recibe dinero antes.'
-              : 'Todos los profesionales están verificados y tienen un código de identidad de 4 dígitos. Seguí su llegada en tiempo real hasta tu domicilio.'}
+              : 'A todos los revisa el equipo de BOLT antes de habilitarlos, y cada uno tiene un código de 4 dígitos que te muestra en la puerta. Seguí su llegada en tiempo real hasta tu domicilio.'}
           </Text>
         </View>
       </View>
@@ -99,7 +99,7 @@ const HowItWorksScreen = ({ onClose }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20,
@@ -108,46 +108,46 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 
   content: { padding: 24, paddingBottom: 48 },
 
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFD600', borderRadius: 20, alignSelf: 'flex-start',
+    backgroundColor: '#FFD600', borderRadius: 999, alignSelf: 'flex-start',
     paddingHorizontal: 14, paddingVertical: 7, marginBottom: 20,
   },
-  badgeText: { color: '#0A0A0A', fontWeight: '900', fontSize: 11, letterSpacing: 1 },
+  badgeText: { color: '#0D0D0D', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
 
-  intro: { fontSize: 16, color: '#888', lineHeight: 24, marginBottom: 32 },
+  intro: { fontSize: 16, color: '#8A8A8A', lineHeight: 24, marginBottom: 32 },
 
   step: { flexDirection: 'row', gap: 16, marginBottom: 0 },
   stepLeft: { alignItems: 'center', width: 48 },
   stepIcon: {
-    width: 48, height: 48, borderRadius: 16,
+    width: 48, height: 48, borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
   stepLine: { width: 2, flex: 1, backgroundColor: '#1a1a1a', marginVertical: 8, minHeight: 24 },
   stepContent: { flex: 1, paddingBottom: 28 },
-  stepNum:   { fontSize: 11, color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  stepTitle: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 6 },
-  stepDesc:  { fontSize: 13, color: '#666', lineHeight: 20 },
+  stepNum:   { fontSize: 12, color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 4 },
+  stepTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 6 },
+  stepDesc:  { fontSize: 14, color: '#5C5C5C', lineHeight: 20 },
 
   securityBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: 'rgba(76,175,80,0.08)',
-    borderWidth: 1, borderColor: 'rgba(76,175,80,0.2)',
-    borderRadius: 16, padding: 16, marginBottom: 28,
+    backgroundColor: 'rgba(255,214,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,214,0,0.2)',
+    borderRadius: 20, padding: 16, marginBottom: 28,
   },
-  securityTitle: { fontSize: 14, fontWeight: '800', color: '#4CAF50', marginBottom: 4 },
-  securityDesc:  { fontSize: 13, color: '#666', lineHeight: 19 },
+  securityTitle: { fontSize: 16, fontWeight: '600', color: '#FFD600', marginBottom: 4 },
+  securityDesc:  { fontSize: 14, color: '#5C5C5C', lineHeight: 19 },
 
   closeBtn: {
-    backgroundColor: '#FFD600', borderRadius: 16,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingVertical: 18, alignItems: 'center',
   },
-  closeBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  closeBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 });
 
 export default HowItWorksScreen;

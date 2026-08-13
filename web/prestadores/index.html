@@ -828,7 +828,7 @@
     $('gOficios').style.display = 'block';
     if (MODO_CALLE){
       $('gOficiosLbl').innerHTML = '¿Qué hace? <span style="color:var(--muted2);font-weight:400">— hasta 3, se puede elegir después</span>';
-      $('gNota').textContent = 'Con esto ya queda activo. El WhatsApp y la documentación se los pedimos por mail, con su link personal.';
+      $('gNota').textContent = 'Con esto queda anotado. Lo aprueba Maxi desde el panel — le llega el aviso ahora mismo. El WhatsApp y la documentación se los pedimos por mail, con su link personal.';
       $('btnRegistrar').textContent = 'Dar de alta ⚡';
     } else {
       $('gOficiosLbl').innerHTML = '¿Qué hacés? <span style="color:var(--muted2);font-weight:400">— hasta 3, elegí los tuyos</span>';
@@ -929,7 +929,14 @@
         criminal_record_confirmed: false,
         // En la calle hay alguien de BOLT delante: queda listo para trabajar.
         // Por la web queda pendiente de revisión, como hasta ahora.
-        verification_status: MODO_CALLE ? 'approved' : 'pending',
+        // 🔴 11-ago-2026 — SIEMPRE 'pending', también en la calle.
+        //    Maxi: 'a todos los apruebo yo igual desde el panel, no importa qué
+        //    link use.. yo quiero verlo'. Antes, con ?nuevo=1 el formulario
+        //    escribía 'approved' desde el navegador con la clave pública: era
+        //    el mismo agujero que la migración 069 cerró del lado de la app,
+        //    pero servido en un formulario. Le llega un push en el momento y lo
+        //    aprueba él (migración 071).
+        verification_status: 'pending',
         ...camposTyc(),
       };
       let { data: prof, error } = await sb.from('professionals')
@@ -1109,7 +1116,7 @@
       // sin la app instalada y sin el radar prendido no le llega ningún trabajo.
       $('okSub').innerHTML = (profOk === false)
         ? '⚠️ Quedó anotado, pero <b>no se pudo activar</b>. Anotalo y revisalo después en el panel.'
-        : 'Ya puede trabajar. Decile: <b>1)</b> que baje BOLT de Play Store, <b>2)</b> que entre con <b>esta misma cuenta de Google</b>, <b>3)</b> que <b>prenda el radar</b> — sin eso no le llega ningún trabajo.';
+        : 'Quedó anotado y ya lo estamos revisando (le avisamos apenas esté). Decile: <b>1)</b> que baje BOLT de Play Store, <b>2)</b> que entre con <b>esta misma cuenta de Google</b>, <b>3)</b> que <b>prenda el radar</b> — sin eso no le llega ningún trabajo.';
       if (!elegidos.length){
         $('okSub').innerHTML += '<br><br>⚠️ <b>No eligió oficio</b>: hasta que lo cargue no va a aparecer en ninguna búsqueda.';
       }

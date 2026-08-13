@@ -37,7 +37,7 @@ const COLORES = [
   '#0F7B5F', // verde
   '#B3402F', // ladrillo
   '#5B3E8E', // violeta
-  '#0A0A0A', // negro
+  '#0D0D0D', // negro
   '#C9821A', // mostaza
   '#2C6E7F', // petróleo
   '#8A2846', // bordó
@@ -47,11 +47,11 @@ const COLORES = [
 // oscura, sobre uno oscuro va blanco.
 const textoSobre = (hex) => {
   const h = String(hex || '').replace('#', '');
-  if (h.length !== 6) return '#0A0A0A';
+  if (h.length !== 6) return '#0D0D0D';
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? '#0A0A0A' : '#FFFFFF';
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? '#0D0D0D' : '#FFFFFF';
 };
 
 const nombreReal = (p) =>
@@ -168,7 +168,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mi empresa</Text>
         <View style={{ width: 24 }} />
@@ -221,7 +221,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
               value={nombre}
               onChangeText={setNombre}
               placeholder={nombreReal(professional) || 'Tu nombre'}
-              placeholderTextColor="#555"
+              placeholderTextColor="#5C5C5C"
             />
             <Text style={styles.hint}>
               Si lo dejás vacío, firmamos con {nombreReal(professional) || 'tu nombre'}.
@@ -240,7 +240,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
                 ) : logoUrl ? (
                   <Image source={{ uri: logoUrl }} style={styles.logoImg} resizeMode="contain" />
                 ) : (
-                  <Ionicons name="image-outline" size={26} color="#555" />
+                  <Ionicons name="image-outline" size={26} color="#5C5C5C" />
                 )}
               </TouchableOpacity>
               <View style={{ flex: 1 }}>
@@ -279,7 +279,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
               value={telefono}
               onChangeText={setTelefono}
               placeholder="291 419-9938"
-              placeholderTextColor="#555"
+              placeholderTextColor="#5C5C5C"
               keyboardType="phone-pad"
             />
 
@@ -289,7 +289,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
               value={instagram}
               onChangeText={setInstagram}
               placeholder="tuempresa"
-              placeholderTextColor="#555"
+              placeholderTextColor="#5C5C5C"
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -300,7 +300,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
               value={web}
               onChangeText={setWeb}
               placeholder="tuempresa.com.ar"
-              placeholderTextColor="#555"
+              placeholderTextColor="#5C5C5C"
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
@@ -312,7 +312,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
               value={fiscales}
               onChangeText={setFiscales}
               placeholder="CUIT 20-12345678-9 · Monotributo"
-              placeholderTextColor="#555"
+              placeholderTextColor="#5C5C5C"
               multiline
             />
             <Text style={styles.hint}>Van al pie del presupuesto, en letra chica.</Text>
@@ -325,7 +325,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
             activeOpacity={0.85}
           >
             {saving
-              ? <ActivityIndicator color="#0A0A0A" />
+              ? <ActivityIndicator color="#0D0D0D" />
               : <Text style={styles.primaryBtnText}>Guardar</Text>}
           </TouchableOpacity>
 
@@ -351,7 +351,7 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -360,77 +360,75 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 
   content: { padding: 16, paddingBottom: 40 },
 
   // ── Vista previa (papel blanco) ─────────────────────────────────────────
-  previewCaption: { color: '#666', fontSize: 11.5, fontWeight: '800',
-                    textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
+  previewCaption: { color: '#5C5C5C', fontSize: 12, fontWeight: '600',
+                    textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8 },
   preview: {
-    backgroundColor: '#FFFFFF', borderRadius: 14, overflow: 'hidden', marginBottom: 18,
+    backgroundColor: '#FFFFFF', borderRadius: 20, overflow: 'hidden', marginBottom: 18,
   },
   previewBar:  { height: 6, width: '100%' },
   previewBody: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 14 },
-  previewLogo: { width: 44, height: 44, borderRadius: 9, backgroundColor: '#fff' },
-  previewIni:  { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  previewIniText: { fontSize: 21, fontWeight: '900' },
-  previewNombre: { color: '#111417', fontSize: 16, fontWeight: '900' },
-  previewSub:    { color: '#6b7280', fontSize: 11.5, fontWeight: '600', marginTop: 2 },
-  previewRot:    { color: '#9aa1ab', fontSize: 8.5, fontWeight: '900', letterSpacing: 1 },
-  previewNum:    { color: '#111417', fontSize: 15, fontWeight: '900' },
-  previewFiscales: { color: '#6b7280', fontSize: 10.5, paddingHorizontal: 14, paddingBottom: 10 },
+  previewLogo: { width: 44, height: 44, borderRadius: 20, backgroundColor: '#fff' },
+  previewIni:  { width: 44, height: 44, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  previewIniText: { fontSize: 21, fontWeight: '700' },
+  previewNombre: { color: '#111417', fontSize: 16, fontWeight: '700' },
+  previewSub:    { color: '#6b7280', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  previewRot:    { color: '#9aa1ab', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  previewNum:    { color: '#111417', fontSize: 16, fontWeight: '700' },
+  previewFiscales: { color: '#6b7280', fontSize: 12, paddingHorizontal: 14, paddingBottom: 10 },
   previewBolt: {
-    color: '#9aa1ab', fontSize: 10, fontWeight: '700', textAlign: 'center',
+    color: '#9aa1ab', fontSize: 12, fontWeight: '700', textAlign: 'center',
     borderTopWidth: 1, borderTopColor: '#eceff3', paddingVertical: 8,
   },
 
   // ── Formulario ──────────────────────────────────────────────────────────
   card: {
-    backgroundColor: '#111', borderRadius: 16, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 14, marginBottom: 10,
+    backgroundColor: '#161616', borderRadius: 20, padding: 14, marginBottom: 10,
   },
-  label: { color: '#ccc', fontSize: 12.5, fontWeight: '700', marginBottom: 6, marginTop: 4 },
+  label: { color: '#ccc', fontSize: 14, fontWeight: '700', marginBottom: 6, marginTop: 4 },
   input: {
-    backgroundColor: '#0A0A0A', borderRadius: 12, borderWidth: 1, borderColor: '#2a2a2a',
-    color: '#fff', fontSize: 15, padding: 14, marginBottom: 14,
+    backgroundColor: '#161616', borderRadius: 20, color: '#fff', fontSize: 16, padding: 14, marginBottom: 14,
   },
   inputMulti: { minHeight: 76, textAlignVertical: 'top' },
-  hint: { color: '#666', fontSize: 11.5, marginTop: -8, marginBottom: 12, lineHeight: 16 },
+  hint: { color: '#5C5C5C', fontSize: 12, marginTop: -8, marginBottom: 12, lineHeight: 16 },
 
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   logoBox: {
-    width: 74, height: 74, borderRadius: 14, backgroundColor: '#0A0A0A',
-    borderWidth: 1, borderColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center',
+    width: 74, height: 74, borderRadius: 20, backgroundColor: '#0D0D0D',
+    alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
   logoImg: { width: '100%', height: '100%' },
   ghostBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 13, paddingVertical: 13,
+    borderRadius: 999, paddingVertical: 13,
   },
-  ghostBtnText: { color: '#FFD600', fontSize: 14, fontWeight: '800' },
+  ghostBtnText: { color: '#FFD600', fontSize: 16, fontWeight: '600' },
   quitarBtn:  { alignItems: 'center', paddingVertical: 9 },
-  quitarText: { color: '#888', fontSize: 12.5, fontWeight: '700' },
+  quitarText: { color: '#8A8A8A', fontSize: 14, fontWeight: '700' },
 
   colores: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14, marginTop: 2 },
-  color: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: '#2a2a2a' },
+  color: { width: 38, height: 38, borderRadius: 999, },
   colorOn: { borderColor: '#FFD600', borderWidth: 3 },
 
   primaryBtn: {
-    backgroundColor: '#FFD600', borderRadius: 16, paddingVertical: 18,
+    backgroundColor: '#FFD600', borderRadius: 999, paddingVertical: 18,
     alignItems: 'center', marginTop: 12,
   },
   primaryBtnOff:  { opacity: 0.4 },
-  primaryBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  primaryBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   // ── Todo gratis (ya no hay planes) ──────────────────────────────────────
   gratisCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#FFD60033',
+    backgroundColor: '#161616', borderRadius: 20, borderWidth: 1, borderColor: '#FFD60033',
     padding: 14, marginTop: 22,
   },
-  gratisText: { flex: 1, color: '#999', fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  gratisText: { flex: 1, color: '#999', fontSize: 14, fontWeight: '700', lineHeight: 18 },
 });
 
 export default MiEmpresaScreen;

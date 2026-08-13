@@ -52,7 +52,7 @@ const PrivacyPolicyScreen = ({ onClose }) => (
   <SafeAreaView style={styles.container}>
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-        <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+        <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Política de privacidad</Text>
       <View style={{ width: 40 }} />
@@ -60,7 +60,7 @@ const PrivacyPolicyScreen = ({ onClose }) => (
 
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.badge}>
-        <Ionicons name="shield-checkmark" size={14} color="#0A0A0A" />
+        <Ionicons name="shield-checkmark" size={14} color="#0D0D0D" />
         <Text style={styles.badgeText}>BOLT — TUS DATOS, SEGUROS</Text>
       </View>
 
@@ -84,7 +84,7 @@ const PrivacyPolicyScreen = ({ onClose }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20,
@@ -93,29 +93,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 
   content: { padding: 24, paddingBottom: 48 },
 
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#4CAF50', borderRadius: 20, alignSelf: 'flex-start',
+    backgroundColor: '#FFD600', borderRadius: 999, alignSelf: 'flex-start',
     paddingHorizontal: 14, paddingVertical: 7, marginBottom: 16,
   },
-  badgeText: { color: '#0A0A0A', fontWeight: '900', fontSize: 11, letterSpacing: 1 },
+  badgeText: { color: '#0D0D0D', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
 
-  updated: { fontSize: 12, color: '#444', marginBottom: 12 },
-  intro: { fontSize: 14, color: '#888', lineHeight: 22, marginBottom: 28 },
+  updated: { fontSize: 14, color: '#444', marginBottom: 12 },
+  intro: { fontSize: 16, color: '#8A8A8A', lineHeight: 22, marginBottom: 28 },
 
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 14, fontWeight: '800', color: '#F5F5F5', marginBottom: 8 },
-  sectionBody: { fontSize: 13, color: '#666', lineHeight: 21 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 8 },
+  sectionBody: { fontSize: 14, color: '#5C5C5C', lineHeight: 21 },
 
   closeBtn: {
-    backgroundColor: '#FFD600', borderRadius: 16,
+    backgroundColor: '#FFD600', borderRadius: 999,
     paddingVertical: 18, alignItems: 'center', marginTop: 8,
   },
-  closeBtnText: { color: '#0A0A0A', fontSize: 16, fontWeight: '900' },
+  closeBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 });
 
 export default PrivacyPolicyScreen;

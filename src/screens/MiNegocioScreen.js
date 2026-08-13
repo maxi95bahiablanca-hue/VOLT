@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView,
   ActivityIndicator, Platform, RefreshControl, Modal, Linking, Alert, Clipboard, Image,
-  TextInput,
+  TextInput, KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 // expo-file-system 19 (SDK 54): readAsStringAsync y EncodingType se mudaron a
@@ -91,6 +92,10 @@ const DIAS_RAPIDOS = [
 ];
 
 const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, onAvailabilityChange }) => {
+  // 🔴 11-ago-2026 — las dos hojas de abajo (el detalle del presupuesto y el
+  // "Pausar trabajos") terminaban debajo de la barra de gestos de Android: el
+  // último botón quedaba tapado. Alto real de la barra, nunca un número fijo.
+  const insets = useSafeAreaInsets();
   const [tab, setTab]            = useState('presupuestos');
   const [presupuestos, setPresu] = useState([]);
   // Los que hay que perseguir o cerrar HOY (migración 058). Es una lista aparte
@@ -405,7 +410,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
   const commission = commissionForBilled(billed30, professional.avg_rating);
   const level      = levelLabel(commission);
   const levelColor = level === 'Elite' ? '#FFD600' : level === 'Pro' ? '#FFD600'
-    : level === 'Activo' ? '#4CAF50' : '#888';
+    : level === 'Activo' ? '#FFD600' : '#8A8A8A';
   const step       = nextCommissionStep(billed30);
 
   // ── BOLT socio: mensaje según el momento del trabajador ──────────────────
@@ -775,11 +780,11 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Ionicons name="arrow-back" size={24} color="#F5F5F5" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mi negocio</Text>
         <TouchableOpacity onPress={() => setShowEmpresa(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="settings-outline" size={22} color="#F5F5F5" />
+          <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -794,12 +799,12 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
         {avisos.length > 0 && (
           <View style={styles.avisoBox}>
             <View style={styles.avisoTop}>
-              <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
+              <Ionicons name="checkmark-circle" size={22} color="#FFD600" />
               <Text style={styles.avisoTitulo}>
                 {avisos.length === 1 ? 'Te aceptaron un presupuesto' : `Te aceptaron ${avisos.length} presupuestos`}
               </Text>
               <TouchableOpacity onPress={cerrarAvisos} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={19} color="#666" />
+                <Ionicons name="close" size={19} color="#5C5C5C" />
               </TouchableOpacity>
             </View>
             {avisos.slice(0, 3).map(a => (
@@ -828,7 +833,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
         {esperando.length > 0 && (
           <View style={styles.espBox}>
             <View style={styles.espTop}>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FF9800" />
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#8A8A8A" />
               <Text style={styles.espTitulo}>
                 {esperando.length === 1
                   ? '1 presupuesto esperando respuesta'
@@ -858,18 +863,18 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                     </Text>
                     <View style={styles.espBotones}>
                       <TouchableOpacity
-                        style={[styles.espChip, { borderColor: '#4CAF5055' }]}
+                        style={[styles.espChip, { borderColor: '#FFD60055' }]}
                         onPress={() => cerrarEsperando(f, true)}
                         activeOpacity={0.8}
                       >
-                        <Text style={[styles.espChipText, { color: '#4CAF50' }]}>Lo tomé</Text>
+                        <Text style={[styles.espChipText, { color: '#FFD600' }]}>Lo tomé</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.espChip, { borderColor: '#ff444455' }]}
+                        style={[styles.espChip, { borderColor: '#E5484D55' }]}
                         onPress={() => cerrarEsperando(f, false)}
                         activeOpacity={0.8}
                       >
-                        <Text style={[styles.espChipText, { color: '#ff4444' }]}>No va</Text>
+                        <Text style={[styles.espChipText, { color: '#E5484D' }]}>No va</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.espChip, { borderColor: '#2a2a2a' }]}
@@ -907,7 +912,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                       onPress={() => insistir(f)}
                       activeOpacity={0.85}
                     >
-                      <Ionicons name="logo-whatsapp" size={15} color="#0A0A0A" />
+                      <Ionicons name="logo-whatsapp" size={15} color="#0D0D0D" />
                       <Text style={styles.espWaText}>Escribirle</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -915,7 +920,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                       onPress={() => menuEsperando(f)}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons name="ellipsis-horizontal" size={18} color="#888" />
+                      <Ionicons name="ellipsis-horizontal" size={18} color="#8A8A8A" />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -932,12 +937,12 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
             abrir el formulario cuando quiera. */}
         {chargesInApp() && !payDone && professional.verification_status === 'approved' && (
           <TouchableOpacity style={styles.payBanner} onPress={() => setShowPay(true)} activeOpacity={0.85}>
-            <Ionicons name="card-outline" size={24} color="#0A0A0A" />
+            <Ionicons name="card-outline" size={24} color="#0D0D0D" />
             <View style={{ flex: 1 }}>
               <Text style={styles.payBannerTitle}>Completá tus datos para cobrar</Text>
               <Text style={styles.payBannerSub}>Cargá tu CUIT y CBU. Tocá para hacerlo ahora.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#0A0A0A" />
+            <Ionicons name="chevron-forward" size={20} color="#0D0D0D" />
           </TouchableOpacity>
         )}
 
@@ -962,7 +967,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                   : <Ionicons name="person" size={32} color="#FFD600" />}
               </View>
               <View style={styles.profileAvatarBadge}>
-                <Ionicons name="camera" size={10} color="#0A0A0A" />
+                <Ionicons name="camera" size={10} color="#0D0D0D" />
               </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleChangeAvatar} disabled={uploadingAvatar} activeOpacity={0.7} style={styles.profileChangePhotoBtn}>
@@ -986,12 +991,12 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
           <View style={styles.commBox}>
             {chargesInApp() ? (
               <>
-                <Text style={[styles.commPct, { color: '#4CAF50' }]}>{commission}%</Text>
+                <Text style={[styles.commPct, { color: '#FFD600' }]}>{commission}%</Text>
                 <Text style={styles.commLabel}>comisión</Text>
               </>
             ) : (
               <>
-                <Text style={[styles.commPct, { color: '#4CAF50' }]}>100%</Text>
+                <Text style={[styles.commPct, { color: '#FFD600' }]}>100%</Text>
                 <Text style={styles.commLabel}>para vos</Text>
               </>
             )}
@@ -1033,9 +1038,9 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
           disabled={savingAvail}
           activeOpacity={0.85}
         >
-          <View style={[styles.availDot, { backgroundColor: available ? '#4CAF50' : '#ff4444' }]} />
+          <View style={[styles.availDot, { backgroundColor: available ? '#FFD600' : '#E5484D' }]} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.availText, { color: available ? '#4CAF50' : '#ff4444' }]}>
+            <Text style={[styles.availText, { color: available ? '#FFD600' : '#E5484D' }]}>
               {available ? 'Disponible para trabajos' : availableAt ? `Disponible a las ${formatHour(availableAt)}` : 'No disponible'}
             </Text>
             <Text style={styles.availSub}>
@@ -1043,14 +1048,14 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
             </Text>
           </View>
           {savingAvail
-            ? <ActivityIndicator size="small" color={available ? '#4CAF50' : '#ff4444'} />
-            : <Ionicons name={available ? 'pause-circle-outline' : 'play-circle-outline'} size={22} color={available ? '#4CAF50' : '#ff4444'} />
+            ? <ActivityIndicator size="small" color={available ? '#FFD600' : '#E5484D'} />
+            : <Ionicons name={available ? 'pause-circle-outline' : 'play-circle-outline'} size={22} color={available ? '#FFD600' : '#E5484D'} />
           }
         </TouchableOpacity>
 
         {/* Modal: tiempo de no disponibilidad */}
         <Modal visible={availModal} transparent animationType="fade" onRequestClose={() => setAvailModal(false)}>
-          <View style={styles.availOverlay}>
+          <View style={[styles.availOverlay, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 34 : 0) }]}>
             <View style={styles.availModalBox}>
               <Text style={styles.availModalTitle}>Pausar trabajos</Text>
               <Text style={styles.availModalSub}>No voy a recibir nuevos pedidos por:</Text>
@@ -1066,7 +1071,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                   onPress={() => handleSetUnavailable(opt.hours)}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name={opt.icon} size={18} color="#888" />
+                  <Ionicons name={opt.icon} size={18} color="#8A8A8A" />
                   <Text style={styles.availModalOptText}>{opt.label}</Text>
                   <Ionicons name="chevron-forward" size={16} color="#333" />
                 </TouchableOpacity>
@@ -1102,7 +1107,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
           <>
             {/* Lo primero, siempre: hacer un presupuesto */}
             <TouchableOpacity style={styles.nuevoBtn} onPress={() => setShowNuevo(true)} activeOpacity={0.85}>
-              <Ionicons name="document-text" size={22} color="#0A0A0A" />
+              <Ionicons name="document-text" size={22} color="#0D0D0D" />
               <Text style={styles.nuevoBtnText}>Nuevo presupuesto</Text>
             </TouchableOpacity>
             <Text style={styles.nuevoHint}>Te lleva menos de un minuto</Text>
@@ -1114,7 +1119,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
               </View>
               <View style={styles.statDiv} />
               <View style={styles.statItem}>
-                <Text style={[styles.statVal, { color: '#4CAF50' }]}>{stats.aceptados}</Text>
+                <Text style={[styles.statVal, { color: '#FFD600' }]}>{stats.aceptados}</Text>
                 <Text style={styles.statLbl}>Aceptados</Text>
               </View>
               <View style={styles.statDiv} />
@@ -1143,7 +1148,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="help-buoy-outline" size={13} color="#888" />
+                  <Ionicons name="help-buoy-outline" size={13} color="#8A8A8A" />
                   <Text style={styles.ayudaLinkText}>¿Cómo hago un presupuesto?</Text>
                 </TouchableOpacity>
               </View>
@@ -1153,7 +1158,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
               return (
                 <TouchableOpacity
                   key={p.id}
-                  style={[styles.card, loVio && { borderColor: '#FF980055' }]}
+                  style={[styles.card, loVio && { borderColor: '#8A8A8A55' }]}
                   onPress={() => setDetalle(p)}
                   activeOpacity={0.85}
                 >
@@ -1180,8 +1185,8 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                   {/* En qué anda el trabajo, sin tener que abrirlo. */}
                   {p.estado === 'agendado' && !!p.agendado_para && (
                     <View style={styles.cardPaso}>
-                      <Ionicons name="calendar-outline" size={13} color="#7EA6FF" />
-                      <Text style={[styles.cardPasoText, { color: '#7EA6FF' }]} numberOfLines={1}>
+                      <Ionicons name="calendar-outline" size={13} color="#8A8A8A" />
+                      <Text style={[styles.cardPasoText, { color: '#8A8A8A' }]} numberOfLines={1}>
                         Vas el {cuandoCorto(p.agendado_para)}
                       </Text>
                     </View>
@@ -1198,8 +1203,8 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                   )}
                   {p.estado === 'hecho' && !!p.hecho_at && (
                     <View style={styles.cardPaso}>
-                      <Ionicons name="checkmark-circle-outline" size={13} color="#4CAF50" />
-                      <Text style={[styles.cardPasoText, { color: '#4CAF50' }]} numberOfLines={1}>
+                      <Ionicons name="checkmark-circle-outline" size={13} color="#FFD600" />
+                      <Text style={[styles.cardPasoText, { color: '#FFD600' }]} numberOfLines={1}>
                         Terminado el {fecha(p.hecho_at)}
                       </Text>
                     </View>
@@ -1259,14 +1264,25 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
 
       {/* ─── Detalle del presupuesto ─────────────────────────────────────── */}
       <Modal visible={!!detalle} transparent animationType="slide" onRequestClose={cerrarDetalle}>
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
+        {/* 🔴 11-ago-2026 — al agendar la visita, el teclado numérico de "A qué
+            hora" tapaba el campo y el botón "Confirmar el día", y la hoja no se
+            movía: el presupuesto quedaba aceptado pero sin fecha, y el cliente
+            nunca recibía el día ni el código de la puerta. */}
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 22) }]}>
             {!!detalle && (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+              >
                 <View style={styles.sheetTop}>
                   <Text style={styles.sheetTitle}>Presupuesto N°{detalle.numero}</Text>
                   <TouchableOpacity onPress={cerrarDetalle} style={{ padding: 4 }}>
-                    <Ionicons name="close" size={22} color="#555" />
+                    <Ionicons name="close" size={22} color="#5C5C5C" />
                   </TouchableOpacity>
                 </View>
 
@@ -1351,19 +1367,19 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                           onChangeText={escribirHora}
                           keyboardType="numeric"
                           placeholder="10:00"
-                          placeholderTextColor="#555"
+                          placeholderTextColor="#5C5C5C"
                           maxLength={5}
                         />
                         <TouchableOpacity
-                          style={[styles.pasoBtn, { backgroundColor: '#7EA6FF' }]}
+                          style={[styles.pasoBtn, { backgroundColor: '#8A8A8A' }]}
                           onPress={() => confirmarAgenda(detalle)}
                           disabled={pasoBusy}
                           activeOpacity={0.85}
                         >
                           {pasoBusy
-                            ? <ActivityIndicator color="#0A0A0A" />
+                            ? <ActivityIndicator color="#0D0D0D" />
                             : <>
-                                <Ionicons name="calendar" size={20} color="#0A0A0A" />
+                                <Ionicons name="calendar" size={20} color="#0D0D0D" />
                                 <Text style={styles.pasoBtnText}>Confirmar el día</Text>
                               </>}
                         </TouchableOpacity>
@@ -1378,11 +1394,11 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                           Poné el día y la hora: el cliente lo ve en el mismo link que ya tiene.
                         </Text>
                         <TouchableOpacity
-                          style={[styles.pasoBtn, { backgroundColor: '#7EA6FF' }]}
+                          style={[styles.pasoBtn, { backgroundColor: '#8A8A8A' }]}
                           onPress={abrirAgenda}
                           activeOpacity={0.85}
                         >
-                          <Ionicons name="calendar" size={20} color="#0A0A0A" />
+                          <Ionicons name="calendar" size={20} color="#0D0D0D" />
                           <Text style={styles.pasoBtnText}>Agendar la visita</Text>
                         </TouchableOpacity>
                       </>
@@ -1402,15 +1418,15 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                           activeOpacity={0.85}
                         >
                           {pasoBusy
-                            ? <ActivityIndicator color="#0A0A0A" />
+                            ? <ActivityIndicator color="#0D0D0D" />
                             : <>
-                                <Ionicons name="car" size={20} color="#0A0A0A" />
+                                <Ionicons name="car" size={20} color="#0D0D0D" />
                                 <Text style={styles.pasoBtnText}>Voy en camino</Text>
                               </>}
                         </TouchableOpacity>
                         {!!detalle.agendado_para && (
                           <TouchableOpacity
-                            style={[styles.pasoBtn, { backgroundColor: '#25D366' }]}
+                            style={[styles.pasoBtn, { backgroundColor: '#8A8A8A' }]}
                             onPress={() => avisar(detalle, mensajeAgendado({
                               empresa,
                               dia:  diaLargo(detalle.agendado_para),
@@ -1418,7 +1434,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                             }))}
                             activeOpacity={0.85}
                           >
-                            <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+                            <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
                             <Text style={styles.pasoBtnText}>Avisarle el día</Text>
                           </TouchableOpacity>
                         )}
@@ -1434,7 +1450,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                             disabled={pasoBusy}
                             activeOpacity={0.8}
                           >
-                            <Text style={[styles.pasoGhostText, { color: '#4CAF50' }]}>Ya lo hice</Text>
+                            <Text style={[styles.pasoGhostText, { color: '#FFD600' }]}>Ya lo hice</Text>
                           </TouchableOpacity>
                         </View>
                       </>
@@ -1457,25 +1473,25 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                               </View>
                             )}
                             <TouchableOpacity
-                              style={[styles.pasoBtn, { backgroundColor: '#4CAF50' }]}
+                              style={[styles.pasoBtn, { backgroundColor: '#FFD600' }]}
                               onPress={() => llegue(detalle)}
                               disabled={pasoBusy}
                               activeOpacity={0.85}
                             >
                               {pasoBusy
-                                ? <ActivityIndicator color="#0A0A0A" />
+                                ? <ActivityIndicator color="#0D0D0D" />
                                 : <>
-                                    <Ionicons name="location" size={20} color="#0A0A0A" />
+                                    <Ionicons name="location" size={20} color="#0D0D0D" />
                                     <Text style={styles.pasoBtnText}>Llegué</Text>
                                   </>}
                             </TouchableOpacity>
                             {!!detalle.codigo && (
                               <TouchableOpacity
-                                style={[styles.pasoBtn, { backgroundColor: '#25D366' }]}
+                                style={[styles.pasoBtn, { backgroundColor: '#8A8A8A' }]}
                                 onPress={() => avisar(detalle, mensajeEnCamino({ empresa, codigo: detalle.codigo }))}
                                 activeOpacity={0.85}
                               >
-                                <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+                                <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
                                 <Text style={styles.pasoBtnText}>Avisarle que salís</Text>
                               </TouchableOpacity>
                             )}
@@ -1485,15 +1501,15 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                             <Text style={styles.pasoTitulo}>Estás en el trabajo</Text>
                             <Text style={styles.pasoSub}>Cuando termines, tocá acá y el cliente lo ve al toque.</Text>
                             <TouchableOpacity
-                              style={[styles.pasoBtn, { backgroundColor: '#4CAF50' }]}
+                              style={[styles.pasoBtn, { backgroundColor: '#FFD600' }]}
                               onPress={() => terminar(detalle)}
                               disabled={pasoBusy}
                               activeOpacity={0.85}
                             >
                               {pasoBusy
-                                ? <ActivityIndicator color="#0A0A0A" />
+                                ? <ActivityIndicator color="#0D0D0D" />
                                 : <>
-                                    <Ionicons name="checkmark-circle" size={20} color="#0A0A0A" />
+                                    <Ionicons name="checkmark-circle" size={20} color="#0D0D0D" />
                                     <Text style={styles.pasoBtnText}>Trabajo terminado</Text>
                                   </>}
                             </TouchableOpacity>
@@ -1519,11 +1535,11 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                           Una recomendación de este cliente te trae el próximo trabajo.
                         </Text>
                         <TouchableOpacity
-                          style={[styles.pasoBtn, { backgroundColor: '#25D366' }]}
+                          style={[styles.pasoBtn, { backgroundColor: '#8A8A8A' }]}
                           onPress={() => avisar(detalle, mensajeHecho({ empresa }))}
                           activeOpacity={0.85}
                         >
-                          <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+                          <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
                           <Text style={styles.pasoBtnText}>Pedirle que te recomiende</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -1540,7 +1556,7 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                 )}
 
                 <TouchableOpacity style={styles.waBtn} onPress={() => { enviarWhatsApp(detalle); setDetalle(null); }} activeOpacity={0.85}>
-                  <Ionicons name="logo-whatsapp" size={20} color="#0A0A0A" />
+                  <Ionicons name="logo-whatsapp" size={20} color="#0D0D0D" />
                   <Text style={styles.waBtnText}>
                     {detalle.estado === 'borrador' ? 'Enviar por WhatsApp' : 'Volver a enviar'}
                   </Text>
@@ -1566,18 +1582,18 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
                     </Text>
                     <View style={styles.respuestaRow}>
                       <TouchableOpacity
-                        style={[styles.respuestaBtn, { borderColor: '#4CAF5055' }]}
+                        style={[styles.respuestaBtn, { borderColor: '#FFD60055' }]}
                         onPress={() => responder(detalle, true)}
                         activeOpacity={0.8}>
-                        <Ionicons name="checkmark-circle" size={17} color="#4CAF50" />
-                        <Text style={[styles.respuestaBtnText, { color: '#4CAF50' }]}>Lo aceptó</Text>
+                        <Ionicons name="checkmark-circle" size={17} color="#FFD600" />
+                        <Text style={[styles.respuestaBtnText, { color: '#FFD600' }]}>Lo aceptó</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.respuestaBtn, { borderColor: '#ff444455' }]}
+                        style={[styles.respuestaBtn, { borderColor: '#E5484D55' }]}
                         onPress={() => responder(detalle, false)}
                         activeOpacity={0.8}>
-                        <Ionicons name="close-circle" size={17} color="#ff4444" />
-                        <Text style={[styles.respuestaBtnText, { color: '#ff4444' }]}>No va</Text>
+                        <Ionicons name="close-circle" size={17} color="#E5484D" />
+                        <Text style={[styles.respuestaBtnText, { color: '#E5484D' }]}>No va</Text>
                       </TouchableOpacity>
                     </View>
                   </>
@@ -1589,14 +1605,14 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
               </ScrollView>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -1605,204 +1621,203 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#F5F5F5' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 
   content: { padding: 16, paddingBottom: 40 },
 
   payBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFD600', padding: 14, borderRadius: 14, marginBottom: 12,
+    backgroundColor: '#FFD600', padding: 14, borderRadius: 20, marginBottom: 12,
   },
-  payBannerTitle: { color: '#0A0A0A', fontWeight: '800', fontSize: 14 },
+  payBannerTitle: { color: '#0D0D0D', fontWeight: '600', fontSize: 16 },
 
   // "Te aceptaron un presupuesto" — lo que pasó mientras la app estaba cerrada.
-  avisoBox:    { backgroundColor: '#0d1a11', borderWidth: 1, borderColor: '#4CAF5055',
-                 borderRadius: 16, padding: 14, marginBottom: 12, gap: 9 },
+  avisoBox:    { backgroundColor: '#0d1a11', borderWidth: 1, borderColor: '#FFD60055',
+                 borderRadius: 20, padding: 14, marginBottom: 12, gap: 9 },
   avisoTop:    { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  avisoTitulo: { flex: 1, color: '#F5F5F5', fontSize: 14.5, fontWeight: '800' },
+  avisoTitulo: { flex: 1, color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   avisoFila:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                 gap: 10, backgroundColor: '#111', borderRadius: 11, paddingVertical: 10, paddingHorizontal: 12 },
-  avisoTexto:  { flex: 1, color: '#ccc', fontSize: 13, fontWeight: '700' },
-  avisoMonto:  { color: '#4CAF50', fontSize: 13.5, fontWeight: '900' },
-  avisoPie:    { color: '#777', fontSize: 12, textAlign: 'center' },
+                 gap: 10, backgroundColor: '#161616', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 12 },
+  avisoTexto:  { flex: 1, color: '#ccc', fontSize: 14, fontWeight: '700' },
+  avisoMonto:  { color: '#FFD600', fontSize: 14, fontWeight: '700' },
+  avisoPie:    { color: '#8A8A8A', fontSize: 14, textAlign: 'center' },
 
   // "Esperando respuesta" — perseguir a los 3 días, cerrar a los 7.
   // Naranja tenue y no verde: no es una buena noticia todavía, es algo por
   // hacer. Y no rojo: nadie se murió porque un cliente tarde en contestar.
-  espBox:    { backgroundColor: '#1a1206', borderWidth: 1, borderColor: '#FF980055',
-               borderRadius: 16, padding: 14, marginBottom: 12, gap: 9 },
+  espBox:    { backgroundColor: '#1a1206', borderWidth: 1, borderColor: '#8A8A8A55',
+               borderRadius: 20, padding: 14, marginBottom: 12, gap: 9 },
   espTop:    { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  espTitulo: { flex: 1, color: '#F5F5F5', fontSize: 14.5, fontWeight: '800' },
+  espTitulo: { flex: 1, color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 
-  espFila:    { backgroundColor: '#111', borderRadius: 11, padding: 11, gap: 8 },
+  espFila:    { backgroundColor: '#161616', borderRadius: 20, padding: 11, gap: 8 },
   espFilaTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  espTexto:   { flex: 1, color: '#ccc', fontSize: 13, fontWeight: '700' },
-  espCerrar:  { flex: 1, color: '#F5F5F5', fontSize: 13.5, fontWeight: '800' },
-  espDias:    { color: '#666', fontSize: 11.5 },
-  espSub:     { flex: 1, color: '#888', fontSize: 12 },
+  espTexto:   { flex: 1, color: '#ccc', fontSize: 14, fontWeight: '700' },
+  espCerrar:  { flex: 1, color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  espDias:    { color: '#5C5C5C', fontSize: 12 },
+  espSub:     { flex: 1, color: '#8A8A8A', fontSize: 14 },
 
   espAcciones: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   espWa:       { flexDirection: 'row', alignItems: 'center', gap: 6,
-                 backgroundColor: '#25D366', borderRadius: 10,
+                 backgroundColor: '#8A8A8A', borderRadius: 20,
                  paddingVertical: 8, paddingHorizontal: 12 },
-  espWaText:   { color: '#0A0A0A', fontSize: 12.5, fontWeight: '900' },
+  espWaText:   { color: '#0D0D0D', fontSize: 14, fontWeight: '700' },
   espMas:      { paddingHorizontal: 4, paddingVertical: 6 },
 
   // Los tres del cierre: entran los tres en una línea, así que el texto es
   // corto a propósito.
   espBotones:  { flexDirection: 'row', gap: 7 },
   espChip:     { flex: 1, alignItems: 'center', justifyContent: 'center',
-                 backgroundColor: '#0A0A0A', borderWidth: 1, borderRadius: 10,
+                 backgroundColor: '#0D0D0D', borderWidth: 1, borderRadius: 999,
                  paddingVertical: 10, paddingHorizontal: 4 },
-  espChipText: { fontSize: 12.5, fontWeight: '800' },
+  espChipText: { fontSize: 14, fontWeight: '600' },
 
-  espPie: { color: '#777', fontSize: 12, textAlign: 'center', lineHeight: 17 },
-  payBannerSub:   { color: '#0A0A0A', fontSize: 12, opacity: 0.8, marginTop: 2 },
+  espPie: { color: '#8A8A8A', fontSize: 14, textAlign: 'center', lineHeight: 17 },
+  payBannerSub:   { color: '#0D0D0D', fontSize: 14, opacity: 0.8, marginTop: 2 },
 
   profileCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     padding: 16, marginBottom: 12,
-    backgroundColor: '#111', borderRadius: 18,
-    borderWidth: 1, borderColor: '#1E1E1E',
-  },
+    backgroundColor: '#161616', borderRadius: 20,
+    },
   profileAvatarWrap: { alignItems: 'center', gap: 4 },
   profileAvatar: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 56, height: 56, borderRadius: 999,
     backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
   profileAvatarBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 20, height: 20, borderRadius: 10,
+    width: 20, height: 20, borderRadius: 999,
     backgroundColor: '#FFD600',
     alignItems: 'center', justifyContent: 'center',
   },
   profileChangePhotoBtn: { paddingVertical: 2, paddingHorizontal: 4 },
-  profileChangePhotoText: { fontSize: 10, color: '#FFD600', fontWeight: '700' },
+  profileChangePhotoText: { fontSize: 12, color: '#FFD600', fontWeight: '700' },
   profileAvatarImg: { width: '100%', height: '100%' },
-  profileName: { fontSize: 16, fontWeight: '800', color: '#F5F5F5', marginBottom: 4 },
-  profileEmpresa: { fontSize: 12, color: '#888', marginBottom: 6 },
-  levelBadge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-  levelText: { fontSize: 11, fontWeight: '800' },
+  profileName: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
+  profileEmpresa: { fontSize: 14, color: '#8A8A8A', marginBottom: 6 },
+  levelBadge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  levelText: { fontSize: 12, fontWeight: '600' },
   commBox: { alignItems: 'center' },
-  commPct: { fontSize: 22, fontWeight: '900' },
-  commLabel: { fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+  commPct: { fontSize: 22, fontWeight: '700' },
+  commLabel: { fontSize: 12, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8 },
 
   voltCard: {
     flexDirection: 'row', gap: 12,
     marginBottom: 12, padding: 14,
-    backgroundColor: '#0D0D00', borderRadius: 16,
+    backgroundColor: '#0D0D00', borderRadius: 20,
     borderWidth: 1, borderColor: '#FFD60030',
   },
   voltAvatar: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 36, height: 36, borderRadius: 999,
     backgroundColor: '#FFD60018', borderWidth: 1, borderColor: '#FFD60050',
     alignItems: 'center', justifyContent: 'center',
   },
   voltBolt: { fontSize: 18 },
-  voltName: { fontSize: 12, fontWeight: '900', color: '#FFD600', letterSpacing: 1, marginBottom: 3 },
-  voltMsg:  { fontSize: 13, color: '#cfcfcf', lineHeight: 19 },
-  voltMsgSub: { fontSize: 12, color: '#888', lineHeight: 18, marginTop: 6 },
+  voltName: { fontSize: 14, fontWeight: '700', color: '#FFD600', letterSpacing: 1, marginBottom: 3 },
+  voltMsg:  { fontSize: 14, color: '#cfcfcf', lineHeight: 19 },
+  voltMsgSub: { fontSize: 14, color: '#8A8A8A', lineHeight: 18, marginTop: 6 },
 
   pasoCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: 'rgba(255,214,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,214,0,0.25)',
-    borderRadius: 14, padding: 14, marginBottom: 12,
+    borderRadius: 20, padding: 14, marginBottom: 12,
   },
-  pasoText: { flex: 1, color: '#e8e8e8', fontSize: 13, lineHeight: 18 },
+  pasoText: { flex: 1, color: '#e8e8e8', fontSize: 14, lineHeight: 18 },
 
   availCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginBottom: 14, padding: 14,
-    borderRadius: 16, borderWidth: 1.5,
+    borderRadius: 20, borderWidth: 1.5,
   },
-  availCardOn:  { backgroundColor: '#0A1A0A', borderColor: '#4CAF5040' },
-  availCardOff: { backgroundColor: '#1A0A0A', borderColor: '#ff444440' },
-  availDot: { width: 10, height: 10, borderRadius: 5 },
-  availText: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
-  availSub:  { fontSize: 11, color: '#444' },
+  availCardOn:  { backgroundColor: '#0A1A0A', borderColor: '#FFD60040' },
+  availCardOff: { backgroundColor: '#1A0A0A', borderColor: '#E5484D40' },
+  availDot: { width: 10, height: 10, borderRadius: 999 },
+  availText: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
+  availSub:  { fontSize: 12, color: '#444' },
 
   availOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
     alignItems: 'center', justifyContent: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
+    // El paddingBottom NO va acá: se calcula en el uso con el alto real de la
+    // barra del sistema (Math.max(insets.bottom, iOS 34)). Si lo dejamos
+    // también acá quedan dos valores que se contradicen y el próximo que toque
+    // esto va a cambiar el que no manda (gana el inline).
   },
   availModalBox: {
-    width: '100%', backgroundColor: '#111',
+    width: '100%', backgroundColor: '#161616',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: '#1E1E1E',
     padding: 24, gap: 4,
   },
-  availModalTitle: { fontSize: 18, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
-  availModalSub:   { fontSize: 13, color: '#555', marginBottom: 12 },
+  availModalTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  availModalSub:   { fontSize: 14, color: '#5C5C5C', marginBottom: 12 },
   availModalOpt: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
   },
-  availModalOptText: { flex: 1, fontSize: 15, color: '#F5F5F5', fontWeight: '600' },
+  availModalOptText: { flex: 1, fontSize: 16, color: '#FFFFFF', fontWeight: '600' },
   availModalCancel: { alignItems: 'center', paddingVertical: 16, marginTop: 4 },
-  availModalCancelText: { fontSize: 15, color: '#555', fontWeight: '700' },
+  availModalCancelText: { fontSize: 16, color: '#5C5C5C', fontWeight: '700' },
 
   // Cinco pestañas: la fila scrollea en horizontal.
   tabsScroll: { marginBottom: 14 },
   tabs: {
     flexDirection: 'row', gap: 6,
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1E1E1E', padding: 4,
+    backgroundColor: '#161616', borderRadius: 999,
+    padding: 4,
   },
-  tab:           { paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center', borderRadius: 10 },
+  tab:           { paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center', borderRadius: 999 },
   tabActive:     { backgroundColor: '#FFD600' },
-  tabText:       { fontSize: 14, fontWeight: '700', color: '#555' },
-  tabTextActive: { color: '#0A0A0A' },
+  tabText:       { fontSize: 16, fontWeight: '700', color: '#5C5C5C' },
+  tabTextActive: { color: '#0D0D0D' },
 
   nuevoBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#FFD600', borderRadius: 18, paddingVertical: 22,
+    backgroundColor: '#FFD600', borderRadius: 999, paddingVertical: 22,
   },
-  nuevoBtnText: { color: '#0A0A0A', fontSize: 17.5, fontWeight: '900' },
-  nuevoHint: { color: '#666', fontSize: 12, textAlign: 'center', marginTop: 8, marginBottom: 16 },
+  nuevoBtnText: { color: '#0D0D0D', fontSize: 17.5, fontWeight: '700' },
+  nuevoHint: { color: '#5C5C5C', fontSize: 14, textAlign: 'center', marginTop: 8, marginBottom: 16 },
 
   statsCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#111', borderRadius: 18, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 18, marginBottom: 16,
+    backgroundColor: '#161616', borderRadius: 20, padding: 18, marginBottom: 16,
   },
   statItem: { flex: 1, alignItems: 'center' },
-  statVal:  { fontSize: 22, fontWeight: '900', color: '#F5F5F5', marginBottom: 4 },
-  statLbl:  { fontSize: 10.5, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statVal:  { fontSize: 22, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  statLbl:  { fontSize: 12, color: '#5C5C5C', textTransform: 'uppercase', letterSpacing: 1.8 },
   statDiv:  { width: 1, height: 36, backgroundColor: '#1E1E1E' },
 
   card: {
-    backgroundColor: '#111', borderRadius: 16, borderWidth: 1, borderColor: '#1E1E1E',
-    padding: 14, marginBottom: 10,
+    backgroundColor: '#161616', borderRadius: 20, padding: 14, marginBottom: 10,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 8 },
-  numero:  { color: '#666', fontSize: 12.5, fontWeight: '800' },
-  cliente: { flex: 1, color: '#F5F5F5', fontSize: 14.5, fontWeight: '700' },
+  numero:  { color: '#5C5C5C', fontSize: 14, fontWeight: '600' },
+  cliente: { flex: 1, color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 
-  chip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  chipText: { fontSize: 11, fontWeight: '700' },
+  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  chipText: { fontSize: 12, fontWeight: '700' },
 
-  desc: { color: '#999', fontSize: 13, lineHeight: 18 },
+  desc: { color: '#999', fontSize: 14, lineHeight: 18 },
 
-  vioBox: { backgroundColor: '#FF980014', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginTop: 9 },
-  vioText: { color: '#FF9800', fontSize: 12.5, fontWeight: '800' },
+  vioBox: { backgroundColor: '#8A8A8A14', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 7, marginTop: 9 },
+  vioText: { color: '#8A8A8A', fontSize: 14, fontWeight: '600' },
 
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  fecha: { color: '#444', fontSize: 12, flex: 1 },
-  total: { color: '#F5F5F5', fontSize: 15.5, fontWeight: '900' },
+  fecha: { color: '#444', fontSize: 14, flex: 1 },
+  total: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 
   emptyWrap: { alignItems: 'center', paddingVertical: 56, gap: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: '#333' },
-  emptyText:  { fontSize: 14, color: '#444', textAlign: 'center', lineHeight: 20, maxWidth: 300 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#5C5C5C' },
+  emptyText:  { fontSize: 16, color: '#444', textAlign: 'center', lineHeight: 20, maxWidth: 300 },
 
   // Link a la ayuda: chico y gris, no compite con nada de la pantalla.
   ayudaLink: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, marginTop: 4,
   },
-  ayudaLinkText: { fontSize: 12.5, color: '#888', textDecorationLine: 'underline' },
+  ayudaLinkText: { fontSize: 14, color: '#8A8A8A', textDecorationLine: 'underline' },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: {
@@ -1810,85 +1825,83 @@ const styles = StyleSheet.create({
     padding: 22, maxHeight: '90%',
   },
   sheetTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sheetTitle: { color: '#F5F5F5', fontSize: 18, fontWeight: '900' },
+  sheetTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
 
-  label: { color: '#ccc', fontSize: 12.5, fontWeight: '700', marginBottom: 6, marginTop: 12 },
-  valor: { color: '#999', fontSize: 14.5, lineHeight: 20 },
-  valorTotal: { color: '#FFD600', fontSize: 24, fontWeight: '900' },
-  vistoAt: { color: '#FF9800', fontSize: 12.5, fontWeight: '700', marginTop: 14 },
+  label: { color: '#ccc', fontSize: 14, fontWeight: '700', marginBottom: 6, marginTop: 12 },
+  valor: { color: '#999', fontSize: 16, lineHeight: 20 },
+  valorTotal: { color: '#FFD600', fontSize: 24, fontWeight: '700' },
+  vistoAt: { color: '#8A8A8A', fontSize: 14, fontWeight: '700', marginTop: 14 },
 
   waBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
-    backgroundColor: '#25D366', borderRadius: 16, paddingVertical: 17, marginTop: 20,
+    backgroundColor: '#8A8A8A', borderRadius: 999, paddingVertical: 17, marginTop: 20,
   },
-  waBtnText: { color: '#0A0A0A', fontSize: 15.5, fontWeight: '900' },
+  waBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   ghostBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 16, paddingVertical: 15, marginTop: 10,
+    borderRadius: 999, paddingVertical: 15, marginTop: 10,
   },
-  ghostBtnText: { color: '#FFD600', fontSize: 14.5, fontWeight: '800' },
+  ghostBtnText: { color: '#FFD600', fontSize: 16, fontWeight: '600' },
 
   // ── El trabajo después del sí: un solo botón grande por vez ───────────────
   cardPaso:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 9 },
-  cardPasoText: { flex: 1, fontSize: 12.5, fontWeight: '800' },
+  cardPasoText: { flex: 1, fontSize: 14, fontWeight: '600' },
 
   pasoBox: {
     marginTop: 20, padding: 16, gap: 10,
-    backgroundColor: '#0A0A0A', borderRadius: 16,
-    borderWidth: 1, borderColor: '#1E1E1E',
-  },
-  pasoTitulo: { color: '#F5F5F5', fontSize: 15.5, fontWeight: '900' },
-  pasoSub:    { color: '#888', fontSize: 12.5, lineHeight: 18 },
-  pasoLabel:  { color: '#ccc', fontSize: 12.5, fontWeight: '700', marginTop: 2 },
+    backgroundColor: '#161616', borderRadius: 20,
+    },
+  pasoTitulo: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  pasoSub:    { color: '#8A8A8A', fontSize: 14, lineHeight: 18 },
+  pasoLabel:  { color: '#ccc', fontSize: 14, fontWeight: '700', marginTop: 2 },
 
   pasoBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
-    borderRadius: 16, paddingVertical: 17,
+    borderRadius: 999, paddingVertical: 17,
   },
-  pasoBtnText: { color: '#0A0A0A', fontSize: 15.5, fontWeight: '900' },
+  pasoBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
 
   pasoGhostRow: { flexDirection: 'row', gap: 10 },
   pasoGhost: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 14, paddingVertical: 13,
+    borderRadius: 20, paddingVertical: 13,
   },
-  pasoGhostText: { color: '#ccc', fontSize: 13.5, fontWeight: '800' },
+  pasoGhostText: { color: '#ccc', fontSize: 14, fontWeight: '600' },
 
   diasRow:        { flexDirection: 'row', gap: 8 },
   diaChip: {
-    flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: 12,
-    backgroundColor: '#0A0A0A', borderWidth: 1, borderColor: '#2a2a2a',
-  },
-  diaChipOn:      { backgroundColor: '#7EA6FF', borderColor: '#7EA6FF' },
-  diaChipText:    { color: '#999', fontSize: 13.5, fontWeight: '800' },
-  diaChipTextOn:  { color: '#0A0A0A' },
+    flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: 999,
+    backgroundColor: '#0D0D0D', },
+  diaChipOn:      { backgroundColor: '#8A8A8A', borderColor: '#8A8A8A' },
+  diaChipText:    { color: '#999', fontSize: 14, fontWeight: '600' },
+  diaChipTextOn:  { color: '#0D0D0D' },
   horaInput: {
-    backgroundColor: '#0A0A0A', borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 12,
+    backgroundColor: '#0D0D0D', borderRadius: 20,
     paddingVertical: 13, paddingHorizontal: 14,
-    color: '#F5F5F5', fontSize: 19, fontWeight: '800', letterSpacing: 1, textAlign: 'center',
+    color: '#FFFFFF', fontSize: 19, fontWeight: '600', letterSpacing: 1, textAlign: 'center',
   },
 
   // El código de la puerta: se tiene que leer de un metro, con el celular en la
   // mano y el cliente mirando.
   codigoBox: {
     backgroundColor: '#151500', borderWidth: 1, borderColor: '#FFD60040',
-    borderRadius: 16, paddingVertical: 16, alignItems: 'center', gap: 2,
+    borderRadius: 20, paddingVertical: 16, alignItems: 'center', gap: 2,
   },
-  codigoLbl: { color: '#666', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  codigoNum: { color: '#FFD600', fontSize: 40, fontWeight: '900', letterSpacing: 6, textAlign: 'center' },
-  codigoPie: { color: '#888', fontSize: 12.5, textAlign: 'center' },
+  codigoLbl: { color: '#5C5C5C', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.8 },
+  codigoNum: { color: '#FFD600', fontSize: 40, fontWeight: '700', letterSpacing: 6, textAlign: 'center' },
+  codigoPie: { color: '#8A8A8A', fontSize: 14, textAlign: 'center' },
 
   // Cerrar el presupuesto a mano cuando el cliente contestó por otro lado.
-  respuestaHint: { color: '#777', fontSize: 12.5, fontWeight: '700',
+  respuestaHint: { color: '#8A8A8A', fontSize: 14, fontWeight: '700',
                    textAlign: 'center', marginTop: 18, marginBottom: 8 },
   respuestaRow:  { flexDirection: 'row', gap: 10 },
   respuestaBtn:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                   gap: 7, backgroundColor: '#0A0A0A', borderWidth: 1, borderRadius: 13,
+                   gap: 7, backgroundColor: '#0D0D0D', borderWidth: 1, borderRadius: 999,
                    paddingVertical: 13 },
-  respuestaBtnText: { fontSize: 14, fontWeight: '800' },
+  respuestaBtnText: { fontSize: 16, fontWeight: '600' },
   borrarBtn: { alignItems: 'center', paddingVertical: 16, marginTop: 4 },
-  borrarText: { color: '#ff4444', fontSize: 13.5, fontWeight: '700' },
+  borrarText: { color: '#E5484D', fontSize: 14, fontWeight: '700' },
 });
 
 export default MiNegocioScreen;

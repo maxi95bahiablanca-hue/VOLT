@@ -8,14 +8,32 @@ const cors = {
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
 
-// Modelo gratis y multimodal (ve fotos, entiende audio). Ver project_bolt_ia_y_flujos.
-const MODEL = 'gemini-2.5-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// Modelos gratis y multimodales (ven fotos, entienden audio).
+//
+// 🔴 10-ago-2026 — el asistente se moría todos los días y salía "No pudimos
+// armar las preguntas". Medido contra la API: el plan gratuito de
+// gemini-2.5-flash da **20 consultas POR DÍA**
+// (GenerateRequestsPerDayPerProjectPerModel-FreeTier = 20). Se agotaban con
+// las primeras pruebas y el resto de la jornada quedaba muerto.
+//
+// Mientras no haya facturación activada, se baja al lite, que tiene una cuota
+// diaria mucho más grande: peor redacción, pero contesta. Un asistente que
+// pregunta un poco peor sirve; uno que no contesta, no.
+//
+// ⏳ Y el 16-oct-2026 Google apaga gemini-2.5-flash. No hace falta acordarse:
+// cuando lo apague va a contestar 404 y la función va a pasar sola al
+// siguiente de la lista. Por eso el orden es "el de hoy, el que viene, el
+// seguro" — si un nombre no existe todavía, simplemente se saltea.
+const MODELOS = ['gemini-2.5-flash', 'gemini-3-flash', 'gemini-2.5-flash-lite'];
+const urlDe = (m: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
 // Oficios de BOLT (espejo de src/config/oficios.js — mantener sincronizado).
 const OFICIOS = `
 reparacion (van al domicilio a arreglar algo, 1 dirección):
-  1 Electricista, 2 Plomero, 3 Gasista, 7 Cerrajero, 8 Heladeras y lavarropas, 16 Aire acondicionado, 19 Herrero
+  1 Electricista, 2 Plomero, 3 Gasista, 7 Cerrajero, 8 Heladeras y lavarropas, 16 Aire acondicionado, 19 Herrero,
+  20 Calderas (calderas y calefactores a gas; lo general de gas es 3 Gasista),
+  21 Cortinas (de todo tipo: de enrollar, de tela, motorizadas — reparación y arreglo)
 obra (proyecto/servicio programado, 1 dirección, puede llevar días):
   4 Pintor, 5 Albañil, 6 Carpintero, 9 Jardinero, 10 Limpieza, 17 Alarmas / Cámaras, 18 Durlock
 logistica (transporte, necesita ORIGEN y DESTINO):
@@ -119,17 +137,63 @@ serve(async (req) => {
       },
     };
 
-    const r = await fetch(GEMINI_URL, {
+    // 🔴 10-ago-2026 — el asistente fallaba "una de cada cinco veces" y salía
+    // el cartel "No pudimos armar las preguntas". No era la sesión ni la
+    // función: Google devuelve 429 (cuota por minuto agotada) apenas se hacen
+    // varias consultas seguidas. Medido: 8 llamadas al hilo → la octava, 429.
+    //
+    // El límite es POR MINUTO, así que esperar unos segundos alcanza. Google
+    // dice cuánto en `retryDelay`; si no lo dice, se espera 3 s y después 7 s.
+    // Total peor caso: 10 s de más, contra un pedido que se caía entero.
+    const esperar = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    const pedirle = (modelo: string) => fetch(urlDe(modelo), {
       method: 'POST',
       headers: { 'x-goog-api-key': GEMINI, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
+    let r!: Response;
+    let usado = MODELOS[0];
+
+    for (const modelo of MODELOS) {
+      usado = modelo;
+      r = await pedirle(modelo);
+
+      // 404 = ese modelo no existe (todavía, o ya no). No se reintenta: se
+      // pasa al siguiente sin perder un segundo. Esto es lo que hace que la
+      // baja de un modelo no rompa nada ni requiera un deploy urgente.
+      if (r.status === 404) {
+        console.warn(`${modelo}: no existe, paso al siguiente`);
+        continue;
+      }
+
+      // 503 es sobrecarga momentánea: se espera y se vuelve a pedir al MISMO
+      // modelo. 429 puede ser el tope por minuto (esperar sirve) o el tope por
+      // día (esperar no sirve, hay que cambiar de modelo). Se distingue por lo
+      // que dice Google en el detalle.
+      for (let intento = 1; intento <= 2 && (r.status === 429 || r.status === 503); intento++) {
+        const cuerpo = await r.clone().text().catch(() => '');
+        if (/PerDay/i.test(cuerpo)) {
+          console.warn(`${modelo}: se acabó la cuota del DÍA, paso al siguiente modelo`);
+          break;
+        }
+        const dice = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(cuerpo);
+        const segundos = dice ? Math.min(Number(dice[1]), 12) : (intento === 1 ? 3 : 7);
+        console.log(`${modelo} devolvió ${r.status}; reintento ${intento} en ${segundos}s`);
+        await esperar(segundos * 1000);
+        r = await pedirle(modelo);
+      }
+
+      if (r.ok) break;
+    }
+
     if (!r.ok) {
       const detail = await r.text().catch(() => '');
+      console.error('Ningún modelo contestó. Último:', usado, r.status, detail.slice(0, 300));
       // 5xx → la app cae al formulario clásico (fallback). La IA nunca bloquea.
       return json({ error: 'IA no disponible', detail }, 502);
     }
+    if (usado !== MODELOS[0]) console.log('respondió el modelo de respaldo:', usado);
 
     const data = await r.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
