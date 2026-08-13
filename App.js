@@ -227,7 +227,7 @@ export default function App() {
     //    así un aviso nuevo que alguien agregue mañana funciona igual aunque se
     //    olvide de mandarlo.
     const abrirTrabajo = (jobId, screenPedida) => {
-      jobService.getById(jobId).then(job => {
+      jobService.getById(jobId).then(async job => {
         if (!job) {
           // El trabajo ya no existe (lo cancelaron, lo borraron). Decirlo es
           // mejor que dejar a la persona mirando el inicio sin entender.
@@ -242,6 +242,28 @@ export default function App() {
         if (job.status === 'pending' && soyElProfesional && screenPedida !== 'tracking') {
           setIncomingJob(job);
           setScreen('workerIncoming');
+          return;
+        }
+        // 🔴 13-ago-2026 — un presupuesto que el cliente todavía no eligió NO
+        //    tiene pantalla de seguimiento: primero se elige. El push de "te
+        //    respondieron" (y cualquier aviso con jobId) lo mandaba igual al
+        //    tracking con el quote_group_id puesto, donde no existe la hoja del
+        //    cliente: mapa pelado y "Tengo un problema" (fotos de Maxi probando
+        //    con Esteban). Le pasaba a él y no a Mariana porque a ella nunca la
+        //    sacó de la pantalla de elegir: eligió, el grupo se limpió, y recién
+        //    ahí el seguimiento tiene algo para mostrar.
+        if (job.quote_group_id && !soyElProfesional) {
+          const quoteData = await jobService.getActiveQuoteForClient(userId).catch(() => null);
+          if (quoteData) {
+            setQuoteGroupId(quoteData.quoteGroupId);
+            setQuoteJobs(quoteData.jobs);
+            setQuoteMinimized(false);
+            setScreen('quoteSelection');
+          } else {
+            // El grupo ya no está esperando (venció o se canceló): decirlo es
+            // mejor que abrir un seguimiento que no puede mostrar nada.
+            Alert.alert('Ese pedido ya no está esperando', 'Puede que haya vencido o se haya cancelado.');
+          }
           return;
         }
         // Todo lo demás va al seguimiento: es la pantalla que tiene el estado

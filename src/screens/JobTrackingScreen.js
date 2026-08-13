@@ -359,8 +359,13 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     (!!professional && professional.id === job.professional_id) ||
     (!!proUserId && proUserId === userId);
   const isWorker = soyElProfesional || (!!job.professional_id && userId !== clientId);
-  const nombreCrudo = professional?.first_name ||
-    (job.professionals?.first_name || '') ||
+  // 🔴 13-ago-2026 — el nombre es el del profesional DEL TRABAJO. Antes ganaba
+  //    `professional` (el perfil propio de quien mira): a Mariana, clienta con
+  //    ficha de prestadora, la pantalla le decía "Ahora hablás con Mariana" —
+  //    su propio nombre— con la tarjeta de Maximiliano abajo. El perfil propio
+  //    sólo vale cuando el que mira ES el profesional del trabajo.
+  const nombreCrudo = (job.professionals?.first_name || '') ||
+    (soyElProfesional ? (professional?.first_name || '') : '') ||
     'El profesional';
   // Se anotan en minúscula y así se leía en toda la pantalla ("maximiliano").
   const workerFirstName = nombreCrudo.charAt(0).toUpperCase() + nombreCrudo.slice(1);
