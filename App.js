@@ -9,6 +9,7 @@ import DraggableBubble from './src/components/DraggableBubble';
 import { toastConfig, showInfo } from './src/utils/toast';
 import { supabase } from './src/supabase';
 import notificationService from './src/services/notificationService';
+import { conTiempo } from './src/utils/conTiempo';
 import jobService from './src/services/jobService';
 import professionalService from './src/services/professionalService';
 import * as TaskManager from 'expo-task-manager';
@@ -511,11 +512,22 @@ export default function App() {
 
   const handleQuoteBack = async () => {
     if (quoteGroupId && quoteJobs.length > 0) {
-      await Promise.all(
-        quoteJobs
-          .filter(j => ['pending', 'accepted'].includes(j.status))
-          .map(j => jobService.cancel(j.id, session?.user?.id))
-      ).catch(() => {});
+      const activos = quoteJobs.filter(j => ['pending', 'accepted'].includes(j.status));
+      // Con tope de tiempo: cancelar no puede dejar al cliente clavado si la
+      // red no vuelve (era el único await de este camino sin vencimiento).
+      await conTiempo(
+        Promise.all(activos.map(j => jobService.cancel(j.id, session?.user?.id))),
+        15000
+      );
+      // Los que ya habían respondido estaban esperando la elección: se les
+      // avisa que no siga esperando. Sin await — son avisos.
+      activos
+        .filter(j => j.status === 'accepted')
+        .forEach(j => notificationService.sendToUser(j.professionals?.user_id, {
+          title: 'El cliente canceló la búsqueda',
+          body:  'No te preocupes, seguirán llegando solicitudes.',
+          data:  { jobId: j.id },
+        }).catch(() => {}));
     }
     disableDemo();
     limpiarQuote(); setScreen('home');

@@ -11,6 +11,7 @@ import notificationService from '../services/notificationService';
 import rescueService from '../services/rescueService';
 import professionalService from '../services/professionalService';
 import paymentService from '../services/paymentService';
+import { conTiempo } from '../utils/conTiempo';
 import { chargesInApp, isFreeMode } from '../config/monetization';
 import ReputationCard from '../components/ReputationCard';
 import { GaleriaTrabajos } from '../components/PerfilProfesional';
@@ -775,7 +776,10 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
     }
     try {
       const svc = isDemoMode() ? demoJobService : jobService;
-      const confirmed = await svc.selectFromQuoteGroup(job.id, quoteGroupId);
+      // Con tope: si la red no vuelve, mejor el cartel de error y reintentar
+      // que "Confirmando..." para siempre (la elección es re-ejecutable).
+      const confirmed = await conTiempo(svc.selectFromQuoteGroup(job.id, quoteGroupId), 20000, 'timeout');
+      if (confirmed === 'timeout') throw new Error('timeout');
 
       // Cobrar la VISITA del profesional elegido (solo si la app cobra por dentro,
       // modo 'commission'). En modo gratis NO se cobra: el cliente coordina el pago
@@ -799,14 +803,23 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
         }
       }
 
+      // 🔴 El ELEGIDO también se entera por push: antes solo se avisaba a los
+      // rechazados, y el ganador se enteraba recién si abría la app.
+      notificationService.sendToUser(job.professionals?.user_id, {
+        title: '¡El cliente te eligió!',
+        body:  'Entrá para ver el trabajo y coordinar la visita.',
+        data:  { jobId: job.id },
+      }).catch(() => {});
       const declined  = jobs.filter(j => j.id !== job.id && j.status === 'accepted');
-      await Promise.all(declined.map(j =>
+      // Sin await: son avisos, no pueden frenar la confirmación (si un push se
+      // colgaba, el cliente quedaba clavado en esta pantalla con todo ya elegido).
+      declined.forEach(j =>
         notificationService.sendToUser(j.professionals?.user_id, {
           title: 'El cliente eligió otro profesional',
           body:  'No te preocupes, seguirán llegando solicitudes.',
           data:  { jobId: j.id },
-        })
-      ));
+        }).catch(() => {})
+      );
       onSelected(confirmed || job);
     } catch {
       Alert.alert('Error', 'No se pudo confirmar la selección. Intentá de nuevo.');

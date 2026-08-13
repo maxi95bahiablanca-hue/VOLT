@@ -990,6 +990,17 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
           setLoading(true);
           try {
             await jobService.cancel(job.id, userId);
+            // 🔴 El diálogo PROMETE "se le avisa" — y no se avisaba a nadie:
+            // la otra punta se enteraba solo si tenía la app abierta. Sin
+            // await: un push colgado no puede frenar la salida.
+            const otro = isWorker ? job.client_id : job.professionals?.user_id;
+            notificationService.sendToUser(otro, {
+              title: isWorker ? 'El profesional canceló el trabajo' : 'El cliente canceló el trabajo',
+              body:  isWorker
+                ? 'Podés pedir otro profesional desde la app cuando quieras.'
+                : 'Quedaste libre para nuevos trabajos.',
+              data:  { jobId: job.id },
+            }).catch(() => {});
             onCancel();
           } catch {
             // Si falla el cancel en el servidor, igual salir
