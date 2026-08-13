@@ -17,6 +17,7 @@ import notificationService from '../services/notificationService';
 import { chargesInApp } from '../config/monetization';
 import professionalService from '../services/professionalService';
 import rescueService from '../services/rescueService';
+import { conTiempo } from '../utils/conTiempo';
 
 // ─── Overlay de búsqueda animado ─────────────────────────────────────────────
 const SearchingOverlay = ({ foundCount }) => {
@@ -219,12 +220,19 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
     try {
       let workers = worker ? [worker] : [];
 
-      const nearby = await professionalService.getNearbyWorkers(
-        profession.id,
-        userLocation.latitude,
-        userLocation.longitude,
-        8
-      ).catch(() => []);
+      // Con tope de tiempo: el `.catch` atrapa errores pero NO un colgado, y
+      // ésta es la pantalla que genera la venta — con red mala el cliente
+      // quedaba en "Buscando..." para siempre. Si no vuelve en 15 s, sigue como
+      // "no encontré a nadie" y entra el circuito de rescate de abajo.
+      const nearby = await conTiempo(
+        professionalService.getNearbyWorkers(
+          profession.id,
+          userLocation.latitude,
+          userLocation.longitude,
+          8
+        ).catch(() => []),
+        15000, []
+      );
 
       if (worker) {
         const others = nearby.filter(w => w.id !== worker.id && w.user_id !== clientId).slice(0, 2);

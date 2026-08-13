@@ -1,5 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  066 — EL LATIDO: avisar los cuatro momentos del pedido, en el momento
+--  072 (antes "066", renumerada el 13-ago-2026: chocaba con 066_reporte_diario
+--  y el orden de aplicación quedaba librado al runner. YA APLICADA en
+--  producción con el número viejo — no volver a correr entera sin revisar.)
+--  EL LATIDO: avisar los cuatro momentos del pedido, en el momento
 --
 --  Maxi, 7-ago-2026: "me tengo que enterar automáticamente, desde que alguien
 --  solicitó un pedido a que alguien contestó el pedido" · "cuando entre el

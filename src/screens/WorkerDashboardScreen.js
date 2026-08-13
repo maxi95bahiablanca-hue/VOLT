@@ -9,6 +9,9 @@ import * as ImagePicker from 'expo-image-picker';
 // /legacy. Importados de la raiz TIRAN ERROR en runtime, no avisan en el build.
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../supabase';
+import locationService from '../services/locationService';
+import professionalService from '../services/professionalService';
+import { conTiempo } from '../utils/conTiempo';
 import { showSuccess, showError } from '../utils/toast';
 import volt from '../utils/voltVoice';
 import { commissionForBilled, nextCommissionStep, levelLabel } from '../utils/commission';
@@ -115,12 +118,39 @@ const WorkerDashboardScreen = ({ professional, session, onClose, onAvailabilityC
   const handleSetAvailable = async () => {
     setSavingAvail(true);
     try {
+      // 🔴 Disponible SIN ubicación no existe: el trigger de la base
+      // (063_disponible_de_verdad) revierte el available a false EN SILENCIO si
+      // no hay ubicación fresca — la pantalla mostraba "Disponible", la base
+      // decía que no, y el prestador quedaba invisible sin enterarse (el mismo
+      // estado que dejó a 8 de 11 aprobados sin trabajos). Mismo camino que el
+      // handleToggle de HomeScreen: primero la ubicación, después el available.
+      const granted = await conTiempo(locationService.requestPermission(), 60000, false);
+      const pos = granted
+        ? await conTiempo(locationService.getCurrentLocation(), 15000, null)
+        : null;
+      if (!pos) {
+        Alert.alert(
+          'No pudimos tomar tu ubicación',
+          granted
+            ? 'La necesitamos para volver a mostrarte a los clientes. Fijate que el GPS esté encendido y probá de nuevo.'
+            : 'Activá el permiso de ubicación para BOLT en los ajustes del teléfono y probá de nuevo.',
+        );
+        return; // el finally libera el botón
+      }
+      await conTiempo(
+        professionalService.updateLocation(professional.user_id, pos.coords.latitude, pos.coords.longitude),
+        15000, 'timeout'
+      );
       const { error } = await supabase.from('professionals')
         .update({ available: true, available_at: null })
         .eq('id', professional.id);
-      if (!error) { setAvailable(true); setAvailableAt(null); onAvailabilityChange?.(true); }
-    } catch {}
-    setSavingAvail(false);
+      if (error) throw error;
+      setAvailable(true); setAvailableAt(null); onAvailabilityChange?.(true);
+    } catch {
+      Alert.alert('No pudimos activarte', 'Puede ser la señal. Probá de nuevo en un momento.');
+    } finally {
+      setSavingAvail(false);
+    }
   };
 
   const handleSetUnavailable = async (hours) => {

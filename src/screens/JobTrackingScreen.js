@@ -743,25 +743,26 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   };
 
   const cerrarJornadaAhora = async () => {
+    // Solo corre cuando el profesional tocó "Sí, terminé" en el diálogo: acá se
+    // ejecuta lo que la persona ya confirmó. (Estuvo dentro de un `if (false)`
+    // y el botón no hacía NADA: la app preguntaba y después mentía por omisión.)
     try {
-      if (false) {
-        await jobService.endSession(job.id, job.current_session_start,
-                                    job.completed_sessions || 0, job.total_minutes_worked || 0);
-        setJob(j => ({ ...j, current_session_start: null,
-                       completed_sessions: (j.completed_sessions || 0) + 1, status: 'arrived' }));
-        // El cliente tiene que enterarse SIN abrir la app: si ve al profesional
-        // irse y nadie le dice nada, piensa que le dejaron el trabajo tirado.
-        const faltan = Math.max(0, (job.estimated_sessions || 0) - ((job.completed_sessions || 0) + 1));
-        const texto = faltan > 0
-          ? `${workerFirstName} terminó por hoy y vuelve para seguir. Falta${faltan > 1 ? 'n' : ''} ${faltan} jornada${faltan > 1 ? 's' : ''}.`
-          : `${workerFirstName} terminó la jornada de hoy.`;
-        chatService.sendSystemMessage(job.id, texto).catch(() => {});
-        notificationService.sendToUser(clientId, {
-          title: '🔧 Jornada terminada',
-          body: texto,
-          data: { jobId: job.id, screen: 'tracking' },
-        }).catch(() => {});
-      }
+      await jobService.endSession(job.id, job.current_session_start,
+                                  job.completed_sessions || 0, job.total_minutes_worked || 0);
+      setJob(j => ({ ...j, current_session_start: null,
+                     completed_sessions: (j.completed_sessions || 0) + 1, status: 'arrived' }));
+      // El cliente tiene que enterarse SIN abrir la app: si ve al profesional
+      // irse y nadie le dice nada, piensa que le dejaron el trabajo tirado.
+      const faltan = Math.max(0, (job.estimated_sessions || 0) - ((job.completed_sessions || 0) + 1));
+      const texto = faltan > 0
+        ? `${workerFirstName} terminó por hoy y vuelve para seguir. Falta${faltan > 1 ? 'n' : ''} ${faltan} jornada${faltan > 1 ? 's' : ''}.`
+        : `${workerFirstName} terminó la jornada de hoy.`;
+      chatService.sendSystemMessage(job.id, texto).catch(() => {});
+      notificationService.sendToUser(clientId, {
+        title: 'Jornada terminada',
+        body: texto,
+        data: { jobId: job.id, screen: 'tracking' },
+      }).catch(() => {});
     } catch (e) {
       Alert.alert('No se pudo cerrar', e?.message || 'Probá desde el botón de la pantalla.');
     }

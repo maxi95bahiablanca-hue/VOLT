@@ -68,7 +68,13 @@ const RatingScreen = ({ job, session, onDone }) => {
       });
       setSubmitted(true);
     } catch {
-      setSubmitted(true);
+      // 🔴 Antes acá también iba setSubmitted(true): si fallaba la red, la
+      // reseña se perdía y el cliente veía la pantalla de éxito igual. Ahora se
+      // avisa y el botón queda para reintentar.
+      Alert.alert(
+        'No se pudo enviar la calificación',
+        'Puede ser la señal. Tu puntuación quedó acá: tocá "Enviar" de nuevo en un momento.',
+      );
     } finally {
       setLoading(false);
     }
