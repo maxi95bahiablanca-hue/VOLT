@@ -2390,6 +2390,47 @@ window.addEventListener('message', e => {
             </View>
           )}
 
+          {/* ─── Cabecera de la hoja, cliente esperando confirmación ────────
+              🔴 13-ago-2026 — la hoja del pending quedó VACÍA en el rediseño:
+              sólo "Tengo un problema" y un agujero negro (foto de Maxi probando
+              con Esteban). El cliente no veía a quién le llegó el pedido, qué
+              estaba pasando ni cómo cancelarlo — el cancelar existía pero
+              escondido en el menú de tres puntos. */}
+          {!isWorker && job.status === 'pending' && (
+            <>
+              <View style={styles.proCard}>
+                {job.professionals?.avatar_url
+                  ? <Image source={{ uri: job.professionals.avatar_url }} style={styles.proAvatarImg} />
+                  : <View style={styles.proAvatar}><Text style={styles.proAvatarText}>{proInitials}</Text></View>}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.proName} numberOfLines={1}>{professionalName}</Text>
+                  <View style={styles.proMetaRow}>
+                    <Text style={styles.proMeta} numberOfLines={1}>
+                      {job.professions?.name || 'Trabajo a domicilio'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.hero}>
+                <Text style={styles.heroLabel}>Tu pedido le llegó a</Text>
+                <Text style={styles.heroValue}>{workerFirstName}</Text>
+                <Text style={styles.heroSub}>
+                  Estás esperando que lo confirme. Te avisamos apenas responda; si no
+                  lo puede tomar, buscamos a otro profesional disponible y el pedido
+                  nunca te queda colgado.
+                </Text>
+              </View>
+
+              <TouchableOpacity style={styles.entregaFila} onPress={handleCancel}
+                accessibilityRole="button" accessibilityLabel="Cancelar el pedido">
+                <Ionicons name="close-circle-outline" size={19} color="#8A8A8A" />
+                <Text style={styles.entregaFilaText}>Cancelar el pedido</Text>
+                <Ionicons name="chevron-forward" size={16} color="#5C5C5C" style={{ marginLeft: 'auto' }} />
+              </TouchableOpacity>
+            </>
+          )}
+
           {/* ─── Cabecera de la hoja, lado trabajador ───────────────────────
               Mismo esqueleto que el del cliente: quién está del otro lado, el
               dato protagonista en 32 px y dos botones. Cambia el contenido, no
