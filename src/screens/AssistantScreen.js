@@ -28,6 +28,12 @@ const MAX_FOTOS = 3;
 // cargar una porque la IA casi siempre manda max_fotos: 1).
 const topeFotos = () => MAX_FOTOS;
 
+// 🔴 13-ago-2026 — "Entendiendo tu problema" quedaba clavado ~1 minuto cuando
+// Gemini entraba en la escalera de reintentos (Maxi lo midió pidiendo limpieza).
+// Regla: nada puede quedar trabado. Pasado este tope se corta y se ofrece el
+// formulario clásico, que no depende de ninguna IA.
+const TIMEOUT_IA_MS = 20000;
+
 const AssistantScreen = ({ clientId, userLocation, mode, oficio, onReady, onBack }) => {
   const insets = useSafeAreaInsets();
 
@@ -68,10 +74,14 @@ const AssistantScreen = ({ clientId, userLocation, mode, oficio, onReady, onBack
     setInput('');
     historyRef.current.push({ role: 'user', text: label });
     try {
-      const res = await assistantService.analyze({
-        message: text, imageBase64, imageMime, audioBase64, audioMime,
-        history: historyRef.current.slice(0, -1),
-      });
+      const res = await Promise.race([
+        assistantService.analyze({
+          message: text, imageBase64, imageMime, audioBase64, audioMime,
+          history: historyRef.current.slice(0, -1),
+        }),
+        new Promise((_, rej) =>
+          setTimeout(() => rej(new Error('La IA tardó demasiado')), TIMEOUT_IA_MS)),
+      ]);
       if (res?.reply) historyRef.current.push({ role: 'model', text: res.reply });
 
       const preguntas = Array.isArray(res?.preguntas) ? res.preguntas.filter(p => p?.id && p?.pregunta) : [];

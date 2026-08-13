@@ -146,6 +146,14 @@ serve(async (req) => {
     // dice cuánto en `retryDelay`; si no lo dice, se espera 3 s y después 7 s.
     // Total peor caso: 10 s de más, contra un pedido que se caía entero.
     const esperar = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    // 🔴 13-ago-2026 — "peor caso 10 s" era mentira: la escalera son 2 esperas
+    // de hasta 12 s POR MODELO, por 3 modelos → Maxi la midió en ~1 minuto con
+    // la pantalla clavada en "Entendiendo tu problema". Regla de la casa: nada
+    // puede quedar trabado. Presupuesto TOTAL de espera; si no alcanza, se
+    // corta y la app cae al formulario clásico, que para eso está.
+    const ARRANQUE = Date.now();
+    const PRESUPUESTO_MS = 12_000;
+    const alcanzaParaEsperar = (ms: number) => (Date.now() - ARRANQUE + ms) < PRESUPUESTO_MS;
     const pedirle = (modelo: string) => fetch(urlDe(modelo), {
       method: 'POST',
       headers: { 'x-goog-api-key': GEMINI, 'Content-Type': 'application/json' },
@@ -179,6 +187,10 @@ serve(async (req) => {
         }
         const dice = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(cuerpo);
         const segundos = dice ? Math.min(Number(dice[1]), 12) : (intento === 1 ? 3 : 7);
+        if (!alcanzaParaEsperar(segundos * 1000)) {
+          console.warn(`${modelo}: esperar ${segundos}s pasa el presupuesto, paso al siguiente modelo`);
+          break;
+        }
         console.log(`${modelo} devolvió ${r.status}; reintento ${intento} en ${segundos}s`);
         await esperar(segundos * 1000);
         r = await pedirle(modelo);
