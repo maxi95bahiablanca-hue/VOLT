@@ -42,10 +42,16 @@ const R = {
   // El rendimiento de obra es la mitad del de ficha, y esa es la cuenta que
   // sirve para ir a comprar. Contraste: un balde de 20 L hace un ambiente de
   // 40 m² a dos manos → 4 m²/L por mano. Estos números dan justo eso.
-  latexInterior:  5.5,  // m² por litro y por mano  (ficha: 10–12, obra: 5–6)
-  latexExterior:  4.5,  // m² por litro y por mano  (ficha:  8–10, obra: 4–5)
+  // 🔴 16-ago-2026 — Maxi, pintando con estos números: "está un 20% arriba de
+  // lo que debería". Y ahora hay ficha REAL de la fábrica aliada (Pampacryl,
+  // catálogo 2026): látex interior/exterior premium 12 m²/L por mano, esmalte
+  // 10-15. Con el factor de obra 0,55 (el mismo que usa bolt.com.ar/pinturas)
+  // queda: interior 6,6 · exterior 5,5 (el frente es más rugoso) · esmalte 7.
+  // Un balde de 20 L de interior → ~66 m² a dos manos.
+  latexInterior:  6.6,  // m² por litro y por mano  (ficha Pampacryl 12 × 0,55)
+  latexExterior:  5.5,  // m² por litro y por mano  (ficha 12; el frente chupa y es rugoso)
   fijador:         9,   // m² por litro — este SÍ va diluido 1:1, rinde lo que dice
-  esmalte:        6.5,  // m² por litro y por mano  (ficha: 12–14, obra: 6–7)
+  esmalte:        7,    // m² por litro y por mano  (ficha Pampacryl 10–15 × 0,55)
   // 🔴 10-ago-2026 — acá había un solo número por m² y una pregunta de sí o no
   // ("¿tenés grietas?") que multiplicaba 2,5 kg por CADA m² del ambiente. Un
   // dormitorio daba 143 kg de enduido: seis baldes, con eso se plancha un
