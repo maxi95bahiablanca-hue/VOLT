@@ -1222,6 +1222,7 @@ const HomeScreen = ({
       case 'privacy':     setShowPrivacy(true);     break;
       case 'calculadora':   setShowCalculadora(true);   break;
       case 'asesoramiento': setShowAsesoramiento(true); break;
+      case 'pinturas':      Linking.openURL('https://bolt.com.ar/pinturas/').catch(() => {}); break;
     }
   };
 

@@ -154,6 +154,9 @@ const DrawerMenu = ({ visible, session, professional, onClose, onNavigate }) => 
             <Seccion>Herramientas</Seccion>
             <Item icon="calculator-outline" label="Calculadora de materiales" onPress={() => go('calculadora')} />
             <Item icon="bulb-outline" label="Asesoramiento" onPress={() => go('asesoramiento')} />
+            {/* 🤝 Pampacryl × BOLT (16-ago-2026): la carta de colores, el probador y el
+                pedido con 30% de descuento viven en la web; se abre en el navegador. */}
+            <Item icon="color-palette-outline" label="Pinturas con 30% de descuento" onPress={() => go('pinturas')} />
 
             <Seccion>BOLT</Seccion>
             <Item icon="help-circle-outline" label="Cómo funciona" onPress={() => go('howItWorks')} />
