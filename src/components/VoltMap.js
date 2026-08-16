@@ -1,6 +1,16 @@
 import React, { useRef } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+// 🤝 Aliados de BOLT que se ven en el mapa del cliente (16-ago-2026): Pampacryl,
+// la fábrica de pinturas de Bahía, con 30% de descuento para clientes de BOLT.
+// Dirección verificada (Instagram @pampacrylbahia): Sarmiento 1226, Bahía Blanca.
+// El logo se sirve desde bolt.com.ar para no meter otro asset en el bundle.
+export const ALIADOS = [
+  { id: 'pampacryl', nombre: 'Pampacryl Pinturas', detalle: '30% de descuento con BOLT',
+    lat: -38.7066118, lng: -62.2543706, logo: 'https://bolt.com.ar/pinturas/pampacryl.png',
+    url: 'https://bolt.com.ar/pinturas/' },
+];
 
 /**
  * Mapa BOLT (Leaflet dentro de WebView).
@@ -12,8 +22,10 @@ import { WebView } from 'react-native-webview';
  *      · ambient: true  → pin decorativo (no abre ficha; emite onAmbientPress)
  *  - onWorkerPress(worker): toca un profesional real
  *  - onAmbientPress(): toca un pin ambiental (sugerimos elegir un oficio)
+ *  - aliados: [{ id, nombre, detalle, lat, lng, logo, url }] → pines fijos de aliados (default: ALIADOS).
+ *      Al tocarlos se abre la url (la página de pinturas de bolt.com.ar).
  */
-const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style }) => {
+const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style, aliados = ALIADOS }) => {
   const webRef = useRef(null);
   const mapReadyRef = useRef(false);
   const pendingLocationRef = useRef(null);
@@ -32,6 +44,7 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style }
     if (pendingWorkersRef.current.length > 0) {
       sendToMap({ type: 'SET_WORKERS', workers: pendingWorkersRef.current });
     }
+    sendToMap({ type: 'SET_ALIADOS', aliados: aliados ?? [] });
   };
 
   // Actualizar workers cuando cambian
@@ -53,6 +66,7 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style }
       const msg = JSON.parse(e.nativeEvent.data);
       if (msg.type === 'WORKER_PRESS' && onWorkerPress) onWorkerPress(msg.worker);
       if (msg.type === 'AMBIENT_PRESS' && onAmbientPress) onAmbientPress();
+      if (msg.type === 'ALIADO_PRESS' && msg.url) Linking.openURL(msg.url).catch(() => {});
     } catch { /* silent */ }
   };
 
@@ -109,6 +123,16 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style }
                  animation: reach 3s ease-out infinite; }
   .user .uring.b { animation-delay: 1.5s; }
   @keyframes reach { 0%{ transform:scale(1); opacity:.55; } 100%{ transform:scale(7.5); opacity:0; } }
+
+  /* ─── Pin de aliado (Pampacryl): logo sobre blanco, borde amarillo ── */
+  .ali { position:relative; width:52px; height:52px; display:flex; align-items:center; justify-content:center; }
+  .ali .disco { width:44px; height:44px; border-radius:50%; background:#fff; border:2.5px solid #FFD600;
+                display:flex; align-items:center; justify-content:center; overflow:hidden;
+                box-shadow:0 2px 10px rgba(0,0,0,.55); }
+  .ali .disco img { width:36px; height:auto; display:block; }
+  .ali .tag { position:absolute; left:50%; top:100%; transform:translate(-50%,2px); white-space:nowrap;
+              background:#FFD600; color:#0a0a0a; font:800 9px/1 sans-serif; border-radius:8px; padding:3px 6px;
+              box-shadow:0 1px 3px rgba(0,0,0,.6); }
 </style>
 </head>
 <body>
@@ -190,6 +214,21 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style }
     });
   }
 
+  let aliadoMarkers = {};
+  function setAliados(lista){
+    Object.keys(aliadoMarkers).forEach(id => { map.removeLayer(aliadoMarkers[id]); delete aliadoMarkers[id]; });
+    (lista || []).forEach(a => {
+      if (a.lat == null || a.lng == null) return;
+      const icon = L.divIcon({
+        html: '<div class="ali"><span class="disco"><img src="'+esc(a.logo)+'" alt=""></span><span class="tag">'+esc(a.detalle || a.nombre)+'</span></div>',
+        iconSize:[52,52], iconAnchor:[26,26], className:''
+      });
+      aliadoMarkers[String(a.id)] = L.marker([a.lat, a.lng], { icon, zIndexOffset: 500 })
+        .addTo(map)
+        .on('click', () => window.ReactNativeWebView.postMessage(JSON.stringify({ type:'ALIADO_PRESS', url:a.url, id:a.id })));
+    });
+  }
+
   function setLocation(lat, lng){
     if (userMarker) { userMarker.setLatLng([lat, lng]); }
     else { userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(map); }
@@ -203,6 +242,7 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style }
       const msg = JSON.parse(e.data);
       if (msg.type === 'SET_WORKERS') setWorkers(msg.workers || []);
       if (msg.type === 'SET_LOCATION') setLocation(msg.latitude, msg.longitude);
+      if (msg.type === 'SET_ALIADOS') setAliados(msg.aliados || []);
     } catch {}
   }
 </script>
