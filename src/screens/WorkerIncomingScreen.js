@@ -113,7 +113,7 @@ const AlertPhase = ({ job, timeLeft, onView, onAutoReject, onAutoAccept }) => {
           accessibilityRole="button"
           accessibilityLabel="Aceptar el trabajo ahora con valores por defecto"
           style={alertStyles.quickAcceptBtn}
-          onPress={() => onAutoAccept({ arrivalEst: '~30 min', workDuration: '~1 hora' })}
+          onPress={() => onAutoAccept({ arrivalEst: null, workDuration: '~1 hora' })}
           activeOpacity={0.85}
         >
           <Ionicons name="checkmark-circle" size={22} color="#0D0D0D" />
@@ -148,7 +148,10 @@ const DetailsPhase = ({
   //    vence en tres minutos. Ahora arrancan con un valor razonable y se
   //    ajustan por el chat —que es donde se ajustan igual—; "varios días"
   //    también se marca después, desde el trabajo.
-  const [arrivalEst]   = useState('~30 min');
+  // 🔴 Sin ETA inventada (decisión de Maxi 23-ago): antes se mandaba un "~30 min"
+  //    fijo que no lo elegía nadie y el cliente leía como si fuera real. El horario
+  //    se coordina por chat. arrival_estimate queda vacío y la app no promete minutos.
+  const [arrivalEst]   = useState(null);
   const [workDuration] = useState('~1 hora');
   const [isMultiday]   = useState(false);
   const [confidence, setConfidence]       = useState('Media');
@@ -639,7 +642,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
     stopAlarm(); // que la alarma no siga sonando mientras se confirma
     // En demo: aceptamos sin tocar el backend y pasamos directo al seguimiento
     if (isDemoMode()) {
-      onAccepted({ ...job, status: 'accepted', arrival_estimate: arrivalEst || '~12 min',
+      onAccepted({ ...job, status: 'accepted', arrival_estimate: arrivalEst,
         is_multiday: !!isMultiday,
         pre_diagnosis: diagnosis || job.pre_diagnosis });
       return;
@@ -711,7 +714,7 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
           if (job.problem_photo_url) {
             await jobService.addEvent(job.id, 'photo_reviewed', `Revisó las fotos que enviaste 📷`).catch(() => {});
           }
-          await jobService.addEvent(job.id, 'estimated', `Llega en aprox. ${arrivalEst}.`).catch(() => {});
+          await jobService.addEvent(job.id, 'estimated', `Coordiná con él el día y la hora.`).catch(() => {});
         })();
       }
       // 🔴 Sólo en trabajo directo. En un presupuesto todavía no hay trabajo: si

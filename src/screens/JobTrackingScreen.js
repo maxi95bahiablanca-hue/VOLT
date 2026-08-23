@@ -507,7 +507,6 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     if (!isWorker || !wasQuoteRef.current || tripStartedRef.current) return;
     if (job.quote_group_id || job.status !== 'accepted') return;
     tripStartedRef.current = true;
-    const arrivalEst = job.arrival_estimate || '~30 min';
     notificationService.sendToUser(clientId, {
       title: '✅ Tu profesional quedó confirmado',
       body:  `${workerFirstName} tomó el trabajo. Te avisamos cuando salga: pedile el código antes de abrir la puerta.`,
@@ -515,7 +514,7 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     }).catch(() => {});
     chatService.sendSystemMessage(job.id, volt.chatAccepted).catch(() => {});
     jobService.addEvent(job.id, 'accepted',      `Profesional confirmado para el trabajo ✅`).catch(() => {});
-    jobService.addEvent(job.id, 'estimated',     `Llega en aprox. ${arrivalEst}.`).catch(() => {});
+    jobService.addEvent(job.id, 'estimated',     `Coordiná con él el día y la hora.`).catch(() => {});
     // 🔴 Ya no se anota `trip_started` acá: que lo elijan no es que haya salido.
     //    Ese evento lo escribe handleWorkerAction('on_the_way'), cuando el
     //    profesional toca "Voy en camino" de verdad.

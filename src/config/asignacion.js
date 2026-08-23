@@ -28,10 +28,11 @@ export const esCascada = () => MODO_ASIGNACION === 'cascada';
 export const esSubasta = () => MODO_ASIGNACION === 'subasta';
 
 // Cuánto se le da a cada profesional para contestar antes de pasar al siguiente.
-// 90 s: alcanza para sacar el teléfono del bolsillo y decidir, sin que el
-// cliente sienta que no pasa nada. La ventana visible en la app sigue siendo de
-// 3 minutos (TIMEOUT_SEC) para el que ya lo tiene abierto.
-export const SEGUNDOS_POR_TURNO = 90;
+// 🔴 180 s (decisión de Maxi, 23-ago): coincide con lo que la app y el push YA le
+//    prometen al profesional ("3 minutos"). Antes eran 90 s y el que contestaba
+//    entre el segundo 91 y el 180 —dentro del plazo prometido— ya había perdido el
+//    turno. Ahora el turno real y el contador visible (TIMEOUT_SEC) son lo mismo.
+export const SEGUNDOS_POR_TURNO = 180;
 
 // A cuántos se les ofrece como máximo antes de mandarlo a rescate.
 export const MAX_INTENTOS = 5;
