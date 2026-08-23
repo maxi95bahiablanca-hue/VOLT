@@ -62,6 +62,14 @@ function entre(desde: string | null, hasta: string | null): string {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
+  // 🔴 Sólo el sistema puede disparar el latido (auditoría 23-ago): los emisores
+  //    (avisar_latido / avisar_prestador_nuevo y el cron del vigilante) mandan
+  //    x-latido-key, cargada como secret LATIDO_KEY. Antes cualquiera de internet
+  //    podía disparar push con la dirección del trabajo en el cuerpo.
+  if (req.headers.get('x-latido-key') !== Deno.env.get('LATIDO_KEY')) {
+    return json({ error: 'No autorizado' }, 401);
+  }
+
   try {
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,

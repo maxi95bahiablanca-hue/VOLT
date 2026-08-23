@@ -1,0 +1,22 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- 079 — Auditoría 23-ago: latido y vigilante dejan de estar abiertos a internet.
+--
+-- ⚠️ APLICADA EN PROD EL 23-AGO CON EL SECRETO REAL, que NO está en este archivo
+--    (el repo es público). Este archivo documenta el cambio; si hay que
+--    re-aplicarlo, generar una llave nueva y repetir los 3 pasos EN ESTE ORDEN:
+--
+--    1. supabase secrets set LATIDO_KEY=<llave-nueva>   (Edge Functions)
+--    2. Este SQL con <LATIDO_KEY> reemplazado por la llave real:
+--       los EMISORES mandan la llave antes de que nadie la exija (nada se rompe).
+--    3. Redeploy de latido y vigilante (ya exigen x-latido-key en el código).
+--
+-- Qué cambió en la base:
+--  · avisar_latido(p_job_id, p_evento)          → header 'x-latido-key' agregado
+--  · avisar_prestador_nuevo(p_id, nombre, como) → header 'x-latido-key' agregado
+--  · cron 'vigilante-bolt'                       → header 'x-latido-key' agregado
+--
+-- (El cuerpo de las funciones es idéntico al de las migraciones 072/071, con la
+--  única suma del header en el jsonb_build_object de headers.)
+--
+-- Verificación hecha en prod: latido/vigilante sin la llave → 401; con la llave
+-- → pasa la autenticación. Los emisores confirmados con pg_get_functiondef.

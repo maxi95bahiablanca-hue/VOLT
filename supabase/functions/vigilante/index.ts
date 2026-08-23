@@ -100,6 +100,13 @@ const GUION: Record<string, { titulo: string; cuerpo: string; aPersona?: boolean
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
+  // 🔴 Sólo el cron puede despertar al vigilante (auditoría 23-ago): manda
+  //    x-latido-key (secret LATIDO_KEY). Antes cualquiera de internet podía
+  //    dispararlo y generar push a los profesionales.
+  if (req.headers.get('x-latido-key') !== Deno.env.get('LATIDO_KEY')) {
+    return json({ error: 'No autorizado' }, 401);
+  }
+
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
