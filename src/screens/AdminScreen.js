@@ -130,6 +130,33 @@ const AdminScreen = ({ session, onClose }) => {
       if (note === null) return; // se canceló el rechazo: no rechazar, no notificar, sin cartel
     }
 
+    // 🔴 Antes de aprobar, avisar si faltan documentos (auditoría 23-ago). La app
+    //    le dice al cliente "es tu profesional de BOLT" y le da a abrir la puerta;
+    //    aprobar a ciegas sin selfie ni DNI vacía esa promesa. No se BLOQUEA (Maxi
+    //    aprueba gente de confianza sin papeles y nada debe quedar trabado): se
+    //    pide confirmación explícita.
+    if (action === 'approved') {
+      const faltan = [];
+      if (!professional.selfie_url)    faltan.push('selfie');
+      if (!professional.dni_front_url) faltan.push('DNI frente');
+      if (!professional.dni_back_url)  faltan.push('DNI dorso');
+      if (faltan.length) {
+        const seguir = await new Promise((resolve) => {
+          Alert.alert(
+            'Faltan documentos',
+            `${professional.first_name || 'Este prestador'} no cargó: ${faltan.join(', ')}.\n\n` +
+            'La app le dice al cliente que es un profesional verificado. ¿Aprobar igual?',
+            [
+              { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Aprobar igual', style: 'destructive', onPress: () => resolve(true) },
+            ],
+            { cancelable: true, onDismiss: () => resolve(false) },
+          );
+        });
+        if (!seguir) return;
+      }
+    }
+
     try {
       const { error: vErr } = await supabase.rpc('admin_set_verification', {
         p_id:     professional.id,

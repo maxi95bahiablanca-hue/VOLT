@@ -106,11 +106,17 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
       const res = await professionalService.activarSiYaEstabaAnotado(
         session?.user?.id || userId, email, telDigitos
       );
-      if (res && res.startsWith('ACTIVADO')) {
+      // 🔴 Desde la migración 071 el prestador nace PENDIENTE de aprobación (lo
+      //    aprueba Maxi), con el radar apagado. La app le juraba "tu perfil quedó
+      //    activo, ya podés recibir trabajos" y la persona guardaba el teléfono
+      //    esperando trabajos que nunca iban a sonar (auditoría 23-ago). Ahora dice
+      //    la verdad. Se acepta también 'VINCULADO' (el RETURN nuevo de la 075)
+      //    manteniendo compatibilidad con la función vieja que devolvía 'ACTIVADO'.
+      if (res && (res.startsWith('VINCULADO') || res.startsWith('ACTIVADO'))) {
         Alert.alert(
-          '¡Ya estabas registrado!',
-          'Te reconocimos por tu WhatsApp. Tu perfil quedó activo: ya podés recibir trabajos.',
-          [{ text: 'Genial', onPress: onBack }]
+          '¡Te reconocimos!',
+          'Te vinculamos por tu WhatsApp. Tu perfil quedó vinculado y lo está revisando el equipo: te avisamos apenas esté activo.',
+          [{ text: 'Entendido', onPress: onBack }]
         );
         return;
       }

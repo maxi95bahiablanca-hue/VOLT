@@ -2065,7 +2065,7 @@ window.addEventListener('message', e => {
               <View style={styles.codeOkBox}>
                 <Ionicons name="checkmark-circle" size={40} color="#FFD600" />
                 <Text style={styles.codeOkTitle}>¡Código correcto!</Text>
-                <Text style={styles.codeOkSub}>Es tu profesional BOLT verificado. Podés abrir la puerta.</Text>
+                <Text style={styles.codeOkSub}>Es tu profesional de BOLT: el código coincide. Ya podés abrir la puerta.</Text>
                 <TouchableOpacity style={styles.codeCloseBtn} onPress={() => { setCodeModal(false); setEnteredCode(''); setCodeResult(null); }}>
                   <Text style={styles.codeCloseBtnText}>Cerrar</Text>
                 </TouchableOpacity>
