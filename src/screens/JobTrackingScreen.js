@@ -1007,10 +1007,17 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
               data:  { jobId: job.id },
             }).catch(() => {});
             onCancel();
-          } catch {
-            // Si falla el cancel en el servidor, igual salir
-            // (el AppState listener en App.js tiene el lock del job ID)
-            onCancel();
+          } catch (e) {
+            // 🔴 Antes salía al home IGUAL aunque el servidor rechazara el cancel
+            //    (trigger, red): te mostraba "cancelado" con el trabajo todavía
+            //    vivo, y el profesional podía seguir viajando (auditoría 23-ago).
+            //    Ahora se dice la verdad y NO se sale: el trabajo sigue activo.
+            selfCancelledRef.current = false;
+            setLoading(false);
+            Alert.alert(
+              'No se pudo cancelar',
+              `${e?.message || 'Probá de nuevo'}.\n\nEl trabajo sigue activo — fijate tu conexión e intentá otra vez.`
+            );
           }
         }},
       ]
