@@ -643,8 +643,15 @@ const restante = (deadline) =>
 
 const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSelected, onExpired, onMinimize, onBack }) => {
   const insets                    = useSafeAreaInsets();
+  // 🔴 Refuerzo del contador (auditoría 23-ago): si por alguna ruta no llegó la
+  //    deadline desde App.js, calcularla desde el created_at del primer
+  //    presupuesto en lugar de arrancar en 4:00 fijo (que no vencía nunca).
+  const effectiveDeadline = deadline
+    ?? (initialJobs?.[0]?.created_at
+        ? new Date(initialJobs[0].created_at).getTime() + TIMEOUT_SEC * 1000
+        : null);
   const [jobs, setJobs]           = useState(initialJobs || []);
-  const [timeLeft, setTimeLeft]   = useState(() => restante(deadline));
+  const [timeLeft, setTimeLeft]   = useState(() => restante(effectiveDeadline));
   const [selecting, setSelecting] = useState(false);
   const [expired, setExpired]     = useState(false);
   const [compareList, setCompareList] = useState([]);
@@ -687,9 +694,9 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
 
     // Se recalcula contra el deadline en vez de restar 1: si el cliente minimiza
     // y vuelve, o el celular suspende la app, el reloj sigue siendo el real.
-    if (restante(deadline) <= 0) setExpired(true);
+    if (restante(effectiveDeadline) <= 0) setExpired(true);
     timerRef.current = setInterval(() => {
-      const t = restante(deadline);
+      const t = restante(effectiveDeadline);
       setTimeLeft(t);
       if (t <= 0) { clearInterval(timerRef.current); setExpired(true); }
     }, 1000);
@@ -731,10 +738,13 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
       await cancelScheduledNotif();
       const responded = jobsRef.current.filter(j => j.status === 'accepted');
       const count = responded.length;
-      const title = count > 0 ? 'Propuestas recibidas' : 'Profesionales disponibles';
+      // 🔴 Sin afirmar lo que no se verificó (auditoría 23-ago): el texto de "0
+      //    propuestas" prometía "hay profesionales disponibles" sin comprobarlo.
+      //    Con propuestas sí es un hecho (los accepted no se des-aceptan).
+      const title = count > 0 ? 'Propuestas recibidas' : 'Tu pedido sigue abierto';
       const body  = count > 0
         ? `Recibiste ${count} propuesta${count > 1 ? 's' : ''} para tu solicitud.`
-        : 'Aún hay profesionales disponibles para ayudarte.';
+        : 'Entrá a ver si ya te respondieron antes de que venza.';
       try {
         const id = await Notifications.scheduleNotificationAsync({
           content: { title, body, sound: true },

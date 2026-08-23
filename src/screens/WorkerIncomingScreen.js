@@ -682,6 +682,16 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         // La notificación de "voy en camino" y los eventos de viaje se disparan
         // recién cuando el cliente lo elige (en JobTrackingScreen).
         jobService.addEvent(job.id, 'quote_sent', `Revisó tu pedido 👀`).catch(() => {});
+        // 🔴 AVISARLE AL CLIENTE (auditoría 23-ago, abierto desde el 11-ago). Sin
+        //    este push, con el teléfono bloqueado el cliente no se enteraba de que
+        //    alguien respondió: la ventana de 4 min vencía y el pedido moría aunque
+        //    hubiera propuesta. El aviso dice un HECHO (te respondieron), no un
+        //    estado futuro. No roba pantalla: en primer plano queda como banner.
+        notificationService.sendToUser(clientUserId, {
+          title: '⚡ Te respondieron',
+          body:  `${firstName} respondió tu pedido. Entrá a elegir antes de que venza.`,
+          data:  { jobId: job.id },
+        }).catch(() => {});
       } else {
         // TRABAJO DIRECTO: queda confirmado. 🔴 Que lo acepte no es que haya
         // salido: el "va en camino" lo dispara la respuesta a "¿cuándo vas?" o
@@ -747,13 +757,13 @@ const WorkerIncomingScreen = ({ job, professional, clientUserId, onAccepted, onR
         jobService.reject(job.id, professional?.id, reason.key, reason.note),
         RESPUESTA_TIMEOUT_MS,
       );
-      if (reason.key !== 'timeout') {
-        notificationService.sendToUser(clientUserId, {
-          title: 'El profesional no está disponible',
-          body:  'No te preocupes, estamos buscando otro profesional cercano.',
-          data:  { jobId: job.id },
-        }).catch(() => {});
-      }
+      // 🔴 Antes acá salía un push al cliente diciendo "estamos buscando otro
+      //    profesional cercano" — un HECHO que este lado no puede garantizar
+      //    (auditoría 23-ago). En un pedido de cascada el pase al siguiente lo
+      //    hace la RPC rechazar_trabajo y el cliente lo ve en su pantalla ("le
+      //    estamos preguntando a X"); en un pedido paralelo de la app el cliente
+      //    sigue con las otras propuestas en curso. En ninguno de los dos casos
+      //    corresponde afirmar desde acá algo que no está pasando. Sin push.
     } catch {
       // Rechazar siempre sale: quedarse acá trabado es peor que un rechazo que
       // no llegó a anotarse (el turno se le vence solo en el servidor).
