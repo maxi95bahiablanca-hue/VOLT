@@ -197,12 +197,24 @@ const notificationService = {
       //    prueba las dos puntas en un teléfono.
       //    Un token es de UN dispositivo y un dispositivo tiene UN dueño a la
       //    vez: al registrarlo, se lo sacamos a cualquier otro.
-      await supabase.from('push_tokens').delete().eq('token', token).neq('user_id', userId);
+      // 🔴 23-ago-2026 — el DELETE de acá abajo NO servía: RLS no deja borrar la
+      //    fila de OTRO usuario desde el cliente (política push_tokens_own), así
+      //    que el token quedaba compartido entre las dos cuentas del mismo
+      //    teléfono y se cruzaban los avisos. El cross-user hay que hacerlo en la
+      //    base: la RPC `registrar_push_token` (definer, migración 075) le saca el
+      //    token a cualquier otro dueño y lo deja en esta cuenta.
+      const { error: errRpc } = await supabase.rpc('registrar_push_token', { p_token: token });
+      if (!errRpc) return _setEstado(PUSH_ESTADO.OK, { userId });
+      const faltaLaFuncion = errRpc.code === 'PGRST202' ||
+        /could not find the function|does not exist/i.test(errRpc.message || '');
+      if (!faltaLaFuncion) {
+        return _setEstado(PUSH_ESTADO.NO_GUARDADO, { detalle: errRpc.message, userId });
+      }
 
-      // 🔴 11-ago-2026 — supabase-js NO tira excepción cuando el upsert es
-      //    rechazado (RLS, red): devuelve { error }. Antes eso caía en el
-      //    `catch { /* silent */ }` de abajo y el profesional quedaba sin fila
-      //    en push_tokens creyendo que estaba todo bien.
+      // Fallback pre-migración: el delete cross-user no funciona (RLS), pero el
+      // upsert propio sí guarda el token de esta cuenta —igual que antes—, así el
+      // OTA puede llegar antes que la migración sin dejar a nadie sin push.
+      await supabase.from('push_tokens').delete().eq('token', token).neq('user_id', userId);
       const { error: errGuardar } = await supabase.from('push_tokens').upsert(
         { user_id: userId, token, platform: 'android', updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }

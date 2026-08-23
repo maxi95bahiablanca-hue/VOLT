@@ -50,10 +50,19 @@ const jobService = {
       event_type: 'received',
       message: 'Estamos buscando profesionales disponibles cerca tuyo.',
     }).catch(() => {});
-    supabase.from('messages').insert({
-      job_id: data.id, sender_id: null, type: 'system',
-      content: volt.chatCreated,
-    }).catch(() => {});
+    // Mensaje de apertura del chat: por RPC (auditoría 23-ago) para que no rebote
+    // contra la RLS de messages (sender_id null). Fallback al insert directo si la
+    // migración 076 todavía no está: rebota igual que antes, sin romper la creación.
+    supabase.rpc('mensaje_de_sistema', { p_job_id: data.id, p_content: volt.chatCreated })
+      .then(({ error }) => {
+        if (error && (error.code === 'PGRST202' ||
+            /could not find the function|does not exist/i.test(error.message || ''))) {
+          return supabase.from('messages').insert({
+            job_id: data.id, sender_id: null, type: 'system', content: volt.chatCreated,
+          });
+        }
+      })
+      .then(() => {}, () => {});
     return data;
   },
 

@@ -100,10 +100,24 @@ const chatService = {
   },
 
   sendSystemMessage: async (jobId, content) => {
-    const { error } = await supabase
+    // 🔴 Por RPC (auditoría 23-ago): la política de INSERT de `messages` exige
+    //    sender_id = auth.uid(), y un mensaje de sistema va con sender_id null,
+    //    así que TODOS ('ya salió', 'llegó', 'empezó', 'terminó') rebotaban
+    //    contra RLS y el error moría en un console.warn que no veía nadie. La RPC
+    //    `mensaje_de_sistema` (migración 076) valida que quien llama sea parte del
+    //    trabajo e inserta la fila de sistema. Devolvemos el error (que cada
+    //    llamador decida su .catch, como ya hacen) en vez de tragarlo.
+    const { error } = await supabase.rpc('mensaje_de_sistema', { p_job_id: jobId, p_content: content });
+    if (!error) return;
+    const faltaLaFuncion = error.code === 'PGRST202' ||
+      /could not find the function|does not exist/i.test(error.message || '');
+    if (!faltaLaFuncion) throw error;
+    // Fallback pre-migración: el insert directo rebota por RLS igual que antes
+    // (no rompe a los llamadores, que ya envuelven en .catch).
+    const { error: e2 } = await supabase
       .from('messages')
       .insert({ job_id: jobId, sender_id: null, content, type: 'system' });
-    if (error) console.warn('system msg failed:', error.message);
+    if (e2) throw e2;
   },
 
   /** Todas las conversaciones del usuario, para la bandeja.
