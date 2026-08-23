@@ -37,7 +37,9 @@ serve(async (req) => {
       .select('id, email, estado, completar_token, created_at, recordatorios_enviados, ultimo_recordatorio_at, ' + KEYS.join(', '))
       .not('completar_token', 'is', null)
       .not('email', 'is', null)
-      .lt('recordatorios_enviados', 2)
+      // 🔴 .lt excluía los leads con recordatorios_enviados NULL (auditoría
+      //    23-ago): nunca recibían ni el primer recordatorio. NULL cuenta como 0.
+      .or('recordatorios_enviados.is.null,recordatorios_enviados.lt.2')
       .order('created_at', { ascending: true })
       .limit(300);
     if (error) return json({ error: String(error.message) }, 500);
