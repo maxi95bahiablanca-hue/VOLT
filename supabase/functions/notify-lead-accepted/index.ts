@@ -112,7 +112,7 @@ serve(async (req) => {
                       <tr>
                         <td valign="top" width="34" style="font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:18px;font-weight:900;color:#FFD600;line-height:1.5;">01</td>
                         <td style="font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#d6d6d6;">
-                          <strong style="color:#ffffff;">Lanzamiento en 30 a 45 días.</strong> Te avisamos por mail y WhatsApp apenas la app esté disponible.
+                          <strong style="color:#ffffff;">Descargá BOLT de Google Play</strong> y entrá con esta misma cuenta (el mismo mail). Ya está disponible.
                         </td>
                       </tr>
                       <tr><td colspan="2" style="height:16px;line-height:16px;font-size:0;">&nbsp;</td></tr>
@@ -135,8 +135,8 @@ serve(async (req) => {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center" style="border-radius:12px;background-color:#FFD600;">
-                    <a href="https://bolt.com.ar" target="_blank" style="display:inline-block;padding:15px 38px;font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:16px;font-weight:800;color:#0A0A0A;text-decoration:none;border-radius:12px;">
-                      Conocé más en bolt.com.ar
+                    <a href="https://play.google.com/store/apps/details?id=ar.com.bolt.com" target="_blank" style="display:inline-block;padding:15px 38px;font-family:'Nunito',Helvetica,Arial,sans-serif;font-size:16px;font-weight:800;color:#0A0A0A;text-decoration:none;border-radius:12px;">
+                      Descargá BOLT en Google Play
                     </a>
                   </td>
                 </tr>
