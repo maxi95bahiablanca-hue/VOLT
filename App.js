@@ -50,6 +50,18 @@ applyGlobalFont();
 // que alcance a elegir. Si cambia uno, cambiar el otro.
 const QUOTE_WINDOW_MS = 240 * 1000;
 
+// 🔴 Vencimiento del grupo de presupuestos al RESTAURAR la pantalla (auditoría
+//    23-ago). Al reabrir la app o entrar por el push "te respondieron", se seteaba
+//    quoteGroupId/quoteJobs pero NUNCA la deadline: el contador quedaba clavado en
+//    4:00 y nunca vencía, y el cliente podía contratar propuestas de hace días.
+//    La deadline real se calcula desde el created_at del primer pedido del grupo.
+const deadlineDelGrupo = (jobs) => {
+  const creado = jobs?.[0]?.created_at;
+  return creado
+    ? new Date(creado).getTime() + QUOTE_WINDOW_MS
+    : Date.now() + QUOTE_WINDOW_MS; // sin dato: arrancar el reloj ahora, no dejarlo fijo
+};
+
 WebBrowser.maybeCompleteAuthSession();
 
 // Mostrar notificaciones aunque la app esté en primer plano
@@ -257,6 +269,7 @@ export default function App() {
           if (quoteData) {
             setQuoteGroupId(quoteData.quoteGroupId);
             setQuoteJobs(quoteData.jobs);
+            setQuoteDeadline(deadlineDelGrupo(quoteData.jobs));
             setQuoteMinimized(false);
             setScreen('quoteSelection');
           } else {
@@ -309,9 +322,12 @@ export default function App() {
       })
       .catch(() => {});
 
-    const receivedSub = Notifications.addNotificationReceivedListener(n =>
-      handleNotifData(n.request.content.data)
-    );
+    // 🔴 Una notificación que LLEGA con la app abierta muestra el banner (arriba)
+    //    y NADA MÁS (auditoría 23-ago, informe 09). Antes navegaba con cada push:
+    //    al cliente que estaba eligiendo un presupuesto, el push de "te
+    //    respondieron" de OTRO profesional lo arrastraba de pantalla. La
+    //    navegación ocurre SÓLO cuando el usuario TOCA la notificación (responseSub).
+    const receivedSub = Notifications.addNotificationReceivedListener(() => {});
     const responseSub = Notifications.addNotificationResponseReceivedListener(r =>
       handleNotifData(r.notification.request.content.data)
     );
@@ -367,7 +383,20 @@ export default function App() {
       if (!jobId) return;
       disableDemo();
       jobService.getById(jobId).then(job => {
-        if (job) { setIncomingJob(job); setScreen('workerIncoming'); cancelIncomingJob(); }
+        cancelIncomingJob(); // descartar la notificación full-screen: ya la tocaron
+        // 🔴 Sólo abrir "Aceptar" si el pedido sigue vivo (pending) y es para ESTE
+        //    profesional (auditoría 23-ago). Antes abría la pantalla de aceptar con
+        //    cualquier job: tocar una notificación vieja "LLEGÓ UN PEDIDO" reabría
+        //    Aceptar sobre un trabajo ya aceptado o cancelado, el profesional
+        //    aceptaba, y revivía un cancelado (push falso al cliente).
+        const soyElProfesional =
+          professionalRef.current && job?.professional_id === professionalRef.current.id;
+        if (job && job.status === 'pending' && soyElProfesional) {
+          setIncomingJob(job);
+          setScreen('workerIncoming');
+        } else {
+          Alert.alert('Ese pedido ya no está', 'Puede que lo haya tomado otro, se haya cancelado o vencido.');
+        }
       }).catch(() => {});
     };
     notifee.getInitialNotification().then(initial => {
@@ -430,6 +459,7 @@ export default function App() {
         if (quoteData) {
           setQuoteGroupId(quoteData.quoteGroupId);
           setQuoteJobs(quoteData.jobs);
+          setQuoteDeadline(deadlineDelGrupo(quoteData.jobs));
           setScreen('quoteSelection');
           return;
         }
