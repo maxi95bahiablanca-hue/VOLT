@@ -82,10 +82,17 @@ serve(async (req) => {
     if (!tok?.token) return json({ ok: true, cambio: true, sent: false, reason: 'sin token' });
 
     // ── 3. Avisar ───────────────────────────────────────────────────────────
+    // 🔴 El aviso va en su PROPIO try (auditoría 23-ago): el cambio de estado (pasos
+    //    1-2) ya se hizo. Si el fetch a Expo tira (DNS/timeout/exp.host caído), antes
+    //    caía en el catch de afuera y devolvía 500 → la web mostraba "este presupuesto
+    //    ya fue respondido" (error) aunque el cambio SÍ se hizo. Ahora devuelve
+    //    ok:true, cambio:true, sent:false. Con AbortSignal para no colgarse.
     const quien = (p.cliente_nombre || '').trim() || 'Un cliente';
+    try {
     const expoRes = await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(6000),
       body: JSON.stringify({
         to: tok.token,
         title: acepta ? '✅ Te aceptaron un presupuesto' : 'Presupuesto rechazado',
@@ -130,6 +137,10 @@ serve(async (req) => {
     }
 
     return json({ ok: true, cambio: true, sent: true, expo: expoData });
+    } catch (avisoErr) {
+      // El estado ya cambió; sólo falló el aviso. No es un 500.
+      return json({ ok: true, cambio: true, sent: false, reason: 'no se pudo avisar: ' + (avisoErr instanceof Error ? avisoErr.message : String(avisoErr)) });
+    }
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
