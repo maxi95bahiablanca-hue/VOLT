@@ -117,9 +117,18 @@ android {
         }
         release {
             storeFile file('bolt-upload.keystore')
-            storePassword 'Bolt2026.a01450e16dd649'
             keyAlias 'bolt-upload'
-            keyPassword 'Bolt2026.a01450e16dd649'
+            // 🔴 Contraseñas FUERA del repo (auditoría 23-ago): estaban en texto
+            //    plano en este archivo, pusheado a un repo PÚBLICO de GitHub. Ahora
+            //    se leen de android/keystore.properties (gitignored) o, si no está,
+            //    de propiedades de Gradle (BOLT_STORE_PASSWORD / BOLT_KEY_PASSWORD)
+            //    que EAS/CI pueden inyectar. La contraseña vieja quedó expuesta en la
+            //    historia pública: hay que ROTARLA (Play Console / keytool).
+            def ksProps = new Properties()
+            def ksFile = rootProject.file('keystore.properties')
+            if (ksFile.exists()) { ksFile.withInputStream { ksProps.load(it) } }
+            storePassword ksProps.getProperty('storePassword') ?: (findProperty('BOLT_STORE_PASSWORD') ?: '')
+            keyPassword   ksProps.getProperty('keyPassword')   ?: (findProperty('BOLT_KEY_PASSWORD')   ?: '')
         }
     }
     buildTypes {
