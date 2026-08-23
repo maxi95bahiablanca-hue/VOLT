@@ -109,6 +109,10 @@ const jobService = {
 
   accept: async (jobId, preDiagnosis, arrivalEstimate, materialsNeeded, workDuration) => {
     const code = String(Math.floor(1000 + Math.random() * 9000));
+    // `match: { status: 'pending' }` → si la cascada ya lo pasó a otro o el
+    // cliente lo canceló, el UPDATE afecta 0 filas y el helper tira
+    // 'El pedido ya no está disponible'. Nunca más "aceptar" lo ajeno ni revivir
+    // un cancelado desde la app.
     return update(jobId, {
       status: 'accepted',
       accepted_at: new Date().toISOString(),
@@ -117,16 +121,29 @@ const jobService = {
       ...(arrivalEstimate ? { arrival_estimate:    arrivalEstimate } : {}),
       ...(materialsNeeded != null ? { materials_needed: materialsNeeded } : {}),
       ...(workDuration    ? { work_duration_est:   workDuration    } : {}),
-    });
+    }, { status: 'pending' });
   },
 
   reject: async (jobId, professionalId, category, note) => {
-    await update(jobId, {
+    // 🔴 Rechazar por RPC (auditoría 23-ago): en un pedido de cascada, rechazar
+    //    NO debe matar el pedido para todos — tiene que pasárselo al siguiente en
+    //    la misma transacción. `rechazar_trabajo` (migración 075) hace eso y
+    //    valida que quien llama sea el profesional actual. Fallback pre-migración:
+    //    cancelar SÓLO si el trabajo sigue 'pending' (así el stale-tap tampoco
+    //    puede cancelar un trabajo ya aceptado), sin revivir nada.
+    const { error } = await supabase.rpc('rechazar_trabajo', {
+      p_job_id: jobId, p_categoria: category ?? null, p_nota: note ?? null,
+    });
+    if (!error) return;
+    const faltaLaFuncion = error.code === 'PGRST202' ||
+      /could not find the function|does not exist/i.test(error.message || '');
+    if (!faltaLaFuncion) throw error;
+    await supabase.from('jobs').update({
       status: 'cancelled',
       cancelled_at: new Date().toISOString(),
       ...(category ? { rejection_category: category } : {}),
       ...(note     ? { rejection_note: note }         : {}),
-    });
+    }).eq('id', jobId).eq('status', 'pending');
     // 🔴 ACÁ SE PENALIZABA POR RECHAZAR, Y SE SACÓ (6-ago-2026).
     //
     //  `penalize_worker_rejection` le restaba 0,05 al avg_rating cada vez que un
@@ -567,9 +584,24 @@ const jobService = {
       .subscribe(),
 };
 
-async function update(jobId, fields) {
-  const { error } = await supabase.from('jobs').update(fields).eq('id', jobId);
+// 🔴 UPDATE con verificación de filas (auditoría 23-ago). Antes hacía el update
+//    "a ciegas": si afectaba 0 filas —porque la cascada ya le pasó el trabajo a
+//    otro, o el cliente lo canceló— la promesa se resolvía como ÉXITO y la app le
+//    juraba al profesional que el trabajo era suyo (y le mandaba push falso al
+//    cliente). Ahora, 0 filas = error. El parámetro `match` (opcional) suma
+//    condiciones al UPDATE: p.ej. accept exige que el estado siga en 'pending',
+//    con lo que no puede pisar un cancelado ni un pedido ya aceptado por otro.
+async function update(jobId, fields, match) {
+  let q = supabase.from('jobs').update(fields).eq('id', jobId);
+  if (match) q = q.match(match);
+  const { data, error } = await q.select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    const e = new Error('El pedido ya no está disponible');
+    e.code = 'NO_ROWS';
+    throw e;
+  }
+  return data[0];
 }
 
 export default jobService;
