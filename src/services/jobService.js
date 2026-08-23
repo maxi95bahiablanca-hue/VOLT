@@ -74,6 +74,7 @@ const jobService = {
       .in('status', ['pending','accepted','arrived','in_progress','awaiting_payment'])
       .is('quote_group_id', null)
       .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (error) throw error;
     return data;
@@ -111,6 +112,7 @@ const jobService = {
       // puede minimizar y seguir usando la app sin que el polling lo re-atrape.
       .is('quote_group_id', null)
       .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (error) throw error;
     return data;

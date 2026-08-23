@@ -8,7 +8,7 @@ const favoriteService = {
         created_at,
         professionals(
           id, user_id, first_name, last_name, avg_rating, completed_jobs,
-          avatar_url, min_price, available, on_time_completions, effective_rating,
+          avatar_url, min_price, available, on_time_completions,
           avg_arrival_minutes, complaints_count, recommend_pct
         )
       `)

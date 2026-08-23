@@ -748,7 +748,10 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
       try {
         const id = await Notifications.scheduleNotificationAsync({
           content: { title, body, sound: true },
-          trigger: { seconds: 90 },
+          // 🔴 type obligatorio en expo-notifications 0.32 / SDK 54 (auditoría
+          //    23-ago): sin él, parseTrigger tira TypeError y el recordatorio al
+          //    cliente que minimiza NUNCA se programaba (el catch lo tragaba).
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 90 },
         });
         scheduledNotifRef.current = id;
       } catch {}

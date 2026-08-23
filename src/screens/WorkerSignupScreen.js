@@ -299,7 +299,7 @@ const WorkerSignupScreen = ({ session, userId, onBack }) => {
 
         <Text style={styles.terms}>
           Al registrarte aceptás los{' '}
-          <Text style={styles.termsLink} onPress={() => Linking.openURL('https://maxi95bahiablanca-hue.github.io/BOLT/privacy.html')}>
+          <Text style={styles.termsLink} onPress={() => Linking.openURL('https://bolt.com.ar/privacy.html')}>
             Términos y la Política de privacidad
           </Text>
           {' '}de BOLT.

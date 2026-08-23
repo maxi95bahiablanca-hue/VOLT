@@ -644,7 +644,7 @@ const MACHETE = {
     },
   ],
 
-  "Técnico en electrodomésticos": [
+  "Heladeras y lavarropas": [
     {
       problema: "Lavarropas que no centrifuga",
       causa: "Escobillas gastadas, tapa mal cerrada, correa rota o plaqueta de control",
@@ -817,7 +817,7 @@ const MACHETE = {
     },
   ],
 
-  "Limpieza del hogar": [
+  "Limpieza": [
     {
       problema: "Manchas difíciles en porcelanato o cerámico",
       causa: "Cal, grasa, óxido o pinturas",
@@ -1151,7 +1151,7 @@ const MACHETE = {
     },
   ],
 
-  "Mudanzas": [
+  "Encomiendas / Fletes": [
     {
       problema: "Cómo embalar electrodomésticos frágiles",
       causa: "—",

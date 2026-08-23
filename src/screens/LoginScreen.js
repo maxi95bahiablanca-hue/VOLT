@@ -285,7 +285,7 @@ const LoginScreen = () => {
               Al continuar aceptás los Términos de servicio{'\n'}y la{' '}
               <Text
                 style={styles.termsLink}
-                onPress={() => WebBrowser.openBrowserAsync('https://maxi95bahiablanca-hue.github.io/BOLT/privacy.html')}
+                onPress={() => WebBrowser.openBrowserAsync('https://bolt.com.ar/privacy.html')}
               >
                 Política de privacidad
               </Text>

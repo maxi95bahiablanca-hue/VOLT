@@ -15,7 +15,10 @@ TaskManager.defineTask(BACKGROUND_TASK, async ({ data, error }) => {
     if (!user) return;
     await supabase
       .from('professionals')
-      .update({ location: `SRID=4326;POINT(${longitude} ${latitude})` })
+      // location_at (auditoría 23-ago): sin él, el mapa del cliente considera la
+      // ubicación "vieja" y se apaga a los ~10 min aunque el profesional siga en
+      // movimiento en segundo plano.
+      .update({ location: `SRID=4326;POINT(${longitude} ${latitude})`, location_at: new Date().toISOString() })
       .eq('user_id', user.id);
   } catch { /* silent */ }
 });

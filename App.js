@@ -699,6 +699,7 @@ export default function App() {
     if (screen === 'workerIncoming' && incomingJob) {
       return (
         <WorkerIncomingScreen
+          key={incomingJob.id}
           job={incomingJob}
           professional={effProfessional}
           clientUserId={incomingJob.client_id}
@@ -715,6 +716,7 @@ export default function App() {
         effProfessional && activeJob.professional_id === effProfessional.id) {
       return (
         <WorkerIncomingScreen
+          key={activeJob.id}
           job={activeJob}
           professional={effProfessional}
           clientUserId={activeJob.client_id}
