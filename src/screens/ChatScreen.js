@@ -78,7 +78,8 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
     }).catch(() => { if (mounted) setLoading(false); });
 
     channelRef.current = chat.subscribeToMessages(job.id, (newMsg) => {
-      setMessages(prev => [...prev, newMsg]);
+      // Dedup por id: el mensaje propio ya pudo agregarlo send() (auditoría 23-ago).
+      setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
     });
     chat.markAsRead(job.id, userId).catch(() => {});
 
@@ -106,7 +107,12 @@ const ChatScreen = ({ job, userId, isWorker, onClose }) => {
     setSending(true);
     setText('');
     try {
-      await chat.sendMessage(job.id, userId, txt);
+      // 🔴 Agregar el mensaje al estado con el insert confirmado (auditoría
+      //    23-ago): antes confiaba SÓLO en el eco del realtime, así que si el
+      //    canal no estaba vivo tu propio mensaje no aparecía. Dedup por id para
+      //    no duplicarlo cuando el eco sí llega.
+      const nuevo = await chat.sendMessage(job.id, userId, txt);
+      if (nuevo?.id) setMessages(prev => prev.some(m => m.id === nuevo.id) ? prev : [...prev, nuevo]);
       // Notificar a la otra parte (con sonido) — para que se entere aunque tenga la app cerrada
       if (!isDemoMode()) {
         const otherId = isWorker ? job.client_id : job.professionals?.user_id;

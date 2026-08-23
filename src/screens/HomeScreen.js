@@ -8,6 +8,7 @@ import VoltMap from '../components/VoltMap';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import locationService from '../services/locationService';
+import notificationService from '../services/notificationService';
 import { tocaOfrecerPantallaCompleta, abrirAjustesPantallaCompleta } from '../services/incomingCall';
 import * as Location from 'expo-location';
 import favoriteService from '../services/favoriteService';
@@ -1074,6 +1075,22 @@ const HomeScreen = ({
           ]
         );
       }).catch(() => {});
+
+      // 🔴 Avisar si el radar prende con las notificaciones APAGADAS (auditoría
+      //    23-ago): antes prendía en silencio y los pedidos pasaban sin sonar —
+      //    "Estás disponible" con el teléfono mudo. Los textos ya existen en el
+      //    servicio.
+      if (!notificationService.puedeRecibirAvisos()) {
+        const est = notificationService.getEstadoPush();
+        Alert.alert(
+          'Ojo: los avisos están apagados',
+          est?.mensaje || 'No vamos a poder avisarte cuando entre un trabajo.',
+          [
+            { text: 'Seguir igual', style: 'cancel' },
+            { text: 'Abrir ajustes', onPress: () => Linking.openSettings() },
+          ]
+        );
+      }
     }
     try {
       if (next) {

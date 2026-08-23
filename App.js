@@ -454,21 +454,26 @@ export default function App() {
           setScreen('workerIncoming');
           return;
         }
-      } else {
-        const quoteData = await jobService.getActiveQuoteForClient(userId);
-        if (quoteData) {
-          setQuoteGroupId(quoteData.quoteGroupId);
-          setQuoteJobs(quoteData.jobs);
-          setQuoteDeadline(deadlineDelGrupo(quoteData.jobs));
-          setScreen('quoteSelection');
-          return;
-        }
+      }
 
-        const active = await jobService.getActiveForClient(userId);
-        if (active) {
-          setActiveJob(active);
-          setScreen('jobTracking');
-        }
+      // 🔴 También un PROFESIONAL puede haber pedido un servicio como cliente
+      //    (auditoría 23-ago): esto vivía en el `else` de if(prof), así que un
+      //    profesional sin trabajo activo como trabajador nunca veía su propio
+      //    pedido al reabrir la app. Ahora la restauración de cliente corre
+      //    siempre que la rama del trabajador no haya encontrado nada.
+      const quoteData = await jobService.getActiveQuoteForClient(userId);
+      if (quoteData) {
+        setQuoteGroupId(quoteData.quoteGroupId);
+        setQuoteJobs(quoteData.jobs);
+        setQuoteDeadline(deadlineDelGrupo(quoteData.jobs));
+        setScreen('quoteSelection');
+        return;
+      }
+
+      const activeCliente = await jobService.getActiveForClient(userId);
+      if (activeCliente) {
+        setActiveJob(activeCliente);
+        setScreen('jobTracking');
       }
     } catch { /* silent */ }
   };
