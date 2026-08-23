@@ -1210,20 +1210,29 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     }
   };
 
-  const handleReportIssue = (issueText) => {
+  const handleReportIssue = async (issueText) => {
     setProblemModal(false);
-    // Registrar el reporte y avisar al equipo al instante (mail a soporte@bolt.com.ar).
-    // Best-effort: aunque falle el envío, queda guardado en la tabla problem_reports.
-    if (!isDemoMode()) {
-      supabase.functions.invoke('report-problem', {
-        body: { jobId: job.id, issue: issueText, role: isWorker ? 'worker' : 'client' },
-      }).catch(() => {});
-    }
-    Alert.alert(
+    const okMsg = () => Alert.alert(
       'Problema reportado',
       `Registramos tu reporte:\n"${issueText}"\n\nNuestro equipo te contactará pronto. Si estás en peligro, llamá al 911 ahora mismo.`,
       [{ text: 'OK' }]
     );
+    if (isDemoMode()) { okMsg(); return; }
+    // 🔴 Esperar la respuesta antes de afirmar "registramos" (auditoría 23-ago):
+    //    antes se mostraba el cartel de éxito pase lo que pase, aunque el reporte
+    //    no hubiera entrado.
+    const { error } = await supabase.functions.invoke('report-problem', {
+      body: { jobId: job.id, issue: issueText, role: isWorker ? 'worker' : 'client' },
+    }).catch((e) => ({ error: e }));
+    if (error) {
+      Alert.alert(
+        'No pudimos registrar el reporte',
+        'Probá de nuevo en un momento. Si es urgente, escribinos a soporte@bolt.com.ar. Si estás en peligro, llamá al 911 ahora mismo.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    okMsg();
   };
 
   // 🔴 'accepted' NO quiere decir "va en camino": el 90% de las veces se acepta
