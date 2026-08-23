@@ -300,11 +300,15 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
       };
 
       const aSubir = [...fotosAsistente, ...(problemPhoto?.uri ? [problemPhoto] : [])];
-      const problemPhotos = (await Promise.all(aSubir.map(subirFoto))).filter(Boolean);
+      // 🔴 Una foto nunca puede frenar un pedido (auditoría 23-ago): cada subida
+      //    con tope de 20 s; si vence, ese pedido sale sin esa foto en vez de
+      //    dejar "Buscando profesionales…" clavado para siempre.
+      const problemPhotos = (await Promise.all(aSubir.map(f => conTiempo(subirFoto(f), 20000, null)))).filter(Boolean);
       const problemPhotoUrl = problemPhotos[0] ?? null;
 
-      // Crear grupo de cotización (un job por trabajador)
-      const { quoteGroupId, jobs } = await jobService.createQuoteGroup({
+      // Crear grupo de cotización (un job por trabajador), con tope: en Android el
+      // fetch de supabase-js no corta solo, así que sin esto el overlay se colgaba.
+      const resultado = await conTiempo(jobService.createQuoteGroup({
         clientId,
         workers,
         professionId:    profession.id,
@@ -314,7 +318,9 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
         notes:           notes.trim(),
         problemPhotoUrl,
         problemPhotos,
-      });
+      }), 25000, null);
+      if (!resultado) throw new Error('La búsqueda tardó demasiado. Fijate tu conexión y probá de nuevo.');
+      const { quoteGroupId, jobs } = resultado;
 
       // Navegar ANTES de las notificaciones — las notifs no deben bloquear el flujo
       onQuoteGroupCreated(quoteGroupId, jobs);
