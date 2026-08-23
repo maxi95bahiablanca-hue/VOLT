@@ -886,7 +886,8 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
         }
       } else if (action === 'finish') {
         // MODO GRATIS: finalizar el trabajo directo, el pago lo coordinan ellos.
-        await jobService.complete(job.id);
+        const rf = await conTiempo(jobService.complete(job.id), 10000, null);
+        if (!rf) throw new Error('La conexión no respondió a tiempo. Fijate tu señal y probá de nuevo.');
         jobService.addEvent(job.id, 'work_done', `El profesional finalizó el trabajo.`).catch(() => {});
         notifTitle = '✅ Trabajo finalizado';
         notifBody  = `${workerFirstName} terminó el trabajo. Coordiná el pago directamente con él. ¡No te olvides de calificarlo! ⭐`;
@@ -908,7 +909,11 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
     setLoading(true);
     try {
       if (!isDemoMode()) {
-        await jobService.complete(job.id);
+        // 🔴 Con tope de tiempo (auditoría 23-ago): en Android un fetch colgado
+        //    dejaba "Finalizar" cargando para siempre en la pantalla que cierra
+        //    el trabajo. conTiempo devuelve null al vencer.
+        const r = await conTiempo(jobService.complete(job.id), 10000, null);
+        if (!r) throw new Error('La conexión no respondió a tiempo. Fijate tu señal y probá de nuevo.');
         jobService.addEvent(job.id, 'work_done', 'Trabajo finalizado ✅').catch(() => {});
         const otherUserId = isWorker ? clientId : job.professionals?.user_id;
         if (otherUserId) {
