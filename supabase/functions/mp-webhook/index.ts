@@ -90,7 +90,7 @@ serve(async (req) => {
         }
 
         // La visita la retiene BOLT completa (no hay parte del trabajador acá)
-        await supabase.from('payments').upsert({
+        const { error: payErr } = await supabase.from('payments').upsert({
           job_id:         jobId,
           type:           'visit',
           status:         'approved',
@@ -103,13 +103,28 @@ serve(async (req) => {
           paid_at:        new Date().toISOString(),
         }, { onConflict: 'mp_payment_id', ignoreDuplicates: true });
 
+        // 22-ago-2026: el upsert se hacía sin mirar {error}. Si falla, la visita
+        // quedó cobrada (visit_paid=true) pero SIN fila en payments: plata sin
+        // registro. Queda en los logs para rastrearlo a mano (no se puede
+        // reintentar sin arriesgar el doble cobro: visit_paid ya está en true).
+        if (payErr) {
+          console.error('mp-webhook: pago de VISITA aprobado sin registrar en payments', { jobId, paymentId, error: payErr.message });
+        }
+
         return new Response('ok');
       }
 
       // ── PAGO FINAL (mano de obra + materiales + visita si no se pagó antes) ──
       // ── 3. Idempotencia — si ya fue procesado, ignorar ──────────────────────
       if (job.status === 'completed') return new Response('ok');
-      if (job.status !== 'awaiting_payment') return new Response('ok');
+      if (job.status !== 'awaiting_payment') {
+        // 22-ago-2026: un pago APROBADO cuyo job no está esperando pago (ni ya
+        // completado): entró plata para un trabajo en estado raro (cancelado,
+        // in_progress). Antes se contestaba 'ok' y desaparecía. Queda en los
+        // logs con el estado real para rastrearlo y devolver/aplicar a mano.
+        console.error('mp-webhook: pago aprobado con job fuera de awaiting_payment', { jobId, paymentId, jobStatus: job.status });
+        return new Response('ok');
+      }
 
       // ── 4. Marcar completado con condición de estado (evita race conditions) ─
       const { error: updateErr } = await supabase
@@ -139,7 +154,7 @@ serve(async (req) => {
       const voltTotal = visitInCharge + commAmt;
       const workerAmt = workAmt - commAmt + matsAmt;
 
-      await supabase.from('payments').upsert({
+      const { error: workPayErr } = await supabase.from('payments').upsert({
         job_id:         jobId,
         type:           'work',
         status:         'approved',
@@ -151,6 +166,12 @@ serve(async (req) => {
         mp_status:      status,
         paid_at:        new Date().toISOString(),
       }, { onConflict: 'mp_payment_id', ignoreDuplicates: true });
+
+      // 22-ago-2026: antes se ignoraba el {error}. Si falla, el job ya quedó
+      // 'completed' pero el pago no quedó registrado: queda en los logs.
+      if (workPayErr) {
+        console.error('mp-webhook: pago FINAL aprobado sin registrar en payments', { jobId, paymentId, error: workPayErr.message });
+      }
 
     }
     // rejected/cancelled: el job queda como está (awaiting_payment) y el cliente reintenta

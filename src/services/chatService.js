@@ -196,7 +196,11 @@ const chatService = {
       .from('messages')
       .select('id', { count: 'exact', head: true })
       .eq('job_id', jobId)
-      .neq('sender_id', myUserId)
+      // 🔴 auditoría: `.neq('sender_id', ...)` deja AFUERA los mensajes del
+      //    sistema (sender_id null) — en SQL `null <> 'x'` da null, no true. El
+      //    badge de no leídos daba 0 aunque hubiera un aviso de sistema
+      //    ("te eligieron, coordiná por acá"). Mismo filtro que markAsRead.
+      .or(`sender_id.is.null,sender_id.neq.${myUserId}`)
       .eq('read_by_other', false);
     if (error) return 0;
     return count ?? 0;

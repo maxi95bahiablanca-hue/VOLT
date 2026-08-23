@@ -180,6 +180,7 @@ serve(async (req) => {
         subject: 'Tu registro en BOLT fue aceptado',
         html,
       }),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!r.ok) {

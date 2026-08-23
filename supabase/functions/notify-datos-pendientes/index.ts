@@ -299,6 +299,7 @@ serve(async (req) => {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: FROM, to: [lead.email], subject, html }),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!r.ok) {

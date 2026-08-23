@@ -17,6 +17,7 @@ const AdminScreen = ({ session, onClose }) => {
   const [tab, setTab]           = useState('summary');
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
+  const [loadError, setLoadError] = useState(false); // distinguir "vacío real" de "no cargó"
 
   const [pending, setPending]   = useState([]);
   const [workers, setWorkers]   = useState([]);
@@ -49,6 +50,7 @@ const AdminScreen = ({ session, onClose }) => {
 
   const loadAll = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       if (tab === 'summary') {
         const [
@@ -119,7 +121,7 @@ const AdminScreen = ({ session, onClose }) => {
           byWorker:   Object.values(byWorkerMap).sort((a,b) => b.commission - a.commission),
         });
       }
-    } catch { /* silent */ }
+    } catch { setLoadError(true); }
     finally { setLoading(false); setRefresh(false); }
   };
 
@@ -311,6 +313,14 @@ const AdminScreen = ({ session, onClose }) => {
       >
         {loading ? (
           <ActivityIndicator color="#FFD600" style={{ marginTop: 48 }} />
+        ) : loadError ? (
+          <View style={styles.emptyWrap}>
+            <Ionicons name="cloud-offline" size={48} color="#8A8A8A" />
+            <Text style={styles.emptyText}>No se pudo cargar</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => { setRefresh(true); loadAll(); }}>
+              <Text style={styles.retryBtnText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
 
           /* ─── RESUMEN ─── */
@@ -320,7 +330,7 @@ const AdminScreen = ({ session, onClose }) => {
                 <View style={styles.kpiGrid}>
                   <View style={styles.kpiCard}>
                     <Text style={styles.kpiVal}>{summary.totalWorkers ?? 0}</Text>
-                    <Text style={styles.kpiLabel}>Trabajadores activos</Text>
+                    <Text style={styles.kpiLabel}>Trabajadores aprobados</Text>
                   </View>
                   <View style={styles.kpiCard}>
                     <Text style={[styles.kpiVal, { color: '#FFD600' }]}>{summary.activeWorkers ?? 0}</Text>
@@ -585,6 +595,8 @@ const styles = StyleSheet.create({
 
   emptyWrap: { alignItems: 'center', paddingVertical: 64, gap: 12 },
   emptyText: { color: '#444', fontSize: 16 },
+  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#FFD60050' },
+  retryBtnText: { color: '#FFD600', fontSize: 15, fontWeight: '600' },
 
   workerCard: {
     backgroundColor: '#161616', borderRadius: 20,

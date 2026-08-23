@@ -117,9 +117,10 @@ serve(async (req) => {
                 <h2 style="margin:0 0 4px;color:#111;">⚡ Registro completo</h2>
                 <p style="margin:0 0 18px;color:#555;font-size:14px;">Este prestador terminó de cargar todos sus datos y documentos. Entrá al panel para revisarlo y aprobarlo.</p>
                 <table cellpadding="0" cellspacing="0" border="0">${filas}</table>
-                <p style="margin:22px 0 0;"><a href="https://maxi95bahiablanca-hue.github.io/VOLT/web/prestadores/admin.html" style="background:#FFD600;color:#111;font-weight:bold;text-decoration:none;padding:12px 22px;border-radius:10px;display:inline-block;">Abrir panel de prestadores</a></p>
+                <p style="margin:22px 0 0;"><a href="${Deno.env.get('ADMIN_PANEL_URL') ?? 'https://bolt.com.ar/prestadores/admin.html'}" style="background:#FFD600;color:#111;font-weight:bold;text-decoration:none;padding:12px 22px;border-radius:10px;display:inline-block;">Abrir panel de prestadores</a></p>
               </div>`,
             }),
+            signal: AbortSignal.timeout(10000),
           }).catch(() => {});
         }
       }

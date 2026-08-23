@@ -31,14 +31,23 @@ export async function ensureIncomingChannel() {
   });
 }
 
+// 🔴 auditoría: el id era fijo ('incoming-job'), así que un SEGUNDO pedido
+//    entrante pisaba la notificación del primero en la pantalla y cancelIncomingJob
+//    los mataba a los dos. Ahora cada pedido usa `incoming-${jobId}` y llevamos
+//    registro de los que están en pantalla para poder cancelar uno o todos.
+const _mostrados = new Set();
+const idDe = (jobId) => `incoming-${jobId || 'job'}`;
+
 // Muestra la notificación full-screen para un pedido entrante.
 // `job` puede ser el objeto del trabajo o solo { jobId } (desde el push).
 export async function displayIncomingJob(job = {}) {
   await ensureIncomingChannel();
   const jobId = String(job.id || job.jobId || '');
+  const notifId = idDe(jobId);
+  _mostrados.add(notifId);
   const oficio = job?.professions?.name;
   await notifee.displayNotification({
-    id: 'incoming-job',
+    id: notifId,
     title: '⚡ ¡LLEGÓ UN PEDIDO!',
     body: oficio
       ? `Nuevo trabajo de ${oficio}. Tocá para responder.`
@@ -61,8 +70,20 @@ export async function displayIncomingJob(job = {}) {
   });
 }
 
-export async function cancelIncomingJob() {
-  try { await notifee.cancelNotification('incoming-job'); } catch {}
+// Sin argumento cancela TODAS las notificaciones de pedido en pantalla (lo que
+// esperan los llamadores actuales de App.js); con un jobId cancela sólo esa.
+export async function cancelIncomingJob(jobId) {
+  if (jobId != null) {
+    const notifId = idDe(String(jobId));
+    _mostrados.delete(notifId);
+    try { await notifee.cancelNotification(notifId); } catch {}
+    return;
+  }
+  const ids = [..._mostrados, 'incoming-job'];   // 'incoming-job' por compatibilidad con notifs viejas
+  _mostrados.clear();
+  for (const id of ids) {
+    try { await notifee.cancelNotification(id); } catch {}
+  }
 }
 
 // Pide el permiso de "pantalla completa" (Android 14+ lo restringe). Si no está

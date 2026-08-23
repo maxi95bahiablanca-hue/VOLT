@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from '../supabase';
 
 // ─── Estado de activación ────────────────────────────────────────────────────
@@ -216,7 +217,7 @@ const notificationService = {
       // OTA puede llegar antes que la migración sin dejar a nadie sin push.
       await supabase.from('push_tokens').delete().eq('token', token).neq('user_id', userId);
       const { error: errGuardar } = await supabase.from('push_tokens').upsert(
-        { user_id: userId, token, platform: 'android', updated_at: new Date().toISOString() },
+        { user_id: userId, token, platform: Platform.OS, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }
       );
       if (errGuardar) {

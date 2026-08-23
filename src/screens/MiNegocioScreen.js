@@ -13,6 +13,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase';
 import { showSuccess, showError, showInfo } from '../utils/toast';
+import { conTiempo } from '../utils/conTiempo';
 import { abrirAyuda, abrirAyudaUbicacion } from '../utils/ayuda';
 import volt from '../utils/voltVoice';
 import { commissionForBilled, nextCommissionStep, levelLabel } from '../utils/commission';
@@ -308,6 +309,9 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
   // ─── Disponibilidad ───────────────────────────────────────────────────────
   const handleSetAvailable = async () => {
     setSavingAvail(true);
+    // Centinela para distinguir "no volvió a tiempo" de un resultado real: sin
+    // esto el botón podía quedar girando para siempre si la red no contesta.
+    const VENCIO = Symbol('vencio');
     try {
       // 🔴 Se lee de vuelta el valor que QUEDÓ, no el que mandamos.
       //
@@ -317,11 +321,16 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
       //    —el que lo carga es el radar del home—, así que es justo el camino
       //    por el que alguien podía quedar convencido de que estaba trabajando
       //    y no aparecer en ninguna búsqueda.
-      const { data, error } = await supabase.from('professionals')
-        .update({ available: true, available_at: null })
-        .eq('id', professional.id)
-        .select('available')
-        .single();
+      const res = await conTiempo(
+        supabase.from('professionals')
+          .update({ available: true, available_at: null })
+          .eq('id', professional.id)
+          .select('available')
+          .single(),
+        15000, VENCIO
+      );
+      if (res === VENCIO) throw new Error('vencio');
+      const { data, error } = res;
       if (error) throw error;
 
       const quedo = data?.available === true;
@@ -336,21 +345,32 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
       }
     } catch {
       showError('No se pudo cambiar. Probá de nuevo en un momento.');
+    } finally {
+      setSavingAvail(false);
     }
-    setSavingAvail(false);
   };
 
   const handleSetUnavailable = async (hours) => {
     setAvailModal(false);
     setSavingAvail(true);
+    const VENCIO = Symbol('vencio');
     try {
       const availAt = hours > 0 ? new Date(Date.now() + hours * 3600000).toISOString() : null;
-      const { error } = await supabase.from('professionals')
-        .update({ available: false, available_at: availAt })
-        .eq('id', professional.id);
-      if (!error) { setAvailable(false); setAvailableAt(availAt); onAvailabilityChange?.(false); }
-    } catch {}
-    setSavingAvail(false);
+      const res = await conTiempo(
+        supabase.from('professionals')
+          .update({ available: false, available_at: availAt })
+          .eq('id', professional.id),
+        15000, VENCIO
+      );
+      if (res === VENCIO) throw new Error('vencio');
+      const { error } = res;
+      if (error) throw error;
+      setAvailable(false); setAvailableAt(availAt); onAvailabilityChange?.(false);
+    } catch {
+      showError('No se pudo pausar. Probá de nuevo.');
+    } finally {
+      setSavingAvail(false);
+    }
   };
 
   // ─── Foto de perfil ───────────────────────────────────────────────────────
@@ -442,11 +462,15 @@ const MiNegocioScreen = ({ professional, session, onClose, abrirNuevo = false, o
     numero: p.numero, empresa, descripcion: p.descripcion, total: p.total, token: p.token,
   });
 
-  const enviarWhatsApp = async (p) => {
-    try { await presupuestoService.marcarEnviado(p.id); } catch { /* que el envío no dependa de esto */ }
+  const enviarWhatsApp = (p) => {
+    // Marcar "enviado" recién cuando el intent de WhatsApp abrió de verdad: si
+    // openURL falla no tocamos el estado, así el borrador sigue siendo borrador.
     Linking.openURL(linkWhatsAppPresupuesto(p.cliente_tel, textoDe(p)))
+      .then(() => {
+        presupuestoService.marcarEnviado(p.id).catch(() => { /* que el envío no dependa de esto */ });
+        setPresu(prev => prev.map(x => (x.id === p.id && x.estado === 'borrador' ? { ...x, estado: 'enviado' } : x)));
+      })
       .catch(() => showError('No pudimos abrir WhatsApp. Copiá el link y mandalo a mano.'));
-    setPresu(prev => prev.map(x => (x.id === p.id && x.estado === 'borrador' ? { ...x, estado: 'enviado' } : x)));
   };
 
   const copiarLink = (p) => {

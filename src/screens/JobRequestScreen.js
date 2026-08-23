@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 // expo-file-system 19 (SDK 54): readAsStringAsync y EncodingType se mudaron a
 // /legacy. Importados de la raiz TIRAN ERROR en runtime, no avisan en el build.
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Location from 'expo-location';
 import { supabase } from '../supabase';
 import jobService from '../services/jobService';
 import notificationService from '../services/notificationService';
@@ -98,7 +99,7 @@ const SearchingOverlay = ({ foundCount }) => {
         <View style={searchStyles.countBadge}>
           <Text style={searchStyles.countNum}>{foundCount}</Text>
           <Text style={searchStyles.countLbl}>
-            {foundCount === 1 ? 'profesional notificado' : 'profesionales notificados'}
+            {foundCount === 1 ? 'profesional encontrado' : 'profesionales encontrados'}
           </Text>
         </View>
       )}
@@ -107,7 +108,7 @@ const SearchingOverlay = ({ foundCount }) => {
       {step === 4 && (
         <View style={searchStyles.waitingRow}>
           <ActivityIndicator color="#FFD600" size="small" />
-          <Text style={searchStyles.waitingText}>Red activada · esperando respuesta</Text>
+          <Text style={searchStyles.waitingText}>Avisándoles · esperando respuesta</Text>
         </View>
       )}
 
@@ -196,11 +197,28 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
     }
     guardarTelefono();
 
-    // Bloquear si no hay ubicación — los campos client_lat/lng son NOT NULL en la DB
-    if (!userLocation?.latitude || !userLocation?.longitude) {
+    // La solicitud necesita un punto (client_lat/lng son NOT NULL). Preferimos el
+    // GPS; si no hay pero el cliente escribió la dirección a mano, la
+    // geocodificamos (mismo recurso que Mis Direcciones) antes de bloquear. Antes
+    // el pedido no salía aunque la dirección estuviera escrita (auditoría 23-ago).
+    let coords = (userLocation?.latitude && userLocation?.longitude)
+      ? { latitude: userLocation.latitude, longitude: userLocation.longitude }
+      : null;
+    if (!coords && address.trim().length >= 5) {
+      try {
+        const geo = await conTiempo(
+          Location.geocodeAsync(`${address.trim()}, Bahía Blanca`),
+          8000, null
+        );
+        if (geo && geo[0]?.latitude) {
+          coords = { latitude: geo[0].latitude, longitude: geo[0].longitude };
+        }
+      } catch { /* si el geocodificado falla, se avisa abajo */ }
+    }
+    if (!coords) {
       Alert.alert(
         'Ubicación no disponible',
-        'Necesitamos tu ubicación para enviar la solicitud. Activá el GPS y volvé a intentar.'
+        'Escribí la dirección del servicio (tocá "Cambiar") o activá el GPS y volvé a intentar.'
       );
       return;
     }
@@ -227,8 +245,8 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
       const nearby = await conTiempo(
         professionalService.getNearbyWorkers(
           profession.id,
-          userLocation.latitude,
-          userLocation.longitude,
+          coords.latitude,
+          coords.longitude,
           8
         ).catch(() => []),
         15000, []
@@ -257,8 +275,8 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
           motivo:       'sin_profesionales',
           notas:        datos.notas,
           address:      datos.address,
-          lat:          userLocation?.latitude,
-          lng:          userLocation?.longitude,
+          lat:          coords.latitude,
+          lng:          coords.longitude,
           fotos:        [],
         });
         setLoading(false);
@@ -312,8 +330,8 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
         clientId,
         workers,
         professionId:    profession.id,
-        clientLat:       userLocation?.latitude,
-        clientLng:       userLocation?.longitude,
+        clientLat:       coords.latitude,
+        clientLng:       coords.longitude,
         address:         address.trim() || 'Ubicación GPS',
         notes:           notes.trim(),
         problemPhotoUrl,
@@ -325,18 +343,26 @@ const JobRequestScreen = ({ worker, profession, clientId, userLocation, initialN
       // Navegar ANTES de las notificaciones — las notifs no deben bloquear el flujo
       onQuoteGroupCreated(quoteGroupId, jobs);
 
-      // Notificar (best-effort, fallo silencioso)
+      // Notificar (best-effort, fallo silencioso). Corre detached, después de
+      // navegar, así que un reintento no frena nada. sendToUser devuelve
+      // { sent:false } cuando el push no salió (sin token, Expo caído): un solo
+      // reintento cubre el corte momentáneo en vez de dar por avisado a nadie
+      // (auditoría 23-ago).
       Promise.all(
-        jobs.map(job => {
+        jobs.map(async job => {
           const w = workers.find(w => w.id === job.professional_id);
-          if (!w?.user_id) return Promise.resolve();
-          return notificationService.sendToUser(w.user_id, {
+          if (!w?.user_id) return;
+          const payload = {
             title: '⚡ Nueva solicitud de trabajo',
             body:  chargesInApp()
               ? `${profession?.name || 'Servicio'} — $${(w.min_price ?? 30000).toLocaleString('es-AR')} visita. Tenés 3 minutos para responder.`
               : `${profession?.name || 'Servicio'} cerca tuyo. Tenés 3 minutos para responder.`,
             data:  { jobId: job.id, screen: 'worker_incoming' },
-          });
+          };
+          const r = await notificationService.sendToUser(w.user_id, payload).catch(() => ({ sent: false }));
+          if (r && r.sent === false) {
+            await notificationService.sendToUser(w.user_id, payload).catch(() => {});
+          }
         })
       ).catch(() => { /* notificaciones no críticas */ });
 

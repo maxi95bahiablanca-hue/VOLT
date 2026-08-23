@@ -85,6 +85,7 @@ serve(async (req) => {
             priority:  'high',
             data:      { screen: 'home' },
           }),
+          signal: AbortSignal.timeout(6000),
         });
 
         // Expo contesta 200 igual cuando el envío falló: el veredicto está en
@@ -178,6 +179,7 @@ serve(async (req) => {
               : '❌ Tu solicitud en BOLT fue rechazada',
             html: emailHtml,
           }),
+          signal: AbortSignal.timeout(10000),
         });
 
         // 🔴 11-ago-2026 — el mail se disparaba sin mirar la respuesta. Resend

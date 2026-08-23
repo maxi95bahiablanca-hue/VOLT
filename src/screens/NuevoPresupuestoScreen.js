@@ -126,7 +126,9 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
   // Si carga ítems, el total se calcula solo. Pero se puede pisar a mano y
   // desde ese momento manda lo que escribió el profesional: él sabe qué cobra.
   const sumaItems = useMemo(
-    () => items.reduce((acc, i) => acc + (Number(i.cantidad) || 0) * (Number(soloDigitos(i.precio)) || 0), 0),
+    // cantidad en blanco cuenta como 1: es lo mismo que guarda agregarItems
+    // (Number(i.cantidad) || 1), así el total mostrado no difiere del guardado.
+    () => items.reduce((acc, i) => acc + (Number(i.cantidad) || 1) * (Number(soloDigitos(i.precio)) || 0), 0),
     [items],
   );
 
@@ -135,7 +137,7 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
   const desglose = useMemo(() => {
     let material = 0, obra = 0;
     items.forEach((i) => {
-      const monto = (Number(i.cantidad) || 0) * (Number(soloDigitos(i.precio)) || 0);
+      const monto = (Number(i.cantidad) || 1) * (Number(soloDigitos(i.precio)) || 0);
       if (!monto) return;
       if (tipoDe(i) === 'obra') obra += monto;
       else                      material += monto;
@@ -181,21 +183,29 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
         profesionId,
       });
 
+      // 🔴 El presupuesto YA quedó creado acá arriba. Si el detalle de ítems
+      //    falla, NO decir "no se pudo crear" (auditoría 18-ago): eso hacía que
+      //    al reintentar quedaran DOS. Se avisa que falta el detalle y no se
+      //    manda solo — que lo revise antes.
       const conItems = items.filter(i => (i.descripcion || '').trim());
+      let itemsFallaron = false;
       if (conItems.length) {
-        await presupuestoService.agregarItems(
-          row.id,
-          conItems.map(i => ({
-            descripcion:     i.descripcion,
-            cantidad:        Number(i.cantidad) || 1,
-            precio_unitario: Number(soloDigitos(i.precio)) || 0,
-            tipo:            tipoDe(i),
-          })),
-        );
+        try {
+          await presupuestoService.agregarItems(
+            row.id,
+            conItems.map(i => ({
+              descripcion:     i.descripcion,
+              cantidad:        Number(i.cantidad) || 1,
+              precio_unitario: Number(soloDigitos(i.precio)) || 0,
+              tipo:            tipoDe(i),
+            })),
+          );
+        } catch { itemsFallaron = true; }
       }
 
-      // enviarAhora: true = WhatsApp · 'compartir' = el compartir de Android
-      if (enviarAhora) {
+      // enviarAhora: true = WhatsApp · 'compartir' = el compartir de Android.
+      // Si el detalle no entró, no lo mandamos solo: primero que lo edite.
+      if (enviarAhora && !itemsFallaron) {
         try { await presupuestoService.marcarEnviado(row.id); row.estado = 'enviado'; } catch { /* el envío no puede tapar al presupuesto ya creado */ }
         if (enviarAhora === 'compartir') compartir(row);
         else                             abrirWhatsApp(row);
@@ -210,6 +220,9 @@ const NuevoPresupuestoScreen = ({ professional, onClose, onCreado }) => {
 
       setCreado(row);
       onCreado?.(row);
+      if (itemsFallaron) {
+        showError('El presupuesto se creó, pero el detalle de ítems no se guardó. Editalo antes de mandarlo.', 'Falta el detalle');
+      }
     } catch (e) {
       showError('No se pudo crear el presupuesto. Probá de nuevo en un momento.');
     } finally {

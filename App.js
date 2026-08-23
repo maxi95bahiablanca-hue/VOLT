@@ -296,6 +296,13 @@ export default function App() {
 
       if (data.jobId) { abrirTrabajo(data.jobId, data.screen); return; }
 
+      // 🔴 auditoría 18-ago — el push "te respondieron el presupuesto" trae
+      //    screen:'miNegocio' + presupuestoId, pero NO jobId, así que al tocarlo
+      //    no pasaba nada. Llevarlo a la pestaña Mi negocio.
+      if (data.presupuestoId || data.screen === 'miNegocio') {
+        setScreen('home'); setTab('negocio'); return;
+      }
+
       // Un rescate es un cliente que buscó y no encontró a nadie: no hay
       // trabajo que abrir todavía. Al menos se dice qué pasó, en vez de dejar
       // la app en el inicio como si el aviso no hubiera existido.
@@ -570,12 +577,21 @@ export default function App() {
   const handleQuoteBack = async () => {
     if (quoteGroupId && quoteJobs.length > 0) {
       const activos = quoteJobs.filter(j => ['pending', 'accepted'].includes(j.status));
+      const uid = session?.user?.id;
       // Con tope de tiempo: cancelar no puede dejar al cliente clavado si la
       // red no vuelve (era el único await de este camino sin vencimiento).
-      await conTiempo(
-        Promise.all(activos.map(j => jobService.cancel(j.id, session?.user?.id))),
-        15000
+      // 🔴 auditoría 18-ago — con centinela: si venció o falló, avisamos y
+      //    reintentamos en segundo plano en vez de dar la cancelación por hecha.
+      const FALLO = Symbol('fallo');
+      const r = await conTiempo(
+        Promise.all(activos.map(j => jobService.cancel(j.id, uid))),
+        15000,
+        FALLO
       );
+      if (r === FALLO) {
+        Alert.alert('No pudimos confirmar la cancelación', 'La reintentamos solos en un momento.');
+        activos.forEach(j => jobService.cancel(j.id, uid).catch(() => {}));
+      }
       // Los que ya habían respondido estaban esperando la elección: se les
       // avisa que no siga esperando. Sin await — son avisos.
       activos
@@ -591,9 +607,13 @@ export default function App() {
   };
 
   // ─── Callbacks de WorkerIncomingScreen ───────────────
-  const handleWorkerAccepted = (job) => { setIncomingJob(null); setActiveJob(job); setScreen('jobTracking'); };
+  // 🔴 auditoría 18-ago — al aceptar/rechazar desde ADENTRO de la app la alarma
+  //    estilo llamada seguía sonando hasta 3 min (sólo se cancelaba al rutear
+  //    desde la notificación). Cortarla acá también.
+  const handleWorkerAccepted = (job) => { cancelIncomingJob(); setIncomingJob(null); setActiveJob(job); setScreen('jobTracking'); };
 
   const handleWorkerRejected = () => {
+    cancelIncomingJob();
     disableDemo();
     setIncomingJob(null);
     setScreen('home');
@@ -648,6 +668,21 @@ export default function App() {
     const t = setInterval(traer, 20000);
     return () => clearInterval(t);
   }, [session?.user?.id, professional?.id, tab]);
+
+  // 🔴 auditoría 18-ago — al cerrar el chat desde la bandeja no se marcaba nada
+  //    como leído: el badge seguía contando mensajes ya vistos. Marcamos leído y
+  //    refrescamos el contador al cerrar.
+  const closeChatJob = () => {
+    const j = chatJob;
+    const uid = session?.user?.id;
+    if (j?.id && uid) {
+      chatService.markAsRead(j.id, uid)
+        .then(() => chatService.getConversaciones(uid, professional?.id))
+        .then(cs => setSinLeer(cs.reduce((a, c) => a + c.sinLeer, 0)))
+        .catch(() => {});
+    }
+    setChatJob(null);
+  };
 
   // ─── Render ───────────────────────────────────────────
   const renderScreen = () => {
@@ -835,7 +870,7 @@ export default function App() {
         <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
           {renderScreen()}
           {chatJob && (
-          <Modal visible animationType="slide" onRequestClose={() => setChatJob(null)}>
+          <Modal visible animationType="slide" onRequestClose={closeChatJob}>
             <ChatScreen
               job={chatJob}
               userId={session?.user?.id}
@@ -843,7 +878,7 @@ export default function App() {
                 !!chatJob.professional_id &&
                 session?.user?.id !== chatJob.client_id
               }
-              onClose={() => setChatJob(null)}
+              onClose={closeChatJob}
             />
           </Modal>
         )}

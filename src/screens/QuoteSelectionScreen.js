@@ -808,7 +808,11 @@ const QuoteSelectionScreen = ({ quoteGroupId, jobs: initialJobs, deadline, onSel
             setSelecting(false);
             return;
           }
-          await jobService.markVisitPaid(job.id);
+          // visit_paid lo marca SOLO el webhook de Mercado Pago (mp-webhook); un
+          // trigger de la migración 028 rechaza ese update desde la app. La antigua
+          // jobService.markVisitPaid ni siquiera existe en el servicio real (sólo en
+          // el demo), así que llamarla tiraba TypeError con el cobro ya hecho y los
+          // otros presupuestos ya cancelados. La selección ya quedó confirmada arriba.
         } catch {
           Alert.alert('Error con el pago', 'No se pudo procesar el pago de la visita. Intentá de nuevo.');
           setSelecting(false);

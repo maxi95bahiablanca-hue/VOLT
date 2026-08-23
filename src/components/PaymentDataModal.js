@@ -36,10 +36,18 @@ const PaymentDataModal = ({ visible, professional, onClose, onSaved, onLater, on
     setSaving(true);
     try {
       const fields = { cuit: cuit.trim(), cbu: cbu.trim() };
+      // 🔴 auditoría 18-ago — CUIT/CBU son datos sensibles y `professionals`
+      //    es de lectura pública (RLS professionals_read USING(true), mig. 070).
+      //    Van a la tabla protegida professional_payout (solo el dueño o el
+      //    admin), igual que professionalService.save.
       const { error } = await supabase
-        .from('professionals')
-        .update(fields)
-        .eq('id', professional.id);
+        .from('professional_payout')
+        .upsert({
+          professional_id: professional.id,
+          cuit: fields.cuit || null,
+          cbu:  fields.cbu  || null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'professional_id' });
       if (error) throw error;
       showSuccess('Ya podés cobrar tus trabajos.', '¡Listo!');
       onSaved?.(fields);

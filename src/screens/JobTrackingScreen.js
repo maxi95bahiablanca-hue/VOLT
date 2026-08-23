@@ -582,24 +582,34 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
   const handleAvailabilityAndComplete = async (hoursFromNow) => {
     if (completing !== null) return;
     setCompleting(hoursFromNow);
+    // El id del profesional puede venir por prop (el perfil tarda en cargar) o
+    // dentro del job: en un trabajo aceptado professional_id SIEMPRE está (ya se
+    // usa así para decidir el rol). Si se entra por la notificación antes de que
+    // cargue el perfil, `professional` es null y el radar quedaba sin programar
+    // SIN avisar. Con el fallback se programa igual; si no hay ninguno, se avisa.
+    const profId = professional?.id || job.professional_id;
     let dispoProgramada = true;
     try {
       // La calificación del cliente va primero pero NUNCA frena el cierre: si
       // falla (o si no puntuó), el trabajo se termina igual.
-      if (clientStars > 0 && professional?.id && job.client_id) {
+      if (clientStars > 0 && profId && job.client_id) {
         await conTiempo(jobService.rateClient({
           jobId:          job.id,
           clientId:       job.client_id,
-          professionalId: professional.id,
+          professionalId: profId,
           rating:         clientStars,
         }), 5000);
       }
-      if (professional?.id) {
+      if (profId) {
         // Centinela propio: conTiempo devuelve lo mismo si falla que si vence,
         // y acá sí importa distinguirlo para poder avisarle.
         const r = await conTiempo(
-          professionalService.setAvailableAt(professional.id, hoursFromNow), 5000, NO_VOLVIO);
+          professionalService.setAvailableAt(profId, hoursFromNow), 5000, NO_VOLVIO);
         dispoProgramada = r !== NO_VOLVIO;
+      } else {
+        // Sin id del profesional no se pudo programar el radar: hay que avisar,
+        // no callarse con el radar apagado (era el agujero del cierre con perfil null).
+        dispoProgramada = false;
       }
     } catch (e) {
       // `conTiempo` sólo atrapa la promesa: si algo revienta ANTES de que la
@@ -905,7 +915,23 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 
   // Finalizar el trabajo — disponible para AMBOS (cliente o trabajador), así si uno
   // no lo cierra, el otro puede. El pago/precio lo coordinan aparte.
-  const handleFinishJob = async () => {
+  //
+  // 🔴 Confirmación obligatoria (auditoría 23-ago): la fila "Ya terminé este
+  //    trabajo" está pegada a "Tengo un problema"; un roce mandaba "Trabajo
+  //    finalizado" al cliente por algo que ni empezó, y no hay vuelta atrás (el
+  //    trigger de la 025 prohíbe cancelar un completed). Ahora se pregunta antes.
+  const handleFinishJob = () => {
+    Alert.alert(
+      '¿Terminaste el trabajo?',
+      'Se le avisa a la otra parte que quedó finalizado. No se puede deshacer.',
+      [
+        { text: 'No, todavía no', style: 'cancel' },
+        { text: 'Sí, terminé', style: 'default', onPress: finalizarTrabajo },
+      ]
+    );
+  };
+
+  const finalizarTrabajo = async () => {
     setLoading(true);
     try {
       if (!isDemoMode()) {
@@ -1004,11 +1030,20 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
             // la otra punta se enteraba solo si tenía la app abierta. Sin
             // await: un push colgado no puede frenar la salida.
             const otro = isWorker ? job.client_id : job.professionals?.user_id;
+            // 🔴 Retirar un presupuesto (el job sigue en un quote_group) NO es
+            //    cancelar el trabajo: al cliente le siguen esperando otras
+            //    propuestas. Antes le llegaba "El profesional canceló el trabajo"
+            //    y sonaba a que se quedó sin nada (auditoría 23-ago).
+            const esRetiroPresupuesto = isWorker && !!job.quote_group_id;
             notificationService.sendToUser(otro, {
-              title: isWorker ? 'El profesional canceló el trabajo' : 'El cliente canceló el trabajo',
-              body:  isWorker
-                ? 'Podés pedir otro profesional desde la app cuando quieras.'
-                : 'Quedaste libre para nuevos trabajos.',
+              title: esRetiroPresupuesto
+                ? 'Un profesional retiró su propuesta'
+                : (isWorker ? 'El profesional canceló el trabajo' : 'El cliente canceló el trabajo'),
+              body:  esRetiroPresupuesto
+                ? 'Todavía tenés otras propuestas para elegir en la app.'
+                : (isWorker
+                    ? 'Podés pedir otro profesional desde la app cuando quieras.'
+                    : 'Quedaste libre para nuevos trabajos.'),
               data:  { jobId: job.id },
             }).catch(() => {});
             onCancel();
@@ -1430,7 +1465,12 @@ ${(job.client_lat && job.client_lng)
   ? `L.marker([${job.client_lat}, ${job.client_lng}],{icon:clientIcon}).addTo(map);`
   : '/* sin coordenadas del domicilio: mapa sin pin, mejor que un pin mentiroso */'}
 let workerMarker = null;
-window.addEventListener('message', e => {
+// En Android react-native-webview entrega los mensajes en document, no en
+// window: escuchando sólo window, el marcador ⚡ del profesional nunca se movía.
+// Mismo doble listener que VoltMap.js (auditoría 23-ago).
+document.addEventListener('message', onMsg);
+window.addEventListener('message', onMsg);
+function onMsg(e){
   try {
     const msg = JSON.parse(e.data);
     if(msg.type==='WORKER_MOVE'){
@@ -1445,7 +1485,7 @@ window.addEventListener('message', e => {
       map.setView([${job.client_lat || -38.71}, ${job.client_lng || -62.26}], 15);
     }
   } catch {}
-});
+}
 </script>
 </body></html>`;
 

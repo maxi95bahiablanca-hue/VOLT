@@ -200,6 +200,10 @@ serve(async (req) => {
     const r = await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      // 22-ago-2026: sin tope, si exp.host acepta la conexión y no contesta, el
+      // latido queda colgado (lo dispara pg_net por trigger). Cae al catch de
+      // afuera (500), que en pg_net queda anotado como que el aviso se perdió.
+      signal: AbortSignal.timeout(6000),
       body: JSON.stringify(tokens.map((to) => ({
         to, title, body,
         // El destino va explícito: la app igual lo deduce del jobId, pero un aviso

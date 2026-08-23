@@ -333,9 +333,9 @@ const MACHETE = {
       causa: "—",
       solucion: [
         "Medir los m² a pintar (largo × alto de cada pared, restar ventanas/puertas)",
-        "Un balde de 4L cubre aprox. 20–30 m² en 2 manos (rendimiento según absorción)",
-        "En superficies muy porosas (bloques o revoque nuevo) → rendimiento baja a 15 m² por balde",
-        "Para enduido: 4 kg rinden aprox. 8–10 m² con 2 manos",
+        "Un balde de 4L rinde aprox. 13 m² a dos manos (rendimiento de obra, según absorción)",
+        "En superficies muy porosas (bloques o revoque nuevo) → el rendimiento baja a ~10 m² por balde",
+        "Para enduido: emparejar toda la pared lleva aprox. 1,2 kg por m² a dos manos (un balde de 4 kg ≈ 3 m²)",
         "Calcular 10% extra por desperdicio y retoques",
         "Fórmula: m² ÷ rendimiento_del_producto × 2 manos = litros necesarios",
       ],

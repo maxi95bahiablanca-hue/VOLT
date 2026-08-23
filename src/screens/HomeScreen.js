@@ -824,8 +824,6 @@ const HomeScreen = ({
       // Si lo pediste vos, esa pasa a ser tu dirección fija: la próxima vez que
       // abras la app te espera ahí y no hay que volver a pedir el GPS.
       if (forzar) guardarDireccionFija(loc);
-      buildAmbientOnStreets({ latitude, longitude })                   // y, si hay red, sobre calles reales
-        .catch(() => {});
       if (selectedProfession) fetchWorkers(selectedProfession.id, latitude, longitude);
     } catch { /* silent */ }
   };
@@ -837,17 +835,20 @@ const HomeScreen = ({
   const ensureLocation = async () => {
     if (userLocation?.latitude) return userLocation;
 
-    const granted = await locationService.requestPermission();
+    // Ninguno de estos pasos puede colgar la navegación: los callers esperan
+    // esta función con await antes de abrir el asistente. Con tope, si la red
+    // no vuelve seguimos igual (el asistente acepta dirección a mano).
+    const granted = await conTiempo(locationService.requestPermission(), 60000, false);
     if (!granted) return null; // permiso DENEGADO
 
-    const pos = await locationService.getCurrentLocation().catch(() => null);
+    const pos = await conTiempo(locationService.getCurrentLocation(), 15000, null);
     if (!pos?.coords) return null; // permiso OK pero no se pudo fijar la posición
     const { latitude, longitude } = pos.coords;
 
     // Reverse geocode (best-effort, no bloquea si falla)
     let address = null;
     try {
-      const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const [place] = (await conTiempo(Location.reverseGeocodeAsync({ latitude, longitude }), 6000, null)) || [];
       if (place) {
         const parts = [place.street, place.streetNumber, place.city || place.subregion].filter(Boolean);
         address = parts.join(', ') || null;

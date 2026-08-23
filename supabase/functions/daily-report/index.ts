@@ -21,9 +21,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const money = (n: number) => '$' + Math.round(n || 0).toLocaleString('es-AR');
 
 Deno.serve(async (req) => {
-  // Seguridad: solo se ejecuta con la clave correcta
-  const url = new URL(req.url);
-  const key = url.searchParams.get('key') || req.headers.get('x-cron-key');
+  // Seguridad: solo se ejecuta con la clave correcta.
+  // 22-ago-2026: se aceptaba también ?key= por query param, que queda escrito
+  // en los logs de acceso. Ahora sólo por header, que no se loguea.
+  const key = req.headers.get('x-cron-key');
   if (key !== Deno.env.get('CRON_SECRET')) {
     return new Response('No autorizado', { status: 401 });
   }
@@ -42,8 +43,14 @@ Deno.serve(async (req) => {
   const monthISO = startMonth.toISOString();
   const fechaTxt = ar.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  // Consultas que fallaron: si una lectura da error se cae a [] y el reporte
+  // mostraría ceros inventados como si fueran reales. Los juntamos para pintar
+  // un banner rojo y que el cero no se confunda con "no hubo".
+  const fallos: string[] = [];
+
   // ── Registros (prestador_leads) ───────────────────────────────────────────
-  const { data: leads } = await sb.from('prestador_leads').select('estado,profesion,created_at');
+  const { data: leads, error: errLeads } = await sb.from('prestador_leads').select('estado,profesion,created_at');
+  if (errLeads) fallos.push('registros de prestadores');
   const L = leads || [];
   const leadsHoy = L.filter((l: any) => l.created_at >= todayISO).length;
   const leadsTotal = L.length;
@@ -55,7 +62,8 @@ Deno.serve(async (req) => {
     .map(([p, n]) => `${p}: ${n}`).join(' · ') || '—';
 
   // ── Trabajos e ingresos (jobs) ──────────────────────────────────────────────
-  const { data: jobs } = await sb.from('jobs').select('status,visit_amount,work_amount,commission_pct,completed_at,created_at');
+  const { data: jobs, error: errJobs } = await sb.from('jobs').select('status,visit_amount,work_amount,commission_pct,completed_at,created_at');
+  if (errJobs) fallos.push('trabajos e ingresos');
   const J = jobs || [];
   const completados = J.filter((j: any) => j.status === 'completed');
   const enCurso = J.filter((j: any) => ['accepted', 'arrived', 'in_progress', 'awaiting_payment'].includes(j.status)).length;
@@ -74,7 +82,8 @@ Deno.serve(async (req) => {
   //  Es el dato que decide si el sistema puede responder o no, y hasta ahora
   //  había que ir a preguntarlo a mano. Un aprobado que no puede recibir no
   //  aparece en ninguna búsqueda: ver la migración 063.
-  const { data: operativos } = await sb.rpc('estado_operativo');
+  const { data: operativos, error: errOp } = await sb.rpc('estado_operativo');
+  if (errOp) fallos.push('estado operativo de prestadores');
   const OP = (operativos || []) as { nombre: string; puede_recibir: boolean; le_falta: string | null }[];
   const listos = OP.filter((p) => p.puede_recibir).length;
   const trabados = OP.filter((p) => !p.puede_recibir);
@@ -87,6 +96,7 @@ Deno.serve(async (req) => {
   <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0A0A0A;color:#eee;padding:24px;border-radius:14px;max-width:560px;margin:auto">
     <div style="font-size:22px;font-weight:900;letter-spacing:2px">BOLT<span style="color:#FFD600">⚡</span> · Reporte diario</div>
     <div style="color:#888;font-size:13px;text-transform:capitalize;margin-bottom:18px">${fechaTxt}</div>
+    ${fallos.length ? `<div style="background:#2a0e0e;border:1px solid #ff4444;border-radius:12px;padding:14px 16px;margin-bottom:12px;color:#ff6b6b;font-size:13px;font-weight:700">⚠️ No pude leer: ${fallos.join(' · ')}. Los números de abajo pueden estar incompletos.</div>` : ''}
 
     <div style="background:#111;border:1px solid ${listos > 0 ? '#00d68f33' : '#ff444455'};border-radius:12px;padding:16px;margin-bottom:12px">
       <div style="font-size:12px;color:${listos > 0 ? '#00d68f' : '#ff4444'};font-weight:800;text-transform:uppercase;letter-spacing:1px">📡 Pueden recibir trabajos ahora</div>

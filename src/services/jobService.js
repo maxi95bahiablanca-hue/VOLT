@@ -45,11 +45,15 @@ const jobService = {
       .select()
       .single();
     if (error) throw error;
+    // 🔴 .catch() sobre el builder de supabase revienta: es thenable pero NO
+    //    tiene .catch, así que llamarlo tira TypeError y create() explota DESPUÉS
+    //    de insertar el job (duplicados). Se usa .then(ok, err) como el insert de
+    //    messages de abajo.
     supabase.from('job_events').insert({
       job_id: data.id,
       event_type: 'received',
       message: 'Estamos buscando profesionales disponibles cerca tuyo.',
-    }).catch(() => {});
+    }).then(() => {}, () => {});
     // Mensaje de apertura del chat: por RPC (auditoría 23-ago) para que no rebote
     // contra la RLS de messages (sender_id null). Fallback al insert directo si la
     // migración 076 todavía no está: rebota igual que antes, sin romper la creación.
@@ -510,14 +514,24 @@ const jobService = {
   },
 
   selectFromQuoteGroup: async (selectedJobId, quoteGroupId) => {
-    await supabase
+    // 🔴 auditoría 23-ago: supabase-js NO tira, devuelve { error }. Antes los dos
+    //    update() se hacían a ciegas: si el que limpia quote_group_id fallaba
+    //    (red/RLS), el "elegido" seguía siendo presupuesto y el trabajador
+    //    quedaba en "esperando que te elijan" para siempre; si fallaba el que
+    //    cancela a los otros, quedaban varios vivos. Ahora se chequea y se tira
+    //    (el catch de handleSelect muestra "No se pudo confirmar" y la operación
+    //    es re-ejecutable).
+    const { error: errCancel } = await supabase
       .from('jobs')
       .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
       .eq('quote_group_id', quoteGroupId)
       .neq('id', selectedJobId)
       .in('status', ['pending', 'accepted']);
+    if (errCancel) throw errCancel;
     // Limpiar quote_group_id del job seleccionado → queda como job normal
-    await supabase.from('jobs').update({ quote_group_id: null }).eq('id', selectedJobId);
+    const { error: errLimpiar } = await supabase
+      .from('jobs').update({ quote_group_id: null }).eq('id', selectedJobId);
+    if (errLimpiar) throw errLimpiar;
     const { data, error } = await supabase
       .from('jobs')
       .select('*, professionals(id, user_id, first_name, last_name, phone, avg_rating, completed_jobs, on_time_completions, avg_arrival_minutes, complaints_count, recommend_pct), professions(name)')
@@ -528,8 +542,12 @@ const jobService = {
   },
 
   subscribeQuoteJobs: (jobIds, onChange) => {
+    // Sufijo único en el topic: realtime-js devuelve el canal EXISTENTE si el
+    // topic coincide, así que al re-entrar a la pantalla la segunda suscripción
+    // operaba sobre el mismo canal (bindings duplicados o suscripción muda).
+    const suf = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const channels = jobIds.map(id =>
-      supabase.channel(`qjob-${id}`)
+      supabase.channel(`qjob-${id}-${suf}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs', filter: `id=eq.${id}` },
           p => onChange(p.new))
         .subscribe()
@@ -538,13 +556,13 @@ const jobService = {
   },
 
   subscribeToJob: (jobId, onUpdate) =>
-    supabase.channel(`job-${jobId}`)
+    supabase.channel(`job-${jobId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs', filter: `id=eq.${jobId}` },
         p => onUpdate(p.new))
       .subscribe(),
 
   subscribeNewJobsForWorker: (professionalId, onNew) =>
-    supabase.channel(`new-jobs-${professionalId}`)
+    supabase.channel(`new-jobs-${professionalId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jobs', filter: `professional_id=eq.${professionalId}` },
         async (p) => {
           // El payload de INSERT no incluye joins — hacer fetch completo
@@ -558,7 +576,7 @@ const jobService = {
       .subscribe(),
 
   subscribeWorkerLocation: (professionalId, onUpdate) =>
-    supabase.channel(`worker-loc-${professionalId}`)
+    supabase.channel(`worker-loc-${professionalId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'professionals', filter: `id=eq.${professionalId}` },
         p => { if (p.new.location) onUpdate(p.new.location); })
       .subscribe(),
@@ -588,7 +606,7 @@ const jobService = {
   },
 
   subscribeToEvents: (jobId, onNew) =>
-    supabase.channel(`events-${jobId}`)
+    supabase.channel(`events-${jobId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'job_events', filter: `job_id=eq.${jobId}`,
       }, p => onNew(p.new))

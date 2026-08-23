@@ -119,7 +119,12 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
         'Content-Type': 'application/json',
-        'X-Idempotency-Key': `${jobId}-${visitOnly ? 'visit' : 'final'}`,
+        // 22-ago-2026: la clave era fija (`jobId-tipo`), pero la preferencia
+        // vence a los 30 min (expires arriba). Al reintentar el pago pasada esa
+        // ventana, MP devolvía la MISMA preferencia ya vencida y el cliente no
+        // podía pagar. Le sumamos el monto y una ventana de 30 min: dedup real
+        // dentro de la ventana, preferencia nueva cuando vence.
+        'X-Idempotency-Key': `${jobId}-${visitOnly ? 'visit' : 'final'}-${totalAmount}-${Math.floor(Date.now() / (30 * 60 * 1000))}`,
       },
       body: JSON.stringify(preference),
     });
