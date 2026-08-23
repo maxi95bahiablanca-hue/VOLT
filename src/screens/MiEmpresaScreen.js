@@ -94,7 +94,10 @@ const MiEmpresaScreen = ({ professional, onClose, onGuardado }) => {
     setSubiendo(true);
     try {
       const ext    = file.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const path   = `logos/${professional.id}.${ext}`;
+      // 🔴 La RLS del bucket avatars (046) sólo permite escribir en una carpeta
+      //    cuyo nombre sea el uid (primera carpeta = auth.uid()). El path viejo
+      //    'logos/<id>' la violaba y el logo NUNCA subía (auditoría 23-ago).
+      const path   = `${professional.user_id}/logo.${ext}`;
       const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
       const binary = atob(base64);
       const bytes  = new Uint8Array(binary.length);
