@@ -80,7 +80,8 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style, 
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:#0a0a0a; }
-  #map { width:100vw; height:100vh; }
+  #map { width:100vw; height:100vh; background:#0d0d0d; }
+  .leaflet-tile-pane { filter:invert(1) hue-rotate(180deg) grayscale(.85) brightness(.82) contrast(1.05); }
 
   /* ─── Pin de profesional ─────────────────────────────── */
   .pin { position:relative; width:42px; height:42px;
@@ -113,7 +114,7 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style, 
 
   /* ─── Pin del cliente + alcance ──────────────────────── */
   .user { position:relative; width:18px; height:18px; }
-  .user .udot { position:relative; z-index:3;
+  .user .udot { position:relative; z-index:3; display:block;
                 width:16px; height:16px; border-radius:50%;
                 background:#FFD600; border:3px solid #fff;
                 box-shadow:0 0 8px rgba(255,214,0,.85); }
@@ -141,8 +142,10 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style, 
   const map = L.map('map', { zoomControl:false, attributionControl:false })
     .setView([-38.7183, -62.2663], 13);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    maxZoom:19, attribution:'&copy; OpenStreetMap &copy; CARTO'
+  // 12-nov-2026: CARTO empezó a exigir clave (los mosaicos salían con el cartel
+  // "API KEY REQUIRED"). Va OpenStreetMap directo, oscurecido por CSS (.leaflet-tile-pane).
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'&copy; OpenStreetMap'
   }).addTo(map);
 
   let userMarker = null;

@@ -1457,7 +1457,8 @@ const JobTrackingScreen = ({ job: initialJob, session, professional, onComplete,
 <script>
 const map = L.map('map',{zoomControl:false,attributionControl:false})
   .setView([${job.client_lat || -38.71}, ${job.client_lng || -62.26}], 15);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+map.getPane('tilePane').style.filter='invert(1) hue-rotate(180deg) grayscale(.85) brightness(.82) contrast(1.05)';
 const clientIcon = L.divIcon({html:'<div style="width:16px;height:16px;border-radius:50%;background:#FFD600;border:3px solid #0D0D0D;box-shadow:0 0 0 4px rgba(255,214,0,0.18)"></div>',iconSize:[16,16],iconAnchor:[8,8],className:''});
 const workerIcon = L.divIcon({html:'<div style="width:36px;height:36px;border-radius:18px;background:#FFD600;border:3px solid #0D0D0D;display:flex;align-items:center;justify-content:center;font-size:17px">⚡</div>',iconSize:[36,36],iconAnchor:[18,18],className:''});
 ${(job.client_lat && job.client_lng)

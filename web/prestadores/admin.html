@@ -231,6 +231,9 @@
     .kpi b{font-size:1.5rem}
   }
 </style>
+<style>/* 12-nov-2026: CARTO empezó a exigir clave; mapa de OpenStreetMap oscurecido por CSS */
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) grayscale(.85) brightness(.82) contrast(1.05)}
+.leaflet-container{background:#0d0d0d}</style>
 </head>
 <body>
 
@@ -943,7 +946,7 @@ function miniMapa(divId, loc){
   el.dataset.listo = '1';
   const m = L.map(el, { zoomControl:false, attributionControl:false, dragging:false,
                         scrollWheelZoom:false, doubleClickZoom:false }).setView(c, 14);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(m);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(m);
   L.circleMarker(c, { radius:7, color:'#FFD600', fillColor:'#FFD600', fillOpacity:.9, weight:2 }).addTo(m);
   miniMapas.push(m);
 }
@@ -951,7 +954,7 @@ function pintarMapaGrande(){
   const conUbi = PROFS.filter(p => coords(p.location));
   if (!mapaGrande){
     mapaGrande = L.map('mapaGrande', { attributionControl:false }).setView([-38.7183, -62.2661], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(mapaGrande);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(mapaGrande);
   }
   mapaGrande.invalidateSize();
   conUbi.forEach(p => {

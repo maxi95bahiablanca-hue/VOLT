@@ -435,6 +435,9 @@
     .hero .bajada,.buscador,.datos{opacity:1 !important;transform:none !important}
   }
 </style>
+<style>/* 12-nov-2026: CARTO empezó a exigir clave; mapa de OpenStreetMap oscurecido por CSS */
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) grayscale(.85) brightness(.82) contrast(1.05)}
+.leaflet-container{background:#0d0d0d}</style>
 </head>
 <body>
 
@@ -845,7 +848,7 @@
       scrollWheelZoom:false, doubleClickZoom:false, touchZoom:false,
       keyboard:false, boxZoom:false
     });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       detectRetina:true, maxZoom:19
     }).addTo(mapa);
 

@@ -458,6 +458,9 @@
   .flot.mini .flot-txt,.flot.mini .flot-min{display:none}
   @media(max-width:520px){ .flot{max-width:94vw;top:8px} .flot-txt b{font-size:.83rem} }
 </style>
+<style>/* 12-nov-2026: CARTO empezó a exigir clave; mapa de OpenStreetMap oscurecido por CSS */
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) grayscale(.85) brightness(.82) contrast(1.05)}
+.leaflet-container{background:#0d0d0d}</style>
 </head>
 <body>
 
@@ -1775,7 +1778,7 @@ async function mostrarListo(job){
 function armarMapa(){
   if (MAPA || !window.L) return;
   MAPA = L.map('mapa', { zoomControl: false, attributionControl: false }).setView([S.lat, S.lng], 15);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(MAPA);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(MAPA);
   const icono = (color, txt) => L.divIcon({
     className: '', iconSize: [34, 34], iconAnchor: [17, 17],
     html: `<div style="width:34px;height:34px;border-radius:50%;background:${color};display:grid;place-items:center;font-size:16px;box-shadow:0 0 0 4px rgba(255,214,0,.18)">${txt}</div>`,

@@ -457,6 +457,9 @@
     a{text-decoration:none}
   }
 </style>
+<style>/* 12-nov-2026: CARTO empezó a exigir clave; mapa de OpenStreetMap oscurecido por CSS */
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) grayscale(.85) brightness(.82) contrast(1.05)}
+.leaflet-container{background:#0d0d0d}</style>
 </head>
 <body>
 
@@ -1315,7 +1318,7 @@
       }).setView([lat, lng], 15);
       // Mapa oscuro: el panel es negro, y un mapa claro adentro es un
       // agujero de luz. Además el pin amarillo se ve mucho mejor.
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         subdomains: 'abcd',
         detectRetina: true,
