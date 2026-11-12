@@ -114,7 +114,7 @@ const VoltMap = ({ userLocation, workers, onWorkerPress, onAmbientPress, style, 
 
   /* ─── Pin del cliente + alcance ──────────────────────── */
   .user { position:relative; width:18px; height:18px; }
-  .user .udot { position:relative; z-index:3; display:block;
+  .user .udot { position:absolute; z-index:3; display:block; left:50%; top:50%; margin:-8px 0 0 -8px;
                 width:16px; height:16px; border-radius:50%;
                 background:#FFD600; border:3px solid #fff;
                 box-shadow:0 0 8px rgba(255,214,0,.85); }
